@@ -5,10 +5,14 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { CandidateCvDraft } from '../../src/api/hiring-client.ts';
+
 const addCandidate = vi.fn();
+const parseCandidateCvDraft = vi.fn<[File, AbortSignal?], Promise<CandidateCvDraft>>();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   addCandidate: (input: unknown) => addCandidate(input),
+  parseCandidateCvDraft: (file: File, signal?: AbortSignal) => parseCandidateCvDraft(file, signal),
   fetchRequisitions: () => Promise.resolve([{ id: 'r1', title: 'Backend Eng', status: 'open' }]),
   fetchSkillCatalog: () =>
     Promise.resolve({
@@ -153,5 +157,120 @@ describe('NewCandidateDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
     expect(addCandidate).not.toHaveBeenCalled();
+  });
+
+  /** Astryx FileInput renders the native input hidden + a div[role=button] with the same label.
+   *  queryFileInput finds the hidden <input type="file"> for userEvent.upload. */
+  function queryFileInput(): HTMLInputElement {
+    const both = screen.getAllByLabelText(/upload cv to auto-fill/i);
+    const input = both.find(
+      (el): el is HTMLInputElement => el.tagName === 'INPUT' && el.getAttribute('type') === 'file',
+    );
+    if (!input) throw new Error('File input not found');
+    return input;
+  }
+
+  it('does not fill stale parsed data when parse resolves after close (FUT-735)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    let resolve!: (draft: CandidateCvDraft) => void;
+    const deferred = new Promise<CandidateCvDraft>((r) => {
+      resolve = r;
+    });
+    parseCandidateCvDraft.mockReturnValueOnce(deferred);
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'resume.pdf', { type: 'application/pdf' }),
+    );
+
+    expect(screen.getByText('resume.pdf')).toBeInTheDocument();
+    expect(screen.getByText(/parsing/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    resolve({
+      name: 'Stale Name',
+      personal_email: 'stale@example.com',
+      phone: '+84900000000',
+      dob: '1990-01-01',
+      gender: 'male',
+      seniority: 'Senior',
+      note: 'stale note',
+      skills: [],
+      skill_suggestions: [],
+      cv_sha256: 'abc',
+      possible_duplicates: [],
+    });
+    await vi.waitFor(() => {
+      const nameInput = screen.getByLabelText(/full name/i) as HTMLInputElement;
+      expect(nameInput.value).toBe('');
+    });
+  });
+
+  it('does not fill data when remove CV button clicked during parse (FUT-735)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    let resolve!: (draft: CandidateCvDraft) => void;
+    const deferred = new Promise<CandidateCvDraft>((r) => {
+      resolve = r;
+    });
+    parseCandidateCvDraft.mockReturnValueOnce(deferred);
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'resume.pdf', { type: 'application/pdf' }),
+    );
+    expect(screen.getByText('resume.pdf')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /remove cv/i }));
+    await waitFor(() => expect(screen.queryByText('resume.pdf')).not.toBeInTheDocument());
+
+    resolve({
+      name: 'Stale After Remove',
+      personal_email: 'remove-stale@example.com',
+      phone: '+84900000001',
+      dob: '1990-02-02',
+      gender: 'female',
+      seniority: 'Junior',
+      note: '',
+      skills: [],
+      skill_suggestions: ['React'],
+      cv_sha256: 'def',
+      possible_duplicates: [],
+    });
+    await vi.waitFor(() => {
+      const nameInput = screen.getByLabelText(/full name/i) as HTMLInputElement;
+      expect(nameInput.value).toBe('');
+    });
+  });
+
+  it('aborts the in-flight parse when form is closed (FUT-735)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    let capturedSignal: AbortSignal | undefined;
+    parseCandidateCvDraft.mockImplementationOnce((_, signal) => {
+      capturedSignal = signal;
+      return new Promise<CandidateCvDraft>(() => {});
+    });
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'resume.pdf', { type: 'application/pdf' }),
+    );
+    await vi.waitFor(() => expect(capturedSignal).toBeDefined());
+    expect(capturedSignal!.aborted).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await vi.waitFor(() => expect(capturedSignal!.aborted).toBe(true));
   });
 });

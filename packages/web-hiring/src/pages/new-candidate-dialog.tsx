@@ -48,6 +48,7 @@ export function NewCandidateDialog() {
   const queryClient = useQueryClient();
   const skillsId = useId();
   const parseGen = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -104,6 +105,7 @@ export function NewCandidateDialog() {
   );
 
   function reset() {
+    abortRef.current?.abort();
     parseGen.current += 1;
     parse.reset();
     setName('');
@@ -164,7 +166,7 @@ export function NewCandidateDialog() {
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
-    mutationFn: parseCandidateCvDraft,
+    mutationFn: (file: File) => parseCandidateCvDraft(file, abortRef.current?.signal ?? undefined),
   });
 
   const mutation = useMutation({
@@ -263,6 +265,8 @@ export function NewCandidateDialog() {
                       label="Remove CV"
                       className="size-6"
                       onClick={() => {
+                        abortRef.current?.abort();
+                        parseGen.current += 1;
                         setCvFile(null);
                         setSuggestions([]);
                         setCvSha256(null);
@@ -279,6 +283,8 @@ export function NewCandidateDialog() {
                     value={null}
                     onChange={(file) => {
                       if (file instanceof File) {
+                        abortRef.current?.abort();
+                        abortRef.current = new AbortController();
                         setCvFile(file);
                         parseGen.current += 1;
                         const gen = parseGen.current;
