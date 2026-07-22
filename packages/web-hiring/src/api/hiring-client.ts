@@ -636,13 +636,17 @@ export interface CandidateDuplicate {
 }
 
 /** Stateless parse: nothing is stored until the recruiter saves the form. */
-export async function parseCandidateCvDraft(file: File): Promise<CandidateCvDraft> {
+export async function parseCandidateCvDraft(
+  file: File,
+  signal?: AbortSignal,
+): Promise<CandidateCvDraft> {
   const fd = new FormData();
   fd.set('file', file);
   const res = await fetch('/api/hiring/v1/cv/parse-draft', {
     method: 'POST',
     credentials: 'include',
     body: fd,
+    signal,
   });
   return (await handleResponse<{ draft: CandidateCvDraft }>(res)).draft;
 }
