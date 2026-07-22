@@ -30,8 +30,6 @@ function makeRow(overrides: Partial<Record<string, unknown>> = {}) {
     is_account_am: false,
     bucket: 'billable',
     months: new Array(12).fill(50),
-    ytd_pct: 50,
-    fy_pct: 50,
     total_mm: 6,
     ...overrides,
   };

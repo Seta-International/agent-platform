@@ -439,6 +439,18 @@ describe('getAllocationGrid', () => {
         expect(amRow.is_account_am).toBe(true); // manages the account → render account, not project
         expect(memberRow.employee_no).toBe('7001');
         expect(memberRow.is_account_am).toBe(false); // a plain member on the same account
+
+        const byAmNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '6885' });
+        expect(new Set(byAmNo.rows.map((r) => r.worker_id))).toEqual(new Set([am]));
+        expect(byAmNo.kpis.member_count).toBe(2);
+
+        const byMemberNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '7001' });
+        expect(new Set(byMemberNo.rows.map((r) => r.worker_id))).toEqual(new Set([member]));
+        expect(byMemberNo.kpis.member_count).toBe(2);
+
+        const byPartial = await getAllocationGrid(t.adminSession, { year: 2026, search: '688' });
+        expect(new Set(byPartial.rows.map((r) => r.worker_id))).toEqual(new Set([am]));
+        expect(byPartial.kpis.member_count).toBe(2);
       } finally {
         resetPeopleDb();
         resetPmDb();

@@ -23,8 +23,6 @@ export interface AllocationGridRow {
   is_account_am: boolean;
   bucket: 'billable' | 'internal' | 'bench' | null;
   months: (number | null)[];
-  ytd_pct: number;
-  fy_pct: number;
   total_mm: number;
 }
 export interface WorkerMonthTotal {
@@ -54,7 +52,7 @@ export type AllocationStatus = 'over' | 'under';
 export type AllocationBucket = 'billable' | 'internal' | 'bench';
 export interface AllocationGridQuery {
   year?: number;
-  /** Accent-insensitive match on worker name or id. Filters rows; KPIs stay scope-level. */
+  /** Accent-insensitive match on worker name, employee ID (`employee_no`), or UUID. Filters rows; KPIs stay scope-level. */
   search?: string;
   /** 'over' = exceeds 100% in some month; 'under' = busiest month stays below the target. */
   status?: AllocationStatus;
@@ -172,7 +170,6 @@ export async function getAllocationGrid(
 
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
-  const nowMonth = new Date().getUTCFullYear() === year ? new Date().getUTCMonth() : 11;
 
   const rows: AllocationGridRow[] = raw.map((r) => {
     const pct = r.planned_pct == null ? null : Number(r.planned_pct);
@@ -191,9 +188,6 @@ export async function getAllocationGrid(
         mm += (pct / 100) * frac;
       }
     }
-    const activeMonths = months.filter((v): v is number => v != null);
-    const ytdActive = months.slice(0, nowMonth + 1).filter((v): v is number => v != null);
-    const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
     return {
       worker_id: r.worker_id,
       employee_no: r.employee_no,
@@ -205,8 +199,6 @@ export async function getAllocationGrid(
       project_name: r.project_name,
       bucket: r.bucket,
       months,
-      ytd_pct: Math.round(mean(ytdActive)),
-      fy_pct: Math.round(mean(activeMonths)),
       total_mm: Math.round(mm * 100) / 100,
     };
   });
@@ -250,8 +242,18 @@ export async function getAllocationGrid(
   // KPIs above stay at full scope so the headline figures don't shift as filters narrow the table.
   const q = foldText((query.search ?? '').trim());
   const totalsByWorker = new Map(worker_totals.map((w) => [w.worker_id, w]));
-  const workerMatches = (workerId: string, fullName: string): boolean => {
-    if (q && !foldText(fullName).includes(q) && !foldText(workerId).includes(q)) return false;
+  const workerMatches = (
+    workerId: string,
+    fullName: string,
+    employeeNo: string | null,
+  ): boolean => {
+    if (
+      q &&
+      !foldText(fullName).includes(q) &&
+      !foldText(workerId).includes(q) &&
+      !(employeeNo && foldText(employeeNo).includes(q))
+    )
+      return false;
     const wt = totalsByWorker.get(workerId);
     if (query.status === 'over' && !(wt && wt.over_months.length > 0)) return false;
     if (query.status === 'under') {
@@ -271,7 +273,9 @@ export async function getAllocationGrid(
     return true;
   };
 
-  const outRows = rows.filter((r) => workerMatches(r.worker_id, r.full_name) && rowMatches(r));
+  const outRows = rows.filter(
+    (r) => workerMatches(r.worker_id, r.full_name, r.employee_no) && rowMatches(r),
+  );
   const keptWorkers = new Set(outRows.map((r) => r.worker_id));
   const outTotals = worker_totals.filter((w) => keptWorkers.has(w.worker_id));
 
