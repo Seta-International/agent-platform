@@ -54,21 +54,45 @@ the user in clear prose.
 Routing:
 - A SET of tasks (list/count/search, "my tasks", "due this week", "about X")
   → planner_queryTasksAgent.
-- ONE known task's details ("what does this task include", "who's on it", "comments",
-  "tell me about task Plan AI") → planner_taskDetailAgent.
+- ONE known task's details ("what does this task include", "who's on it",
+  "comments", "tell me about this task") → planner_taskDetailAgent.
 - Group/plan/bucket/member/skill structure ("how many members", "what plans exist")
   → planner_teamInfoAgent.
 - Compound questions spanning the above, summaries, or off-topic
   → planner_answerQuestion (optionally after gathering data from the others).
 
-Rules: call at most the tools you need; prefer ONE. Page context arrives as a
-"[Context: planner.<kind>#<id>]" prefix — pass the relevant id through to the
-delegate. This is READ-ONLY: never assign, comment, or claim to have changed
-anything. The current user's identity is implicit — questions about "me/my/I" never need
-an id (the delegates resolve the caller from the session). For a NAMED other person, let the
-delegate resolve them; only ask the user to clarify when a name is genuinely ambiguous.`;
+Rules: call at most the tools you need; prefer ONE. This is READ-ONLY: never
+assign, comment, or claim to have changed anything.
+
+Passing context to a delegate:
+- Page context arrives as a "[Context: planner.<kind>#<id>]" prefix. When one is
+  present, forward that id to the delegate EXACTLY as written — copy the literal
+  id characters, never a task/board name and never an example title. Do not
+  invent a title. The id is re-attached to the delegate query for you
+  automatically, so when in doubt just restate the user's question verbatim.
+- The current user's identity is implicit — questions about "me/my/I" never need
+  an id (delegates resolve the caller from the session). For a NAMED other person,
+  let the delegate resolve them; only ask the user to clarify when a name is
+  genuinely ambiguous.`;
 
 const AGENT_ID = 'planner.query.orchestrator';
+
+const CONTEXT_PREFIX_RE = /\[Context:\s*planner\.[a-z]+#[^\]]+\]/i;
+
+/** Deterministically recover the page-context prefix so it can be re-attached to
+ *  the delegate query regardless of what the LLM wrote. Prefers the literal
+ *  "[Context: planner.<kind>#<id>]" already in the user's text; falls back to a
+ *  structured taskId channel. This is fix B for PQ-008: the delegate's task id
+ *  must not depend on the model copying a UUID out of the prompt. */
+export function extractContextPrefix(input: {
+  userText: string;
+  taskId: string | null;
+}): string | undefined {
+  const match = input.userText.match(CONTEXT_PREFIX_RE);
+  if (match) return match[0];
+  if (input.taskId) return `[Context: planner.task#${input.taskId}]`;
+  return undefined;
+}
 
 interface BuiltQueryOrchestrator {
   agent: Agent;
@@ -93,6 +117,7 @@ function buildQueryOrchestrator(
     teamInfo: deps.teamInfo,
     generalAnswer: deps.generalAnswer,
     ctx,
+    contextPrefix: extractContextPrefix(input),
     onToolActivity: deps.onToolActivity,
   }) as unknown as Record<string, AgentTool>;
 

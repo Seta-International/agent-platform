@@ -16,6 +16,10 @@ export interface QueryOrchestratorToolDeps {
   generalAnswer: SubAgent;
   /** The orchestrator's run ctx — sub-agents inherit tenant/actor/permissions/model. */
   ctx: SpecializedAgentRunCtx;
+  /** The page-context prefix ("[Context: planner.<kind>#<id>]") recovered
+   *  deterministically from the turn. Re-attached to every delegate query so the
+   *  target id never depends on the LLM copying it correctly (fix B for PQ-008). */
+  contextPrefix?: string;
   /** Eval seam — receives the delegation (routing) call after each sub-agent run. */
   onToolActivity?: OnToolActivity;
 }
@@ -30,6 +34,16 @@ export function makeQueryOrchestratorTools(deps: QueryOrchestratorToolDeps) {
     model: ctx.model,
   };
 
+  // Re-attach the recovered page-context id to the delegate's query. The model
+  // may drop or mangle the id when it rewrites the sub-question (PQ-008: it
+  // replaced the task UUID with an example title), so we prepend it ourselves.
+  // Skip if the model already carried the same prefix through, to avoid dupes.
+  const withContext = (query: string): string => {
+    const prefix = deps.contextPrefix;
+    if (!prefix || query.includes(prefix)) return query;
+    return `${prefix} ${query}`;
+  };
+
   const delegate = (id: string, name: string, description: string, sub: SubAgent) =>
     defineAgentTool({
       id,
@@ -39,8 +53,11 @@ export function makeQueryOrchestratorTools(deps: QueryOrchestratorToolDeps) {
       output: z.object({ answer: z.string() }),
       executionTimeoutMs: 120_000,
       execute: async ({ query }) => {
-        const res = await sub.run({ query }, subCtx);
-        deps.onToolActivity?.([{ toolName: id, args: { query }, result: res.result, ok: true }]);
+        const grounded = withContext(query);
+        const res = await sub.run({ query: grounded }, subCtx);
+        deps.onToolActivity?.([
+          { toolName: id, args: { query: grounded }, result: res.result, ok: true },
+        ]);
         return { answer: res.result.answer };
       },
     });
