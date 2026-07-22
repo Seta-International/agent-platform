@@ -21,10 +21,19 @@ import { TrajectoryCollector } from '../../fixtures/golden/trajectory-collector.
 import { makeGoldenVectorSearch } from '../../fixtures/golden/vector-search.ts';
 import { withAgentTestDb } from '../agent-tools-helpers.ts';
 
+// The read-only permission surface every query-agent tool can require. Mirrors
+// the read subset of the `planner.member` role (writes — task.create/assign,
+// comment.create — are intentionally excluded; those tools are forbidden for
+// the query agent). Injected as the actor's effective_permissions; the
+// cross-module read tools re-check their `rbac` against this set.
 const READ_PERMS = new Set([
   'planner.task.read',
   'planner.plan.read',
   'planner.group.read',
+  'planner.group.member.read',
+  'planner.bucket.read',
+  'planner.task.comment.read',
+  'planner.reporting.read',
   'people.person.read',
 ]);
 const DECOY_IDS = [DECOY_TASK_BILLING_ID, DECOY_TASK_OTHER_ID];
@@ -74,9 +83,16 @@ it('runs the smoke suite data-driven end-to-end and reports gate outcomes', asyn
           c.kind === 'agent'
             ? { userText: c.input.messages[c.input.messages.length - 1]!.content, taskId: null }
             : { userText: '', taskId: null };
+        // Run as the case's own actor (seed-login grants every member the
+        // planner.member role) so per-actor data scope is honored — e.g.
+        // "my group" resolves to that member's groups. Retrieval cases never
+        // reach runAgent; the constant fallback only satisfies the union type.
+        // Permissions are the uniform read surface; all query cases are read-only.
+        const actor =
+          c.kind === 'retrieval' ? { tenantId: TENANT_ID, userId: ACTOR_USER_ID } : c.actor;
         const run = await runtime.runStream(input, {
-          tenantId: TENANT_ID,
-          actorUserId: ACTOR_USER_ID,
+          tenantId: actor.tenantId,
+          actorUserId: actor.userId,
           effectivePermissions: READ_PERMS,
         });
         const { result } = (await run.finalize()) as { result: { answer: string } };
