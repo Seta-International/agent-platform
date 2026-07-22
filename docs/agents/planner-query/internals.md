@@ -116,10 +116,13 @@ Implementation deferred to WP-03. Until then, sub-agent answers pass through unv
 
 ## Eval target
 
-- Factory export: `buildPlannerQueryEvalTarget` from `@seta/planner`
-- Signature: `(deps: { pool, judgeModel }) => Agent`
-- Stubs vs production: the factory wires real DB tools (testcontainers Postgres) but stubs the embedding provider (deterministic fake). Knowledge-graph tools (K1–K5) stubbed until Wave 2.
-- Consumed by `/agent-eval` in the later eval-infra phase; name fixed now so the contract is stable.
+- Factory export: `buildPlannerQueryEvalTarget` from `@seta/planner` (via `orchestration.ts`).
+- Signature: `buildPlannerQueryEvalTarget(): PlannerQueryEvalTarget` — **no args**. The returned target exposes two runtime builders:
+  - `buildDeterministicRuntime(): PlannerQueryRuntime` — LLM-free lane: stub model, canned `streamAgent` response, stub storage + stub `findSimilarTasks`. Used by the deterministic (Axis-A) golden cases.
+  - `buildQualityRuntime({ resolveModel }): PlannerQueryRuntime` — real model via the injected `resolveModel`, for the (not-yet-built) quality/Axis-B lane.
+- **Frozen clock:** the sub-agents are built with `now: () => REFERENCE_TIME` (`2026-07-01T09:00:00+07:00`) so any "this week / overdue" reasoning is deterministic against the golden dataset. `REFERENCE_TIME` comes from the zero-dependency `tests/fixtures/golden/constants.ts` leaf.
+- Each runtime returns `{ runStream }` (`PlannerQueryRuntime`); knowledge-graph tools (K1–K5) remain stubbed until Wave 2.
+- Consumed by the golden eval harness (`@seta/shared-agent-evals`); name fixed so the contract is stable.
 
 ## Rename checklist (planner.qna.* → planner.query.*)
 
