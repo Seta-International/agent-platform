@@ -7,6 +7,7 @@ import {
   scopeArgumentCorrectness,
   toolSelection,
   trajectoryEfficiency,
+  unsupportedNumericClaim,
 } from '../../../fixtures/golden/policy/scorers.ts';
 import type { Trajectory } from '../../../fixtures/golden/policy/trajectory.ts';
 
@@ -58,6 +59,25 @@ it('tool_selection fails on an extraneous tool outside required∪allowed', () =
       requiredPartialOrder: [],
     }).passed,
   ).toBe(false);
+});
+
+it('tool_selection fails when a required tool was called but errored (ok=false)', () => {
+  const out = toolSelection(
+    {
+      toolCalls: [
+        { agentId: 'a', toolName: 'planner_taskDetailAgent', args: {}, ok: true },
+        { agentId: 'a', toolName: 'planner_getTask', args: {}, ok: false },
+      ],
+    },
+    {
+      requiredTools: ['planner_taskDetailAgent', 'planner_getTask'],
+      allowedTools: [],
+      requiredPartialOrder: [],
+    },
+  );
+  expect(out.passed).toBe(false);
+  expect(out.detail).toContain('failed');
+  expect(out.detail).toContain('planner_getTask');
 });
 
 it('tool_selection fails when partial order is violated', () => {
@@ -138,6 +158,34 @@ it('no_fabrication fails when a forbidden entity/text appears in the answer', ()
 it('trajectory_efficiency fails when call count exceeds maxToolCalls', () => {
   expect(trajectoryEfficiency(traj(['a', 'b', 'c']), 2).passed).toBe(false);
   expect(trajectoryEfficiency(traj(['a', 'b', 'c']), 5).passed).toBe(true);
+});
+
+it('unsupported_numeric_claim fails when a number is absent from every source', () => {
+  const out = unsupportedNumericClaim({
+    answer: 'Engineering has 7 members.',
+    toolResults: [],
+    userText: 'How many members are in my group?',
+  });
+  expect(out.passed).toBe(false);
+  expect(out.detail).toContain('7');
+});
+
+it('unsupported_numeric_claim passes when the number comes from a tool result', () => {
+  const out = unsupportedNumericClaim({
+    answer: 'Engineering has 7 members.',
+    toolResults: [{ groupName: 'Engineering', memberCount: 7 }],
+    userText: 'How many members are in my group?',
+  });
+  expect(out.passed).toBe(true);
+});
+
+it('unsupported_numeric_claim passes when the number was supplied by the user', () => {
+  const out = unsupportedNumericClaim({
+    answer: 'You asked about the 3 overdue tasks.',
+    toolResults: [],
+    userText: 'Tell me about my 3 overdue tasks',
+  });
+  expect(out.passed).toBe(true);
 });
 
 it('routing_accuracy passes when the expected delegation tool was called', () => {
