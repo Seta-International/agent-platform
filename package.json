@@ -4,6 +4,8 @@
   "license": "MIT",
   "scripts": {
     "prepare": "test -d .git && lefthook install && git config commit.template .gitmessage || true",
+    "postinstall": "node scripts/dev/telemetry-bootstrap.mjs",
+    "telemetry:status": "node scripts/dev/telemetry-bootstrap.mjs --status",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",

@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAgentQuality } from './boards/agent-quality';
+import { buildAiUsage } from './boards/ai-usage';
 import { buildAppService } from './boards/app-service';
 import { buildFleet } from './boards/fleet';
 import { buildHost } from './boards/host';
@@ -21,6 +22,7 @@ const boards = [
   buildLlmGpu,
   buildLogs,
   buildAgentQuality,
+  buildAiUsage,
 ];
 
 for (const build of boards) {

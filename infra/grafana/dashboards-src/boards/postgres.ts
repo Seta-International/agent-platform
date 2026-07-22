@@ -28,7 +28,7 @@ export const buildPostgres = () =>
     .withPanel(
       gaugeTile({
         title: 'Connections used',
-        description: '% of max_connections. Amber > 70%, red > 85%.',
+        description: '% of max_connections. Amber > 70%, red > 80% (matches PostgresTooManyConns).',
         expr: connPct,
         unit: UNIT.percent,
         steps: stepsAsc(SLO.dbConnPct.warn, SLO.dbConnPct.crit),

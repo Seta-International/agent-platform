@@ -6,8 +6,8 @@ export const SLO = {
   httpLatencyP95Ms: { warn: 500, crit: 1000 },
   cpuBusyPct: { warn: 80, crit: 90 },
   memUsedPct: { warn: 80, crit: 90 },
-  diskFreePct: { warn: 20, crit: 10 }, // reversed: higher is better
-  dbConnPct: { warn: 70, crit: 85 },
+  diskFreePct: { warn: 30, crit: 5 }, // reversed: higher is better; matches DiskWillFillSoon / DiskCritical
+  dbConnPct: { warn: 70, crit: 80 }, // crit matches PostgresTooManyConns (> 0.8 * max_connections)
   dbCacheHitPct: { warn: 99, crit: 95 }, // reversed
   gpuTempC: { warn: 75, crit: 85 },
   vramUsedPct: { warn: 85, crit: 95 },
@@ -26,11 +26,19 @@ export const stepsAsc = (warn: number, crit: number): Step[] => [
 ];
 
 // Higher value = better (red until crit, green past warn). Steps sorted ascending by value.
-export const stepsDesc = (warn: number, crit: number): Step[] => [
-  { value: null, color: 'red' },
-  { value: crit, color: 'yellow' },
-  { value: warn, color: 'green' },
-];
+export const stepsDesc = (warn: number, crit: number): Step[] =>
+  // warn === crit is a plain two-colour gauge (up/down); emitting a yellow band at the same
+  // value as green gives Grafana two steps on one boundary and it renders the wrong colour.
+  warn === crit
+    ? [
+        { value: null, color: 'red' },
+        { value: warn, color: 'green' },
+      ]
+    : [
+        { value: null, color: 'red' },
+        { value: crit, color: 'yellow' },
+        { value: warn, color: 'green' },
+      ];
 
 // Grafana unit ids. TOKS: Grafana has no tok/s unit; use "none" and put "tok/s" in the title.
 export const UNIT = {
