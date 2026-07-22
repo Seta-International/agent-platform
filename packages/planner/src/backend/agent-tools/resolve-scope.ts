@@ -1,4 +1,7 @@
 import type { SessionScope } from '@seta/core';
+import { and, eq, isNull } from 'drizzle-orm';
+import { plannerDb } from '../db/index.ts';
+import { assigneeProjection } from '../db/schema.ts';
 import { listPlans } from '../domain/list-plans.ts';
 import { groupFilterFor, listMemberGroups } from '../read-helpers.ts';
 
@@ -44,6 +47,47 @@ export async function resolveGroupScope(
   }
 
   return fromList(groups);
+}
+
+/**
+ * Resolve a tenant member referenced by explicit UUID or a name/email fragment
+ * into a { userId, displayName } pair. Mirrors resolveGroupScope/resolvePlanScope
+ * so name-based lookup lives inside a tool instead of forcing a separate
+ * planner_resolveMember round-trip. Scoped to the caller's tenant and active
+ * (non-deactivated) members. `id` is the userId; `name` is the display name.
+ */
+export async function resolveMemberScope(
+  session: SessionScope,
+  opts: { userId?: string; userName?: string },
+): Promise<ScopeResolveResult> {
+  const rows = await plannerDb()
+    .select({
+      id: assigneeProjection.user_id,
+      name: assigneeProjection.display_name,
+      email: assigneeProjection.email,
+    })
+    .from(assigneeProjection)
+    .where(
+      and(
+        eq(assigneeProjection.tenant_id, session.tenant_id),
+        isNull(assigneeProjection.deactivated_at),
+      ),
+    );
+
+  if (opts.userId) {
+    const match = rows.find((r) => r.id === opts.userId);
+    return match ? { ok: true, id: match.id, name: match.name } : { notFound: true };
+  }
+
+  if (opts.userName) {
+    const lower = opts.userName.toLowerCase();
+    const matched = rows
+      .filter((r) => r.name.toLowerCase().includes(lower) || r.email.toLowerCase().includes(lower))
+      .map((r) => ({ id: r.id, name: r.name }));
+    return fromList(matched);
+  }
+
+  return { notFound: true };
 }
 
 export async function resolvePlanScope(

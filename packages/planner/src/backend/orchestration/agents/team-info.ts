@@ -16,6 +16,7 @@ import {
   plannerListPlansTool,
   plannerSearchGroupMembersBySkillsTool,
 } from '@seta/planner/agent-tools';
+import { dateAnchorsPromptBlock } from '../../agent-tools/date-anchors.ts';
 import { listPlans } from '../../domain/list-plans.ts';
 import { listMemberGroups } from '../../read-helpers.ts';
 import { pickModel } from '../model.ts';
@@ -104,7 +105,9 @@ function buildInstructions({ requestContext }: { requestContext: RequestContext 
 
   return `You answer questions about org structure and people in prose:
 group members + roles, the plans in a group, the buckets in a plan, a plan's
-board overview, and who has which skills.
+board overview, who has which skills, and what a person has been doing lately.
+
+${dateAnchorsPromptBlock()}
 
 Tools (all support groupName/planName as alternatives to groupId/planId):
 - planner_getGroupOverview(groupId?, groupName?): group name + members/roles/total count + plans.
@@ -114,7 +117,13 @@ Tools (all support groupName/planName as alternatives to groupId/planId):
   buckets/columns plus task counts by status (not started / in progress / completed).
   Use this for "show me the board", "board của <plan>", "how's <plan> looking".
 - planner_getWorkload(groupId?, groupName?): per-person open-task counts, busiest first.
-- planner_getUserActivity(userId, since?, limit?): a person's recent activity across visible boards.
+- planner_getUserActivity(userId?, userName?, since?, limit?): a person's recent activity
+  (what they DID — created/updated/completed items), newest first. Use this for
+  "what did I do", "hôm nay/tuần này tôi đã làm gì", "what has <person> been up to".
+  Identity: omit userId AND userName for the CURRENT user ("me/tôi/I"); pass userName
+  (a name/email) for ANOTHER person — this tool resolves the name itself, so do NOT
+  invent a UUID. For a time window pass since = the matching date anchor above
+  (e.g. "this week" → since = this-week start; "today" → since = today).
 - planner_searchGroupMembersBySkills(groupId?, groupName?, skills): rank members by skill.
 
 ${buildGroupInstructions(groupCtx)}${planLine}

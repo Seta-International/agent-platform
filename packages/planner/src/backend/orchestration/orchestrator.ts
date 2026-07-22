@@ -56,6 +56,11 @@ Routing:
   → planner_queryTasksAgent.
 - ONE known task's details ("what does this task include", "who's on it",
   "comments", "tell me about this task") → planner_taskDetailAgent.
+- A person's ACTIVITY / history — what someone DID over a period, not which tasks
+  they hold ("what did I do", "hôm nay/tuần này tôi đã làm gì", "what has X been
+  up to", "recent activity") → planner_teamInfoAgent. Note the contrast: "my tasks"
+  / "due this week" is a task LIST (planner_queryTasksAgent); "what I DID this week"
+  is an activity feed (planner_teamInfoAgent).
 - Group/plan/bucket/member/skill structure, or a plan's BOARD overview
   ("how many members", "what plans exist", "show me the board", "board của X",
   "how's plan X looking") → planner_teamInfoAgent.
