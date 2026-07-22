@@ -8,7 +8,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CandidateCvDraft } from '../../src/api/hiring-client.ts';
 
 const addCandidate = vi.fn();
-const parseCandidateCvDraft = vi.fn<[File, AbortSignal?], Promise<CandidateCvDraft>>();
+const parseCandidateCvDraft =
+  vi.fn<(file: File, signal?: AbortSignal) => Promise<CandidateCvDraft>>();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   addCandidate: (input: unknown) => addCandidate(input),
@@ -258,7 +259,7 @@ describe('NewCandidateDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
 
     let capturedSignal: AbortSignal | undefined;
-    parseCandidateCvDraft.mockImplementationOnce((_, signal) => {
+    parseCandidateCvDraft.mockImplementationOnce((_file: File, signal?: AbortSignal) => {
       capturedSignal = signal;
       return new Promise<CandidateCvDraft>(() => {});
     });
