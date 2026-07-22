@@ -25,6 +25,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
+import { GROUNDING_POLICY } from './grounding.ts';
 
 export const TEAM_INFO_TOOL_IDS = [
   'planner_getGroupOverview',
@@ -43,22 +44,61 @@ export interface QueryTeamInfoDeps {
   onToolActivity?: OnToolActivity;
 }
 
+/** The caller's own-group scope, resolved from identity BEFORE the model runs.
+ *  Distilling the raw group list into a status is what stops the "many groups"
+ *  case from leaking a pickable list the model then fabricates counts against. */
+export type CallerGroupContext =
+  | { status: 'none' }
+  | { status: 'single'; groupId: string; groupName: string }
+  | { status: 'ambiguous'; groups: { id: string; name: string }[] };
+
+export function buildCallerGroupContext(
+  groups: { id: string; name: string }[],
+): CallerGroupContext {
+  if (groups.length === 0) return { status: 'none' };
+  const [only] = groups;
+  if (groups.length === 1 && only)
+    return { status: 'single', groupId: only.id, groupName: only.name };
+  return { status: 'ambiguous', groups };
+}
+
+/** Group-scope instruction. Identity metadata only — every variant explicitly
+ *  bans deriving a member count (or any live statistic) from it. */
+export function buildGroupInstructions(ctx: CallerGroupContext): string {
+  switch (ctx.status) {
+    case 'none':
+      return `The caller has no resolvable group. Do not invent a group or any
+group-level statistic. If the request needs a group, ask the user to name one.`;
+    case 'single':
+      return `The caller belongs to exactly one group:
+- "${ctx.groupName}" (id: ${ctx.groupId})
+This identifies the group ONLY — it carries NO member count, workload, or task
+totals. Treat it as the target for "my group/team" questions, but you MUST call
+the appropriate tool (e.g. planner_getGroupOverview) to obtain any member count
+or other live figure.`;
+    case 'ambiguous':
+      return `The caller belongs to MULTIPLE groups: ${ctx.groups
+        .map((g) => `"${g.name}"`)
+        .join(', ')}.
+These names are identity metadata for offering the user a choice — they carry NO
+member counts or statistics. For any "my group/team" question you MUST first ask
+the user which of these groups they mean. Do not pick a group yourself, do not
+call a group tool before the user has chosen, and never state a member count or
+other group statistic.`;
+  }
+}
+
 function buildInstructions({ requestContext }: { requestContext: RequestContext }): string {
   const groups =
     requestContext.get<'caller_groups', { id: string; name: string }[]>('caller_groups') ?? [];
   const plans =
     requestContext.get<'caller_plans', { id: string; name: string }[]>('caller_plans') ?? [];
-  const resolved =
-    groups.length || plans.length
-      ? `\n\nThe caller's own group(s)/plan(s), pre-resolved:\n` +
-        [
-          ...groups.map((g) => `- group "${g.name}" (${g.id})`),
-          ...plans.map((p) => `- plan "${p.name}" (${p.id})`),
-        ].join('\n') +
-        `\nUse these for "my group/team/plan" questions. Tools now support groupName/planName ` +
-        `parameters — you can pass the name directly instead of the UUID. ` +
-        `If several groups/plans are listed and the question doesn't say which, ask the user to pick by name — never by id.\n`
-      : '';
+  const groupCtx = buildCallerGroupContext(groups);
+  const planLine = plans.length
+    ? `\n\nThe caller's plans (identity metadata only — no live figures): ${plans
+        .map((p) => `"${p.name}"`)
+        .join(', ')}. If several are listed and the question doesn't say which, ask by name.`
+    : '';
 
   return `You answer questions about org structure and people in prose:
 group members + roles, the plans in a group, the buckets in a plan, and who has
@@ -71,11 +111,14 @@ Tools (all support groupName/planName as alternatives to groupId/planId):
 - planner_getWorkload(groupId?, groupName?): per-person open-task counts, busiest first.
 - planner_getUserActivity(userId, since?, limit?): a person's recent activity across visible boards.
 - planner_searchGroupMembersBySkills(groupId?, groupName?, skills): rank members by skill.
-${resolved}
+
+${buildGroupInstructions(groupCtx)}${planLine}
+
 Otherwise resolve groupId / planId from the "[Context: ...]" prefix or a prior list result.
-If scope cannot be resolved and the user has multiple groups/plans, ask by name — never by id.
 groupId / planId / userId are internal tool handles only — never print a raw id/UUID
 in your answer. Always refer to groups, plans, and people by name.
+
+${GROUNDING_POLICY}
 Read-only.`;
 }
 

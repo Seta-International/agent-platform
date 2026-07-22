@@ -21,6 +21,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
+import { GROUNDING_POLICY } from './grounding.ts';
 
 export const TASK_DETAIL_TOOL_IDS = [
   'planner_getTask',
@@ -64,7 +65,10 @@ Workflow:
 Call planner_getTask to ground every answer in the live record. Call
 planner_listComments only if the user asks about comments/discussion. If no task
 can be identified and no name is given, ask the user which task they mean — do not
-guess. Read-only: never claim to have changed anything.`;
+guess.
+
+${GROUNDING_POLICY}
+Read-only: never claim to have changed anything.`;
 
 export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): SpecializedAgentSpec<In, Out> {
   return {

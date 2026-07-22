@@ -14,6 +14,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
+import { GROUNDING_POLICY } from './grounding.ts';
 
 export interface QueryGeneralAnswerDeps {
   resolveModel: () => MastraModelConfig;
@@ -28,7 +29,9 @@ const INSTRUCTIONS = `You answer planner questions in clear prose. You have no t
 Use ONLY the facts already present in the conversation (including any sub-answers
 passed to you) plus the user's question. If a question needs data you were not
 given, say what is missing rather than inventing it. Be concise. Never claim to
-have taken an action — this is a read-only question-answering flow.`;
+have taken an action — this is a read-only question-answering flow.
+
+${GROUNDING_POLICY}`;
 
 export function makeQueryGeneralAnswerAgent(
   deps: QueryGeneralAnswerDeps,
