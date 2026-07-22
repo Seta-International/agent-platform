@@ -152,6 +152,9 @@ export function WorkerProfilePage() {
         ...adds.map((s) => addWorkerSkill(workerId, s.id, s.level ?? undefined)),
         ...levelChanges.map((s) => setWorkerSkillLevel(workerId, s.id, s.level)),
       ]);
+      if (draft.employee_no !== undefined && draft.employee_no !== (worker.employee_no ?? ''))
+        patch.employee_no = draft.employee_no || null;
+      return editWorker(workerId, { expected_version: worker.version, patch });
     },
     onSuccess: () => {
       toast({ body: 'Changes saved' });
@@ -201,6 +204,7 @@ export function WorkerProfilePage() {
       emergency_contact: worker.emergency_contact ?? '',
       job_title: worker.job_title ?? '',
       org_unit_id: worker.org_unit_id ?? null,
+      employee_no: worker.employee_no ?? '',
     });
     setSkillDraft(worker.skills.map((s) => ({ ...s })));
     setEditError(null);
@@ -393,6 +397,13 @@ export function WorkerProfilePage() {
                           </div>
                           <div className="space-y-1">
                             <Input
+                              label="Employee number"
+                              value={draft.employee_no ?? ''}
+                              onChange={(value) => setDraft((d) => ({ ...d, employee_no: value }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Input
                               label="Job title"
                               value={draft.job_title ?? ''}
                               onChange={(value) => setDraft((d) => ({ ...d, job_title: value }))}
@@ -459,6 +470,7 @@ export function WorkerProfilePage() {
                       ) : (
                         <div>
                           <FieldRow label="Full name" value={worker.full_name} />
+                          <FieldRow label="Employee number" value={worker.employee_no} />
                           <FieldRow label="Job title" value={worker.job_title} />
                           <FieldRow label="Manager" value={worker.manager_name} />
                           <FieldRow label="Org unit" value={worker.org_unit_name} />

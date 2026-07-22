@@ -16,6 +16,7 @@ function item(over: Partial<CandidateListItem>): CandidateListItem {
     source: 'Referral',
     requisition_id: 'r1',
     requisition_title: 'Backend Eng',
+    requisition_status: 'open',
     stage: 'new',
     status: 'active',
     rating: 0,

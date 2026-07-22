@@ -190,12 +190,15 @@ export function CandidateDetailDrawer({
     },
     onSuccess: () => {
       setConfirmHire(false);
-      toast({ body: 'Candidate hired' });
+      toast({ body: 'Candidate hired successfully' });
       refresh();
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
+      onClose();
     },
     onError: (e: Error) => {
       setConfirmHire(false);
       on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? ''));
+      onClose();
     },
   });
   const terminal = app ? app.status !== 'active' : true;
@@ -527,10 +530,10 @@ export function CandidateDetailDrawer({
           <AlertDialog
             isOpen={confirmHire}
             onOpenChange={setConfirmHire}
-            title="Hire this candidate?"
-            description="This fills the requisition and locks the application — it can't be moved back to a stage afterwards."
+            title="Hire Candidate"
+            description={`Are you sure you want to hire ${data?.candidate.name ?? 'this candidate'}? This will transition the candidate to Hired and automatically create a preboarding worker record in the People module.`}
             cancelLabel="Cancel"
-            actionLabel={hire.isPending ? 'Hiring…' : 'Hire'}
+            actionLabel={hire.isPending ? 'Hiring…' : 'Confirm'}
             actionVariant="primary"
             isActionLoading={hire.isPending}
             onAction={() => hire.mutate()}

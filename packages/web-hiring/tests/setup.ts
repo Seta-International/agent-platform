@@ -33,7 +33,7 @@ if (typeof localStorage === 'undefined') {
   });
 }
 
-if (typeof globalThis.jest === 'undefined') {
+if (typeof (globalThis as Record<string, unknown>).jest === 'undefined') {
   (globalThis as Record<string, unknown>).jest = vi;
 }
 

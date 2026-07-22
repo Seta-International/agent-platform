@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CandidateDetail } from '../../src/api/hiring-client.ts';
 
 const fetchCandidate = vi.fn();
@@ -12,6 +12,7 @@ const editCandidate = vi.fn();
 const requestCandidateCvUpload = vi.fn();
 const putCvToS3 = vi.fn();
 const getCandidateCvDownloadUrl = vi.fn();
+const hireApplication = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -24,6 +25,7 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   requestCandidateCvUpload: (...args: unknown[]) => requestCandidateCvUpload(...args),
   putCvToS3: (url: string, file: File) => putCvToS3(url, file),
   getCandidateCvDownloadUrl: (id: string) => getCandidateCvDownloadUrl(id),
+  hireApplication: (id: string, input: unknown) => hireApplication(id, input),
 }));
 
 // The timeline resolves actor_user_ids to names via the identity directory.
@@ -53,7 +55,7 @@ const detail: CandidateDetail = {
     dob: '1998-05-12',
     gender: 'female',
     cv_storage_key: 'cv/ada-lovelace.pdf',
-    contact: { email: 'ada@example.com', phone: '+1' },
+    contact: { personal_email: 'ada@example.com', phone: '+1' },
     version: 1,
   },
   applications: [
@@ -61,6 +63,7 @@ const detail: CandidateDetail = {
       application_id: 'a1',
       requisition_id: 'r1',
       requisition_title: 'Backend Eng',
+      requisition_status: 'open',
       account_id: null,
       stage: 'screening',
       status: 'active',
@@ -224,5 +227,54 @@ describe('CandidateDetailDrawer', () => {
         to: 'interview',
       }),
     );
+  });
+
+  it('renders Hire button when application stage is offer and handles hiring success', async () => {
+    const offerDetail: CandidateDetail = {
+      ...detail,
+      applications: [{ ...detail.applications[0]!, stage: 'offer' }],
+    };
+    fetchCandidate.mockResolvedValue(offerDetail);
+    hireApplication.mockResolvedValueOnce({ version: 5 });
+    const onClose = vi.fn();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" onClose={onClose} />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    // Click Hire button to open confirmation dialog
+    await userEvent.click(screen.getByRole('button', { name: 'Mark as hired' }));
+    expect(screen.getByText('Hire Candidate')).toBeInTheDocument();
+
+    // Click Confirm button inside confirmation dialog
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => {
+      expect(hireApplication).toHaveBeenCalledWith('a1', { expected_version: 4 });
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it('displays exact error toast (e.g. no vacant openings) and closes drawer when hire fails', async () => {
+    const offerDetail: CandidateDetail = {
+      ...detail,
+      applications: [{ ...detail.applications[0]!, stage: 'offer' }],
+    };
+    fetchCandidate.mockResolvedValue(offerDetail);
+    const err = new Error('no vacant openings for this requisition') as Error & { status?: number };
+    err.status = 409;
+    hireApplication.mockRejectedValueOnce(err);
+    const onClose = vi.fn();
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" onClose={onClose} />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mark as hired' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    // Should display exact error message in toast, NOT "This record changed — refreshing."
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No vacant openings for this requisition',
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 });

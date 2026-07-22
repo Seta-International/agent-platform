@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { createWorker } from '@seta/people';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
@@ -11,7 +12,7 @@ import {
   HIRING_APPLICATION_TRANSFERRED,
 } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
-import { application, reason, requisition } from '../db/schema.ts';
+import { application, candidate, opening, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { assertApplicationRequisitionNotOnHold, recordCandidateEvent } from './candidates.ts';
 
@@ -76,72 +77,6 @@ export async function moveApplicationStage(input: {
         eventType: HIRING_APPLICATION_STAGE_CHANGED,
         eventVersion: 1,
         payload: { application_id, tenant_id: session.tenant_id, from: cur.stage, to: input.to },
-      });
-    },
-  );
-  return { version: next };
-}
-
-export async function hireApplication(input: {
-  application_id: string;
-  expected_version?: number;
-  session: SessionScope;
-}): Promise<{ version: number }> {
-  const { session, application_id } = input;
-  requirePermission(session, 'hiring.candidate.manage');
-  const [cur] = await hiringDb()
-    .select({
-      version: application.version,
-      stage: application.stage,
-      status: application.status,
-      candidate_id: application.candidate_id,
-    })
-    .from(application)
-    .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
-    .limit(1);
-  if (!cur) throw new HiringError('NOT_FOUND', 'application not found');
-  if (input.expected_version !== undefined && input.expected_version !== cur.version)
-    throw new HiringError('CONFLICT', 'version mismatch');
-  if (cur.status !== 'active')
-    throw new HiringError(
-      'CONFLICT',
-      `cannot hire a ${cur.status} application — only active applications may be hired`,
-    );
-  await assertApplicationRequisitionNotOnHold(application_id, session);
-  const next = cur.version + 1;
-  await withEmit(
-    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
-    async (tx) => {
-      const updated = await tx
-        .update(application)
-        .set({ status: 'hired', closed_at: new Date(), version: next, updated_at: new Date() })
-        .where(
-          and(
-            eq(application.id, application_id),
-            eq(application.version, cur.version),
-            eq(application.status, 'active'),
-          ),
-        )
-        .returning({ id: application.id });
-      if (updated.length === 0)
-        throw new HiringError('CONFLICT', 'application was modified concurrently');
-      if (cur.candidate_id) {
-        await recordCandidateEvent(tx, {
-          session,
-          candidate_id: cur.candidate_id,
-          application_id,
-          kind: 'hired',
-          summary: `Hired — from ${cur.stage}`,
-          detail: { from_stage: cur.stage },
-        });
-      }
-      await emit({
-        tenantId: session.tenant_id,
-        aggregateType: 'hiring.application',
-        aggregateId: application_id,
-        eventType: HIRING_APPLICATION_HIRED,
-        eventVersion: 1,
-        payload: { application_id, tenant_id: session.tenant_id, from_stage: cur.stage },
       });
     },
   );
@@ -374,4 +309,160 @@ export async function transferApplication(input: {
     },
   );
   return { version: next, to_application_id: toId };
+}
+
+export async function hireApplication(input: {
+  application_id: string;
+  expected_version?: number;
+  session: SessionScope;
+}): Promise<{ version: number }> {
+  const { session, application_id } = input;
+  requirePermission(session, 'hiring.candidate.manage');
+
+  const [appRow] = await hiringDb()
+    .select({
+      id: application.id,
+      version: application.version,
+      status: application.status,
+      stage: application.stage,
+      candidate_id: application.candidate_id,
+      requisition_id: application.requisition_id,
+    })
+    .from(application)
+    .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
+    .limit(1);
+
+  if (!appRow) throw new HiringError('NOT_FOUND', 'application not found');
+  if (input.expected_version !== undefined && input.expected_version !== appRow.version)
+    throw new HiringError('CONFLICT', 'version mismatch');
+  if (appRow.status !== 'active')
+    throw new HiringError(
+      'CONFLICT',
+      `cannot hire a ${appRow.status} application — only active applications may be hired`,
+    );
+  await assertApplicationRequisitionNotOnHold(application_id, session);
+
+  if (!appRow.candidate_id) throw new HiringError('VALIDATION', 'candidate not found');
+  const [candRow] = await hiringDb()
+    .select()
+    .from(candidate)
+    .where(and(eq(candidate.id, appRow.candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .limit(1);
+  if (!candRow) throw new HiringError('NOT_FOUND', 'candidate not found');
+
+  const [reqRow] = await hiringDb()
+    .select({
+      title: requisition.title,
+      role_title: requisition.role_title,
+    })
+    .from(requisition)
+    .where(
+      and(eq(requisition.id, appRow.requisition_id), tenantScoped(requisition.tenant_id, session)),
+    )
+    .limit(1);
+  if (!reqRow) throw new HiringError('NOT_FOUND', 'requisition not found');
+
+  const [openOpening] = await hiringDb()
+    .select({
+      id: opening.id,
+      version: opening.version,
+    })
+    .from(opening)
+    .where(
+      and(
+        eq(opening.requisition_id, appRow.requisition_id),
+        eq(opening.status, 'open'),
+        tenantScoped(opening.tenant_id, session),
+      ),
+    )
+    .limit(1);
+
+  if (!openOpening) {
+    throw new HiringError('CONFLICT', 'No vacant openings for this requisition');
+  }
+
+  const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
+  const { worker_id } = await createWorker({
+    full_name: candRow.name,
+    personal_email: contact?.personal_email || undefined,
+    phone: contact?.phone || undefined,
+    dob: candRow.dob || undefined,
+    gender: candRow.gender || undefined,
+    job_title: reqRow.role_title || reqRow.title,
+    session,
+  });
+
+  const nextAppVersion = appRow.version + 1;
+  const nextOpeningVersion = openOpening.version + 1;
+
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      const updatedApp = await tx
+        .update(application)
+        .set({
+          status: 'hired',
+          person_id: worker_id,
+          closed_at: new Date(),
+          version: nextAppVersion,
+          updated_at: new Date(),
+        })
+        .where(
+          and(
+            eq(application.id, application_id),
+            eq(application.version, appRow.version),
+            eq(application.status, 'active'),
+          ),
+        )
+        .returning({ id: application.id });
+
+      if (updatedApp.length === 0)
+        throw new HiringError('CONFLICT', 'application was modified concurrently');
+
+      const updatedOpening = await tx
+        .update(opening)
+        .set({
+          status: 'filled',
+          hired_application_id: application_id,
+          version: nextOpeningVersion,
+          closed_at: new Date(),
+          updated_at: new Date(),
+        })
+        .where(
+          and(
+            eq(opening.id, openOpening.id),
+            eq(opening.version, openOpening.version),
+            eq(opening.status, 'open'),
+          ),
+        )
+        .returning({ id: opening.id });
+
+      if (updatedOpening.length === 0)
+        throw new HiringError('CONFLICT', 'opening was modified concurrently');
+
+      await recordCandidateEvent(tx, {
+        session,
+        candidate_id: candRow.id,
+        application_id,
+        kind: 'hired',
+        summary: `Hired to position ${reqRow.role_title || reqRow.title}`,
+        detail: { worker_id, opening_id: openOpening.id },
+      });
+
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'hiring.application',
+        aggregateId: application_id,
+        eventType: HIRING_APPLICATION_HIRED,
+        eventVersion: 1,
+        payload: {
+          application_id,
+          tenant_id: session.tenant_id,
+          from_stage: appRow.stage,
+        },
+      });
+    },
+  );
+
+  return { version: nextAppVersion };
 }

@@ -12,6 +12,7 @@ const base: CandidateListItem = {
   source: 'LinkedIn',
   requisition_id: 'r1',
   requisition_title: 'Product Designer',
+  requisition_status: 'open',
   stage: 'new',
   status: 'active',
   rating: 4,

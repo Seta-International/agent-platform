@@ -1,6 +1,6 @@
 {
-  "id": "e7dd948d-5223-48a2-ac36-c9aefd572851",
-  "prevId": "fbc742c0-c60d-49d5-95ee-7e6f03971e9f",
+  "id": "540f75b7-214e-44db-af61-f031db610790",
+  "prevId": "102e17d9-953d-44d0-b3df-6ebe5bcde35d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -70,8 +70,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "worker_id": {
-          "name": "worker_id",
+        "person_id": {
+          "name": "person_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -194,14 +194,14 @@
               "nulls": "last"
             },
             {
-              "expression": "worker_id",
+              "expression": "person_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
-          "where": "worker_id IS NOT NULL AND status = 'active'",
+          "where": "person_id IS NOT NULL AND status = 'active'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -258,7 +258,7 @@
               "nulls": "last"
             },
             {
-              "expression": "worker_id",
+              "expression": "person_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -334,7 +334,7 @@
         },
         "application_one_subject_check": {
           "name": "application_one_subject_check",
-          "value": "(candidate_id IS NOT NULL) <> (worker_id IS NOT NULL)"
+          "value": "((candidate_id IS NOT NULL) <> (person_id IS NOT NULL)) OR (status = 'hired' AND candidate_id IS NOT NULL AND person_id IS NOT NULL)"
         }
       },
       "isRLSEnabled": false

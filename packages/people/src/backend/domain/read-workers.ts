@@ -24,6 +24,7 @@ export interface WorkerRow {
   accounts: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
   skills: Array<{ id: string; name: string }>;
+  employee_no: string | null;
 }
 
 export interface ListWorkersQuery {
@@ -207,6 +208,7 @@ export async function listWorkers(
     accounts: accountsAgg,
     projects: projectsAgg,
     skills: skillsAgg,
+    employee_no: person.employee_no,
   };
 
   const baseQuery = peopleDb()
@@ -276,6 +278,7 @@ export async function getWorker({
   org_unit_name: string | null;
   accounts: Array<{ id: string; name: string }>;
   skills: Array<{ id: string; name: string; level: number | null }>;
+  employee_no: string | null;
 }> {
   requirePermission(session, 'people.worker.read');
   const tenantId = session.tenant_id;
@@ -327,6 +330,7 @@ export async function getWorker({
       org_unit_name: orgUnitNameSql,
       accounts: accountsAgg,
       skills: skillsAgg,
+      employee_no: person.employee_no,
     })
     .from(person)
     .leftJoin(
