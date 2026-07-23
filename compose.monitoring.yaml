@@ -12,6 +12,8 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
       - --web.enable-remote-write-receiver
+      # Accepts OTLP metrics pushed by developer machines via monitoring-ingest.
+      - --web.enable-otlp-receiver
     ports: ["9090:9090"]
     volumes:
       - ./infra/prometheus/prometheus.central.yml:/etc/prometheus/prometheus.central.yml:ro

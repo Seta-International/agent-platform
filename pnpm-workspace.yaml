@@ -8,44 +8,17 @@ overrides:
   # (no 1.6.x published) drags in better-call@1.1.8, which pnpm mis-links into core@1.6.11
   # → "kAPIErrorHeaderSymbol" missing export crash at server boot. Force a single version.
   better-call: 1.3.5
-  # Hold these @radix-ui packages one minor back: their next release ships a GLOBAL
-  # `declare module 'react' { interface CSSProperties { [`--radix-${string}`]: ... } }`
-  # augmentation that leaks into every CSSProperties in the app and makes
-  # @hello-pangea/dnd's DraggableStyle no longer assignable to a `style` prop. Pinned
-  # to the last pre-augmentation version (direct + transitive) until dnd's types catch up.
-  "@radix-ui/react-accordion": 1.2.12
-  "@radix-ui/react-hover-card": 1.1.15
+  # Radix reaches us only through @assistant-ui/react*. react-dialog and react-menu pin
+  # different react-dismissable-layer minors, giving two module instances that each keep
+  # their own layer stack and `originalBodyPointerEvents`; opening a Dialog from a menu
+  # item leaves body pointer-events stuck at "none" (page looks frozen). Force one shared
+  # instance. The older "hold every Radix package back for @hello-pangea/dnd's
+  # CSSProperties types" pins are gone — dnd's types caught up, verified by typecheck.
   "@radix-ui/react-menu": 2.1.16
-  "@radix-ui/react-navigation-menu": 1.2.14
-  "@radix-ui/react-popover": 1.1.15
-  "@radix-ui/react-popper": 1.2.8
-  "@radix-ui/react-scroll-area": 1.2.10
-  "@radix-ui/react-select": 2.2.6
-  "@radix-ui/react-slider": 1.3.6
-  "@radix-ui/react-tooltip": 1.2.8
-  # @radix-ui/react-dialog pins react-dismissable-layer@1.1.12, but @radix-ui/react-menu
-  # (DropdownMenu/ContextMenu/Menubar) pins @1.1.11 — two separate module instances, each
-  # with its own module-scoped layer-stack Set and `originalBodyPointerEvents` var. Opening
-  # a Dialog/AlertDialog from a DropdownMenu item lets one instance's cleanup capture the
-  # *other* instance's already-locked "none" as its own "original" value, so body
-  # pointer-events gets stuck at "none" forever (page looks frozen) once both close. Force
-  # one shared instance so the lock/restore coordination is consistent app-wide.
   "@radix-ui/react-dismissable-layer": 1.1.12
-  # The pin above only holds if the packages that depend on it agree: @radix-ui/* declare each
-  # other by EXACT version, so when radix-ui (the meta package assistant-ui pulls) drifted to
-  # 1.6.x its react-dialog@1.1.20 started importing `useDismissableLayerSurface` — an export
-  # that only exists from dismissable-layer@1.1.13 on. Forced back to 1.1.12, the import
-  # resolves to nothing and Vite fails the build outright. radix-ui@1.5.0 is the release whose
-  # react-dialog (1.1.16) still targets 1.1.12.
-  radix-ui: 1.5.0
-  # @assistant-ui/react@0.14.18 caps @assistant-ui/tap at ^0.7.1 but allows core ^0.2.14, and
-  # core/store past 0.2.20 switched to tap ^0.9 — so the tree resolved core@0.2.21 against
-  # tap@0.7.1 and Vite died on `"./react-shim/compiler-runtime" is not exported`, taking the
-  # api + worker down with it. Upstream fixed the peer set in react@0.14.27, but that pulls
-  # radix-ui@1.6.4, which needs all eleven @radix-ui pins above moved — the very versions held
-  # back on purpose. Hold core/store at the last tap@0.7-compatible release instead.
-  "@assistant-ui/core": 0.2.14
-  "@assistant-ui/store": 0.2.16
+  # Last react-dialog whose dep is exactly 1.1.12; 1.1.17+ needs 1.1.16 and the pin above
+  # then breaks the web build with a MISSING_EXPORT on useDismissableLayerSurface.
+  "@radix-ui/react-dialog": 1.1.16
   happy-dom: 20.9.0
   # Root pinned vitest ^4.1.10 while every leaf pinned ^4.1.9, and @types/node was split
   # 25/26 across the tree (tooling pulled 26). vitest is peer-keyed on @types/node, so it
@@ -57,7 +30,7 @@ overrides:
   "@vitest/coverage-v8": 4.1.10
   "@types/node": 25.9.5
 allowBuilds:
-  "@prisma/client": true
+  '@prisma/client': true
   better-sqlite3: true
   cpu-features: true
   esbuild: true
@@ -66,15 +39,11 @@ allowBuilds:
   protobufjs: true
   ssh2: true
 minimumReleaseAgeExclude:
-  - "@aws-sdk/*"
-  - "@mastra/*"
-  - "@assistant-ui/*"
-  - "@turbo/*"
+  - '@aws-sdk/*'
+  - '@mastra/*'
+  - '@assistant-ui/*'
+  - '@turbo/*'
   - assistant-stream
-  - baseline-browser-mapping
-  - browserslist
-  - electron-to-chromium
   - nodemailer
   - react-email
-  - react-is
   - turbo

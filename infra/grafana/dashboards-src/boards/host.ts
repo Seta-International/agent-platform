@@ -34,7 +34,8 @@ export const buildHost = () =>
     .withPanel(
       gaugeTile({
         title: 'Disk free (min mount)',
-        description: 'Tightest mount. Red < 10%.',
+        description:
+          "Tightest mount. Red < 5% (matches DiskCritical); yellow < 30% (matches DiskWillFillSoon's predictive window).",
         expr: `min(${diskFree})`,
         unit: UNIT.percent,
         steps: stepsDesc(SLO.diskFreePct.warn, SLO.diskFreePct.crit),
@@ -60,7 +61,7 @@ export const buildHost = () =>
     .withPanel(
       trend({
         title: 'Disk free % per mount',
-        description: 'SLO lines at 20%/10%.',
+        description: 'Lines at 30% (DiskWillFillSoon) / 5% (DiskCritical).',
         unit: UNIT.percent,
         softMax: SLO.diskFreePct.warn,
         targets: [prom(diskFree, '{{instance}} {{mountpoint}}')],

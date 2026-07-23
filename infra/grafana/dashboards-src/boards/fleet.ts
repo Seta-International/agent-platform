@@ -86,7 +86,8 @@ export const buildFleet = () =>
     .withPanel(
       statTile({
         title: 'Min disk free',
-        description: 'Tightest mount per env. Red < 10%.',
+        description:
+          'Tightest mount per env. Red < 5% (DiskCritical), amber < 30% (DiskWillFillSoon).',
         expr: 'min by (env)(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|ramfs"} / node_filesystem_size_bytes * 100)',
         unit: UNIT.percent,
         steps: stepsDesc(SLO.diskFreePct.warn, SLO.diskFreePct.crit),
@@ -97,7 +98,8 @@ export const buildFleet = () =>
     .withPanel(
       statTile({
         title: 'DB connections used',
-        description: 'Active connections as % of max_connections. Amber > 70%, red > 85%.',
+        description:
+          'Active connections as % of max_connections. Amber > 70%, red > 80% (matches PostgresTooManyConns).',
         expr: 'sum by (env)(pg_stat_activity_count) / max by (env)(pg_settings_max_connections) * 100',
         unit: UNIT.percent,
         steps: stepsAsc(SLO.dbConnPct.warn, SLO.dbConnPct.crit),
