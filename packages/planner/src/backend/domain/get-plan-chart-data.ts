@@ -75,6 +75,7 @@ function taskFilterConds(
 export async function getPlanChartData(
   input: GetPlanChartDataInput,
   session: SessionScope,
+  now: Date = new Date(),
 ): Promise<ChartData> {
   return withSpan(
     'planner.plan.charts.get',
@@ -83,13 +84,14 @@ export async function getPlanChartData(
       'planner.user_id': session.user_id,
       'planner.plan_id': input.plan_id,
     },
-    () => getPlanChartDataImpl(input, session),
+    () => getPlanChartDataImpl(input, session, now),
   );
 }
 
 async function getPlanChartDataImpl(
   input: GetPlanChartDataInput,
   session: SessionScope,
+  now: Date,
 ): Promise<ChartData> {
   const db = plannerDb();
 
@@ -110,7 +112,6 @@ async function getPlanChartDataImpl(
     throw new PlannerError('FORBIDDEN', 'No access to group', { plan_id: input.plan_id });
   }
 
-  const now = new Date();
   const filterConds = taskFilterConds(input.filters, db);
 
   const liveTasksWhere = and(

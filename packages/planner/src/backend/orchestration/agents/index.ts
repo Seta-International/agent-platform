@@ -1,8 +1,12 @@
-export { makeQnaGeneralAnswerAgent, type QnaGeneralAnswerDeps } from './general-answer.ts';
+export { makeQueryGeneralAnswerAgent, type QueryGeneralAnswerDeps } from './general-answer.ts';
 export {
-  makeQnaTaskDetailAgent,
-  type QnaTaskDetailDeps,
+  makeQueryTaskDetailAgent,
+  type QueryTaskDetailDeps,
   TASK_DETAIL_TOOL_IDS,
 } from './task-detail.ts';
-export { makeQnaTaskQueryAgent, type QnaTaskQueryDeps, TASK_QUERY_TOOL_IDS } from './task-query.ts';
-export { makeQnaTeamInfoAgent, type QnaTeamInfoDeps, TEAM_INFO_TOOL_IDS } from './team-info.ts';
+export {
+  makeQueryTaskSearchAgent,
+  type QueryTaskSearchDeps,
+  TASK_SEARCH_TOOL_IDS,
+} from './task-search.ts';
+export { makeQueryTeamInfoAgent, type QueryTeamInfoDeps, TEAM_INFO_TOOL_IDS } from './team-info.ts';

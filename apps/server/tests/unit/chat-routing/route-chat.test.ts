@@ -12,7 +12,7 @@ const ctx: RunCtx = { tenantId: 't1', actorUserId: 'u1' };
 
 const makeDeps = () => ({
   assignment: vi.fn(async () => fakeRun('assignment')),
-  plannerQna: vi.fn(async () => fakeRun('qna')),
+  plannerQuery: vi.fn(async () => fakeRun('qna')),
   weeklyPlanner: vi.fn(async () => fakeRun('weekly')),
 });
 
@@ -24,7 +24,7 @@ describe('chat router dispatch', () => {
     const run = await router({ userText: 'what are my open tasks?', taskId: null }, ctx);
     const final = await run.finalize();
 
-    expect(deps.plannerQna).toHaveBeenCalledOnce();
+    expect(deps.plannerQuery).toHaveBeenCalledOnce();
     expect(deps.assignment).not.toHaveBeenCalled();
     expect(deps.weeklyPlanner).not.toHaveBeenCalled();
     expect((final.result as { tag: string }).tag).toBe('qna');
@@ -37,7 +37,7 @@ describe('chat router dispatch', () => {
     await router({ userText: 'who should I assign?', taskId: 't-1' }, ctx);
 
     expect(deps.assignment).toHaveBeenCalledOnce();
-    expect(deps.plannerQna).not.toHaveBeenCalled();
+    expect(deps.plannerQuery).not.toHaveBeenCalled();
     expect(deps.weeklyPlanner).not.toHaveBeenCalled();
   });
 
@@ -50,7 +50,7 @@ describe('chat router dispatch', () => {
 
     expect(deps.weeklyPlanner).toHaveBeenCalledOnce();
     expect(deps.assignment).not.toHaveBeenCalled();
-    expect(deps.plannerQna).not.toHaveBeenCalled();
+    expect(deps.plannerQuery).not.toHaveBeenCalled();
     expect((final.result as { tag: string }).tag).toBe('weekly');
   });
 

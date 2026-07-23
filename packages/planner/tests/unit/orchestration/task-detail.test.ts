@@ -1,24 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
-  makeQnaTaskDetailAgent,
+  makeQueryTaskDetailAgent,
   TASK_DETAIL_TOOL_IDS,
 } from '../../../src/backend/orchestration/agents/task-detail.ts';
 
-describe('qna taskDetailAgent', () => {
+describe('query taskDetailAgent', () => {
   it('is wired with exactly the task-detail toolbox', () => {
     expect(TASK_DETAIL_TOOL_IDS).toEqual([
       'planner_getTask',
+      'planner_getItemActivity',
+      'planner_getTimeline',
       'planner_listComments',
       'planner_queryTasks',
     ]);
   });
 
   it('has the right id + schemas and returns prose via the seam', async () => {
-    const spec = makeQnaTaskDetailAgent({
+    const spec = makeQueryTaskDetailAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       runAgent: async () => ({ text: 'this task has 3 checklist items' }),
     });
-    expect(spec.id).toBe('planner.qna.taskDetail');
+    expect(spec.id).toBe('planner.query.taskDetail');
     const res = await spec.run(
       { query: 'what does this task include' },
       { tenantId: 't1', actorUserId: 'u1' },

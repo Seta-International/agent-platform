@@ -2,8 +2,11 @@
 // Asserts the workspace test-folder convention from PR-A:
 //   * Zero __tests__/ or test/ directories under packages|apps|sdks.
 //   * Each package has at most one tests/ directory at its own root.
-//   * Inside tests/, only unit/, integration/, contract/, helpers/ allowed,
-//     plus global-setup.ts, helpers.ts, setup.ts at the tests/ root.
+//   * Inside tests/, only unit/, integration/, contract/, helpers/, fixtures/
+//     allowed, plus global-setup.ts, helpers.ts, setup.ts at the tests/ root.
+//     (fixtures/ holds shared, framework-agnostic test DATA — e.g. the golden
+//     eval dataset in @seta/planner — kept separate from helpers/, which holds
+//     executable test utilities.)
 
 import { readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
@@ -11,7 +14,7 @@ import { join, relative } from 'node:path';
 const ROOT = process.cwd();
 const SCAN_ROOTS = ['packages', 'apps', 'sdks'];
 const FORBIDDEN_DIR_NAMES = new Set(['__tests__', 'test']);
-const ALLOWED_TESTS_SUBDIRS = new Set(['unit', 'integration', 'contract', 'helpers']);
+const ALLOWED_TESTS_SUBDIRS = new Set(['unit', 'integration', 'contract', 'helpers', 'fixtures']);
 const ALLOWED_TESTS_FILES = new Set(['global-setup.ts', 'helpers.ts', 'setup.ts']);
 // Some apps keep an e2e harness at tests/e2e/. Permit it for apps/* only.
 const APPS_ALLOWED_EXTRA = new Set(['e2e']);

@@ -1,0 +1,47 @@
+{
+  "_comment": "Fixed golden-dataset landmark entities and why each exists (spec §G). IDs are frozen; do not renumber. personId is people.person.id; userId is the auth/assignment identity. Purpose annotations tie each landmark to the eval scenarios it anchors.",
+  "actor": {
+    "userId": "00000000-bbbb-0000-0000-000000000001",
+    "personId": "00000000-cccc-0000-0000-000000000001",
+    "name": "Anh Nguyen",
+    "tenantId": "00000000-aaaa-0000-0000-000000000001",
+    "purpose": "The standard acting user for every agent/conversation case (self-scoped 'my tasks / my group' queries). Also one of the 'Nguyen' surname collisions."
+  },
+  "tuan": {
+    "userId": "00000000-bbbb-0000-0000-000000000002",
+    "personId": "00000000-cccc-0000-0000-000000000002",
+    "name": "Tuan Nguyen",
+    "openTaskCount": 12,
+    "purpose": "Named-person resolution landmark (PQ-006). Deterministic openTaskCount=12 anchors the fact oracle and workload cases."
+  },
+  "nguyenAmbiguity": {
+    "personIds": [
+      "00000000-cccc-0000-0000-000000000001",
+      "00000000-cccc-0000-0000-000000000002",
+      "00000000-cccc-0000-0000-000000000003",
+      "00000000-cccc-0000-0000-000000000004"
+    ],
+    "names": ["Anh Nguyen", "Tuan Nguyen", "Linh Nguyen", "Minh Nguyen"],
+    "purpose": "Surname collision (>=3 'Nguyen') so resolveMember returns multiple matches and the agent must clarify rather than guess (PQ-021)."
+  },
+  "haskellEmpty": {
+    "skill": "Haskell",
+    "purpose": "A skill no main-tenant member holds, so searchGroupMembersBySkills returns an empty set — the valid-empty-result landmark (PQ-024)."
+  },
+  "gandalfNotFound": {
+    "name": "Gandalf",
+    "purpose": "A person name absent from the tenant, so resolveMember returns no matches — the not-found (never fabricate) landmark (PQ-023)."
+  },
+  "billingTask": {
+    "taskId": "00000000-ffff-0000-0000-000000000002",
+    "title": "Migrate billing schema",
+    "purpose": "Semantic-search landmark for topic phrasing ('billing migration', PQ-007) and the main-tenant counterpart the decoy billing task collides with."
+  },
+  "decoyTuan": {
+    "tenantId": "00000000-aaaa-0000-0000-000000000002",
+    "userId": "00000000-bbbb-9999-0000-000000000001",
+    "personId": "00000000-cccc-9999-0000-000000000001",
+    "name": "Tuan Nguyen",
+    "purpose": "Cross-tenant isolation landmark: a name/semantic collision with the main tenant carrying canary strings (DECOY-TENANT-CANARY-742 in bio, ZEPHYR-91 in the decoy billing task) that must never surface in a main-tenant answer."
+  }
+}
