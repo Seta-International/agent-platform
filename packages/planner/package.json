@@ -60,7 +60,7 @@
     "drizzle-orm": "^0.45.2",
     "fractional-indexing": "^3.2.0",
     "graphile-worker": "^0.16.6",
-    "hono": "^4.12.25",
+    "hono": "^4.12.27",
     "pg": "^8.21.0",
     "pino": "^10.3.1",
     "sanitize-html": "^2.17.5",

@@ -397,10 +397,6 @@
               },
               {
                 "value": 30,
-                "color": "yellow"
-              },
-              {
-                "value": 5,
                 "color": "red"
               }
             ]

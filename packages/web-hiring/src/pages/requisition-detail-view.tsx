@@ -126,7 +126,7 @@ const APPLICANT_STAGE_LABEL: Record<string, string> = {
 // board (which lists only active + hired).
 const APPLICANT_STATUS_BADGE: Record<string, string> = {
   hired: 'bg-success-muted text-success',
-  rejected: 'bg-danger-muted text-danger',
+  rejected: 'bg-error-muted text-error',
   transferred: 'bg-surface text-secondary',
   cancelled: 'bg-surface text-secondary',
 };

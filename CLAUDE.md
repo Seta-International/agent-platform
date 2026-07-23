@@ -10,7 +10,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) in t
 
 ## Fixed foundations (do not propose alternatives)
 
-Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM only — **no other ORM, no raw migration tool.** Event bus is a transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll — **no SQS, no Kafka.** Backend: Hono, Mastra, graphile-worker. Frontend: React 19, TanStack Router, Astryx design system (`@astryxdesign/core` + StyleX, custom `seta` theme; foundation landed via FUT-562, migration in progress — `apps/web` still on the shadcn/Radix layer today), Tailwind 4, AI SDK v6, assistant-ui. Auth: better-auth + argon2id. Cloud: AWS — ECS Fargate (Graviton; lean `api` + isolated `worker`, autoscaling), Cloudflare Tunnel (zero inbound), RDS Postgres (single-AZ), S3 + CloudFront, Secrets Manager; Terraform in `infra/terraform/prod/`, single-region `ap-southeast-1`. See [`docs/hosting/aws.md`](docs/hosting/aws.md); k8s deferred.
+Node, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM only — **no other ORM, no raw migration tool.** Event bus is a transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll — **no SQS, no Kafka.** Backend: Hono, Mastra, graphile-worker. Frontend: React, TanStack Router, Astryx design system (`@astryxdesign/core` + `@astryxdesign/theme-neutral` + StyleX; the shadcn/Radix layer is gone — no package declares `@radix-ui` and no source file imports it. Radix survives only inside `@assistant-ui/react*`, which is what the `@radix-ui` pins in `pnpm-workspace.yaml` constrain), Tailwind, AI SDK, assistant-ui. Auth: better-auth + argon2id. Cloud: AWS — ECS Fargate (Graviton; lean `api` + isolated `worker`, autoscaling), Cloudflare Tunnel (zero inbound), RDS Postgres (single-AZ), S3 + CloudFront, Secrets Manager; Terraform in `infra/terraform/prod/`, single-region `ap-southeast-1`. See [`docs/hosting/aws.md`](docs/hosting/aws.md); k8s deferred.
 
 ## Module boundaries (CI-gated; full rule set in `.dependency-cruiser.cjs`)
 
@@ -28,6 +28,7 @@ Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle
 - **Install deps via CLI only** — `pnpm add <pkg>` with no version so the registry resolves latest. Never hand-edit `package.json` versions or `pnpm-lock.yaml`.
 - **New modules come from `pnpm gen module`** (see [`creating-modules.md`](docs/guides/creating-modules.md)) — don't invent commands; root `package.json` scripts are the contract.
 - **`docs/superpowers/` is gitignored — never `git add -f` or push it.** Local working docs only.
+- **`pnpm install` configures Claude Code usage telemetry** on your machine via `postinstall` — metadata only, no prompt or code content. `pnpm telemetry:status` shows exactly what is sent; `SETA_TELEMETRY_OPTOUT=1 pnpm install` removes it. See [`dev-telemetry.md`](docs/hosting/dev-telemetry.md).
 - **Onboarding must stay green:** `clone → install → db:up → db:migrate → bash scripts/dev/tenant-bootstrap.sh → dev` yields a working demo in 5 min on a fresh machine.
 
 ## Always

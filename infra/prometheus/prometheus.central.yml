@@ -1,5 +1,12 @@
 global:
   scrape_interval: 30s
+
+# OTLP from developer machines (Claude Code usage). Without this, Prometheus 3 keeps the
+# dots from OTel metric names — `claude_code.cost.usage_USD_total` — which every dashboard
+# would then have to quote. Escaping to underscores matches the rest of our metrics.
+otlp:
+  translation_strategy: UnderscoreEscapingWithSuffixes
+
 # Receives remote_write from env Alloy agents (enabled via the CLI flag above).
 scrape_configs:
   - job_name: prometheus
