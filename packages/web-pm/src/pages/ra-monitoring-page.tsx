@@ -696,9 +696,11 @@ export function RaMonitoringPage() {
                       worker_id: worker.id,
                       worker_name: worker.name,
                       worker_title: null,
-                      // Carry the active project filter into the wizard so it opens with that
-                      // project already added as a target row.
+                      // Carry the active scope into the wizard so it opens pre-seeded: a project
+                      // filter seeds the project (and its account); an account-only filter seeds
+                      // just the account, leaving the PM to pick among that account's projects.
                       seed_project_id: projectId || null,
+                      seed_account_id: accountId || null,
                     })
                   }
                 />

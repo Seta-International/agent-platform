@@ -77,6 +77,12 @@ export interface ReassignWizardTarget {
    * re-pick the project they're already scoped to. Absent for the row-level edit flow.
    */
   seed_project_id?: string | null;
+  /**
+   * When the list is scoped to an account but no single project (an account has many),
+   * the id of that account — pre-seeded on the target row so the PM only picks the
+   * project. Ignored when `seed_project_id` is set (the project already implies its account).
+   */
+  seed_account_id?: string | null;
 }
 
 export function ReassignWizardDialog({
@@ -134,22 +140,19 @@ export function ReassignWizardDialog({
     targetPrevRef.current = target;
     if (target) {
       setStep(1);
-      // Pre-seed the filtered project (and its account) as the first target row when the
-      // wizard is opened from a project-scoped list — otherwise start with no target rows.
+      // Pre-seed the first target row from the list's scope so the PM doesn't re-pick what
+      // they're already filtered to: a project filter seeds both account and project; an
+      // account-only filter seeds just the account (project left blank to choose among that
+      // account's projects). Neither → start with no target rows.
       const seedProject = target.seed_project_id
         ? projects.find((p) => p.project_id === target.seed_project_id)
         : undefined;
-      setTargetRows(
-        seedProject
-          ? [
-              {
-                ...emptyReassignRow(todayIso()),
-                account_id: seedProject.account_id,
-                project_id: seedProject.project_id,
-              },
-            ]
-          : [],
-      );
+      const seedRow = seedProject
+        ? { account_id: seedProject.account_id, project_id: seedProject.project_id }
+        : target.seed_account_id
+          ? { account_id: target.seed_account_id, project_id: '' }
+          : null;
+      setTargetRows(seedRow ? [{ ...emptyReassignRow(todayIso()), ...seedRow }] : []);
       setPreview(null);
       setConfirmTarget(null);
       setPastEndConfirm(null);
