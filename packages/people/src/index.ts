@@ -45,6 +45,7 @@ export {
 export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { readCycleStatus } from './backend/domain/read-cycle-status.ts';
+export { readMonthTasks } from './backend/domain/read-month-tasks.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
@@ -83,6 +84,10 @@ export type {
   CycleStatusQuery,
   CycleStatusResponse,
   EditWorkerInput,
+  MonthTaskCard,
+  MonthTaskGroup,
+  MonthTasksQuery,
+  MonthTasksResponse,
   PerformanceCapacity,
   PerformanceContext,
   PerformanceContextInput,
@@ -95,4 +100,7 @@ export {
   GENDER_VALUES,
   type GenderValue,
   genderValue,
+  monthTaskCard,
+  monthTasksQuery,
+  monthTasksResponse,
 } from './contracts.ts';

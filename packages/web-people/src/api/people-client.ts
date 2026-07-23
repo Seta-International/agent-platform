@@ -367,3 +367,29 @@ export async function fetchCycleStatus(month: string): Promise<CycleStatusRespon
   );
   return handleResponse<CycleStatusResponse>(res);
 }
+
+export type MonthTaskCard =
+  | { kind: 'unscored'; unscored: number; total: number; interactive: boolean }
+  | { kind: 'self_assessment'; submitted: boolean; interactive: boolean }
+  | { kind: 'morale'; submitted: boolean; interactive: boolean }
+  | { kind: 'cycle_locked' };
+
+export type MonthTaskGroup = {
+  capacity: PerformanceCapacity;
+  label: string;
+  cards: MonthTaskCard[];
+};
+
+export type MonthTasksResponse = {
+  month: string;
+  cycle_status: CycleStatus;
+  groups: MonthTaskGroup[];
+};
+
+export async function fetchMonthTasks(month: string): Promise<MonthTasksResponse> {
+  const res = await fetch(
+    `/api/people/v1/performance/month-tasks?month=${encodeURIComponent(month)}`,
+    { credentials: 'include' },
+  );
+  return handleResponse<MonthTasksResponse>(res);
+}

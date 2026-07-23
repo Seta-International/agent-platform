@@ -141,3 +141,22 @@ test.describe('performance cycle badge (Story 1.3 / FUT-694)', () => {
     await expect(page.getByTestId('cycle-status-badge')).toContainText(labels[cycle.status] ?? '');
   });
 });
+
+test.describe('performance home tasks (Story 1.4 / FUT-695)', () => {
+  test('home shows role dashboard + tasks-for-this-month region', async ({ page }) => {
+    const ctx = await request.newContext({
+      baseURL: 'http://localhost:5173',
+      storageState: '.auth/admin.json',
+    });
+    const contextRes = await ctx.get('/api/people/v1/performance/context');
+    expect(contextRes.ok()).toBe(true);
+    const context = (await contextRes.json()) as { status: string; as_of_month?: string };
+    await ctx.dispose();
+    test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
+
+    await page.goto('/people/performance');
+    await expect(page.getByTestId('performance-home')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('tasks-for-this-month')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-home-kpis')).toBeVisible();
+  });
+});

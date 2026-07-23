@@ -87,6 +87,65 @@ export type PerformanceCapacity =
   | { kind: 'tl'; project_id: string; account_id: string; label: string }
   | { kind: 'member'; project_id: string; account_id: string; label: string };
 
+export const performanceCapacity = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('am'), account_id: z.string().uuid(), label: z.string() }),
+  z.object({
+    kind: z.literal('tl'),
+    project_id: z.string().uuid(),
+    account_id: z.string().uuid(),
+    label: z.string(),
+  }),
+  z.object({
+    kind: z.literal('member'),
+    project_id: z.string().uuid(),
+    account_id: z.string().uuid(),
+    label: z.string(),
+  }),
+]);
+
+export const monthTasksQuery = z.object({
+  month: monthYm,
+});
+export type MonthTasksQuery = z.infer<typeof monthTasksQuery>;
+
+/** Server-authored home to-do cards (FUT-695) — FE echoes only. */
+export const monthTaskCard = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('unscored'),
+    unscored: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+    interactive: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal('self_assessment'),
+    submitted: z.boolean(),
+    interactive: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal('morale'),
+    submitted: z.boolean(),
+    interactive: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal('cycle_locked'),
+  }),
+]);
+export type MonthTaskCard = z.infer<typeof monthTaskCard>;
+
+export const monthTaskGroup = z.object({
+  capacity: performanceCapacity,
+  label: z.string(),
+  cards: z.array(monthTaskCard),
+});
+export type MonthTaskGroup = z.infer<typeof monthTaskGroup>;
+
+export const monthTasksResponse = z.object({
+  month: monthYm,
+  cycle_status: cycleStatusEnum,
+  groups: z.array(monthTaskGroup),
+});
+export type MonthTasksResponse = z.infer<typeof monthTasksResponse>;
+
 /**
  * The Performance surface's entry context ("EmployeePort" read). Discriminated
  * on `status`: `no_employee_record` is a first-class state (renders the
