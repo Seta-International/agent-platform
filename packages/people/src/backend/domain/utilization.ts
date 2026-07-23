@@ -3,7 +3,7 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, projectProjection, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { buildWorkerScope } from './worker-scope.ts';
+import { buildAllocationRowScope, buildWorkerScope } from './worker-scope.ts';
 
 export interface UtilizationSegment {
   project_id: string;
@@ -43,6 +43,7 @@ export async function getUtilizationByPerson(
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
   const scope = await buildWorkerScope(session);
+  const rowScope = await buildAllocationRowScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
@@ -53,6 +54,7 @@ export async function getUtilizationByPerson(
     sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${asOf})`,
   ];
   if (scope) where.push(scope);
+  if (rowScope) where.push(rowScope);
 
   const raw = (await peopleDb()
     .select({

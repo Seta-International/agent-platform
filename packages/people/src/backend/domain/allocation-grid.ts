@@ -9,7 +9,7 @@ import {
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { buildWorkerScope } from './worker-scope.ts';
+import { buildAllocationRowScope, buildWorkerScope } from './worker-scope.ts';
 
 export interface AllocationGridRow {
   worker_id: string;
@@ -110,6 +110,7 @@ export async function getAllocationGrid(
 
   const year = query.year ?? new Date().getUTCFullYear();
   const scope = await buildWorkerScope(session); // SQL predicate on person.id, or null for tenant scope
+  const rowScope = await buildAllocationRowScope(session); // FUT-342/343: account/project row gate
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
@@ -117,6 +118,7 @@ export async function getAllocationGrid(
     isNotNull(workerAllocationProjection.person_id),
   ];
   if (scope) where.push(scope);
+  if (rowScope) where.push(rowScope);
 
   const raw = (await peopleDb()
     .select({
