@@ -35,7 +35,7 @@ import {
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { BarChart3, Settings2, User, X } from 'lucide-react';
+import { BarChart3, Building2, Settings2, User, X } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationBucket,
@@ -49,6 +49,9 @@ import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** How many accounts to show in the effort summary before collapsing into "Other". */
+const EFFORT_SUMMARY_TOP_N = 3;
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO
 // lacks an index signature, so alias locally (do not touch the shared DTO).
@@ -386,6 +389,26 @@ export function AllocationPage() {
   );
 
   const kpis = data?.kpis;
+  const effortByAccount = data?.effort_by_account ?? [];
+  const effortTotalMm = useMemo(
+    () => Math.round(effortByAccount.reduce((s, a) => s + a.total_mm, 0) * 100) / 100,
+    [effortByAccount],
+  );
+  // Collapse long portfolios: top N by MM (API already sorts desc) + an "Other" rollup.
+  const [effortExpanded, setEffortExpanded] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset expand when the filtered set changes.
+  useEffect(() => {
+    setEffortExpanded(false);
+  }, [effortByAccount]);
+  const effortSummary = useMemo(() => {
+    if (effortExpanded || effortByAccount.length <= EFFORT_SUMMARY_TOP_N) {
+      return { rows: effortByAccount, other: null as null | { count: number; total_mm: number } };
+    }
+    const top = effortByAccount.slice(0, EFFORT_SUMMARY_TOP_N);
+    const rest = effortByAccount.slice(EFFORT_SUMMARY_TOP_N);
+    const otherMm = Math.round(rest.reduce((s, a) => s + a.total_mm, 0) * 100) / 100;
+    return { rows: top, other: { count: rest.length, total_mm: otherMm } };
+  }, [effortByAccount, effortExpanded]);
   const rowCount = data?.rows.length ?? 0;
   const activeFiltersCount = [raw.q, raw.status, raw.account, raw.project, raw.bucket].filter(
     Boolean,
@@ -439,6 +462,67 @@ export function AllocationPage() {
                     sub={`${kpis?.project_count ?? 0} projects`}
                   />
                 </div>
+
+                <Card padding={4}>
+                  <h3 className="text-base font-semibold">Effort by account</h3>
+                  {isLoading ? (
+                    <div className="mt-3 space-y-2">
+                      {['e0', 'e1', 'e2'].map((id) => (
+                        <Skeleton key={id} height={28} />
+                      ))}
+                    </div>
+                  ) : effortByAccount.length === 0 ? (
+                    <div className="mt-3">
+                      <EmptyState
+                        icon={<Building2 className="size-6" />}
+                        title="No effort in scope"
+                        description="No man-months for the current filters."
+                      />
+                    </div>
+                  ) : (
+                    <section
+                      className="mt-3 flex flex-col gap-1 text-sm"
+                      aria-label="Effort by account breakdown"
+                    >
+                      <div className="flex justify-between border-b border-border pb-2 text-xs uppercase tracking-wide text-secondary">
+                        <span>Account</span>
+                        <span>MM</span>
+                      </div>
+                      {effortSummary.rows.map((a) => (
+                        <div key={a.account_id} className="flex justify-between py-1.5">
+                          <span>{a.account_name || '—'}</span>
+                          <span className="font-mono tabular-nums">{a.total_mm.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {effortSummary.other ? (
+                        <div className="flex justify-between py-1.5 text-secondary">
+                          <span>
+                            Other ({effortSummary.other.count}{' '}
+                            {effortSummary.other.count === 1 ? 'account' : 'accounts'})
+                          </span>
+                          <span className="font-mono tabular-nums">
+                            {effortSummary.other.total_mm.toFixed(2)}
+                          </span>
+                        </div>
+                      ) : null}
+                      <div className="flex justify-between border-t border-border pt-2 font-medium">
+                        <span>Total</span>
+                        <span className="font-mono tabular-nums">{effortTotalMm.toFixed(2)}</span>
+                      </div>
+                      {effortByAccount.length > EFFORT_SUMMARY_TOP_N ? (
+                        <div className="flex justify-end pt-1">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            label={effortExpanded ? 'Show less' : 'Show all'}
+                            onClick={() => setEffortExpanded((v) => !v)}
+                          />
+                        </div>
+                      ) : null}
+                    </section>
+                  )}
+                </Card>
 
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

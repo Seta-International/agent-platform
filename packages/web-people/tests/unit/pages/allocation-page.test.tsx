@@ -43,6 +43,7 @@ const baseGrid = {
   worker_totals: [],
   kpis: { avg_utilization: 80, over_allocated_count: 0, member_count: 2, project_count: 1 },
   facets: { accounts: [], projects: [] },
+  effort_by_account: [{ account_id: 'a1', account_name: 'Acme', total_mm: 15 }],
 };
 
 function renderPage() {
@@ -137,11 +138,69 @@ describe('AllocationPage (Astryx Table migration)', () => {
   });
 
   it('renders the empty state when there are no allocations', async () => {
-    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: [] });
+    mockFetchAllocationGrid.mockResolvedValue({
+      ...baseGrid,
+      rows: [],
+      effort_by_account: [],
+    });
     renderPage();
 
     const table = await screen.findByRole('table');
     expect(within(table).getByText('No allocations')).toBeInTheDocument();
+  });
+
+  it('renders effort-by-account rows and a total', async () => {
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Effort by account' });
+    const region = await screen.findByRole('region', { name: 'Effort by account breakdown' });
+    expect(within(region).getByText('Acme')).toBeInTheDocument();
+    expect(within(region).getAllByText('15.00')).toHaveLength(2); // account row + total
+    expect(within(region).getByText('Total')).toBeInTheDocument();
+  });
+
+  it('collapses to top 3 accounts with an Other rollup and Show all', async () => {
+    const user = userEvent.setup();
+    const manyAccounts = [
+      { account_id: 'a1', account_name: 'Alpha', total_mm: 10 },
+      { account_id: 'a2', account_name: 'Beta', total_mm: 8 },
+      { account_id: 'a3', account_name: 'Gamma', total_mm: 6 },
+      { account_id: 'a4', account_name: 'Delta', total_mm: 4 },
+      { account_id: 'a5', account_name: 'Epsilon', total_mm: 2 },
+    ];
+    mockFetchAllocationGrid.mockResolvedValue({
+      ...baseGrid,
+      effort_by_account: manyAccounts,
+    });
+    renderPage();
+
+    const region = await screen.findByRole('region', { name: 'Effort by account breakdown' });
+    expect(within(region).getByText('Alpha')).toBeInTheDocument();
+    expect(within(region).getByText('Beta')).toBeInTheDocument();
+    expect(within(region).getByText('Gamma')).toBeInTheDocument();
+    expect(within(region).queryByText('Delta')).not.toBeInTheDocument();
+    expect(within(region).getByText('Other (2 accounts)')).toBeInTheDocument();
+    // Other MM is 4+2=6; Gamma is also 6.00 — assert via the Other row.
+    expect(within(region).getByText('Other (2 accounts)').parentElement).toHaveTextContent('6.00');
+    expect(within(region).getByText('30.00')).toBeInTheDocument(); // Total
+
+    await user.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(within(region).getByText('Delta')).toBeInTheDocument();
+    expect(within(region).getByText('Epsilon')).toBeInTheDocument();
+    expect(within(region).queryByText(/Other/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(within(region).queryByText('Delta')).not.toBeInTheDocument();
+    expect(within(region).getByText('Other (2 accounts)')).toBeInTheDocument();
+  });
+
+  it('renders an empty state when effort_by_account is empty', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, effort_by_account: [] });
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Effort by account' });
+    expect(await screen.findByText('No effort in scope')).toBeInTheDocument();
   });
 });
 
