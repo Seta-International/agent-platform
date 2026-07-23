@@ -802,6 +802,9 @@ function TargetRowFields({
           label="Start date"
           isLabelHidden
           size="sm"
+          // A new allocation can't start in the past (mirrors ra-shared's pastStart guard),
+          // so disable every day before today in the picker.
+          min={todayIso()}
           value={row.date_from || undefined}
           onChange={(v) => {
             const newFrom = v ?? '';
@@ -815,7 +818,8 @@ function TargetRowFields({
           label="End date"
           isLabelHidden
           size="sm"
-          min={row.date_from || undefined}
+          // Not before the start date — and never in the past when no start is picked yet.
+          min={row.date_from || todayIso()}
           value={row.date_to || undefined}
           onChange={(v) => onChange({ date_to: v ?? '' })}
         />
