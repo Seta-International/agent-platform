@@ -33,7 +33,9 @@ import {
   type Bucket,
   daysBetweenInclusive,
   emptyReassignRow,
+  endDateIsInPast,
   existingAllocationErrors,
+  existingRowChanged,
   formatDisplayDate,
   fractionToPct,
   isValidIsoDate,
@@ -98,6 +100,13 @@ export function ReassignWizardDialog({
   const [targetRows, setTargetRows] = useState<ReassignTargetRow[]>([]);
   const [preview, setPreview] = useState<ReassignGroupPreviewResult | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<RaMonitoringAllocation | null>(null);
+  // Pending per-row save awaiting confirmation because its end date is in the past — saving it
+  // would drop the allocation out of RA Monitoring's active window, so we warn before applying.
+  const [pastEndConfirm, setPastEndConfirm] = useState<{
+    allocationId: string;
+    draft: RowDraft;
+    expectedVersion: number;
+  } | null>(null);
   // Locally reflects a row already saved directly on this screen, so it shows
   // the new values immediately without waiting on the parent's allocations
   // query to refetch.
@@ -143,6 +152,7 @@ export function ReassignWizardDialog({
       );
       setPreview(null);
       setConfirmTarget(null);
+      setPastEndConfirm(null);
       setSavedOverrides({});
       setRowDrafts({});
     }
@@ -203,7 +213,11 @@ export function ReassignWizardDialog({
         expected_version: vars.expectedVersion,
       }),
     onSuccess: (_, vars) => {
+      // A past end date is confirmed up front through the AlertDialog below (it spells out that
+      // the row will leave RA Monitoring's active window), so a successful save just needs the
+      // standard confirmation. Close the past-end dialog in case this save came from it.
       toast({ body: 'Allocation updated' });
+      setPastEndConfirm(null);
       setSavedOverrides((m) => ({
         ...m,
         [vars.allocationId]: {
@@ -283,7 +297,83 @@ export function ReassignWizardDialog({
     },
   });
 
-  function goToReview() {
+  // Existing-row edits (e.g. shortening an allocation's end date so it stops overlapping a new
+  // one) live only as local drafts until saved. The over-allocation preview reads the worker's
+  // book from the DB, so an unsaved edit is invisible to it — the FUT-748 defect: Review impact
+  // still counts the allocation at its old length and warns about a phantom over-allocation
+  // (and confirming would leave the real overlap in place). Persist any pending, valid edits
+  // first so the preview — and the final saved state — reflect exactly what's on screen.
+  async function goToReview() {
+    const dirtyRows = futureAllocations.filter((a) => {
+      if (!rowDrafts[a.allocation_id]) return false;
+      const d = draftFor(a);
+      // Same gate as the row's own Save button: needs an account + project and no row error.
+      if (!d.account_id || !d.project_id || existingErrors[a.allocation_id] != null) return false;
+      const eff = effectiveRow(a);
+      return existingRowChanged(
+        {
+          account_id: d.account_id,
+          project_id: d.project_id,
+          planned_pct: fractionToPct(d.planned_pct),
+          date_from: d.date_from,
+          date_to: d.date_to,
+          bucket: d.bucket,
+          note: d.note,
+        },
+        {
+          account_id: eff.account_id,
+          project_id: eff.project_id,
+          planned_pct: eff.planned_pct,
+          date_from: eff.date_from ?? '',
+          date_to: eff.date_to ?? '',
+          bucket: eff.bucket,
+          note: eff.note ?? '',
+        },
+      );
+    });
+
+    if (dirtyRows.length > 0) {
+      try {
+        await Promise.all(
+          dirtyRows.map((a) => {
+            const d = draftFor(a);
+            return updateAllocation(a.allocation_id, {
+              project_id: d.project_id,
+              planned_pct: fractionToPct(d.planned_pct),
+              date_from: d.date_from,
+              date_to: d.date_to || null,
+              bucket: d.bucket,
+              note: d.note || null,
+              expected_version: a.version,
+            });
+          }),
+        );
+      } catch (e) {
+        // Leave the wizard on step 1 rather than preview a half-applied edit.
+        toast({ body: (e as Error).message, type: 'error' });
+        return;
+      }
+      // Mirror the saved values locally (as the per-row Save does) so the UI stays in sync,
+      // and refetch the parent so any further edit gets a fresh version.
+      setSavedOverrides((m) => {
+        const next = { ...m };
+        for (const a of dirtyRows) {
+          const d = draftFor(a);
+          next[a.allocation_id] = {
+            account_id: d.account_id,
+            project_id: d.project_id,
+            planned_pct: fractionToPct(d.planned_pct),
+            date_from: d.date_from,
+            date_to: d.date_to,
+            bucket: d.bucket,
+            note: d.note || null,
+          };
+        }
+        return next;
+      });
+      onReassigned();
+    }
+
     setStep(2);
     previewMutation.mutate();
   }
@@ -487,6 +577,10 @@ export function ReassignWizardDialog({
                               label={`Start date for ${a.project_name}`}
                               isLabelHidden
                               size="sm"
+                              // Grey out past days in the picker: an editable start can only move to
+                              // today or later. Locked rows keep their committed past start (the
+                              // field is disabled, so min is moot there).
+                              min={todayIso()}
                               isDisabled={startLocked}
                               value={draft.date_from || undefined}
                               onChange={(v) => {
@@ -542,13 +636,21 @@ export function ReassignWizardDialog({
                                   !draft.project_id ||
                                   existingErrors[a.allocation_id] != null
                                 }
-                                onClick={() =>
-                                  saveRowMutation.mutate({
+                                onClick={() => {
+                                  const vars = {
                                     allocationId: a.allocation_id,
                                     draft,
                                     expectedVersion: a.version,
-                                  })
-                                }
+                                  };
+                                  // A past end date silently drops the row out of the active
+                                  // window — confirm the consequence before applying, rather
+                                  // than saving first and explaining afterwards.
+                                  if (endDateIsInPast(draft.date_to, todayIso())) {
+                                    setPastEndConfirm(vars);
+                                  } else {
+                                    saveRowMutation.mutate(vars);
+                                  }
+                                }}
                               />
                               <Button
                                 size="sm"
@@ -655,7 +757,7 @@ export function ReassignWizardDialog({
                     isDisabled={!canReview}
                     label="Review impact"
                     endContent={<ArrowRight className="size-4" />}
-                    onClick={goToReview}
+                    onClick={() => void goToReview()}
                   />
                 </>
               ) : (
@@ -691,6 +793,21 @@ export function ReassignWizardDialog({
         isActionLoading={removeMutation.isPending}
         onAction={() => {
           if (confirmTarget) removeMutation.mutate(confirmTarget.allocation_id);
+        }}
+      />
+
+      <AlertDialog
+        isOpen={pastEndConfirm !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPastEndConfirm(null);
+        }}
+        title="End this allocation in the past?"
+        description="The end date is before today, so once saved this allocation moves out of RA Monitoring's active window and no longer appears in this list. Widen the active-period filter to see ended allocations. Continue?"
+        actionLabel="Save anyway"
+        actionVariant="primary"
+        isActionLoading={saveRowMutation.isPending}
+        onAction={() => {
+          if (pastEndConfirm) saveRowMutation.mutate(pastEndConfirm);
         }}
       />
     </>

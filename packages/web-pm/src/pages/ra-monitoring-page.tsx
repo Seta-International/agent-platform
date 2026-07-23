@@ -447,6 +447,26 @@ export function RaMonitoringPage() {
   const [splitTarget, setSplitTarget] = useState<RaMonitoringAllocation | null>(null);
   const [wizardTarget, setWizardTarget] = useState<ReassignWizardTarget | null>(null);
 
+  // The Add-allocation wizard reviews a person's ENTIRE book for conflict / over-allocation, so
+  // it must not inherit the list's project, account, or search filters — those would hide the
+  // person's allocations on other projects, which are exactly what a conflict check has to see
+  // (the backend over-allocation math already counts the whole book, so a project-filtered popup
+  // disagreed with it). Fetch this person's allocations by worker id, scoped only to the
+  // active-period window, whenever the wizard is open.
+  const wizardAllocParams = useMemo(
+    () => ({
+      worker_id: wizardTarget?.worker_id,
+      active_from: activeFrom || undefined,
+      active_to: activeTo || undefined,
+    }),
+    [wizardTarget?.worker_id, activeFrom, activeTo],
+  );
+  const { data: wizardAllocations } = useQuery({
+    queryKey: pmKeys.allocations(wizardAllocParams),
+    queryFn: () => fetchAllocations(wizardAllocParams),
+    enabled: wizardTarget !== null,
+  });
+
   // The deleted DataTable defaulted `enableColumnVisibility` to `true` (this
   // file never disabled it) and, since no `pagination={false}` was passed
   // either, `getPaginationRowModel` paginated `groupedRows` client-side at the
@@ -857,7 +877,7 @@ export function RaMonitoringPage() {
 
           <ReassignWizardDialog
             target={wizardTarget}
-            allocations={allocations.filter((a) => a.worker_id === wizardTarget?.worker_id)}
+            allocations={wizardAllocations ?? []}
             accountOptions={accountOptions}
             projects={projects ?? []}
             onClose={() => setWizardTarget(null)}

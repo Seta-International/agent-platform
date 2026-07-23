@@ -644,6 +644,7 @@ export interface RaMonitoringAllocation {
 export async function fetchAllocations(params: {
   account_id?: string;
   project_id?: string;
+  worker_id?: string;
   active_from?: string;
   active_to?: string;
   q?: string;
