@@ -232,7 +232,7 @@ export async function getRequisition(input: {
 
   const userEmail = session.email.toLowerCase().trim();
   const userApp = applicants.find((app) => {
-    if (app.status !== 'active') return false;
+    if (app.status !== 'active' && app.status !== 'hired') return false;
     if (session.person_id && app.person_id === session.person_id) return true;
     const contactEmail = (app.candidate_email as { personal_email?: string } | null)
       ?.personal_email;

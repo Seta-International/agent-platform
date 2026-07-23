@@ -1,7 +1,7 @@
 import { listSkills, type SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type {
   AddCandidateInput,
   ApplyInternalInput,
@@ -440,7 +440,7 @@ export async function applyInternalRequisition(
               tenantScoped(application.tenant_id, session),
               eq(application.requisition_id, requisition_id),
               eq(application.candidate_id, candidateId),
-              eq(application.status, 'active'),
+              inArray(application.status, ['active', 'hired']),
             ),
           )
           .limit(1);
