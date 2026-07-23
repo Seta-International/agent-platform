@@ -11,7 +11,7 @@ import {
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getAllocationGrid } from '../../src/backend/domain/allocation-grid.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, linkUserToPerson, seedTenant } from '../helpers.ts';
 
 /** A pm-capable session for seeding accounts (am ownership) through pm's public surface. */
 function pmManagerSession(tenantId: string) {
@@ -495,6 +495,168 @@ describe('getAllocationGrid', () => {
         });
         const grid = await getAllocationGrid(memberSession, { year: 2026 });
         expect(grid.rows.find((r) => r.worker_id === stranger)).toBeUndefined();
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('AM sees only allocation rows on managed accounts (FUT-342 dual-account leak)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const amUser = crypto.randomUUID();
+        const am = crypto.randomUUID();
+        const worker = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([
+            { id: am, tenant_id: t.tenant_id, full_name: 'Minh AM' },
+            { id: worker, tenant_id: t.tenant_id, full_name: 'Nhat Dual' },
+          ]);
+        await linkUserToPerson(t.tenant_id, am, amUser);
+
+        const { account_id: granted } = await createAccount({
+          name: 'SunWest Bank',
+          am_worker_id: am,
+          session: pmManagerSession(t.tenant_id),
+        });
+        const otherAm = crypto.randomUUID();
+        await peopleDb().insert(person).values({
+          id: otherAm,
+          tenant_id: t.tenant_id,
+          full_name: 'Other AM',
+        });
+        const { account_id: foreign } = await createAccount({
+          name: 'Gridbeyond',
+          am_worker_id: otherAm,
+          session: pmManagerSession(t.tenant_id),
+        });
+
+        const projGranted = crypto.randomUUID();
+        const projForeign = crypto.randomUUID();
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projGranted,
+              account_id: granted,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projForeign,
+              account_id: foreign,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const amSession = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: amUser,
+          roles: ['people.viewer'],
+          person_id: am,
+        });
+        const grid = await getAllocationGrid(amSession, { year: 2026 });
+        expect(grid.rows.every((r) => r.account_id === granted)).toBe(true);
+        expect(grid.rows).toHaveLength(1);
+        expect(grid.rows[0]!.worker_id).toBe(worker);
+        // KPIs stay within the managed-account slice (not both accounts' projects).
+        expect(grid.kpis.project_count).toBe(1);
+        expect(grid.kpis.member_count).toBe(1);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('project lead sees only rows on projects they lead (FUT-343)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const leadUser = crypto.randomUUID();
+        const lead = crypto.randomUUID();
+        const worker = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([
+            { id: lead, tenant_id: t.tenant_id, full_name: 'Duy Lead' },
+            { id: worker, tenant_id: t.tenant_id, full_name: 'Member Dual' },
+          ]);
+        await linkUserToPerson(t.tenant_id, lead, leadUser);
+
+        const accA = crypto.randomUUID();
+        const accB = crypto.randomUUID();
+        const projLed = crypto.randomUUID();
+        const projOther = crypto.randomUUID();
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projLed,
+              account_id: accA,
+              lead_person_id: lead,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '70',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projOther,
+              account_id: accB,
+              lead_person_id: null,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const leadSession = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: leadUser,
+          roles: ['people.viewer'],
+          person_id: lead,
+        });
+        const grid = await getAllocationGrid(leadSession, { year: 2026 });
+        expect(grid.rows).toHaveLength(1);
+        expect(grid.rows[0]!.project_id).toBe(projLed);
+        expect(grid.kpis.project_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
