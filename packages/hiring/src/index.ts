@@ -1,5 +1,6 @@
 export {
   addCandidate,
+  applyInternalRequisition,
   assertSkillsInCatalog,
   editCandidate,
   recordCandidateEvent,

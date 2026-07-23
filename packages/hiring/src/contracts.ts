@@ -87,6 +87,11 @@ export const closeRequisitionInput = z
   });
 export type CloseRequisitionInput = z.infer<typeof closeRequisitionInput>;
 
+export const applyInternalInput = z.object({
+  note: z.string().optional(),
+});
+export type ApplyInternalInput = z.infer<typeof applyInternalInput>;
+
 export const jdTemplateInput = z.object({
   name: z.string().min(1),
   kind: z.enum(['role', 'intro', 'closing']),

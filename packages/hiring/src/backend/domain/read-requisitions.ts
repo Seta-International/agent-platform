@@ -182,6 +182,8 @@ export interface RequisitionDetail {
     candidate_name: string | null;
     candidate_seniority: string | null;
   })[];
+  has_applied: boolean;
+  user_application_id: string | null;
 }
 
 export async function getRequisition(input: {
@@ -221,11 +223,22 @@ export async function getRequisition(input: {
         ...getTableColumns(application),
         candidate_name: candidate.name,
         candidate_seniority: candidate.seniority,
+        candidate_email: candidate.contact,
       })
       .from(application)
       .leftJoin(candidate, eq(candidate.id, application.candidate_id))
       .where(eq(application.requisition_id, requisition_id)),
   ]);
+
+  const userEmail = session.email.toLowerCase().trim();
+  const userApp = applicants.find((app) => {
+    if (app.status !== 'active') return false;
+    if (session.person_id && app.person_id === session.person_id) return true;
+    const contactEmail = (app.candidate_email as { personal_email?: string } | null)
+      ?.personal_email;
+    return contactEmail?.toLowerCase().trim() === userEmail;
+  });
+
   return {
     requisition: row.requisition,
     account_name: row.account_name,
@@ -233,7 +246,9 @@ export async function getRequisition(input: {
     openings,
     jd_sections,
     skills,
-    applicants,
+    applicants: applicants.map(({ candidate_email, ...rest }) => rest),
+    has_applied: !!userApp,
+    user_application_id: userApp ? userApp.id : null,
   };
 }
 
