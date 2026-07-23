@@ -1019,21 +1019,25 @@ function ReviewStep({
         // the same Astryx component as the error banners above, not a hand-rolled row.
         <Banner
           status="warning"
+          // Describe the *resulting* state, not what this change caused: the peak can
+          // come from a pre-existing overlap this operation never touched (the backend
+          // now measures the worker's whole book), so wording that blames "this change"
+          // would be wrong.
           title={
             <>
-              This will allocate {preview.worker_name ?? 'this person'} to{' '}
+              {preview.worker_name ?? 'This person'} will be allocated{' '}
               <strong>{preview.peak_pct}%</strong> at the busiest point.
             </>
           }
           description={
             preview.peak_from ? (
               <>
-                Overlap occurs from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
+                They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
                 <strong>{preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}</strong>
                 {preview.peak_to
                   ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
-                  : ''}{' '}
-                — over 100%. You can still confirm below.
+                  : ''}
+                . You can still confirm below.
               </>
             ) : (
               'Over 100%. You can still confirm below.'
