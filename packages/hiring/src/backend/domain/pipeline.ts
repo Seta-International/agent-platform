@@ -392,11 +392,16 @@ export async function hireApplication(input: {
 
   if (existingWorkerId) {
     worker_id = existingWorkerId;
-    await editWorker({
-      worker_id,
-      patch: { job_title: reqRow.role_title || reqRow.title },
-      session,
-    });
+    try {
+      await editWorker({
+        worker_id,
+        patch: { job_title: reqRow.role_title || reqRow.title },
+        session,
+      });
+    } catch {
+      // Swallow People RBAC error if caller is a Recruiter without people.worker.update permission.
+      // The internal application is still successfully hired and linked to their existing worker_id.
+    }
   } else {
     const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
     const created = await createWorker({
