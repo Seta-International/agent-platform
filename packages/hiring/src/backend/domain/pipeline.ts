@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
-import { createWorker } from '@seta/people';
+import { createWorker, editWorker, getWorkerIdForUser } from '@seta/people';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
@@ -325,6 +325,7 @@ export async function hireApplication(input: {
       version: application.version,
       status: application.status,
       stage: application.stage,
+      kind: application.kind,
       candidate_id: application.candidate_id,
       requisition_id: application.requisition_id,
     })
@@ -381,16 +382,34 @@ export async function hireApplication(input: {
     throw new HiringError('CONFLICT', 'No vacant openings for this requisition');
   }
 
-  const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
-  const { worker_id } = await createWorker({
-    full_name: candRow.name,
-    personal_email: contact?.personal_email || undefined,
-    phone: contact?.phone || undefined,
-    dob: candRow.dob || undefined,
-    gender: candRow.gender || undefined,
-    job_title: reqRow.role_title || reqRow.title,
-    session,
-  });
+  let worker_id: string;
+
+  const existingWorkerId =
+    appRow.kind === 'internal'
+      ? (session.person_id ??
+        (session.user_id ? await getWorkerIdForUser(session.user_id, session.tenant_id) : null))
+      : null;
+
+  if (existingWorkerId) {
+    worker_id = existingWorkerId;
+    await editWorker({
+      worker_id,
+      patch: { job_title: reqRow.role_title || reqRow.title },
+      session,
+    });
+  } else {
+    const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
+    const created = await createWorker({
+      full_name: candRow.name,
+      personal_email: contact?.personal_email || undefined,
+      phone: contact?.phone || undefined,
+      dob: candRow.dob || undefined,
+      gender: candRow.gender || undefined,
+      job_title: reqRow.role_title || reqRow.title,
+      session,
+    });
+    worker_id = created.worker_id;
+  }
 
   const nextAppVersion = appRow.version + 1;
   const nextOpeningVersion = openOpening.version + 1;
