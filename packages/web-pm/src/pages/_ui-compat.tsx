@@ -28,6 +28,7 @@ export function Input({
   type,
   disabled,
   isDisabled,
+  isLabelHidden,
   min: _min,
   max: _max,
   ...rest
@@ -35,6 +36,7 @@ export function Input({
   label?: ReactNode;
   type?: string;
   disabled?: boolean;
+  isLabelHidden?: boolean;
   min?: string;
   max?: string;
 }) {
@@ -43,7 +45,9 @@ export function Input({
     <AstryxInput
       {...(rest as InputProps)}
       label={(label ?? '') as InputProps['label']}
-      isLabelHidden={label == null || label === ''}
+      // Honour an explicit isLabelHidden; only fall back to hiding when there's no label
+      // to show (so a labelled-but-hidden field like a table cell doesn't leak its label).
+      isLabelHidden={isLabelHidden ?? (label == null || label === '')}
       isDisabled={disabled ?? isDisabled}
       {...(safeType ? ({ type: safeType } as Partial<InputProps>) : {})}
     />
@@ -54,13 +58,18 @@ export function Textarea({
   label,
   disabled,
   isDisabled,
+  isLabelHidden,
   ...rest
-}: Omit<TextareaProps, 'label'> & { label?: ReactNode; disabled?: boolean }) {
+}: Omit<TextareaProps, 'label'> & {
+  label?: ReactNode;
+  disabled?: boolean;
+  isLabelHidden?: boolean;
+}) {
   return (
     <AstryxTextarea
       {...(rest as TextareaProps)}
       label={(label ?? '') as TextareaProps['label']}
-      isLabelHidden={label == null || label === ''}
+      isLabelHidden={isLabelHidden ?? (label == null || label === '')}
       isDisabled={disabled ?? isDisabled}
     />
   );
@@ -116,32 +125,38 @@ const BTN_VARIANT: Record<string, string> = {
   ghost: 'text-primary hover:bg-surface-2',
   destructive: 'bg-error text-on-accent hover:bg-error/90',
 };
+const ICON_ONLY_SIZE: Record<string, string> = { sm: 'size-7', md: 'size-9', lg: 'size-10' };
 export function Button({
   label,
   children,
   variant = 'primary',
-  size: _size,
+  size = 'md',
   disabled,
   isDisabled,
   className,
   asChild: _asChild,
-  isIconOnly: _isIconOnly,
+  isIconOnly,
   icon,
   endContent,
   onPress,
   onClick,
   ...rest
 }: ButtonShimProps) {
+  // Icon-only buttons render just the icon; the `label` becomes the accessible name
+  // (aria-label) rather than visible text, so they stay square and don't blow out their
+  // column. Without this the shim printed the whole label ("Save <project>") inline.
+  const shape = isIconOnly ? `${ICON_ONLY_SIZE[size] ?? ICON_ONLY_SIZE.md} p-0` : 'px-3 py-1.5';
   return (
     <button
       type="button"
       disabled={disabled ?? isDisabled}
       onClick={onClick ?? (onPress ? () => onPress() : undefined)}
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 ${BTN_VARIANT[variant] ?? BTN_VARIANT.primary} ${className ?? ''}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md ${shape} text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 ${BTN_VARIANT[variant] ?? BTN_VARIANT.primary} ${className ?? ''}`}
       {...rest}
+      aria-label={isIconOnly && typeof label === 'string' ? label : undefined}
     >
       {icon}
-      {children ?? label}
+      {isIconOnly ? null : (children ?? label)}
       {endContent}
     </button>
   );

@@ -361,6 +361,80 @@ describe('reassignWorkerAllocations', () => {
     });
   });
 
+  it('flags a pre-existing overlap the previewed change never touches (whole-book peak)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const acme = await seedProject(t.adminSession, 'AcmeBillingRevamp', {
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+        });
+        const nordic = await seedProject(t.adminSession, 'NordicMobileCheckout', {
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+        });
+        const later = await seedProject(t.adminSession, 'LaterProj', {
+          date_from: '2027-01-01',
+          date_to: '2028-12-31',
+        });
+        const worker = crypto.randomUUID();
+
+        // Two existing allocations that already overlap at 200% in Jul–Aug 2026.
+        await createAllocation({
+          project_id: acme,
+          worker_id: worker,
+          date_from: '2026-07-23',
+          date_to: '2026-08-23',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        await createAllocation({
+          project_id: nordic,
+          worker_id: worker,
+          date_from: '2026-07-23',
+          date_to: '2026-09-16',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        // Add a target far in the future that overlaps neither existing row and
+        // ends nothing. The peak must still reflect the worker's whole book — the
+        // pre-existing 200% conflict in mid-2026 — not just this change's window.
+        const preview = await previewReassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' },
+          targets: [
+            {
+              project_id: later,
+              date_from: '2027-11-30',
+              date_to: '2028-01-28',
+              planned_pct: 100,
+              bucket: 'billable',
+            },
+          ],
+          session: t.adminSession,
+        });
+
+        expect(preview.peak_pct).toBe(200);
+        expect(preview.exceeds).toBe(true);
+        expect(preview.peak_from).toBe('2026-07-23');
+        expect(preview.peak_to).toBe('2026-08-23');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('flags over-allocation via previewReassignWorkerAllocations when the new target overlaps a kept allocation', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
