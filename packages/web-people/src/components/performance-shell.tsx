@@ -6,6 +6,7 @@ import { usePerformanceScope } from '../hooks/use-performance-scope.ts';
 import { filterPerformanceNav, isPerformanceNavAllowed } from '../nav/performance-nav.ts';
 import { navIdFromPath } from '../nav/performance-path.ts';
 import type { PerformanceScopeSearch } from '../state/performance-scope.ts';
+import { CycleStatusBadgeLoader } from './cycle-status-badge-loader.tsx';
 import { ProjectContextSwitcher } from './project-context-switcher.tsx';
 
 export type PerformanceShellProps = {
@@ -18,7 +19,7 @@ export type PerformanceShellProps = {
 
 /**
  * In-page Performance shell (SCR-02): secondary nav (affordance-filtered) +
- * header with cycle-badge slot (S1.3) + project-context switcher.
+ * header with cycle-status badge + project-context switcher.
  * Suite AppShell already owns bell/avatar — do not duplicate.
  */
 export function PerformanceShell({
@@ -40,10 +41,9 @@ export function PerformanceShell({
 
   const navItems = filterPerformanceNav(role_slugs, resolved.capacity);
   const activeId = navIdFromPath(pathname);
-  // Prefer canonical resolved search for nav links so section switches keep scope.
   const linkSearch = { ...urlSearch, ...search };
+  const cycleMonth = resolved.month;
 
-  // Unauthorized deep-link → graceful /403 (AC1). Affordance only; server still authz later.
   useEffect(() => {
     if (!activeId) return;
     if (isPerformanceNavAllowed(activeId, role_slugs, resolved.capacity)) return;
@@ -79,8 +79,9 @@ export function PerformanceShell({
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Cycle-status badge slot — Story 1.3 */}
-          <div data-testid="performance-cycle-badge-slot" aria-hidden={true} />
+          <div data-testid="performance-cycle-badge-slot">
+            <CycleStatusBadgeLoader month={cycleMonth} />
+          </div>
           <ProjectContextSwitcher
             capacities={capacities}
             resolved={resolved}
@@ -94,10 +95,20 @@ export function PerformanceShell({
 }
 
 /** Stub body for sections not yet built (S1.4 / E2). */
-export function PerformanceSectionStub({ title }: { title: string }) {
+export function PerformanceSectionStub({
+  title,
+  month,
+}: {
+  title: string;
+  /** When set, show cycle badge at top of write-capable stubs (SCR-03/04 pattern). */
+  month?: string;
+}) {
   return (
-    <Text color="secondary" data-testid="performance-section-stub">
-      {title} — coming in a later story.
-    </Text>
+    <div className="flex flex-col gap-3">
+      {month ? <CycleStatusBadgeLoader month={month} /> : null}
+      <Text color="secondary" data-testid="performance-section-stub">
+        {title} — coming in a later story.
+      </Text>
+    </div>
   );
 }

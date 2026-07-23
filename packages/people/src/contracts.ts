@@ -64,6 +64,24 @@ export const performanceContextInput = z.object({
 });
 export type PerformanceContextInput = z.infer<typeof performanceContextInput>;
 
+const monthYm = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+
+export const cycleStatusQuery = z.object({
+  month: monthYm,
+});
+export type CycleStatusQuery = z.infer<typeof cycleStatusQuery>;
+
+export const cycleStatusEnum = z.enum(['open', 'makeup', 'locked', 'override']);
+export type CycleStatus = z.infer<typeof cycleStatusEnum>;
+
+export const cycleStatusResponse = z.object({
+  month: monthYm,
+  status: cycleStatusEnum,
+  /** UTC ISO of the transaction-start timestamp used for classification. */
+  evaluated_at: z.string().datetime(),
+});
+export type CycleStatusResponse = z.infer<typeof cycleStatusResponse>;
+
 export type PerformanceCapacity =
   | { kind: 'am'; account_id: string; label: string }
   | { kind: 'tl'; project_id: string; account_id: string; label: string }

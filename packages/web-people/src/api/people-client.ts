@@ -351,3 +351,19 @@ export async function fetchPerformanceContext(asOfMonth: string): Promise<Perfor
   );
   return handleResponse<PerformanceContext>(res);
 }
+
+export type CycleStatus = 'open' | 'makeup' | 'locked' | 'override';
+
+export type CycleStatusResponse = {
+  month: string;
+  status: CycleStatus;
+  evaluated_at: string;
+};
+
+export async function fetchCycleStatus(month: string): Promise<CycleStatusResponse> {
+  const res = await fetch(
+    `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}`,
+    { credentials: 'include' },
+  );
+  return handleResponse<CycleStatusResponse>(res);
+}
