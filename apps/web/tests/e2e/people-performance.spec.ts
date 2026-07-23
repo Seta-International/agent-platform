@@ -17,12 +17,18 @@ test.describe('performance entry (Story 1.1 / FUT-692)', () => {
     });
     const res = await ctx.get('/api/people/v1/performance/context');
     expect(res.ok()).toBe(true);
-    const context = (await res.json()) as { status: string };
+    const context = (await res.json()) as {
+      status: string;
+      capacities?: { kind: string; label: string }[];
+    };
     await ctx.dispose();
 
     await page.goto('/people/performance');
     if (context.status === 'ok') {
-      await expect(page.getByText(/Signed in with \d+ capacit/)).toBeVisible({ timeout: 8_000 });
+      // Story 1.2 shell: sidebar + switcher replace the S1.1 "Signed in with N" stub.
+      await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByTestId('performance-context-switcher')).toBeVisible();
+      await expect(page.getByTestId('performance-nav-dashboard')).toBeVisible();
     } else {
       await expect(page.getByText('No employee record found')).toBeVisible({ timeout: 8_000 });
     }
@@ -59,5 +65,41 @@ test.describe('performance entry (Story 1.1 / FUT-692)', () => {
     await expect(page.getByText(/contact HR/i)).toBeVisible();
     await expect(page.getByText('No access')).not.toBeVisible();
     await context.close();
+  });
+});
+
+test.describe('performance shell (Story 1.2 / FUT-693)', () => {
+  test('ok session shows shell; URL gains scope params from default capacity (AC4)', async ({
+    page,
+  }) => {
+    const ctx = await request.newContext({
+      baseURL: 'http://localhost:5173',
+      storageState: '.auth/admin.json',
+    });
+    const res = await ctx.get('/api/people/v1/performance/context');
+    expect(res.ok()).toBe(true);
+    const context = (await res.json()) as {
+      status: string;
+      capacities?: unknown[];
+      as_of_month?: string;
+    };
+    await ctx.dispose();
+
+    test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
+
+    await page.goto('/people/performance');
+    await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-cycle-badge-slot')).toBeAttached();
+
+    // Bare URL should be corrected to include month (+ capacity when present).
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('month'), { timeout: 8_000 })
+      .toBe(context.as_of_month ?? null);
+
+    if ((context.capacities?.length ?? 0) > 0) {
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get('kind'), { timeout: 8_000 })
+        .toBeTruthy();
+    }
   });
 });

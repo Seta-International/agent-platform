@@ -26,7 +26,12 @@ import {
 } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { clearLastApp, writeLastApp } from '@/shell/last-app.ts';
-import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
+import {
+  activeAppId,
+  activeNavId,
+  filterNavSections,
+  visibleManifests,
+} from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 import { settingsAppManifest } from '@/shell/settings-manifest.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
@@ -82,21 +87,35 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
     staleTime: 60_000,
   });
 
+  const sessionLike = useMemo(
+    () => ({
+      permissions: new Set(session.permissions),
+      product_access: new Set(session.product_access),
+    }),
+    [session.permissions, session.product_access],
+  );
+
   const navModules = useMemo(() => {
     const enabled = new Set(enabledQuery.data?.enabled ?? ALL_MANIFESTS.map((m) => m.id));
-    return visibleManifests(
-      ALL_MANIFESTS,
-      {
-        permissions: new Set(session.permissions),
-        product_access: new Set(session.product_access),
-      },
-      enabled,
-    );
-  }, [enabledQuery.data, session]);
+    return visibleManifests(ALL_MANIFESTS, sessionLike, enabled).map((m) => ({
+      ...m,
+      // Affordance: hide suite nav items the session cannot access (FUT-693 / FE-AD-6).
+      nav: filterNavSections(m.nav, sessionLike),
+    }));
+  }, [enabledQuery.data, sessionLike]);
 
   // Settings is a system app: it drives chrome for /settings/* but stays out of
   // the launcher (hideInLauncher) and the enabled-modules/product-access gating.
-  const chromeManifests = useMemo(() => [...navModules, settingsAppManifest], [navModules]);
+  const chromeManifests = useMemo(
+    () => [
+      ...navModules,
+      {
+        ...settingsAppManifest,
+        nav: filterNavSections(settingsAppManifest.nav, sessionLike),
+      },
+    ],
+    [navModules, sessionLike],
+  );
 
   const activeId = activeNavId(chromeManifests, pathname);
   const activeApp = activeAppId(chromeManifests, pathname);
