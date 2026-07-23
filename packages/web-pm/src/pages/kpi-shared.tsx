@@ -79,9 +79,9 @@ export function formatBand(
       case 'between':
         return `${fmtValue(c.min)}–${fmtValue(c.max)}`;
       case 'or':
-        return c.conditions.map(fmtOne).join(' hoặc ');
+        return c.conditions.map(fmtOne).join(' or ');
       case 'and':
-        return c.conditions.map(fmtOne).join(' và ');
+        return c.conditions.map(fmtOne).join(' and ');
     }
   };
   return fmtOne(band);

@@ -179,7 +179,7 @@ function MethodologyLensSection({ q }: { q: string }) {
       <div className="flex items-baseline gap-2">
         <h3 className="text-base font-semibold text-primary">Methodology lens</h3>
         <span className="text-xs text-secondary">
-          lớp bổ trợ theo methodology — không thay thế Core
+          supplementary lens per methodology — does not replace Core
         </span>
       </div>
       <div className="rounded-md border border-border">
@@ -221,7 +221,7 @@ function ExecutiveSection({ q }: { q: string }) {
           ))}
         </div>
         <p className="border-t border-border px-3 py-2.5 text-xs text-secondary">
-          Quadrant nguy hiểm nhất:{' '}
+          Most dangerous quadrant:{' '}
           <span className="font-semibold text-primary">
             {KPI_EXECUTIVE_MATRIX_WARNING.headline}
           </span>

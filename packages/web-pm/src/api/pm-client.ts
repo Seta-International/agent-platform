@@ -1038,8 +1038,29 @@ export async function ensureWeeklyReport(body: {
   project_id: string;
   iso_year: number;
   iso_week: number;
-}): Promise<{ report_id: string; version: number; status: 'draft' | 'submitted' }> {
+}): Promise<{
+  report_id: string;
+  version: number;
+  status: 'draft' | 'submitted';
+  created: boolean;
+}> {
   const res = await fetch('/api/pm/v1/weekly-reports/ensure', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}
+
+/** Reverse of ensureWeeklyReport — drops the pristine empty draft when the composer is abandoned
+ * without a save (FUT-740). No-op server-side for anything with content or a submitted report. */
+export async function discardWeeklyReport(body: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+}): Promise<{ discarded: boolean }> {
+  const res = await fetch('/api/pm/v1/weekly-reports/discard', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

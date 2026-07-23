@@ -31,8 +31,8 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         name: 'Velocity',
         formula_label: 'Σ Story Points completed / Sprint',
         green_label: 'Stable (trend ±10%)',
-        yellow_label: 'Biến động 11–25%',
-        red_label: '> 25% hoặc giảm 3 sprint liên tiếp',
+        yellow_label: 'Variance 11–25%',
+        red_label: '> 25% or 3 consecutive sprint declines',
         insight: 'Red = instability, turnover, methodology failure.',
       },
       {
@@ -41,7 +41,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≤ 15%',
         yellow_label: '16–25%',
         red_label: '> 25%',
-        insight: 'Red = không thể dự đoán release.',
+        insight: 'Red = release becomes unpredictable.',
       },
       {
         name: 'Sprint Goal Success Rate',
@@ -49,7 +49,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 85%',
         yellow_label: '70–84%',
         red_label: '< 70%',
-        insight: 'Red = goal mơ hồ hoặc scope creep.',
+        insight: 'Red = vague goal or scope creep.',
       },
       {
         name: 'Scope Change Rate (mid-sprint)',
@@ -57,7 +57,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≤ 10%',
         yellow_label: '11–20%',
         red_label: '> 20%',
-        insight: 'Red = không bảo vệ được sprint.',
+        insight: 'Red = sprint not protected.',
       },
       {
         name: 'Backlog Health',
@@ -65,15 +65,15 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 90%',
         yellow_label: '70–89%',
         red_label: '< 70%',
-        insight: 'Red = team idle hoặc rush refinement.',
+        insight: 'Red = team idle or rushed refinement.',
       },
       {
         name: 'Sprint Burndown Adherence',
-        formula_label: '% sprints burndown bám trend',
+        formula_label: '% sprints burndown following trend',
         green_label: '≥ 80%',
         yellow_label: '60–79%',
         red_label: '< 60%',
-        insight: 'Red = “big bang” cuối sprint, hidden block.',
+        insight: 'Red = "big bang" at sprint end, hidden blockers.',
       },
       {
         name: 'Refinement Coverage',
@@ -81,7 +81,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 100%',
         yellow_label: '75–99%',
         red_label: '< 75%',
-        insight: 'Red = không kịp groom, planning chaos.',
+        insight: 'Red = insufficient grooming, planning chaos.',
       },
     ],
   },
@@ -92,18 +92,18 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
       {
         name: 'Lead Time (P85)',
         formula_label: 'P85 of (Done − Request), days',
-        green_label: '≤ 10 ngày',
-        yellow_label: '11–20 ngày',
-        red_label: '> 20 ngày',
-        insight: 'Red = bottleneck nghiêm trọng.',
+        green_label: '≤ 10 days',
+        yellow_label: '11–20 days',
+        red_label: '> 20 days',
+        insight: 'Red = severe bottleneck.',
       },
       {
         name: 'Cycle Time (P85)',
         formula_label: 'P85 of (Done − In Progress)',
-        green_label: '≤ 5 ngày',
-        yellow_label: '6–10 ngày',
-        red_label: '> 10 ngày',
-        insight: 'Red = task quá lớn hoặc rework nhiều.',
+        green_label: '≤ 5 days',
+        yellow_label: '6–10 days',
+        red_label: '> 10 days',
+        insight: 'Red = tasks too large or heavy rework.',
       },
       {
         name: 'Throughput Stability',
@@ -111,7 +111,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≤ 20%',
         yellow_label: '21–35%',
         red_label: '> 35%',
-        insight: 'Red = không forecast được.',
+        insight: 'Red = cannot forecast.',
       },
       {
         name: 'WIP Adherence',
@@ -119,7 +119,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≤ 100%',
         yellow_label: '101–120%',
         red_label: '> 120%',
-        insight: 'Vượt WIP limit → Lead Time blow up.',
+        insight: 'Exceeding WIP limit → Lead Time blows up.',
       },
       {
         name: 'Flow Efficiency',
@@ -127,7 +127,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 40%',
         yellow_label: '25–39%',
         red_label: '< 25%',
-        insight: 'Red = phần lớn thời gian là chờ.',
+        insight: 'Red = most time spent waiting.',
       },
       {
         name: 'Blocked Time Ratio',
@@ -135,7 +135,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≤ 10%',
         yellow_label: '11–20%',
         red_label: '> 20%',
-        insight: 'Red = cần escalation framework.',
+        insight: 'Red = escalation framework needed.',
       },
       {
         name: 'Aging WIP',
@@ -143,7 +143,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≤ 1.5×',
         yellow_label: '1.5×–2.5×',
         red_label: '> 2.5×',
-        insight: 'Red = zombie tasks, cần triage.',
+        insight: 'Red = zombie tasks, triage needed.',
       },
       {
         name: 'Service Class Mix',
@@ -151,7 +151,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: 'Within ±10%',
         yellow_label: '11–20% drift',
         red_label: '> 20% drift',
-        insight: 'Red = Expedite bị lạm dụng, mất SLA.',
+        insight: 'Red = Expedite overused, SLA missed.',
       },
     ],
   },
@@ -165,7 +165,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 95%',
         yellow_label: '85–94%',
         red_label: '< 85%',
-        insight: 'Red = exit criteria hình thức, rework giữa pha.',
+        insight: 'Red = exit criteria are a formality, rework between phases.',
       },
       {
         name: 'Requirement Stability Index',
@@ -173,7 +173,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 90%',
         yellow_label: '75–89%',
         red_label: '< 75%',
-        insight: 'Red = nên cân nhắc đổi methodology.',
+        insight: 'Red = consider changing methodology.',
       },
       {
         name: 'Deliverable Acceptance Rate',
@@ -181,7 +181,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 90%',
         yellow_label: '75–89%',
         red_label: '< 75%',
-        insight: 'Red = UAT sẽ cháy, risk hợp đồng.',
+        insight: 'Red = UAT will burn, contract risk.',
       },
       {
         name: 'Baseline Adherence',
@@ -189,7 +189,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '0',
         yellow_label: '1',
         red_label: '≥ 2',
-        insight: 'Red = plan sai cơ bản, mất control.',
+        insight: 'Red = fundamentally wrong plan, loss of control.',
       },
       {
         name: 'WBS Coverage',
@@ -197,7 +197,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 95%',
         yellow_label: '85–94%',
         red_label: '< 85%',
-        insight: 'Ngoài WBS = không estimate, không paid.',
+        insight: 'Outside WBS = not estimated, not paid.',
       },
       {
         name: 'EVM Cost Performance (CPI)',
@@ -205,7 +205,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '0.95–1.05',
         yellow_label: '0.85–0.94',
         red_label: '< 0.85',
-        insight: 'Cost efficiency theo phase — bổ sung cho Margin.',
+        insight: 'Cost efficiency per phase — complements Margin.',
       },
     ],
   },
@@ -216,18 +216,18 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
       {
         name: 'Feature Cycle Time',
         formula_label: 'Feature Discovery → Production',
-        green_label: '≤ 6 tuần',
-        yellow_label: '7–10 tuần',
-        red_label: '> 10 tuần',
-        insight: 'Feature-level, khác Time-to-Market (release-level).',
+        green_label: '≤ 6 weeks',
+        yellow_label: '7–10 weeks',
+        red_label: '> 10 weeks',
+        insight: 'Feature-level, distinct from Time-to-Market (release-level).',
       },
       {
         name: 'Cross-team Dependency Lead Time',
         formula_label: 'Avg time resolve inter-team dependency',
-        green_label: '≤ 3 ngày',
-        yellow_label: '4–7 ngày',
-        red_label: '> 7 ngày',
-        insight: 'Red = silo hoặc priority conflict.',
+        green_label: '≤ 3 days',
+        yellow_label: '4–7 days',
+        red_label: '> 7 days',
+        insight: 'Red = silos or priority conflict.',
       },
       {
         name: 'Agile Ceremony Health',
@@ -235,7 +235,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 90%',
         yellow_label: '75–89%',
         red_label: '< 75%',
-        insight: 'Red = ceremony làm cho có.',
+        insight: 'Red = ceremonies done for show.',
       },
       {
         name: 'PI / Release Plan Commitment',
@@ -243,7 +243,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 80%',
         yellow_label: '60–79%',
         red_label: '< 60%',
-        insight: 'Red = plan quá tham hoặc business case sai.',
+        insight: 'Red = overambitious plan or wrong business case.',
       },
       {
         name: 'ART Sync Attendance',
@@ -251,7 +251,7 @@ export const KPI_METHODOLOGY_LENS: readonly KpiMethodologyLensGroup[] = [
         green_label: '≥ 90%',
         yellow_label: '75–89%',
         red_label: '< 75%',
-        insight: 'Sync gãy → dependency miss.',
+        insight: 'Broken sync → missed dependencies.',
       },
       {
         name: 'Cross-functional Dependency Closure',
@@ -272,7 +272,7 @@ export const KPI_EXECUTIVE_METRICS: readonly KpiReferenceMetric[] = [
     green_label: '≥ 90%',
     yellow_label: '75–89%',
     red_label: '< 75%',
-    insight: 'EXECUTION — discipline kỹ thuật; khác THI (investment).',
+    insight: 'EXECUTION — technical discipline; distinct from THI (investment).',
   },
   {
     name: 'TDI (Technical Debt Index)',
@@ -280,14 +280,14 @@ export const KPI_EXECUTIVE_METRICS: readonly KpiReferenceMetric[] = [
     green_label: '≤ 10%',
     yellow_label: '11–20%',
     red_label: '> 20%',
-    insight: 'OUTSTANDING — Red = dev time bị nuốt bởi debt.',
+    insight: 'OUTSTANDING — Red = dev time consumed by debt.',
   },
 ];
 
 /** The 2×2 (EQI × TDI) quadrant read-out under the Executive table, danger quadrant first. */
 export const KPI_EXECUTIVE_MATRIX_WARNING = {
   headline: 'EQI Low + TDI Low — “Fake Healthy System”',
-  body: 'trông sạch vì chưa tích nợ nhưng không có discipline, nợ sẽ bùng trong 1–2 quarter.',
+  body: 'looks clean because debt has not accrued yet, but without discipline the debt will explode within 1–2 quarters.',
   other_quadrants:
-    'EQI High + TDI High = Legacy Burden (cần debt-down quarter) · EQI Low + TDI High = System Failure (stop new feature, restructure ngay).',
+    'EQI High + TDI High = Legacy Burden (needs a debt-down quarter) · EQI Low + TDI High = System Failure (stop new features, restructure now).',
 } as const;

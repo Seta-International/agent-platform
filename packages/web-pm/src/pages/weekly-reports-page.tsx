@@ -122,6 +122,16 @@ export function WeeklyReportsPage() {
   // Disable-with-reason (app-wide convention) — only once projects have loaded, so the
   // button doesn't flash a false "no access" tooltip during the initial fetch.
   const cannotReport = projectsQuery.data !== undefined && manageableOptions.length === 0;
+  // Reports are only ever authored for the current week (weeks[0] is the server anchor);
+  // browsing a past week is read-only, so composing is disabled with a reason.
+  const currentWeek = weeks[0];
+  const isPastWeek =
+    currentWeek !== undefined &&
+    (currentWeek.iso_year !== iso_year || currentWeek.iso_week !== iso_week);
+  const composeDisabled = cannotReport || isPastWeek;
+  const composeDisabledReason = cannotReport
+    ? 'You do not manage any project, so there is nothing to report on.'
+    : 'Weekly reports can only be created for the current week.';
 
   const cards = listQuery.data ?? [];
 
@@ -156,15 +166,12 @@ export function WeeklyReportsPage() {
                 <Text as="h1" size="lg" weight="semibold">
                   Weekly Reports
                 </Text>
-                <DisabledActionTooltip
-                  disabled={cannotReport}
-                  reason="You do not manage any project, so there is nothing to report on."
-                >
+                <DisabledActionTooltip disabled={composeDisabled} reason={composeDisabledReason}>
                   <Button
                     variant="primary"
                     label="New weekly report"
                     icon={<Plus className="size-4" />}
-                    isDisabled={cannotReport}
+                    isDisabled={composeDisabled}
                     onClick={openComposer}
                   />
                 </DisabledActionTooltip>
@@ -341,7 +348,7 @@ export function WeeklyReportsPage() {
                         <Text type="supporting" color="secondary">
                           {card.report_count > 0
                             ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
-                            : card.can_manage
+                            : card.can_manage && !isPastWeek
                               ? 'No report yet — click to write one'
                               : 'No report yet'}
                         </Text>

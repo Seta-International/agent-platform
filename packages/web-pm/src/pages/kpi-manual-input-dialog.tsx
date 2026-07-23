@@ -13,10 +13,10 @@ import {
   Dialog,
   DialogHeader,
   HStack,
-  Input,
   Layout,
   LayoutContent,
   LayoutFooter,
+  NumberInput,
   Selector,
   Skeleton,
   StatusDot,
@@ -35,7 +35,10 @@ import {
   ragBadge,
 } from './kpi-shared.tsx';
 
-type EntryState = Record<string, { c1: string; c2: string }>;
+// Number-native, matching Astryx NumberInput: null = not measured yet (an empty box), a number
+// = an entered figure. The stored record uses the same number|null shape, so no string parsing.
+type EntryState = Record<string, { c1: number | null; c2: number | null }>;
+const EMPTY_ENTRY = { c1: null, c2: null } as const;
 
 // RAG colour → Astryx status variant (chromatic colour is reserved for status, matching the
 // weekly reports page); null (nothing measured yet) reads as neutral.
@@ -44,12 +47,6 @@ const RAG_DOT_VARIANT = {
   yellow: 'warning',
   red: 'error',
 } as const;
-
-function toNumber(raw: string): number | null {
-  if (raw.trim() === '') return null;
-  const n = Number(raw);
-  return Number.isNaN(n) ? null : n;
-}
 
 export function KpiManualInputDialog({
   initial,
@@ -80,10 +77,7 @@ export function KpiManualInputDialog({
     if (!recordQuery.data) return;
     const next: EntryState = {};
     for (const m of recordQuery.data.metrics) {
-      next[m.metric_id] = {
-        c1: m.component_1_value === null ? '' : String(m.component_1_value),
-        c2: m.component_2_value === null ? '' : String(m.component_2_value),
-      };
+      next[m.metric_id] = { c1: m.component_1_value, c2: m.component_2_value };
     }
     setEntries(next);
   }, [recordQuery.data]);
@@ -93,18 +87,15 @@ export function KpiManualInputDialog({
   // FUT-595 AC4: a colour computed from values the user typed but has NOT saved yet is a
   // provisional preview — mark it, so it can't be mistaken for the settled (stored) colour.
   const savedEntries = useMemo(() => {
-    const m = new Map<string, { c1: string; c2: string }>();
+    const m = new Map<string, { c1: number | null; c2: number | null }>();
     for (const row of recordQuery.data?.metrics ?? []) {
-      m.set(row.metric_id, {
-        c1: row.component_1_value === null ? '' : String(row.component_1_value),
-        c2: row.component_2_value === null ? '' : String(row.component_2_value),
-      });
+      m.set(row.metric_id, { c1: row.component_1_value, c2: row.component_2_value });
     }
     return m;
   }, [recordQuery.data]);
   const isDirty = (metric_id: string) => {
-    const saved = savedEntries.get(metric_id) ?? { c1: '', c2: '' };
-    const cur = entries[metric_id] ?? { c1: '', c2: '' };
+    const saved = savedEntries.get(metric_id) ?? EMPTY_ENTRY;
+    const cur = entries[metric_id] ?? EMPTY_ENTRY;
     return saved.c1 !== cur.c1 || saved.c2 !== cur.c2;
   };
   const anyDirty = metrics.some((m) => isDirty(m.metric_id));
@@ -112,10 +103,8 @@ export function KpiManualInputDialog({
   const live = useMemo(() => {
     const statusByMetric = new Map<string, ReturnType<typeof computeEntryStatus>>();
     for (const m of metrics) {
-      const e = entries[m.metric_id];
-      const c1 = e ? toNumber(e.c1) : null;
-      const c2 = e ? toNumber(e.c2) : null;
-      const value = computeMetricValue(m.component_count, c1, c2);
+      const e = entries[m.metric_id] ?? EMPTY_ENTRY;
+      const value = computeMetricValue(m.component_count, e.c1, e.c2);
       statusByMetric.set(
         m.metric_id,
         computeEntryStatus(value, m.green_band, m.yellow_band, m.red_band),
@@ -145,11 +134,11 @@ export function KpiManualInputDialog({
         iso_week: isoWeek,
         expected_version: recordQuery.data?.version ?? undefined,
         entries: metrics.map((m) => {
-          const e = entries[m.metric_id];
+          const e = entries[m.metric_id] ?? EMPTY_ENTRY;
           return {
             metric_id: m.metric_id,
-            component_1_value: e ? toNumber(e.c1) : null,
-            component_2_value: e ? toNumber(e.c2) : null,
+            component_1_value: e.c1,
+            component_2_value: e.c2,
           };
         }),
       }),
@@ -193,9 +182,11 @@ export function KpiManualInputDialog({
             endContent={
               <div className="flex items-center gap-2">
                 {ragBadge(isNewRecord ? null : live.overall)}
+                {/* FUT-595 AC4: one aggregate "previewing" badge for the whole record — the
+                    overall RAG above is provisional until saved, so mark it once here. */}
                 {anyDirty ? (
                   <Badge variant="outline" className="font-normal text-secondary">
-                    previewing — save to settle
+                    Previewing
                   </Badge>
                 ) : null}
                 {isNewRecord ? <span className="text-xs text-secondary">New record</span> : null}
@@ -289,7 +280,7 @@ export function KpiManualInputDialog({
                     </div>
                     <div className="px-3">
                       {metrics.map((m) => {
-                        const e = entries[m.metric_id] ?? { c1: '', c2: '' };
+                        const e = entries[m.metric_id] ?? EMPTY_ENTRY;
                         const bands = formatBandTriple(
                           m.name,
                           m.component_count,
@@ -315,39 +306,42 @@ export function KpiManualInputDialog({
                                 <span className="text-error">{bands.red}</span>
                               </div>
                             </div>
-                            {/* Compact, fixed-width number boxes — weekly KPI figures are a
-                                few digits; a wide box just reads as empty space. */}
+                            {/* Compact, fixed-width number boxes — weekly KPI figures are a few
+                                digits (a count, a ratio like 100.0, or effort in the thousands).
+                                No clear button: it ate the digit space and clipped long values. */}
                             <div className="col-span-4 flex items-center gap-1.5">
-                              <Input
-                                type="number"
+                              <NumberInput
+                                label={m.component_1_label}
+                                isLabelHidden
                                 width={88}
+                                min={0}
                                 placeholder={m.component_1_label}
-                                aria-label={m.component_1_label}
                                 value={e.c1}
-                                disabled={!weekOpen}
-                                onChange={(ev: string) =>
+                                isDisabled={!weekOpen}
+                                onChange={(next) =>
                                   setEntries((prev) => ({
                                     ...prev,
-                                    [m.metric_id]: { c1: ev, c2: prev[m.metric_id]?.c2 ?? '' },
+                                    [m.metric_id]: { c1: next, c2: prev[m.metric_id]?.c2 ?? null },
                                   }))
                                 }
                               />
                               {m.component_count === 2 ? (
                                 <>
                                   <span className="text-secondary">/</span>
-                                  <Input
-                                    type="number"
+                                  <NumberInput
+                                    label={m.component_2_label ?? ''}
+                                    isLabelHidden
                                     width={88}
+                                    min={0}
                                     placeholder={m.component_2_label ?? ''}
-                                    aria-label={m.component_2_label ?? ''}
                                     value={e.c2}
-                                    disabled={!weekOpen}
-                                    onChange={(ev: string) =>
+                                    isDisabled={!weekOpen}
+                                    onChange={(next) =>
                                       setEntries((prev) => ({
                                         ...prev,
                                         [m.metric_id]: {
-                                          c1: prev[m.metric_id]?.c1 ?? '',
-                                          c2: ev,
+                                          c1: prev[m.metric_id]?.c1 ?? null,
+                                          c2: next,
                                         },
                                       }))
                                     }
@@ -357,11 +351,6 @@ export function KpiManualInputDialog({
                             </div>
                             <div className="col-span-2">
                               {ragBadge(live.statusByMetric.get(m.metric_id) ?? null)}
-                              {/* FUT-595 AC4: an unsaved (provisional) colour stays marked, but
-                                  as quiet text — the loud aggregate badge lives in the header. */}
-                              {isDirty(m.metric_id) ? (
-                                <div className="mt-0.5 text-xs text-secondary">previewing</div>
-                              ) : null}
                             </div>
                           </div>
                         );

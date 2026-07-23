@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  Avatar,
   Badge,
   Banner,
   Button,
@@ -531,9 +530,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         key={a.id}
         type="button"
         onClick={() => a.candidate_id && setSelectedCandidate(a.candidate_id)}
-        className="flex w-full items-center gap-3 py-3 text-left hover:bg-surface"
+        className="-mx-3 flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-muted"
       >
-        <Avatar name={name} size={36} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium text-primary">{name}</div>
           <div className="truncate text-base text-secondary">

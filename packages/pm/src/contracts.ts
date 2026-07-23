@@ -400,6 +400,11 @@ export const ensureWeeklyReportInput = z.object({
 });
 export type EnsureWeeklyReportInput = z.infer<typeof ensureWeeklyReportInput>;
 
+// Discard the reporter's abandoned draft-on-entry (same identity as ensure). Only a pristine,
+// never-saved draft is removed — see discardWeeklyReport for the guard.
+export const discardWeeklyReportInput = ensureWeeklyReportInput;
+export type DiscardWeeklyReportInput = z.infer<typeof discardWeeklyReportInput>;
+
 // Overriding a computed colour is a governance action — the reason is mandatory so the
 // flag_audit_entry trail stays meaningful (system-computed entries are the only reason-less ones).
 export const overrideFlagInput = z.object({

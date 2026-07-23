@@ -1,9 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from 'drizzle-orm';
 import type {
   AddReportCommentInput,
+  DiscardWeeklyReportInput,
   EnsureWeeklyReportInput,
   OverrideFlagInput,
   UpsertWeeklyReportInput,
@@ -1003,7 +1004,12 @@ export async function getWeeklyReportDetail(input: {
  */
 export async function ensureWeeklyReport(
   input: EnsureWeeklyReportInput & { session: SessionScope },
-): Promise<{ report_id: string; version: number; status: 'draft' | 'submitted' }> {
+): Promise<{
+  report_id: string;
+  version: number;
+  status: 'draft' | 'submitted';
+  created: boolean;
+}> {
   const { project_id, iso_year, iso_week, session } = input;
   await assertProjectManageable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
@@ -1012,7 +1018,9 @@ export async function ensureWeeklyReport(
     throw new PmError('VALIDATION', 'your account is not linked to a worker profile');
   }
 
-  await pmDb()
+  // `created` distinguishes a freshly-inserted empty draft from a returned pre-existing one — the
+  // composer uses it to know whether an abandoned draft is safe to discard (see discardWeeklyReport).
+  const inserted = await pmDb()
     .insert(report)
     .values({
       tenant_id: session.tenant_id,
@@ -1023,7 +1031,8 @@ export async function ensureWeeklyReport(
       status: 'draft',
       executive_summary: '',
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: report.id });
   const [row] = await pmDb()
     .select({ id: report.id, version: report.version, status: report.status })
     .from(report)
@@ -1038,7 +1047,71 @@ export async function ensureWeeklyReport(
     )
     .limit(1);
   if (!row) throw new PmError('CONFLICT', 'report could not be ensured');
-  return { report_id: row.id, version: row.version, status: row.status as 'draft' | 'submitted' };
+  return {
+    report_id: row.id,
+    version: row.version,
+    status: row.status as 'draft' | 'submitted',
+    created: inserted.length > 0,
+  };
+}
+
+/**
+ * FUT-740: reverse of draft-on-entry. When the reporter opens the composer and leaves without
+ * saving, the empty draft ensureWeeklyReport created has no value and must not linger as a stray
+ * "Unknown · Draft" card. This removes ONLY that pristine draft — the reporter's own, still empty
+ * (never saved with content), never published (no revision) and never discussed (no comment).
+ * Anything with content, a submitted report, or a frozen one is left untouched, so this can never
+ * destroy real work. Idempotent: discarded=false when there was nothing safe to remove.
+ */
+export async function discardWeeklyReport(
+  input: DiscardWeeklyReportInput & { session: SessionScope },
+): Promise<{ discarded: boolean }> {
+  const { project_id, iso_year, iso_week, session } = input;
+  await assertProjectManageable(project_id, session);
+  assertWeekEditable(iso_year, iso_week);
+  const reporter_id = session.person_id;
+  if (!reporter_id) {
+    throw new PmError('VALIDATION', 'your account is not linked to a worker profile');
+  }
+
+  const deleted = await pmDb()
+    .delete(report)
+    .where(
+      and(
+        eq(report.tenant_id, session.tenant_id),
+        eq(report.project_id, project_id),
+        eq(report.iso_year, iso_year),
+        eq(report.iso_week, iso_week),
+        eq(report.reporter_id, reporter_id),
+        eq(report.status, 'draft'),
+        // Pristine content only — the exact shape ensureWeeklyReport inserts. Any real edit
+        // (summary, risk/issue, road-to-green, or a declared colour) protects the draft.
+        eq(report.executive_summary, ''),
+        isNull(report.risk_issue),
+        isNull(report.road_to_green),
+        isNull(report.declared_colours),
+        // Never published and never discussed — a revision or comment means it isn't disposable.
+        notExists(
+          pmDb()
+            .select({ one: sql`1` })
+            .from(reportRevision)
+            .where(
+              and(
+                eq(reportRevision.tenant_id, session.tenant_id),
+                eq(reportRevision.report_id, report.id),
+              ),
+            ),
+        ),
+        notExists(
+          pmDb()
+            .select({ one: sql`1` })
+            .from(comment)
+            .where(and(eq(comment.tenant_id, session.tenant_id), eq(comment.report_id, report.id))),
+        ),
+      ),
+    )
+    .returning({ id: report.id });
+  return { discarded: deleted.length > 0 };
 }
 
 export async function upsertWeeklyReport(
