@@ -14,20 +14,23 @@ export interface TimelineRow extends TimelineSegment {
   label: string;
 }
 
-const LABEL_WIDTH = 168;
+const LABEL_WIDTH = 224;
 const DATE_COL_WIDTH = 112;
 const PREFIX_WIDTH = LABEL_WIDTH + DATE_COL_WIDTH * 2;
 // Below this per-month width the bars/labels get too cramped to read — past
 // that point the chart scrolls horizontally instead of squeezing further.
 const MIN_MONTH_WIDTH = 56;
 
+// One categorical hue per row, cycled. Each bar pairs a soft tint fill with the
+// matching vivid text, and its legend dot is the same hue's solid variant — so a
+// row's bar and dot always read as the same colour (no muted grey, no near-white dots).
 const ROW_BAR_CLASSES = [
-  'bg-accent-muted text-accent',
-  'bg-success-muted text-success',
-  'bg-warning-muted text-warning',
   'bg-blue-subtle text-blue-vivid',
+  'bg-green-subtle text-green-vivid',
+  'bg-orange-subtle text-orange-vivid',
+  'bg-purple-subtle text-purple-vivid',
 ];
-const ROW_DOT_CLASSES = ['bg-accent-bg', 'bg-success', 'bg-warning', 'bg-blue-subtle'];
+const ROW_DOT_CLASSES = ['bg-blue-vivid', 'bg-green-vivid', 'bg-orange-vivid', 'bg-purple-vivid'];
 
 /**
  * Lightweight Gantt-style chart of a person's allocations: one bar per row
@@ -117,7 +120,7 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
                   style={{ gridColumn: `4 / ${months.length + 4}`, gridRow: rowIndex + 2 }}
                 >
                   <div
-                    className={`absolute inset-y-1.5 flex items-center justify-center rounded-md font-mono font-medium tabular-nums ${bar}`}
+                    className={`absolute inset-y-1.5 flex items-center justify-center overflow-hidden rounded-md px-1 font-mono font-medium tabular-nums ${bar}`}
                     style={{
                       left: `${(start / months.length) * 100}%`,
                       width: `${((end - start) / months.length) * 100}%`,
@@ -158,13 +161,13 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
         </div>
 
         <div
-          className="pointer-events-none absolute top-0 bottom-0 border-l-2 border-dashed border-accent-bg"
+          className="pointer-events-none absolute top-0 bottom-0 border-l-2 border-dashed border-accent"
           style={{ left: todayLeft }}
           aria-hidden="true"
         />
       </div>
       <div className="flex items-center gap-1.5 text-sm text-secondary">
-        <span className="inline-block h-3 w-0 border-l-2 border-dashed border-accent-bg" /> Today
+        <span className="inline-block h-3 w-0 border-l-2 border-dashed border-accent" /> Today
       </div>
     </div>
   );

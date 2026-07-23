@@ -1,7 +1,7 @@
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ArrowRightLeft, Plus, Settings2, Users, X } from 'lucide-react';
+import { Pencil, Plus, Settings2, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAccounts,
@@ -104,31 +104,11 @@ const RA_COLUMN_OPTIONS: ColumnSettingsOption[] = [
 ];
 const DEFAULT_RA_COLUMN_KEYS = RA_COLUMN_OPTIONS.map((c) => c.key);
 
-function Kpi({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: 'positive' | 'warning' | 'accent';
-}) {
-  const color =
-    tone === 'positive'
-      ? 'var(--color-success)'
-      : tone === 'warning'
-        ? 'var(--color-warning)'
-        : tone === 'accent'
-          ? 'var(--color-error)'
-          : undefined;
+function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <Card padding={4}>
       <div className="text-xs uppercase tracking-wide text-secondary">{label}</div>
-      <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
-        {value}
-      </div>
+      <div className="mt-1 text-2xl font-semibold">{value}</div>
       {sub ? <div className="text-xs text-secondary">{sub}</div> : null}
     </Card>
   );
@@ -426,6 +406,9 @@ export function RaMonitoringPage() {
   const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
   const rowClassName = useCallback(
     (item: RaMonitoringAllocation) =>
+      // Thin `dividers="rows"` lines (drawn on the cells) separate every allocation; a
+      // 2px rule at each new person wins the collapsed-border contest against those 1px
+      // lines, so each person's projects read as one block bracketed by a bolder rule.
       firstInGroup.has(item.allocation_id) && item.allocation_id !== groupedRows[0]?.allocation_id
         ? 'border-t-2 border-t-hairline-strong'
         : undefined,
@@ -522,21 +505,25 @@ export function RaMonitoringPage() {
       {
         key: 'account',
         header: 'Account',
-        width: proportional(1),
+        width: proportional(1.2, { minWidth: 150 }),
         sortable: true,
         renderCell: (r) => <span className="text-secondary">{r.account_name}</span>,
       },
       {
         key: 'project',
         header: 'Project',
-        width: proportional(1),
+        // Longest text in the table (full project names) — give it the most room and a
+        // generous floor so names wrap to 1–2 lines instead of the previous three.
+        width: proportional(1.6, { minWidth: 190 }),
         sortable: true,
         renderCell: (r) => <span className="text-primary">{r.project_name}</span>,
       },
       {
         key: 'name',
         header: 'Person',
-        width: proportional(2),
+        // Only the first row per person is filled (grouped), so it no longer needs the
+        // widest share — but keep a floor that fits "Name + Over-allocated" on one line.
+        width: proportional(1.4, { minWidth: 210 }),
         renderCell: (r) => {
           if (!firstInGroup.has(r.allocation_id)) return null;
           return (
@@ -556,7 +543,11 @@ export function RaMonitoringPage() {
                 />
               ) : null}
               {r.worker_id && overWorkers.has(r.worker_id) ? (
-                <Badge variant="warning" className="font-normal" label="Over-allocated" />
+                <Badge
+                  variant="warning"
+                  className="border-warning bg-warning-muted font-medium text-warning"
+                  label="Over"
+                />
               ) : null}
             </div>
           );
@@ -565,7 +556,9 @@ export function RaMonitoringPage() {
       {
         key: 'seniority',
         header: 'Seniority',
-        width: proportional(1),
+        // Short, bounded values ("Engineer", "Senior Engineer") — a fixed width keeps it
+        // from stealing proportional space from the text-heavy columns.
+        width: pixel(140),
         renderCell: (r) => {
           if (!firstInGroup.has(r.allocation_id)) return null;
           return <span className="text-secondary">{r.worker_title ?? '—'}</span>;
@@ -626,7 +619,7 @@ export function RaMonitoringPage() {
       {
         key: 'note',
         header: 'Note',
-        width: proportional(1),
+        width: proportional(1, { minWidth: 140 }),
         renderCell: (r) => <span className="text-sm text-secondary">{r.note ?? '—'}</span>,
       },
       {
@@ -646,7 +639,7 @@ export function RaMonitoringPage() {
                 isIconOnly
                 label="Reassign"
                 onClick={() => openReassignGroup(r)}
-                icon={<ArrowRightLeft className="size-4" />}
+                icon={<Pencil className="size-4" />}
               />
             </div>
           );
@@ -683,6 +676,9 @@ export function RaMonitoringPage() {
                       worker_id: worker.id,
                       worker_name: worker.name,
                       worker_title: null,
+                      // Carry the active project filter into the wizard so it opens with that
+                      // project already added as a target row.
+                      seed_project_id: projectId || null,
                     })
                   }
                 />
@@ -704,15 +700,9 @@ export function RaMonitoringPage() {
                 label="Billable"
                 value={`${kpis.billable_mm.toFixed(1)} MM`}
                 sub={`${kpis.billable_pct}% of effort`}
-                tone="positive"
               />
               <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
-              <Kpi
-                label="Over-allocated"
-                value={String(overWorkers.size)}
-                sub=">100% in window"
-                tone={overWorkers.size > 0 ? 'accent' : undefined}
-              />
+              <Kpi label="Over-allocated" value={String(overWorkers.size)} sub=">100% in window" />
               <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
             </div>
 
@@ -829,7 +819,7 @@ export function RaMonitoringPage() {
                 data={pageRows}
                 columns={columns}
                 idKey="allocation_id"
-                density="compact"
+                density="spacious"
                 plugins={{
                   pagination,
                   sortable,
