@@ -24,6 +24,7 @@ export {
   classifyCycleStatus,
   monthClockNow,
   setMonthClock,
+  vnYearMonth,
 } from './backend/domain/month-clock.ts';
 export type {
   CompanyNode,

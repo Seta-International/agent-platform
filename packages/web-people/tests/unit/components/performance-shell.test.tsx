@@ -60,7 +60,9 @@ describe('PerformanceShell', () => {
     expect(screen.getByTestId('performance-context-switcher')).toHaveTextContent('Organization');
     expect(screen.getByTestId('performance-cycle-badge-slot')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByTestId('cycle-status-badge')).toHaveTextContent('Open (25th–30th)'),
+      expect(screen.getByTestId('cycle-status-badge')).toHaveTextContent(
+        'Open (25th–end of month)',
+      ),
     );
   });
 

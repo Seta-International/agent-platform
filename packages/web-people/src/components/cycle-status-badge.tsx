@@ -3,7 +3,7 @@ import type { CycleStatus } from '../api/people-client.ts';
 
 /** Product copy — classification stays on the server; FE only maps the flag (FE-AD-12). */
 export const CYCLE_STATUS_LABEL: Record<CycleStatus, string> = {
-  open: 'Open (25th–30th)',
+  open: 'Open (25th–end of month)',
   makeup: 'Grace window (2nd–4th)',
   locked: 'Locked',
   override: 'Unlocked (Override)',

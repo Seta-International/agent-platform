@@ -14,6 +14,7 @@ import {
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
+import { vnYearMonth } from './month-clock.ts';
 
 const KIND_RANK: Record<PerformanceCapacity['kind'], number> = { am: 0, tl: 1, member: 2 };
 
@@ -37,7 +38,7 @@ export async function readPerformanceContext(
 ): Promise<PerformanceContext> {
   requirePermission(session, 'people.performance.read');
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = vnYearMonth();
   if (input.as_of_month !== currentMonth) {
     throw new PeopleError('VALIDATION', 'as_of_month: only the current month is supported');
   }

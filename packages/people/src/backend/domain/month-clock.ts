@@ -8,7 +8,7 @@ import type { CycleStatus } from '../../contracts.ts';
 
 export type { CycleStatus };
 
-const VN_OFFSET_MS = 7 * 3_600_000;
+export const VN_OFFSET_MS = 7 * 3_600_000;
 
 let clock: () => Date = () => new Date();
 
@@ -44,6 +44,12 @@ export function vnParts(at: Date): VnParts {
     second: vn.getUTCSeconds(),
     ms: vn.getUTCMilliseconds(),
   };
+}
+
+/** Current Performance cycle month (YYYY-MM) in Asia/Ho_Chi_Minh — not UTC. */
+export function vnYearMonth(at: Date = monthClockNow()): string {
+  const p = vnParts(at);
+  return `${p.year}-${String(p.month).padStart(2, '0')}`;
 }
 
 function parseMonth(month: string): { year: number; month: number } {

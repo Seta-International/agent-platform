@@ -4,6 +4,7 @@ import {
   monthClockNow,
   setMonthClock,
   vnParts,
+  vnYearMonth,
 } from '../../src/backend/domain/month-clock.ts';
 
 /** Build a UTC Date from an Asia/Ho_Chi_Minh wall-clock local. */
@@ -26,7 +27,24 @@ describe('vnParts', () => {
   });
 });
 
+describe('vnYearMonth', () => {
+  it('uses VN wall, not UTC, across the month boundary', () => {
+    // 2026-08-01 00:30 VN = 2026-07-31 17:30 UTC → still July in UTC, August in VN
+    expect(vnYearMonth(vn(2026, 8, 1, 0, 30))).toBe('2026-08');
+    expect(vnYearMonth(vn(2026, 7, 31, 23))).toBe('2026-07');
+  });
+});
+
 describe('classifyCycleStatus (TC-11..17)', () => {
+  it('open starts at 25th 00:00 VN; 24th remains locked', () => {
+    expect(
+      classifyCycleStatus({ month: '2026-07', at: vn(2026, 7, 24, 23, 59, 59, 999) }).status,
+    ).toBe('locked');
+    expect(classifyCycleStatus({ month: '2026-07', at: vn(2026, 7, 25, 0, 0, 0, 0) }).status).toBe(
+      'open',
+    );
+  });
+
   it('26th 10:00 VN → open (AC1 / TC-11)', () => {
     const r = classifyCycleStatus({ month: '2026-07', at: vn(2026, 7, 26, 10) });
     expect(r.status).toBe('open');

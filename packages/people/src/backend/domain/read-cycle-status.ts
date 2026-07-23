@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import type { CycleStatusQuery, CycleStatusResponse } from '../../contracts.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
-import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
+import { classifyCycleStatus, monthClockNow, vnYearMonth } from './month-clock.ts';
 
 /**
  * Read the server-authoritative cycle window for a Performance month (FUT-694).
@@ -24,11 +24,7 @@ export async function readCycleStatus(
 
 /** Default month for the badge when the client omits `?month=`. */
 export function defaultCycleMonth(at: Date = monthClockNow()): string {
-  // VN wall year-month for "current" cycle display.
-  const vn = new Date(at.getTime() + 7 * 3_600_000);
-  const y = vn.getUTCFullYear();
-  const m = String(vn.getUTCMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  return vnYearMonth(at);
 }
 
 export function parseCycleMonthOrThrow(raw: string | undefined): string {

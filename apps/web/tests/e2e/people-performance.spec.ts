@@ -115,7 +115,12 @@ test.describe('performance cycle badge (Story 1.3 / FUT-694)', () => {
     const context = (await contextRes.json()) as { status: string; as_of_month?: string };
     test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
 
-    const month = context.as_of_month ?? new Date().toISOString().slice(0, 7);
+    const month =
+      context.as_of_month ??
+      (() => {
+        const vn = new Date(Date.now() + 7 * 3_600_000);
+        return `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}`;
+      })();
     const statusRes = await ctx.get(
       `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}`,
     );
@@ -124,7 +129,7 @@ test.describe('performance cycle badge (Story 1.3 / FUT-694)', () => {
     await ctx.dispose();
 
     const labels: Record<string, string> = {
-      open: 'Open (25th–30th)',
+      open: 'Open (25th–end of month)',
       makeup: 'Grace window (2nd–4th)',
       locked: 'Locked',
       override: 'Unlocked (Override)',

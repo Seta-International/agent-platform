@@ -11,6 +11,7 @@ import {
   userProjection,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
+import { vnYearMonth } from '../../src/backend/domain/month-clock.ts';
 import { readPerformanceContext } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
@@ -18,7 +19,7 @@ const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
-const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
+const CURRENT_MONTH = vnYearMonth();
 
 describe('readPerformanceContext', () => {
   it('returns no_employee_record when the session has no person link', async () => {

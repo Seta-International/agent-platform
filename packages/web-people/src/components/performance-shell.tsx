@@ -94,18 +94,10 @@ export function PerformanceShell({
   );
 }
 
-/** Stub body for sections not yet built (S1.4 / E2). */
-export function PerformanceSectionStub({
-  title,
-  month,
-}: {
-  title: string;
-  /** When set, show cycle badge at top of write-capable stubs (SCR-03/04 pattern). */
-  month?: string;
-}) {
+/** Stub body for sections not yet built (S1.4 / E2). Cycle badge lives in the shell only. */
+export function PerformanceSectionStub({ title }: { title: string }) {
   return (
     <div className="flex flex-col gap-3">
-      {month ? <CycleStatusBadgeLoader month={month} /> : null}
       <Text color="secondary" data-testid="performance-section-stub">
         {title} — coming in a later story.
       </Text>
