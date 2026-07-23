@@ -570,21 +570,30 @@ async function main(): Promise<void> {
   for (const [projIndex, proj] of PROJECTS.entries()) {
     const pid = randomUUID();
     const aid = accountId.get(proj.account)!;
+
+    // PM/PMO of record. Curated projects keep the original roster (An/Cường lead, Bình PMO) so the
+    // admin↔An demo stays intact; the 20 bulk projects are led by the new owner accounts, so those
+    // logins are the project's actual PM/PMO — pm_person_id/pmo_person_id is what the composer reads
+    // to stamp the "PM"/"PMO" reporter badge, so this is what makes their badge show (FUT-740).
+    const isCurated = projIndex < CURATED_PROJECTS.length;
+    const pmOwner = PM_OWNERS[projIndex % PM_OWNERS.length]!;
+    const pmoOwner = PMO_OWNERS[projIndex % PMO_OWNERS.length]!;
+    const projectPm: Person = isCurated ? proj.pm : pmOwner;
+    const projectPmo: Person = isCurated ? BINH : pmoOwner;
+
     await db.execute(
       sql`INSERT INTO pm.project
             (id, tenant_id, account_id, name, pm_person_id, pmo_person_id, team_size,
              methodology, pricing_model, date_from, phase, status)
           VALUES
-            (${pid}, ${tenantId}, ${aid}, ${proj.name}, ${proj.pm.id}, ${BINH.id}, ${proj.teamSize},
+            (${pid}, ${tenantId}, ${aid}, ${proj.name}, ${projectPm.id}, ${projectPmo.id}, ${proj.teamSize},
              'scrum', 'time_materials', ${engagementStart}, ${proj.phase}, 'active')`,
     );
 
-    // Owner grants (FUT-740 demo logins): spread the PM/PMO owner accounts across every project
-    // round-robin so each owns a handful. `project_access` 'owner' is what gives their self-scoped
-    // pm role both read AND manage on the project (the reporter roles pm_person_id/pmo_person_id
-    // stay with the original roster above, so the seeded reports and admin↔An demo are untouched).
-    const pmOwner = PM_OWNERS[projIndex % PM_OWNERS.length]!;
-    const pmoOwner = PMO_OWNERS[projIndex % PMO_OWNERS.length]!;
+    // Owner grants: the PM/PMO owner accounts get a `project_access` 'owner' row on every project
+    // (a spread of a handful each). For the bulk projects it doubles the pm_person_id lead they
+    // already are; for curated it makes them co-owners. It's also what gives a PMO manage scope —
+    // pmo_person_id alone doesn't (only pm_person_id / AM / access-owner arms do).
     for (const ownerPersonId of [pmOwner.id, pmoOwner.id]) {
       await db.execute(
         sql`INSERT INTO pm.project_access (tenant_id, project_id, person_id, level)
@@ -655,17 +664,18 @@ async function main(): Promise<void> {
       delivery: 'green',
       process: 'green',
     });
-    // reviewer = first demo person who is neither this project's PM nor the PMO.
-    const reviewer = PEOPLE.find((p) => p.id !== proj.pm.id && p.id !== BINH.id)!;
+    // reviewer = first demo person who is neither this project's PM nor the PMO (owners live outside
+    // the PEOPLE roster, so on the bulk board this resolves to An as an independent reviewer).
+    const reviewer = PEOPLE.find((p) => p.id !== projectPm.id && p.id !== projectPmo.id)!;
     const roster: {
       person: Person;
       overall: RagStatus;
       decl: Record<KpiCategory, RagStatus>;
       note: string;
     }[] = [
-      { person: proj.pm, overall, decl: declared, note: proj.summary },
+      { person: projectPm, overall, decl: declared, note: proj.summary },
       {
-        person: BINH,
+        person: projectPmo,
         overall: 'yellow',
         decl: oneColour('yellow'),
         note: 'PMO review — cost & capacity worth watching; delivery and quality on track for the milestone.',
@@ -683,7 +693,7 @@ async function main(): Promise<void> {
       const r2g = rNonGreen
         ? 'Stabilise the driving KPI back to norm and re-baseline next week.'
         : null;
-      const r2gOwner = rNonGreen ? BINH.id : null;
+      const r2gOwner = rNonGreen ? projectPmo.id : null;
       const r2gDue = rNonGreen ? dueDate : null;
       await db.execute(
         sql`INSERT INTO pm.report
