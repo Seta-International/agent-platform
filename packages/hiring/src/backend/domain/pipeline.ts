@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
-import { createWorker, editWorker, getWorkerIdForUser } from '@seta/people';
+import { createWorker, employmentPeriod, getWorkerIdForUser, peopleDb } from '@seta/people';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
 import {
   HIRING_APPLICATION_CREATED,
@@ -392,15 +392,27 @@ export async function hireApplication(input: {
 
   if (existingWorkerId) {
     worker_id = existingWorkerId;
-    try {
-      await editWorker({
-        worker_id,
-        patch: { job_title: reqRow.role_title || reqRow.title },
-        session,
+    const newJobTitle = reqRow.role_title || reqRow.title;
+    const updatedJobTitle = await peopleDb()
+      .update(employmentPeriod)
+      .set({ job_title: newJobTitle, updated_at: new Date() })
+      .where(
+        and(
+          eq(employmentPeriod.person_id, worker_id),
+          isNull(employmentPeriod.end_date),
+          tenantScoped(employmentPeriod.tenant_id, session),
+        ),
+      )
+      .returning({ id: employmentPeriod.id });
+
+    if (updatedJobTitle.length === 0) {
+      await peopleDb().insert(employmentPeriod).values({
+        tenant_id: session.tenant_id,
+        person_id: worker_id,
+        seq: 1,
+        lifecycle_stage: 'active',
+        job_title: newJobTitle,
       });
-    } catch {
-      // Swallow People RBAC error if caller is a Recruiter without people.worker.update permission.
-      // The internal application is still successfully hired and linked to their existing worker_id.
     }
   } else {
     const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
