@@ -61,7 +61,7 @@ export function DialogContent({
       role="dialog"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
-      className={`flex max-h-[88vh] flex-col overflow-auto rounded-xl border border-hairline bg-canvas p-5 shadow-lg ${className ?? ''}`}
+      className={`flex max-h-[88vh] flex-col overflow-auto rounded-xl border border-border bg-card p-5 shadow-lg ${className ?? ''}`}
     >
       {children}
     </div>

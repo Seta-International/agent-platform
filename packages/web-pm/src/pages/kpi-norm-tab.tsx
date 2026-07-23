@@ -1,3 +1,9 @@
+import {
+  KPI_EXECUTIVE_MATRIX_WARNING,
+  KPI_EXECUTIVE_METRICS,
+  KPI_METHODOLOGY_LENS,
+  type KpiReferenceMetric,
+} from '@seta/pm/contracts';
 import { useState } from 'react';
 import type { BandCondition, KpiCategory, KpiNormDoc, KpiNormMetricRow } from '../api/pm-client.ts';
 import { Badge, EmptyState, Input, Skeleton } from './_ui-compat.tsx';
@@ -41,7 +47,7 @@ function MetricRow({ metric, applied }: { metric: KpiNormMetricRow; applied: boo
     metric.red_band,
   );
   return (
-    <div className="grid grid-cols-12 gap-3 border-b border-hairline py-3 text-sm last:border-0">
+    <div className="grid grid-cols-12 gap-3 border-b border-border py-3 text-sm last:border-0">
       <div className="col-span-4">
         <div className="flex items-center gap-2 font-medium text-primary">
           {metric.name}
@@ -73,13 +79,13 @@ function MetricRow({ metric, applied }: { metric: KpiNormMetricRow; applied: boo
 }
 
 // Labels the three threshold columns once per card — without it a first-time reader has to
-// infer Green/Yellow/Red purely from the text colours below.
+// infer Green/Amber/Red purely from the text colours below.
 function BandColumnHeader() {
   return (
-    <div className="grid grid-cols-12 gap-3 border-b border-hairline px-3 py-1.5 text-xs uppercase tracking-wide">
+    <div className="grid grid-cols-12 gap-3 border-b border-border px-3 py-1.5 text-xs uppercase tracking-wide">
       <div className="col-span-4" />
       <div className="col-span-2 text-success">Green</div>
-      <div className="col-span-2 text-warning">Yellow</div>
+      <div className="col-span-2 text-warning">Amber</div>
       <div className="col-span-2 text-error">Red</div>
       <div className="col-span-2 text-secondary">Insight</div>
     </div>
@@ -105,11 +111,11 @@ function CategorySection({
           {Math.round(KPI_OHS_WEIGHTS[category] * 100)}% of OHS
         </span>
       </div>
-      <div className="rounded-md border border-hairline">
+      <div className="rounded-md border border-border">
         <BandColumnHeader />
         {core.length > 0 ? (
           <>
-            <div className="border-b border-hairline bg-surface-1 px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
+            <div className="border-b border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
               Core — mandatory, measured monthly · feeds OHS
             </div>
             <div className="px-3">
@@ -121,7 +127,7 @@ function CategorySection({
         ) : null}
         {extended.length > 0 ? (
           <>
-            <div className="border-y border-hairline bg-surface-1 px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
+            <div className="border-y border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
               Extended — contextual · not part of OHS
             </div>
             <div className="px-3">
@@ -131,6 +137,96 @@ function CategorySection({
             </div>
           </>
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+// Reference rows (Methodology lens, Executive): prose thresholds, so no direction arrow and no
+// Live/Applied chips — those only make sense for measurable norm metrics.
+function ReferenceRow({ metric }: { metric: KpiReferenceMetric }) {
+  return (
+    <div className="grid grid-cols-12 gap-3 border-b border-border py-3 text-sm last:border-0">
+      <div className="col-span-4">
+        <div className="font-medium text-primary">{metric.name}</div>
+        <div className="text-xs text-secondary">{metric.formula_label}</div>
+      </div>
+      <div className="col-span-2 text-success">{metric.green_label}</div>
+      <div className="col-span-2 text-warning">{metric.yellow_label}</div>
+      <div className="col-span-2 text-error">{metric.red_label}</div>
+      <div className="col-span-2 text-xs text-secondary">{metric.insight}</div>
+    </div>
+  );
+}
+
+function referenceMatches(metric: KpiReferenceMetric, q: string): boolean {
+  return (
+    q === '' ||
+    metric.name.toLowerCase().includes(q) ||
+    metric.formula_label.toLowerCase().includes(q)
+  );
+}
+
+/** §5 of the norm: methodology-specific lenses on top of Core — never replacing it. */
+function MethodologyLensSection({ q }: { q: string }) {
+  const groups = KPI_METHODOLOGY_LENS.map((g) => ({
+    ...g,
+    metrics: g.metrics.filter((m) => referenceMatches(m, q)),
+  })).filter((g) => g.metrics.length > 0);
+  if (groups.length === 0) return null;
+  return (
+    <section className="space-y-2">
+      <div className="flex items-baseline gap-2">
+        <h3 className="text-base font-semibold text-primary">Methodology lens</h3>
+        <span className="text-xs text-secondary">
+          supplementary lens per methodology — does not replace Core
+        </span>
+      </div>
+      <div className="rounded-md border border-border">
+        <BandColumnHeader />
+        {groups.map((g, i) => (
+          <div key={g.id}>
+            <div
+              className={`${i === 0 ? 'border-b' : 'border-y'} border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary`}
+            >
+              {g.id} · {g.label}
+            </div>
+            <div className="px-3">
+              {g.metrics.map((m) => (
+                <ReferenceRow key={m.name} metric={m} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Quarterly engineering-health read: EQI × TDI and the 2×2 quadrant warning. */
+function ExecutiveSection({ q }: { q: string }) {
+  const metrics = KPI_EXECUTIVE_METRICS.filter((m) => referenceMatches(m, q));
+  if (metrics.length === 0) return null;
+  return (
+    <section className="space-y-2">
+      <div className="flex items-baseline gap-2">
+        <h3 className="text-base font-semibold text-primary">Executive — Engineering Health</h3>
+        <span className="text-xs text-secondary">quarterly · EQI / TDI → Executive Matrix 2×2</span>
+      </div>
+      <div className="rounded-md border border-border">
+        <BandColumnHeader />
+        <div className="px-3">
+          {metrics.map((m) => (
+            <ReferenceRow key={m.name} metric={m} />
+          ))}
+        </div>
+        <p className="border-t border-border px-3 py-2.5 text-xs text-secondary">
+          Most dangerous quadrant:{' '}
+          <span className="font-semibold text-primary">
+            {KPI_EXECUTIVE_MATRIX_WARNING.headline}
+          </span>
+          : {KPI_EXECUTIVE_MATRIX_WARNING.body} {KPI_EXECUTIVE_MATRIX_WARNING.other_quadrants}
+        </p>
       </div>
     </section>
   );
@@ -165,6 +261,9 @@ export function KpiNormTab({
         (m) => m.name.toLowerCase().includes(q) || m.formula_label.toLowerCase().includes(q),
       )
     : norm.metrics;
+  const hasReferenceMatches =
+    KPI_METHODOLOGY_LENS.some((g) => g.metrics.some((m) => referenceMatches(m, q))) ||
+    KPI_EXECUTIVE_METRICS.some((m) => referenceMatches(m, q));
 
   return (
     <div className="space-y-6 py-4">
@@ -180,21 +279,25 @@ export function KpiNormTab({
           className="w-72"
         />
       </div>
-      {matches.length === 0 ? (
+      {matches.length === 0 && !hasReferenceMatches ? (
         <EmptyState title={`No metrics match "${query.trim()}"`} />
       ) : (
-        KPI_CATEGORIES.map((cat) => {
-          const inCategory = matches.filter((m) => m.category === cat);
-          if (inCategory.length === 0) return null;
-          return (
-            <CategorySection
-              key={cat}
-              category={cat}
-              metrics={inCategory}
-              appliedIds={appliedIds}
-            />
-          );
-        })
+        <>
+          {KPI_CATEGORIES.map((cat) => {
+            const inCategory = matches.filter((m) => m.category === cat);
+            if (inCategory.length === 0) return null;
+            return (
+              <CategorySection
+                key={cat}
+                category={cat}
+                metrics={inCategory}
+                appliedIds={appliedIds}
+              />
+            );
+          })}
+          <MethodologyLensSection q={q} />
+          <ExecutiveSection q={q} />
+        </>
       )}
     </div>
   );

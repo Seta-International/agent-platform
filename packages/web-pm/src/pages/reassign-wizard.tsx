@@ -738,7 +738,7 @@ export function ReassignWizardDialog({
 
                   <div
                     role="alert"
-                    className="flex items-center gap-3 rounded-md bg-accent-muted p-sm text-base text-accent"
+                    className="flex items-center gap-3 rounded-md bg-accent-muted p-2 text-base text-accent"
                   >
                     <Info className="size-4 shrink-0 text-accent" />
                     <div>

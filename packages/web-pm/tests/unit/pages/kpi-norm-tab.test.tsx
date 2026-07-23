@@ -1,0 +1,78 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+import type { KpiNormDoc } from '../../../src/api/pm-client.ts';
+import { KpiNormTab } from '../../../src/pages/kpi-norm-tab.tsx';
+
+const norm: KpiNormDoc = {
+  norm_id: 'n1',
+  code: 'SETA-08-SOP-001',
+  revision: 'v2.0',
+  effective_date: null,
+  metrics: [
+    {
+      metric_id: 'm1',
+      category: 'quality',
+      tier: 'core',
+      name: 'Defect Leakage',
+      formula_label: 'Production Defects / Total Defects',
+      component_count: 2,
+      component_1_label: 'Production defects',
+      component_2_label: 'Total defects',
+      green_band: { op: 'lte', value: 0.05 },
+      yellow_band: { op: 'between', min: 0.06, max: 0.1 },
+      red_band: { op: 'gt', value: 0.1 },
+      insight: 'Độ kín của quality gate.',
+      is_live_capable: true,
+      sort_order: 1,
+    },
+  ],
+};
+
+function renderTab() {
+  return render(<KpiNormTab norm={norm} appliedIds={new Set(['m1'])} isLoading={false} />);
+}
+
+describe('KpiNormTab — Methodology lens & Executive reference sections', () => {
+  it('renders the Methodology lens card with its four methodology groups', () => {
+    renderTab();
+    expect(screen.getByText('Methodology lens')).toBeInTheDocument();
+    expect(
+      screen.getByText(/lớp bổ trợ theo methodology — không thay thế Core/),
+    ).toBeInTheDocument();
+    expect(screen.getByText('5.1 · Agile / Scrum')).toBeInTheDocument();
+    expect(screen.getByText('5.2 · Kanban / Flow')).toBeInTheDocument();
+    expect(screen.getByText('5.3 · Waterfall / Plan-driven')).toBeInTheDocument();
+    expect(screen.getByText('5.4 · Hybrid / Scaled (SAFe, Scrum-ban)')).toBeInTheDocument();
+    // One representative row per group, with its prose bands intact.
+    expect(screen.getByText('Velocity')).toBeInTheDocument();
+    expect(screen.getByText('Stable (trend ±10%)')).toBeInTheDocument();
+    expect(screen.getByText('Aging WIP')).toBeInTheDocument();
+    expect(screen.getByText('EVM Cost Performance (CPI)')).toBeInTheDocument();
+    expect(screen.getByText('ART Sync Attendance')).toBeInTheDocument();
+  });
+
+  it('renders the Executive card with EQI/TDI and the Fake Healthy System warning', () => {
+    renderTab();
+    expect(screen.getByText('Executive — Engineering Health')).toBeInTheDocument();
+    expect(screen.getByText(/quarterly · EQI \/ TDI → Executive Matrix 2×2/)).toBeInTheDocument();
+    expect(screen.getByText('EQI (Engineering Quality Index)')).toBeInTheDocument();
+    expect(screen.getByText('TDI (Technical Debt Index)')).toBeInTheDocument();
+    expect(screen.getByText(/Fake Healthy System/)).toBeInTheDocument();
+    expect(screen.getByText(/Legacy Burden/)).toBeInTheDocument();
+  });
+
+  it('search filters reference rows and hides emptied groups and cards', async () => {
+    const user = userEvent.setup();
+    renderTab();
+    await user.type(screen.getByPlaceholderText('Search metrics by name or formula…'), 'velocity');
+    // Scrum group survives with its two Velocity rows; the other groups disappear.
+    expect(screen.getByText('Velocity')).toBeInTheDocument();
+    expect(screen.getByText('Velocity Variance')).toBeInTheDocument();
+    expect(screen.queryByText('5.2 · Kanban / Flow')).not.toBeInTheDocument();
+    // Executive card has no match at all — the whole card hides.
+    expect(screen.queryByText('Executive — Engineering Health')).not.toBeInTheDocument();
+    // Pillar metric doesn't match either.
+    expect(screen.queryByText('Defect Leakage')).not.toBeInTheDocument();
+  });
+});

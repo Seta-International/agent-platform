@@ -14,12 +14,15 @@ import {
   PageContainer,
   Popover,
   paginateData,
+  pixel,
+  proportional,
   SegmentedControl,
   SegmentedControlItem,
   Selector,
   Skeleton,
   Table,
   type TableColumn,
+  type TablePlugin,
   Text,
   Tooltip,
   useTableColumnSettings,
@@ -32,7 +35,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Briefcase, Layers, Pause, Search, Settings2, Users } from 'lucide-react';
+import { Briefcase, Layers, LayoutGrid, List, Pause, Search, Settings2, Users } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   fetchOpenRequisitions,
@@ -62,6 +65,19 @@ const STATUS_LABEL: Record<string, string> = {
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
 // signature, so alias locally (do not touch the shared DTO).
 type Row = RequisitionListRow & Record<string, unknown>;
+
+// Give every row the same minimum height as a wrapped (two-line) row, so single-line
+// rows don't sit shorter than ones whose Position/Account text wraps. `height` on a
+// `<td>` behaves as a minimum in table layout — rows still grow for taller content.
+const uniformRowHeight: TablePlugin<Row> = {
+  transformBodyCell: (props) => ({
+    ...props,
+    htmlProps: {
+      ...props.htmlProps,
+      style: { ...props.htmlProps.style, height: '2lh' },
+    },
+  }),
+};
 
 // Universe of columns for the column-settings picker. The deleted DataTable never disabled
 // `enableColumnVisibility` here (and no column set `enableHiding: false`), so every column —
@@ -221,8 +237,9 @@ export function RequisitionsPage() {
         key: 'title',
         header: 'Position',
         sortable: true,
+        width: proportional(2, { minWidth: 240 }),
         renderCell: (r) => (
-          <div className="min-w-[240px] max-w-[420px]">
+          <div className="max-w-[420px]">
             <Tooltip content={r.title} hasHoverIndication={false}>
               <div className="line-clamp-2 break-words font-medium text-primary">{r.title}</div>
             </Tooltip>
@@ -233,29 +250,30 @@ export function RequisitionsPage() {
         key: 'account_name',
         header: 'Account',
         sortable: true,
+        width: proportional(1, { minWidth: 160 }),
         renderCell: (r) => (
-          <span className="whitespace-nowrap text-secondary">{r.account_name ?? '—'}</span>
+          <span className="break-words text-secondary">{r.account_name ?? '—'}</span>
         ),
       },
       {
         key: 'project_name',
         header: 'Project',
         sortable: true,
+        width: proportional(1, { minWidth: 150 }),
         renderCell: (r) => (
-          <span className="whitespace-nowrap text-secondary">{r.project_name ?? '—'}</span>
+          <span className="break-words text-secondary">{r.project_name ?? '—'}</span>
         ),
       },
       {
         key: 'grade',
         header: 'Grade',
         sortable: true,
+        width: pixel(120),
         renderCell: (r) =>
           r.grade ? (
-            <div className="max-w-[160px]">
-              <Tooltip content={r.grade} hasHoverIndication={false}>
-                <div className="truncate text-secondary">{r.grade}</div>
-              </Tooltip>
-            </div>
+            <Tooltip content={r.grade} hasHoverIndication={false}>
+              <div className="truncate text-secondary">{r.grade}</div>
+            </Tooltip>
           ) : (
             <span className="text-secondary">—</span>
           ),
@@ -264,12 +282,14 @@ export function RequisitionsPage() {
         key: 'kind',
         header: 'Type',
         sortable: true,
+        width: pixel(96),
         renderCell: (r) => <span className="text-secondary capitalize">{r.kind}</span>,
       },
       {
         key: 'stage',
         header: 'Stage',
         sortable: true,
+        width: pixel(120),
         renderCell: (r) => <span className="text-secondary">{STAGE_LABEL[r.stage]}</span>,
       },
       {
@@ -278,6 +298,7 @@ export function RequisitionsPage() {
         key: 'pipeline',
         header: 'Pipeline',
         sortable: false,
+        width: pixel(140),
         renderCell: (r) => {
           const counts = stageCounts(r.applicants_count, r.applicants);
           const furthest = furthestReachedIndex(r.applicants);
@@ -306,6 +327,7 @@ export function RequisitionsPage() {
         key: 'applicants_count',
         header: 'Applicants',
         sortable: true,
+        width: pixel(110),
         renderCell: (r) => <span className="text-secondary">{r.applicants_count}</span>,
       },
       {
@@ -313,6 +335,7 @@ export function RequisitionsPage() {
         key: 'headcount',
         header: 'Headcount',
         sortable: true,
+        width: pixel(120),
         renderCell: (r) =>
           r.openings_total > 0 ? (
             <span className="whitespace-nowrap tabular-nums text-secondary">
@@ -326,12 +349,14 @@ export function RequisitionsPage() {
         key: 'status',
         header: 'Status',
         sortable: true,
+        width: pixel(100),
         renderCell: (r) => <span className="text-secondary">{STATUS_LABEL[r.status]}</span>,
       },
       {
         key: 'due_date',
         header: 'Due',
         sortable: true,
+        width: pixel(120),
         renderCell: (r) => (
           <span className="font-mono text-sm text-secondary">{r.due_date ?? '—'}</span>
         ),
@@ -342,6 +367,7 @@ export function RequisitionsPage() {
         key: 'days_left',
         header: 'Days left',
         sortable: true,
+        width: pixel(140),
         renderCell: (r) => {
           if (!r.due_date) return <span className="text-secondary">—</span>;
           const dl = daysLeft(r.due_date);
@@ -495,8 +521,16 @@ export function RequisitionsPage() {
                   value={view}
                   onChange={(v) => setView(v as 'board' | 'list')}
                 >
-                  <SegmentedControlItem value="board" label="Board" />
-                  <SegmentedControlItem value="list" label="List" />
+                  <SegmentedControlItem
+                    value="board"
+                    label="Board"
+                    icon={<LayoutGrid aria-hidden="true" />}
+                  />
+                  <SegmentedControlItem
+                    value="list"
+                    label="List"
+                    icon={<List aria-hidden="true" />}
+                  />
                 </SegmentedControl>
               </div>
             </div>
@@ -548,6 +582,7 @@ export function RequisitionsPage() {
                       pagination,
                       sortable,
                       columnSettings,
+                      uniformRowHeight,
                       rowClick: {
                         transformBodyRow: (props, item) => ({
                           ...props,
