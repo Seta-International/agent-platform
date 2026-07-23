@@ -176,6 +176,52 @@ export function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * True when an allocation's end date lands before `today`. RA Monitoring only lists
+ * allocations whose window overlaps [today, …], so an allocation ended in the past drops
+ * out of the view on the next refetch — callers use this to tell the user the record moved
+ * out of the active window rather than letting it vanish silently. Open-ended or malformed
+ * dates are never "in the past" (there is nothing to compare).
+ */
+export function endDateIsInPast(dateTo: string | null | undefined, today: string): boolean {
+  return !!dateTo && isValidIsoDate(dateTo) && dateTo < today;
+}
+
+/** The editable fields of one existing ("update") allocation row in the Reassign wizard. */
+export interface ExistingRowState {
+  account_id: string;
+  project_id: string;
+  /** Whole percentage (0–100), matching the backend/DB representation. */
+  planned_pct: number;
+  /** '' when unset. */
+  date_from: string;
+  /** '' when open-ended. */
+  date_to: string;
+  bucket: Bucket;
+  /** '' when none. */
+  note: string;
+}
+
+/**
+ * True when the PM's in-progress draft for an existing allocation differs from its saved/DB
+ * values. The over-allocation impact preview reads the worker's book from the DB, so a dirty
+ * row must be persisted before previewing — otherwise Review impact scores a stale allocation.
+ * That is the FUT-748 defect: shorten an allocation so it no longer overlaps a new one, and the
+ * preview (blind to the unsaved edit) still counts it at its old length and warns about a
+ * phantom over-allocation — while confirming would leave the real overlap in place.
+ */
+export function existingRowChanged(draft: ExistingRowState, saved: ExistingRowState): boolean {
+  return (
+    draft.account_id !== saved.account_id ||
+    draft.project_id !== saved.project_id ||
+    draft.planned_pct !== saved.planned_pct ||
+    draft.date_from !== saved.date_from ||
+    draft.date_to !== saved.date_to ||
+    draft.bucket !== saved.bucket ||
+    draft.note !== saved.note
+  );
+}
+
 /** Two-letter initials for an avatar fallback (display only). */
 export function initials(name: string): string {
   return (

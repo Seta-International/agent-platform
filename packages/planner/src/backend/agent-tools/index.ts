@@ -1,7 +1,13 @@
 import type { AgentTool } from '@seta/agent-sdk';
 import { plannerAssignTaskTool } from './assign-task.ts';
+import { plannerGetBoardSnapshotTool } from './get-board-snapshot.ts';
 import { plannerGetGroupOverviewTool } from './get-group-overview.ts';
+import { plannerGetItemActivityTool } from './get-item-activity.ts';
+import { plannerGetStatsTool } from './get-stats.ts';
 import { plannerGetTaskTool } from './get-task.ts';
+import { plannerGetTimelineTool } from './get-timeline.ts';
+import { plannerGetUserActivityTool } from './get-user-activity.ts';
+import { plannerGetWorkloadTool } from './get-workload.ts';
 import { plannerListBucketsTool } from './list-buckets.ts';
 import { plannerListCommentsTool } from './list-comments.ts';
 import { plannerListPlansTool } from './list-plans.ts';
@@ -15,9 +21,15 @@ export {
   type PlannerFindSimilarTasksToolDeps,
   plannerFindSimilarTasksTool,
 } from './find-similar-tasks.ts';
+export { plannerGetBoardSnapshotTool } from './get-board-snapshot.ts';
 export { plannerGetGroupOverviewTool } from './get-group-overview.ts';
+export { plannerGetItemActivityTool } from './get-item-activity.ts';
 export { plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
+export { plannerGetStatsTool } from './get-stats.ts';
 export { plannerGetTaskTool } from './get-task.ts';
+export { plannerGetTimelineTool } from './get-timeline.ts';
+export { plannerGetUserActivityTool } from './get-user-activity.ts';
+export { plannerGetWorkloadTool } from './get-workload.ts';
 export { plannerListBucketsTool } from './list-buckets.ts';
 export { plannerListCommentsTool } from './list-comments.ts';
 export { plannerListPlansTool } from './list-plans.ts';
@@ -38,6 +50,12 @@ export const plannerAgentTools: AgentTool[] = [
   plannerAssignTaskTool,
   plannerSetAssigneesTool,
   plannerGetTaskTool,
+  plannerGetBoardSnapshotTool,
+  plannerGetItemActivityTool,
+  plannerGetStatsTool,
+  plannerGetTimelineTool,
+  plannerGetUserActivityTool,
+  plannerGetWorkloadTool,
   plannerListCommentsTool,
   plannerPostCommentTool,
   plannerSearchGroupMembersBySkillsTool,

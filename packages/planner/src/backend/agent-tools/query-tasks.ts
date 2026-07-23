@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
 import { labels, plans, taskLabels } from '../db/schema.ts';
 import { listTasks } from '../domain/list-tasks.ts';
+import { resolveGroupScope } from './resolve-scope.ts';
 
 // ─── domain helper (exported for testing) ──────────────────────────────────
 
@@ -184,7 +185,11 @@ const inputSchema = z.object({
     .string()
     .uuid()
     .optional()
-    .describe('Restrict to tasks in plans belonging to this group.'),
+    .describe('Group UUID. Optional if groupName provided or user has exactly one group.'),
+  groupName: z
+    .string()
+    .optional()
+    .describe('Group name (case-insensitive substring match). Resolves to groupId automatically.'),
   bucketId: z.string().uuid().optional().describe('Restrict to tasks in this bucket.'),
   status: z
     .enum(['open', 'not_started', 'in_progress', 'completed', 'any'])
@@ -255,6 +260,8 @@ export const plannerQueryTasksTool = defineAgentTool({
   description:
     'Find tasks matching structured filter criteria — by title, assignee, plan, group, bucket, ' +
     'status (lifecycle via percent_complete), or due date.\n\n' +
+    'Resolves groupId automatically: provide groupName for name-based lookup, or omit both ' +
+    'to auto-resolve when the user belongs to exactly one group.\n\n' +
     'Use for: "find Tuấn\'s open tasks"; "task named billing migration"; "what\'s overdue in plan X"; ' +
     '"list deferred tasks in group Y". Each result includes its applied labels.\n' +
     'Do NOT use for topic or keyword discovery — use planner_findSimilarTasks instead.\n\n' +
@@ -269,8 +276,21 @@ export const plannerQueryTasksTool = defineAgentTool({
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
 
+    let groupId = input.groupId;
+    if (!groupId && input.groupName) {
+      const resolved = await resolveGroupScope(session, { groupName: input.groupName });
+      if ('notFound' in resolved) {
+        return { tasks: [], nextCursor: null } as QueryTasksResult;
+      }
+      if ('ambiguous' in resolved) {
+        const names = resolved.options.map((o) => o.name).join(', ');
+        return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+      }
+      groupId = resolved.id;
+    }
+
     const assigneeUserId = resolveQueryAssignee(actor, input);
-    const result = await queryTasks({ ...input, assigneeUserId, session });
+    const result = await queryTasks({ ...input, assigneeUserId, groupId, session });
 
     if (result.tasks.length > 0) {
       await recordEntityExposure(ctx as never, {

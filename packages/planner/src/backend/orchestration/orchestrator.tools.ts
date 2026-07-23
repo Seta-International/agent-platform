@@ -4,20 +4,27 @@ import {
   type SpecializedAgentSpec,
 } from '@seta/agent-sdk';
 import { z } from 'zod';
-import type { QnaSubAgentInput, QnaSubAgentOutput } from './schemas.ts';
+import type { QuerySubAgentInput, QuerySubAgentOutput } from './schemas.ts';
+import type { OnToolActivity } from './tool-activity.ts';
 
-type SubAgent = SpecializedAgentSpec<QnaSubAgentInput, QnaSubAgentOutput>;
+type SubAgent = SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput>;
 
-export interface QnaOrchestratorToolDeps {
+export interface QueryOrchestratorToolDeps {
   taskQuery: SubAgent;
   taskDetail: SubAgent;
   teamInfo: SubAgent;
   generalAnswer: SubAgent;
   /** The orchestrator's run ctx — sub-agents inherit tenant/actor/permissions/model. */
   ctx: SpecializedAgentRunCtx;
+  /** The page-context prefix ("[Context: planner.<kind>#<id>]") recovered
+   *  deterministically from the turn. Re-attached to every delegate query so the
+   *  target id never depends on the LLM copying it correctly (fix B for PQ-008). */
+  contextPrefix?: string;
+  /** Eval seam — receives the delegation (routing) call after each sub-agent run. */
+  onToolActivity?: OnToolActivity;
 }
 
-export function makeQnaOrchestratorTools(deps: QnaOrchestratorToolDeps) {
+export function makeQueryOrchestratorTools(deps: QueryOrchestratorToolDeps) {
   const { ctx } = deps;
   const subCtx: SpecializedAgentRunCtx = {
     tenantId: ctx.tenantId,
@@ -25,6 +32,16 @@ export function makeQnaOrchestratorTools(deps: QnaOrchestratorToolDeps) {
     effectivePermissions: ctx.effectivePermissions,
     abortSignal: ctx.abortSignal,
     model: ctx.model,
+  };
+
+  // Re-attach the recovered page-context id to the delegate's query. The model
+  // may drop or mangle the id when it rewrites the sub-question (PQ-008: it
+  // replaced the task UUID with an example title), so we prepend it ourselves.
+  // Skip if the model already carried the same prefix through, to avoid dupes.
+  const withContext = (query: string): string => {
+    const prefix = deps.contextPrefix;
+    if (!prefix || query.includes(prefix)) return query;
+    return `${prefix} ${query}`;
   };
 
   const delegate = (id: string, name: string, description: string, sub: SubAgent) =>
@@ -36,7 +53,11 @@ export function makeQnaOrchestratorTools(deps: QnaOrchestratorToolDeps) {
       output: z.object({ answer: z.string() }),
       executionTimeoutMs: 120_000,
       execute: async ({ query }) => {
-        const res = await sub.run({ query }, subCtx);
+        const grounded = withContext(query);
+        const res = await sub.run({ query: grounded }, subCtx);
+        deps.onToolActivity?.([
+          { toolName: id, args: { query: grounded }, result: res.result, ok: true },
+        ]);
         return { answer: res.result.answer };
       },
     });

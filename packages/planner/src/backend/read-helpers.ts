@@ -32,6 +32,26 @@ export async function listMemberGroupIds(userId: string, tenantId: string): Prom
   return rows.map((r) => r.group_id);
 }
 
+export interface MemberGroup {
+  id: string;
+  name: string;
+}
+
+/** Groups this user belongs to with id + name, tenant-bound. */
+export async function listMemberGroups(userId: string, tenantId: string): Promise<MemberGroup[]> {
+  return plannerDb()
+    .select({ id: groups.id, name: groups.name })
+    .from(groupMembers)
+    .innerJoin(groups, eq(groups.id, groupMembers.group_id))
+    .where(
+      and(
+        eq(groupMembers.user_id, userId),
+        eq(groups.tenant_id, tenantId),
+        isNull(groups.deleted_at),
+      ),
+    );
+}
+
 /** user_ids belonging to a group, tenant-bound via the groups join. */
 export async function listGroupMemberUserIds(tenantId: string, groupId: string): Promise<string[]> {
   const rows = await plannerDb()

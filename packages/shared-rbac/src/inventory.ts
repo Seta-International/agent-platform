@@ -449,6 +449,9 @@ export const INVENTORY: StatementSpec[] = [
           'pm.charter.read',
           'pm.project.read',
           'pm.project.manage',
+          // Staffing (RA Monitoring "Add allocation") must look up people to place on a
+          // project; the worker directory is tenant-wide for any holder (FUT-542).
+          'people.worker.read',
         ],
       },
       {
@@ -461,6 +464,8 @@ export const INVENTORY: StatementSpec[] = [
           'pm.project.read',
           'pm.project.manage',
           'people.performance.read',
+          // Post-approval staffing looks up people to allocate; see pm.manager note above.
+          'people.worker.read',
         ],
       },
       {

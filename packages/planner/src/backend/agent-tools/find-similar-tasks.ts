@@ -48,6 +48,8 @@ export interface PlannerFindSimilarTasksToolDeps {
   sessionProvider?: (actor: { user_id: string }) => Promise<{
     tenant_id: string;
   }>;
+  /** Injectable clock for the createdAfter window (evals pass a frozen instant). */
+  now?: () => Date;
 }
 
 export function plannerFindSimilarTasksTool(deps: PlannerFindSimilarTasksToolDeps) {
@@ -79,7 +81,7 @@ export function plannerFindSimilarTasksTool(deps: PlannerFindSimilarTasksToolDep
               );
             })());
 
-      const now = new Date();
+      const now = deps.now?.() ?? new Date();
       const result = await findSimilarTasks(
         {
           tenant_id: session.tenant_id,

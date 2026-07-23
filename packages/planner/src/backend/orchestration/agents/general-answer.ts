@@ -1,35 +1,46 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { pickModel } from '../model.ts';
 import {
-  type QnaSubAgentInput as In,
-  type QnaSubAgentOutput as Out,
-  QnaSubAgentInputSchema,
-  QnaSubAgentOutputSchema,
+  type QuerySubAgentInput as In,
+  type QuerySubAgentOutput as Out,
+  QuerySubAgentInputSchema,
+  QuerySubAgentOutputSchema,
 } from '../schemas.ts';
+import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
+import { GROUNDING_POLICY } from './grounding.ts';
 
-export interface QnaGeneralAnswerDeps {
+export interface QueryGeneralAnswerDeps {
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
+  /** Eval seam — receives this agent's executed tool calls after generate(). */
+  onToolActivity?: OnToolActivity;
 }
 
 const INSTRUCTIONS = `You answer planner questions in clear prose. You have no tools.
 Use ONLY the facts already present in the conversation (including any sub-answers
 passed to you) plus the user's question. If a question needs data you were not
 given, say what is missing rather than inventing it. Be concise. Never claim to
-have taken an action — this is a read-only question-answering flow.`;
+have taken an action — this is a read-only question-answering flow.
 
-export function makeQnaGeneralAnswerAgent(
-  deps: QnaGeneralAnswerDeps,
+${GROUNDING_POLICY}`;
+
+export function makeQueryGeneralAnswerAgent(
+  deps: QueryGeneralAnswerDeps,
 ): SpecializedAgentSpec<In, Out> {
   return {
-    id: 'planner.qna.generalAnswer',
+    id: 'planner.query.generalAnswer',
     description: 'Synthesizes compound/summary/off-topic planner answers in prose (LLM, no tools).',
-    inputSchema: QnaSubAgentInputSchema,
-    outputSchema: QnaSubAgentOutputSchema,
+    inputSchema: QuerySubAgentInputSchema,
+    outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
@@ -39,16 +50,40 @@ export function makeQnaGeneralAnswerAgent(
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
-            const agent = new Agent({
-              id: 'planner.qna.generalAnswer',
+            const agentId = 'planner.query.generalAnswer';
+            const rawAgent = new Agent({
+              id: agentId,
               name: 'Planner General Answer',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
             });
+            const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
+            const mastra = new Mastra({
+              agents: { [agentId]: rawAgent },
+              ...(hasStorage ? { storage: deps.mastraStorage } : {}),
+              logger: new ConsoleLogger({
+                name: 'Mastra',
+                level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+              }),
+              ...(hasStorage
+                ? {
+                    observability: new Observability({
+                      configs: {
+                        default: {
+                          serviceName: 'query-general-answer',
+                          exporters: [new MastraStorageExporter()],
+                        },
+                      },
+                    }),
+                  }
+                : {}),
+            });
+            const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
               requestContext: rc,
               abortSignal: ctx.abortSignal,
             });
+            deps.onToolActivity?.(mapToolActivity(r.toolCalls, r.toolResults));
             return { text: r.text };
           })();
 
