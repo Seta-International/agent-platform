@@ -66,8 +66,13 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
 
   return (
     <section className="card" aria-label="Schedule">
-      <header className="mb-1.5">
-        <span className="text-sm text-secondary">Schedule</span>
+      <header className="mb-1.5 flex items-center justify-between">
+        <span className="text-sm font-medium text-secondary">Schedule</span>
+        {overdue && !hasRangeError && (
+          <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-950/50 dark:text-red-400">
+            Overdue
+          </span>
+        )}
       </header>
       <div className="flex flex-col gap-2">
         <DateField
@@ -85,8 +90,13 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
           onChange={handleDueChange}
         />
         {dateError && (
-          <p className="text-xs font-medium text-red-600 dark:text-red-400 mt-1" role="alert">
+          <p className="text-xs font-medium text-red-600 dark:text-red-400 mt-0.5" role="alert">
             {dateError}
+          </p>
+        )}
+        {overdue && !hasRangeError && (
+          <p className="text-xs font-medium text-red-600 dark:text-red-400 mt-0.5">
+            This task is past due.
           </p>
         )}
       </div>
