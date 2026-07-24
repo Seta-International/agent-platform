@@ -67,7 +67,13 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
     <section className="card" aria-label="Schedule">
       <header className="mb-1.5 flex items-center justify-between">
         <span className="text-sm font-medium text-secondary">Schedule</span>
-        {overdue && !hasRangeError && <Badge label="Overdue" variant="error" />}
+        {overdue && !hasRangeError && (
+          <Badge
+            label="Overdue"
+            variant="error"
+            className="inline-flex items-center justify-center leading-none"
+          />
+        )}
       </header>
       <div className="flex flex-col gap-2">
         <DateField
