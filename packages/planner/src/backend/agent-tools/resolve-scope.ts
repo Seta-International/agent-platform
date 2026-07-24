@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, isNull } from 'drizzle-orm';
+import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
 import { assigneeProjection } from '../db/schema.ts';
 import { listPlans } from '../domain/list-plans.ts';
@@ -9,6 +10,19 @@ export type ScopeResolveResult =
   | { ok: true; id: string; name: string }
   | { ambiguous: true; options: { id: string; name: string }[] }
   | { notFound: true };
+
+/**
+ * Declares the recoverable `{ error }` branch a scope-resolving tool returns
+ * instead of its payload when the plan/group can't be resolved (not found /
+ * ambiguous) — a message the agent relays to the user, NOT an exception, so it
+ * neither throws nor trips the tool circuit breaker. Mastra validates tool
+ * output against this schema and, since 1.52, hands the model a validation
+ * error rather than throwing, so that branch has to be schema-legal: every
+ * payload key becomes optional because it is absent on the error branch.
+ */
+export function withScopeError<T extends z.ZodRawShape>(payload: z.ZodObject<T>) {
+  return payload.partial().extend({ error: z.string().optional() });
+}
 
 function matchByName(
   items: { id: string; name: string }[],

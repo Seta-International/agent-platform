@@ -80,9 +80,10 @@ export type AgentHandle = {
 };
 
 export function buildAgentFromSpec(spec: AgentSpec, opts: { model?: unknown } = {}): Agent {
-  const model =
-    opts.model ??
-    resolveModel(undefined, { tierHint: spec.defaultTier as ModelTier | undefined }).model;
+  const fallback = resolveModel(undefined, {
+    tierHint: spec.defaultTier as ModelTier | undefined,
+  }).model as unknown;
+  const model = opts.model ?? fallback;
   return new Agent({
     id: spec.id,
     name: spec.id,

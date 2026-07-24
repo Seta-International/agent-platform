@@ -4,7 +4,7 @@ import { getPersonSkills } from '@seta/people';
 import { z } from 'zod';
 import { getTask } from '../domain/get-task.ts';
 import { listGroupMembers } from '../domain/list-group-members.ts';
-import { resolveGroupScope } from './resolve-scope.ts';
+import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 interface SkillCandidate {
   userId: string;
@@ -51,16 +51,18 @@ export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
       .default(5)
       .describe('Maximum number of candidates to return'),
   }),
-  output: z.object({
-    candidates: z.array(
-      z.object({
-        userId: z.string().describe('User ID'),
-        displayName: z.string().describe('User display name'),
-        matchedSkills: z.array(z.string()).describe('Skills that matched the query'),
-        score: z.number().describe('Number of matched skills'),
-      }),
-    ),
-  }),
+  output: withScopeError(
+    z.object({
+      candidates: z.array(
+        z.object({
+          userId: z.string().describe('User ID'),
+          displayName: z.string().describe('User display name'),
+          matchedSkills: z.array(z.string()).describe('Skills that matched the query'),
+          score: z.number().describe('Number of matched skills'),
+        }),
+      ),
+    }),
+  ),
   rbac: 'planner.group.member.read',
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
@@ -71,11 +73,11 @@ export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
       groupName: input.groupName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible group found matching that criteria.' } as never;
+      return { error: 'No accessible group found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple groups found: ${names}. Please specify which one.` };
     }
 
     const groupId = resolved.id;

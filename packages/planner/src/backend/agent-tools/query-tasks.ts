@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
 import { labels, plans, taskLabels } from '../db/schema.ts';
 import { listTasks } from '../domain/list-tasks.ts';
-import { resolveGroupScope } from './resolve-scope.ts';
+import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 // ─── domain helper (exported for testing) ──────────────────────────────────
 
@@ -244,13 +244,17 @@ const taskItemSchema = z.object({
   bucketId: z.string().nullable(),
 });
 
-const outputSchema = z.object({
-  tasks: z.array(taskItemSchema),
-  nextCursor: z
-    .string()
-    .nullable()
-    .describe('Pass as `cursor` in the next call to get the following page. null = no more pages.'),
-});
+const outputSchema = withScopeError(
+  z.object({
+    tasks: z.array(taskItemSchema),
+    nextCursor: z
+      .string()
+      .nullable()
+      .describe(
+        'Pass as `cursor` in the next call to get the following page. null = no more pages.',
+      ),
+  }),
+);
 
 // ─── Agent tool ─────────────────────────────────────────────────────────────
 
@@ -284,7 +288,7 @@ export const plannerQueryTasksTool = defineAgentTool({
       }
       if ('ambiguous' in resolved) {
         const names = resolved.options.map((o) => o.name).join(', ');
-        return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+        return { error: `Multiple groups found: ${names}. Please specify which one.` };
       }
       groupId = resolved.id;
     }

@@ -2,7 +2,7 @@ import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getGroupWorkload } from '../domain/get-group-workload.ts';
-import { resolveGroupScope } from './resolve-scope.ts';
+import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetWorkloadTool = defineAgentTool({
   id: 'planner_getWorkload',
@@ -19,15 +19,17 @@ export const plannerGetWorkloadTool = defineAgentTool({
       .describe('Group UUID. Optional if groupName provided or user has exactly one group.'),
     groupName: z.string().optional().describe('Group name (case-insensitive substring match).'),
   }),
-  output: z.object({
-    rows: z.array(
-      z.object({
-        userId: z.string(),
-        displayName: z.string(),
-        openTaskCount: z.number(),
-      }),
-    ),
-  }),
+  output: withScopeError(
+    z.object({
+      rows: z.array(
+        z.object({
+          userId: z.string(),
+          displayName: z.string(),
+          openTaskCount: z.number(),
+        }),
+      ),
+    }),
+  ),
   rbac: 'planner.reporting.read',
   execute: async (input, ctx) => {
     const session = await buildActorSession(actorFromContext(ctx));
@@ -37,11 +39,11 @@ export const plannerGetWorkloadTool = defineAgentTool({
       groupName: input.groupName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible group found matching that criteria.' } as never;
+      return { error: 'No accessible group found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple groups found: ${names}. Please specify which one.` };
     }
 
     return getGroupWorkload({ group_id: resolved.id, session });

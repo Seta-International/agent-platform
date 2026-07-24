@@ -31,7 +31,7 @@ export function SubagentGroup({ agent, rows, open }: SubagentGroupProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 text-sm text-secondary">
-        <Avatar name={agent} size="small" />
+        <Avatar name={agent} size="sm" />
         <span className="font-medium text-primary">{agent}</span>
         <span aria-hidden>·</span>
         <span>{stepLabel}</span>

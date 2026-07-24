@@ -9,81 +9,76 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as routesLoginRouteImport } from './routes/login'
 import { Route as routes403RouteImport } from './routes/403'
 import { Route as routesAuthedRouteRouteImport } from './routes/_authed/route'
-import { Route as routesAuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
+import { Route as routesLoginRouteImport } from './routes/login'
 import { Route as routesAuthedIndexRouteImport } from './routes/_authed/index'
-import { Route as PmRouteRouteImport } from './../../../packages/web-pm/src/routes/route'
-import { Route as PlannerRouteRouteImport } from './../../../packages/web-planner/src/routes/route'
-import { Route as PeopleRouteRouteImport } from './../../../packages/web-people/src/routes/route'
-import { Route as HiringRouteRouteImport } from './../../../packages/web-hiring/src/routes/route'
-import { Route as AgentRouteRouteImport } from './../../../packages/web-agent/src/routes/route'
 import { Route as AdminRouteRouteImport } from './../../../packages/web-admin/src/routes/route'
-import { Route as PmIndexRouteImport } from './../../../packages/web-pm/src/routes/index'
-import { Route as PlannerIndexRouteImport } from './../../../packages/web-planner/src/routes/index'
-import { Route as PeopleIndexRouteImport } from './../../../packages/web-people/src/routes/index'
-import { Route as HiringIndexRouteImport } from './../../../packages/web-hiring/src/routes/index'
-import { Route as AgentIndexRouteImport } from './../../../packages/web-agent/src/routes/index'
+import { Route as AgentRouteRouteImport } from './../../../packages/web-agent/src/routes/route'
+import { Route as HiringRouteRouteImport } from './../../../packages/web-hiring/src/routes/route'
+import { Route as PeopleRouteRouteImport } from './../../../packages/web-people/src/routes/route'
+import { Route as PlannerRouteRouteImport } from './../../../packages/web-planner/src/routes/route'
+import { Route as PmRouteRouteImport } from './../../../packages/web-pm/src/routes/route'
+import { Route as routesAuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as AdminIndexRouteImport } from './../../../packages/web-admin/src/routes/index'
-import { Route as routesAuthedSettingsSkillsRouteImport } from './routes/_authed/settings/skills'
-import { Route as routesAuthedSettingsSecurityRouteImport } from './routes/_authed/settings/security'
-import { Route as routesAuthedSettingsRolesRouteImport } from './routes/_authed/settings/roles'
-import { Route as routesAuthedSettingsProfileRouteImport } from './routes/_authed/settings/profile'
-import { Route as routesAuthedSettingsNotificationsRouteImport } from './routes/_authed/settings/notifications'
-import { Route as routesAuthedSettingsAvailabilityRouteImport } from './routes/_authed/settings/availability'
-import { Route as PlannerTrashRouteImport } from './../../../packages/web-planner/src/routes/trash'
-import { Route as PlannerMyTasksRouteImport } from './../../../packages/web-planner/src/routes/my-tasks'
-import { Route as PlannerGroupsRouteImport } from './../../../packages/web-planner/src/routes/groups'
-import { Route as PeopleProbationRouteImport } from './../../../packages/web-people/src/routes/probation'
-import { Route as PeoplePerformanceRouteImport } from './../../../packages/web-people/src/routes/performance'
-import { Route as PeopleOrgRouteImport } from './../../../packages/web-people/src/routes/org'
-import { Route as PeopleOnboardingRouteImport } from './../../../packages/web-people/src/routes/onboarding'
-import { Route as PeopleOffboardingRouteImport } from './../../../packages/web-people/src/routes/offboarding'
-import { Route as PeopleAllocationRouteImport } from './../../../packages/web-people/src/routes/allocation'
-import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agent/src/routes/knowledge'
-import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
-import { Route as AdminUsersRouteImport } from './../../../packages/web-admin/src/routes/users'
-import { Route as AdminTenantRouteImport } from './../../../packages/web-admin/src/routes/tenant'
-import { Route as AdminSsoRouteImport } from './../../../packages/web-admin/src/routes/sso'
-import { Route as AdminSkillsRouteImport } from './../../../packages/web-admin/src/routes/skills'
-import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
-import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
-import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
-import { Route as AdminGroupsRouteImport } from './../../../packages/web-admin/src/routes/groups'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
+import { Route as AdminGroupsRouteImport } from './../../../packages/web-admin/src/routes/groups'
+import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
+import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
+import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
+import { Route as AdminSkillsRouteImport } from './../../../packages/web-admin/src/routes/skills'
+import { Route as AdminSsoRouteImport } from './../../../packages/web-admin/src/routes/sso'
+import { Route as AdminTenantRouteImport } from './../../../packages/web-admin/src/routes/tenant'
+import { Route as AdminUsersRouteImport } from './../../../packages/web-admin/src/routes/users'
+import { Route as AgentIndexRouteImport } from './../../../packages/web-agent/src/routes/index'
+import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
+import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agent/src/routes/knowledge'
 import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web-agent/src/routes/workflows/route'
-import { Route as PmWeeklyIndexRouteImport } from './../../../packages/web-pm/src/routes/weekly/index'
-import { Route as PmRisksIndexRouteImport } from './../../../packages/web-pm/src/routes/risks/index'
-import { Route as PmResourcingIndexRouteImport } from './../../../packages/web-pm/src/routes/resourcing/index'
-import { Route as PmRequestsIndexRouteImport } from './../../../packages/web-pm/src/routes/requests/index'
-import { Route as PmProjectsIndexRouteImport } from './../../../packages/web-pm/src/routes/projects/index'
-import { Route as PmMetricsIndexRouteImport } from './../../../packages/web-pm/src/routes/metrics/index'
-import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
-import { Route as PeopleEmployeesIndexRouteImport } from './../../../packages/web-people/src/routes/employees/index'
-import { Route as HiringSettingsIndexRouteImport } from './../../../packages/web-hiring/src/routes/settings/index'
-import { Route as HiringRequisitionsIndexRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/index'
-import { Route as HiringKnowledgeIndexRouteImport } from './../../../packages/web-hiring/src/routes/knowledge/index'
-import { Route as HiringInterviewsIndexRouteImport } from './../../../packages/web-hiring/src/routes/interviews/index'
-import { Route as HiringCandidatesIndexRouteImport } from './../../../packages/web-hiring/src/routes/candidates/index'
+import { Route as HiringIndexRouteImport } from './../../../packages/web-hiring/src/routes/index'
+import { Route as PeopleIndexRouteImport } from './../../../packages/web-people/src/routes/index'
+import { Route as PeopleAllocationRouteImport } from './../../../packages/web-people/src/routes/allocation'
+import { Route as PeopleOffboardingRouteImport } from './../../../packages/web-people/src/routes/offboarding'
+import { Route as PeopleOnboardingRouteImport } from './../../../packages/web-people/src/routes/onboarding'
+import { Route as PeopleOrgRouteImport } from './../../../packages/web-people/src/routes/org'
+import { Route as PeoplePerformanceRouteImport } from './../../../packages/web-people/src/routes/performance'
+import { Route as PeopleProbationRouteImport } from './../../../packages/web-people/src/routes/probation'
+import { Route as PlannerIndexRouteImport } from './../../../packages/web-planner/src/routes/index'
+import { Route as PlannerGroupsRouteImport } from './../../../packages/web-planner/src/routes/groups'
+import { Route as PlannerMyTasksRouteImport } from './../../../packages/web-planner/src/routes/my-tasks'
+import { Route as PlannerTrashRouteImport } from './../../../packages/web-planner/src/routes/trash'
+import { Route as PmIndexRouteImport } from './../../../packages/web-pm/src/routes/index'
+import { Route as routesAuthedSettingsAvailabilityRouteImport } from './routes/_authed/settings/availability'
+import { Route as routesAuthedSettingsNotificationsRouteImport } from './routes/_authed/settings/notifications'
+import { Route as routesAuthedSettingsProfileRouteImport } from './routes/_authed/settings/profile'
+import { Route as routesAuthedSettingsRolesRouteImport } from './routes/_authed/settings/roles'
+import { Route as routesAuthedSettingsSecurityRouteImport } from './routes/_authed/settings/security'
+import { Route as routesAuthedSettingsSkillsRouteImport } from './routes/_authed/settings/skills'
 import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web-agent/src/routes/workflows/index'
-import { Route as PmRequestsCharterIdRouteImport } from './../../../packages/web-pm/src/routes/requests/$charterId'
-import { Route as PmProjectsProjectIdRouteImport } from './../../../packages/web-pm/src/routes/projects/$projectId'
-import { Route as PmAccountsAccountIdRouteImport } from './../../../packages/web-pm/src/routes/accounts/$accountId'
-import { Route as PlannerPlansPlanIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId'
-import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
-import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
-import { Route as PeopleEmployeesWorkerIdRouteImport } from './../../../packages/web-people/src/routes/employees/$workerId'
+import { Route as HiringCandidatesIndexRouteImport } from './../../../packages/web-hiring/src/routes/candidates/index'
+import { Route as HiringInterviewsIndexRouteImport } from './../../../packages/web-hiring/src/routes/interviews/index'
+import { Route as HiringKnowledgeIndexRouteImport } from './../../../packages/web-hiring/src/routes/knowledge/index'
+import { Route as HiringRequisitionsIndexRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/index'
 import { Route as HiringRequisitionsRequisitionIdRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/$requisitionId'
+import { Route as HiringSettingsIndexRouteImport } from './../../../packages/web-hiring/src/routes/settings/index'
+import { Route as PeopleEmployeesIndexRouteImport } from './../../../packages/web-people/src/routes/employees/index'
+import { Route as PeopleEmployeesWorkerIdRouteImport } from './../../../packages/web-people/src/routes/employees/$workerId'
+import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
+import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
+import { Route as PlannerPlansPlanIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId'
+import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
+import { Route as PmAccountsAccountIdRouteImport } from './../../../packages/web-pm/src/routes/accounts/$accountId'
+import { Route as PmMetricsIndexRouteImport } from './../../../packages/web-pm/src/routes/metrics/index'
+import { Route as PmProjectsIndexRouteImport } from './../../../packages/web-pm/src/routes/projects/index'
+import { Route as PmProjectsProjectIdRouteImport } from './../../../packages/web-pm/src/routes/projects/$projectId'
+import { Route as PmRequestsIndexRouteImport } from './../../../packages/web-pm/src/routes/requests/index'
+import { Route as PmRequestsCharterIdRouteImport } from './../../../packages/web-pm/src/routes/requests/$charterId'
+import { Route as PmResourcingIndexRouteImport } from './../../../packages/web-pm/src/routes/resourcing/index'
+import { Route as PmRisksIndexRouteImport } from './../../../packages/web-pm/src/routes/risks/index'
+import { Route as PmWeeklyIndexRouteImport } from './../../../packages/web-pm/src/routes/weekly/index'
 import { Route as AgentWorkflowsRunsRunIdRouteImport } from './../../../packages/web-agent/src/routes/workflows/runs/$runId'
-import { Route as PlannerPlansPlanIdTasksTaskIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/tasks_/$taskId'
 import { Route as PlannerPlansPlanIdSettingsCategoriesRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/settings_/categories'
+import { Route as PlannerPlansPlanIdTasksTaskIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/tasks_/$taskId'
 
-const routesLoginRoute = routesLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const routes403Route = routes403RouteImport.update({
   id: '/403',
   path: '/403',
@@ -93,40 +88,14 @@ const routesAuthedRouteRoute = routesAuthedRouteRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const routesAuthedSettingsIndexRoute =
-  routesAuthedSettingsIndexRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => routesAuthedRouteRoute,
-  } as any)
+const routesLoginRoute = routesLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const routesAuthedIndexRoute = routesAuthedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => routesAuthedRouteRoute,
-} as any)
-const PmRouteRoute = PmRouteRouteImport.update({
-  id: '/pm',
-  path: '/pm',
-  getParentRoute: () => routesAuthedRouteRoute,
-} as any)
-const PlannerRouteRoute = PlannerRouteRouteImport.update({
-  id: '/planner',
-  path: '/planner',
-  getParentRoute: () => routesAuthedRouteRoute,
-} as any)
-const PeopleRouteRoute = PeopleRouteRouteImport.update({
-  id: '/people',
-  path: '/people',
-  getParentRoute: () => routesAuthedRouteRoute,
-} as any)
-const HiringRouteRoute = HiringRouteRouteImport.update({
-  id: '/hiring',
-  path: '/hiring',
-  getParentRoute: () => routesAuthedRouteRoute,
-} as any)
-const AgentRouteRoute = AgentRouteRouteImport.update({
-  id: '/agent',
-  path: '/agent',
   getParentRoute: () => routesAuthedRouteRoute,
 } as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
@@ -134,58 +103,176 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
   path: '/admin',
   getParentRoute: () => routesAuthedRouteRoute,
 } as any)
-const PmIndexRoute = PmIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PmRouteRoute,
+const AgentRouteRoute = AgentRouteRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => routesAuthedRouteRoute,
 } as any)
-const PlannerIndexRoute = PlannerIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PlannerRouteRoute,
+const HiringRouteRoute = HiringRouteRouteImport.update({
+  id: '/hiring',
+  path: '/hiring',
+  getParentRoute: () => routesAuthedRouteRoute,
 } as any)
-const PeopleIndexRoute = PeopleIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PeopleRouteRoute,
+const PeopleRouteRoute = PeopleRouteRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => routesAuthedRouteRoute,
 } as any)
-const HiringIndexRoute = HiringIndexRouteImport.update({
+const PlannerRouteRoute = PlannerRouteRouteImport.update({
+  id: '/planner',
+  path: '/planner',
+  getParentRoute: () => routesAuthedRouteRoute,
+} as any)
+const PmRouteRoute = PmRouteRouteImport.update({
+  id: '/pm',
+  path: '/pm',
+  getParentRoute: () => routesAuthedRouteRoute,
+} as any)
+const routesAuthedSettingsIndexRoute =
+  routesAuthedSettingsIndexRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => HiringRouteRoute,
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminGroupsRoute = AdminGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminMailRoute = AdminMailRouteImport.update({
+  id: '/mail',
+  path: '/mail',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminRoleAccessRoute = AdminRoleAccessRouteImport.update({
+  id: '/role-access',
+  path: '/role-access',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSkillsRoute = AdminSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSsoRoute = AdminSsoRouteImport.update({
+  id: '/sso',
+  path: '/sso',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminTenantRoute = AdminTenantRouteImport.update({
+  id: '/tenant',
+  path: '/tenant',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AgentIndexRoute = AgentIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AgentRouteRoute,
 } as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
+const AgentChatRoute = AgentChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AgentRouteRoute,
+} as any)
+const AgentKnowledgeRoute = AgentKnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
+  getParentRoute: () => AgentRouteRoute,
+} as any)
+const AgentWorkflowsRouteRoute = AgentWorkflowsRouteRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
+  getParentRoute: () => AgentRouteRoute,
+} as any)
+const HiringIndexRoute = HiringIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AdminRouteRoute,
+  getParentRoute: () => HiringRouteRoute,
 } as any)
-const routesAuthedSettingsSkillsRoute =
-  routesAuthedSettingsSkillsRouteImport.update({
-    id: '/settings/skills',
-    path: '/settings/skills',
-    getParentRoute: () => routesAuthedRouteRoute,
-  } as any)
-const routesAuthedSettingsSecurityRoute =
-  routesAuthedSettingsSecurityRouteImport.update({
-    id: '/settings/security',
-    path: '/settings/security',
-    getParentRoute: () => routesAuthedRouteRoute,
-  } as any)
-const routesAuthedSettingsRolesRoute =
-  routesAuthedSettingsRolesRouteImport.update({
-    id: '/settings/roles',
-    path: '/settings/roles',
-    getParentRoute: () => routesAuthedRouteRoute,
-  } as any)
-const routesAuthedSettingsProfileRoute =
-  routesAuthedSettingsProfileRouteImport.update({
-    id: '/settings/profile',
-    path: '/settings/profile',
+const PeopleIndexRoute = PeopleIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleAllocationRoute = PeopleAllocationRouteImport.update({
+  id: '/allocation',
+  path: '/allocation',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleOffboardingRoute = PeopleOffboardingRouteImport.update({
+  id: '/offboarding',
+  path: '/offboarding',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleOnboardingRoute = PeopleOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleOrgRoute = PeopleOrgRouteImport.update({
+  id: '/org',
+  path: '/org',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeoplePerformanceRoute = PeoplePerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleProbationRoute = PeopleProbationRouteImport.update({
+  id: '/probation',
+  path: '/probation',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PlannerIndexRoute = PlannerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PlannerGroupsRoute = PlannerGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PlannerMyTasksRoute = PlannerMyTasksRouteImport.update({
+  id: '/my-tasks',
+  path: '/my-tasks',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PlannerTrashRoute = PlannerTrashRouteImport.update({
+  id: '/trash',
+  path: '/trash',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PmIndexRoute = PmIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const routesAuthedSettingsAvailabilityRoute =
+  routesAuthedSettingsAvailabilityRouteImport.update({
+    id: '/settings/availability',
+    path: '/settings/availability',
     getParentRoute: () => routesAuthedRouteRoute,
   } as any)
 const routesAuthedSettingsNotificationsRoute =
@@ -194,170 +281,38 @@ const routesAuthedSettingsNotificationsRoute =
     path: '/settings/notifications',
     getParentRoute: () => routesAuthedRouteRoute,
   } as any)
-const routesAuthedSettingsAvailabilityRoute =
-  routesAuthedSettingsAvailabilityRouteImport.update({
-    id: '/settings/availability',
-    path: '/settings/availability',
+const routesAuthedSettingsProfileRoute =
+  routesAuthedSettingsProfileRouteImport.update({
+    id: '/settings/profile',
+    path: '/settings/profile',
     getParentRoute: () => routesAuthedRouteRoute,
   } as any)
-const PlannerTrashRoute = PlannerTrashRouteImport.update({
-  id: '/trash',
-  path: '/trash',
-  getParentRoute: () => PlannerRouteRoute,
+const routesAuthedSettingsRolesRoute =
+  routesAuthedSettingsRolesRouteImport.update({
+    id: '/settings/roles',
+    path: '/settings/roles',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsSecurityRoute =
+  routesAuthedSettingsSecurityRouteImport.update({
+    id: '/settings/security',
+    path: '/settings/security',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsSkillsRoute =
+  routesAuthedSettingsSkillsRouteImport.update({
+    id: '/settings/skills',
+    path: '/settings/skills',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const AgentWorkflowsIndexRoute = AgentWorkflowsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AgentWorkflowsRouteRoute,
 } as any)
-const PlannerMyTasksRoute = PlannerMyTasksRouteImport.update({
-  id: '/my-tasks',
-  path: '/my-tasks',
-  getParentRoute: () => PlannerRouteRoute,
-} as any)
-const PlannerGroupsRoute = PlannerGroupsRouteImport.update({
-  id: '/groups',
-  path: '/groups',
-  getParentRoute: () => PlannerRouteRoute,
-} as any)
-const PeopleProbationRoute = PeopleProbationRouteImport.update({
-  id: '/probation',
-  path: '/probation',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const PeoplePerformanceRoute = PeoplePerformanceRouteImport.update({
-  id: '/performance',
-  path: '/performance',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const PeopleOrgRoute = PeopleOrgRouteImport.update({
-  id: '/org',
-  path: '/org',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const PeopleOnboardingRoute = PeopleOnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const PeopleOffboardingRoute = PeopleOffboardingRouteImport.update({
-  id: '/offboarding',
-  path: '/offboarding',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const PeopleAllocationRoute = PeopleAllocationRouteImport.update({
-  id: '/allocation',
-  path: '/allocation',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const AgentKnowledgeRoute = AgentKnowledgeRouteImport.update({
-  id: '/knowledge',
-  path: '/knowledge',
-  getParentRoute: () => AgentRouteRoute,
-} as any)
-const AgentChatRoute = AgentChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => AgentRouteRoute,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminTenantRoute = AdminTenantRouteImport.update({
-  id: '/tenant',
-  path: '/tenant',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminSsoRoute = AdminSsoRouteImport.update({
-  id: '/sso',
-  path: '/sso',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminSkillsRoute = AdminSkillsRouteImport.update({
-  id: '/skills',
-  path: '/skills',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminRoleAccessRoute = AdminRoleAccessRouteImport.update({
-  id: '/role-access',
-  path: '/role-access',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminMailRoute = AdminMailRouteImport.update({
-  id: '/mail',
-  path: '/mail',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminGroupsRoute = AdminGroupsRouteImport.update({
-  id: '/groups',
-  path: '/groups',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminAuditRoute = AdminAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AgentWorkflowsRouteRoute = AgentWorkflowsRouteRouteImport.update({
-  id: '/workflows',
-  path: '/workflows',
-  getParentRoute: () => AgentRouteRoute,
-} as any)
-const PmWeeklyIndexRoute = PmWeeklyIndexRouteImport.update({
-  id: '/weekly/',
-  path: '/weekly/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmRisksIndexRoute = PmRisksIndexRouteImport.update({
-  id: '/risks/',
-  path: '/risks/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmResourcingIndexRoute = PmResourcingIndexRouteImport.update({
-  id: '/resourcing/',
-  path: '/resourcing/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmRequestsIndexRoute = PmRequestsIndexRouteImport.update({
-  id: '/requests/',
-  path: '/requests/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmProjectsIndexRoute = PmProjectsIndexRouteImport.update({
-  id: '/projects/',
-  path: '/projects/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmMetricsIndexRoute = PmMetricsIndexRouteImport.update({
-  id: '/metrics/',
-  path: '/metrics/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
-  id: '/accounts/',
-  path: '/accounts/',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PeopleEmployeesIndexRoute = PeopleEmployeesIndexRouteImport.update({
-  id: '/employees/',
-  path: '/employees/',
-  getParentRoute: () => PeopleRouteRoute,
-} as any)
-const HiringSettingsIndexRoute = HiringSettingsIndexRouteImport.update({
-  id: '/settings/',
-  path: '/settings/',
-  getParentRoute: () => HiringRouteRoute,
-} as any)
-const HiringRequisitionsIndexRoute = HiringRequisitionsIndexRouteImport.update({
-  id: '/requisitions/',
-  path: '/requisitions/',
-  getParentRoute: () => HiringRouteRoute,
-} as any)
-const HiringKnowledgeIndexRoute = HiringKnowledgeIndexRouteImport.update({
-  id: '/knowledge/',
-  path: '/knowledge/',
+const HiringCandidatesIndexRoute = HiringCandidatesIndexRouteImport.update({
+  id: '/candidates/',
+  path: '/candidates/',
   getParentRoute: () => HiringRouteRoute,
 } as any)
 const HiringInterviewsIndexRoute = HiringInterviewsIndexRouteImport.update({
@@ -365,50 +320,15 @@ const HiringInterviewsIndexRoute = HiringInterviewsIndexRouteImport.update({
   path: '/interviews/',
   getParentRoute: () => HiringRouteRoute,
 } as any)
-const HiringCandidatesIndexRoute = HiringCandidatesIndexRouteImport.update({
-  id: '/candidates/',
-  path: '/candidates/',
+const HiringKnowledgeIndexRoute = HiringKnowledgeIndexRouteImport.update({
+  id: '/knowledge/',
+  path: '/knowledge/',
   getParentRoute: () => HiringRouteRoute,
 } as any)
-const AgentWorkflowsIndexRoute = AgentWorkflowsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AgentWorkflowsRouteRoute,
-} as any)
-const PmRequestsCharterIdRoute = PmRequestsCharterIdRouteImport.update({
-  id: '/requests/$charterId',
-  path: '/requests/$charterId',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmProjectsProjectIdRoute = PmProjectsProjectIdRouteImport.update({
-  id: '/projects/$projectId',
-  path: '/projects/$projectId',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PmAccountsAccountIdRoute = PmAccountsAccountIdRouteImport.update({
-  id: '/accounts/$accountId',
-  path: '/accounts/$accountId',
-  getParentRoute: () => PmRouteRoute,
-} as any)
-const PlannerPlansPlanIdRoute = PlannerPlansPlanIdRouteImport.update({
-  id: '/plans_/$planId',
-  path: '/plans/$planId',
-  getParentRoute: () => PlannerRouteRoute,
-} as any)
-const PlannerGroupsDiscoverRoute = PlannerGroupsDiscoverRouteImport.update({
-  id: '/groups_/discover',
-  path: '/groups/discover',
-  getParentRoute: () => PlannerRouteRoute,
-} as any)
-const PlannerGroupsGroupIdRoute = PlannerGroupsGroupIdRouteImport.update({
-  id: '/groups_/$groupId',
-  path: '/groups/$groupId',
-  getParentRoute: () => PlannerRouteRoute,
-} as any)
-const PeopleEmployeesWorkerIdRoute = PeopleEmployeesWorkerIdRouteImport.update({
-  id: '/employees/$workerId',
-  path: '/employees/$workerId',
-  getParentRoute: () => PeopleRouteRoute,
+const HiringRequisitionsIndexRoute = HiringRequisitionsIndexRouteImport.update({
+  id: '/requisitions/',
+  path: '/requisitions/',
+  getParentRoute: () => HiringRouteRoute,
 } as any)
 const HiringRequisitionsRequisitionIdRoute =
   HiringRequisitionsRequisitionIdRouteImport.update({
@@ -416,21 +336,101 @@ const HiringRequisitionsRequisitionIdRoute =
     path: '/requisitions/$requisitionId',
     getParentRoute: () => HiringRouteRoute,
   } as any)
+const HiringSettingsIndexRoute = HiringSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => HiringRouteRoute,
+} as any)
+const PeopleEmployeesIndexRoute = PeopleEmployeesIndexRouteImport.update({
+  id: '/employees/',
+  path: '/employees/',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleEmployeesWorkerIdRoute = PeopleEmployeesWorkerIdRouteImport.update({
+  id: '/employees/$workerId',
+  path: '/employees/$workerId',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PlannerGroupsGroupIdRoute = PlannerGroupsGroupIdRouteImport.update({
+  id: '/groups_/$groupId',
+  path: '/groups/$groupId',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PlannerGroupsDiscoverRoute = PlannerGroupsDiscoverRouteImport.update({
+  id: '/groups_/discover',
+  path: '/groups/discover',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PlannerPlansPlanIdRoute = PlannerPlansPlanIdRouteImport.update({
+  id: '/plans_/$planId',
+  path: '/plans/$planId',
+  getParentRoute: () => PlannerRouteRoute,
+} as any)
+const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
+  id: '/accounts/',
+  path: '/accounts/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmAccountsAccountIdRoute = PmAccountsAccountIdRouteImport.update({
+  id: '/accounts/$accountId',
+  path: '/accounts/$accountId',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmMetricsIndexRoute = PmMetricsIndexRouteImport.update({
+  id: '/metrics/',
+  path: '/metrics/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmProjectsIndexRoute = PmProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmProjectsProjectIdRoute = PmProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmRequestsIndexRoute = PmRequestsIndexRouteImport.update({
+  id: '/requests/',
+  path: '/requests/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmRequestsCharterIdRoute = PmRequestsCharterIdRouteImport.update({
+  id: '/requests/$charterId',
+  path: '/requests/$charterId',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmResourcingIndexRoute = PmResourcingIndexRouteImport.update({
+  id: '/resourcing/',
+  path: '/resourcing/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmRisksIndexRoute = PmRisksIndexRouteImport.update({
+  id: '/risks/',
+  path: '/risks/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmWeeklyIndexRoute = PmWeeklyIndexRouteImport.update({
+  id: '/weekly/',
+  path: '/weekly/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
 const AgentWorkflowsRunsRunIdRoute = AgentWorkflowsRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
   getParentRoute: () => AgentWorkflowsRouteRoute,
 } as any)
-const PlannerPlansPlanIdTasksTaskIdRoute =
-  PlannerPlansPlanIdTasksTaskIdRouteImport.update({
-    id: '/plans_/$planId_/tasks_/$taskId',
-    path: '/plans/$planId/tasks/$taskId',
-    getParentRoute: () => PlannerRouteRoute,
-  } as any)
 const PlannerPlansPlanIdSettingsCategoriesRoute =
   PlannerPlansPlanIdSettingsCategoriesRouteImport.update({
     id: '/plans_/$planId_/settings_/categories',
     path: '/plans/$planId/settings/categories',
+    getParentRoute: () => PlannerRouteRoute,
+  } as any)
+const PlannerPlansPlanIdTasksTaskIdRoute =
+  PlannerPlansPlanIdTasksTaskIdRouteImport.update({
+    id: '/plans_/$planId_/tasks_/$taskId',
+    path: '/plans/$planId/tasks/$taskId',
     getParentRoute: () => PlannerRouteRoute,
   } as any)
 
@@ -854,13 +854,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof routesLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/403': {
       id: '/403'
       path: '/403'
@@ -875,53 +868,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof routesAuthedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/settings': {
-      id: '/_authed/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof routesAuthedSettingsIndexRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof routesLoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authed/': {
       id: '/_authed/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof routesAuthedIndexRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/pm': {
-      id: '/_authed/pm'
-      path: '/pm'
-      fullPath: '/pm'
-      preLoaderRoute: typeof PmRouteRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/planner': {
-      id: '/_authed/planner'
-      path: '/planner'
-      fullPath: '/planner'
-      preLoaderRoute: typeof PlannerRouteRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/people': {
-      id: '/_authed/people'
-      path: '/people'
-      fullPath: '/people'
-      preLoaderRoute: typeof PeopleRouteRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/hiring': {
-      id: '/_authed/hiring'
-      path: '/hiring'
-      fullPath: '/hiring'
-      preLoaderRoute: typeof HiringRouteRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/agent': {
-      id: '/_authed/agent'
-      path: '/agent'
-      fullPath: '/agent'
-      preLoaderRoute: typeof AgentRouteRouteImport
       parentRoute: typeof routesAuthedRouteRoute
     }
     '/_authed/admin': {
@@ -931,221 +889,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof routesAuthedRouteRoute
     }
-    '/_authed/pm/': {
-      id: '/_authed/pm/'
-      path: '/'
-      fullPath: '/pm/'
-      preLoaderRoute: typeof PmIndexRouteImport
-      parentRoute: typeof PmRouteRoute
+    '/_authed/agent': {
+      id: '/_authed/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
     }
-    '/_authed/planner/': {
-      id: '/_authed/planner/'
-      path: '/'
-      fullPath: '/planner/'
-      preLoaderRoute: typeof PlannerIndexRouteImport
-      parentRoute: typeof PlannerRouteRoute
+    '/_authed/hiring': {
+      id: '/_authed/hiring'
+      path: '/hiring'
+      fullPath: '/hiring'
+      preLoaderRoute: typeof HiringRouteRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
     }
-    '/_authed/people/': {
-      id: '/_authed/people/'
-      path: '/'
-      fullPath: '/people/'
-      preLoaderRoute: typeof PeopleIndexRouteImport
-      parentRoute: typeof PeopleRouteRoute
+    '/_authed/people': {
+      id: '/_authed/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof PeopleRouteRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
     }
-    '/_authed/hiring/': {
-      id: '/_authed/hiring/'
-      path: '/'
-      fullPath: '/hiring/'
-      preLoaderRoute: typeof HiringIndexRouteImport
-      parentRoute: typeof HiringRouteRoute
+    '/_authed/planner': {
+      id: '/_authed/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof PlannerRouteRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
     }
-    '/_authed/agent/': {
-      id: '/_authed/agent/'
-      path: '/'
-      fullPath: '/agent/'
-      preLoaderRoute: typeof AgentIndexRouteImport
-      parentRoute: typeof AgentRouteRoute
+    '/_authed/pm': {
+      id: '/_authed/pm'
+      path: '/pm'
+      fullPath: '/pm'
+      preLoaderRoute: typeof PmRouteRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof routesAuthedSettingsIndexRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
     }
     '/_authed/admin/': {
       id: '/_authed/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/settings/skills': {
-      id: '/_authed/settings/skills'
-      path: '/settings/skills'
-      fullPath: '/settings/skills'
-      preLoaderRoute: typeof routesAuthedSettingsSkillsRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/settings/security': {
-      id: '/_authed/settings/security'
-      path: '/settings/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof routesAuthedSettingsSecurityRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/settings/roles': {
-      id: '/_authed/settings/roles'
-      path: '/settings/roles'
-      fullPath: '/settings/roles'
-      preLoaderRoute: typeof routesAuthedSettingsRolesRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/settings/profile': {
-      id: '/_authed/settings/profile'
-      path: '/settings/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof routesAuthedSettingsProfileRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/settings/notifications': {
-      id: '/_authed/settings/notifications'
-      path: '/settings/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof routesAuthedSettingsNotificationsRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/settings/availability': {
-      id: '/_authed/settings/availability'
-      path: '/settings/availability'
-      fullPath: '/settings/availability'
-      preLoaderRoute: typeof routesAuthedSettingsAvailabilityRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/_authed/planner/trash': {
-      id: '/_authed/planner/trash'
-      path: '/trash'
-      fullPath: '/planner/trash'
-      preLoaderRoute: typeof PlannerTrashRouteImport
-      parentRoute: typeof PlannerRouteRoute
-    }
-    '/_authed/planner/my-tasks': {
-      id: '/_authed/planner/my-tasks'
-      path: '/my-tasks'
-      fullPath: '/planner/my-tasks'
-      preLoaderRoute: typeof PlannerMyTasksRouteImport
-      parentRoute: typeof PlannerRouteRoute
-    }
-    '/_authed/planner/groups': {
-      id: '/_authed/planner/groups'
-      path: '/groups'
-      fullPath: '/planner/groups'
-      preLoaderRoute: typeof PlannerGroupsRouteImport
-      parentRoute: typeof PlannerRouteRoute
-    }
-    '/_authed/people/probation': {
-      id: '/_authed/people/probation'
-      path: '/probation'
-      fullPath: '/people/probation'
-      preLoaderRoute: typeof PeopleProbationRouteImport
-      parentRoute: typeof PeopleRouteRoute
-    }
-    '/_authed/people/performance': {
-      id: '/_authed/people/performance'
-      path: '/performance'
-      fullPath: '/people/performance'
-      preLoaderRoute: typeof PeoplePerformanceRouteImport
-      parentRoute: typeof PeopleRouteRoute
-    }
-    '/_authed/people/org': {
-      id: '/_authed/people/org'
-      path: '/org'
-      fullPath: '/people/org'
-      preLoaderRoute: typeof PeopleOrgRouteImport
-      parentRoute: typeof PeopleRouteRoute
-    }
-    '/_authed/people/onboarding': {
-      id: '/_authed/people/onboarding'
-      path: '/onboarding'
-      fullPath: '/people/onboarding'
-      preLoaderRoute: typeof PeopleOnboardingRouteImport
-      parentRoute: typeof PeopleRouteRoute
-    }
-    '/_authed/people/offboarding': {
-      id: '/_authed/people/offboarding'
-      path: '/offboarding'
-      fullPath: '/people/offboarding'
-      preLoaderRoute: typeof PeopleOffboardingRouteImport
-      parentRoute: typeof PeopleRouteRoute
-    }
-    '/_authed/people/allocation': {
-      id: '/_authed/people/allocation'
-      path: '/allocation'
-      fullPath: '/people/allocation'
-      preLoaderRoute: typeof PeopleAllocationRouteImport
-      parentRoute: typeof PeopleRouteRoute
-    }
-    '/_authed/agent/knowledge': {
-      id: '/_authed/agent/knowledge'
-      path: '/knowledge'
-      fullPath: '/agent/knowledge'
-      preLoaderRoute: typeof AgentKnowledgeRouteImport
-      parentRoute: typeof AgentRouteRoute
-    }
-    '/_authed/agent/chat': {
-      id: '/_authed/agent/chat'
-      path: '/chat'
-      fullPath: '/agent/chat'
-      preLoaderRoute: typeof AgentChatRouteImport
-      parentRoute: typeof AgentRouteRoute
-    }
-    '/_authed/admin/users': {
-      id: '/_authed/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/tenant': {
-      id: '/_authed/admin/tenant'
-      path: '/tenant'
-      fullPath: '/admin/tenant'
-      preLoaderRoute: typeof AdminTenantRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/sso': {
-      id: '/_authed/admin/sso'
-      path: '/sso'
-      fullPath: '/admin/sso'
-      preLoaderRoute: typeof AdminSsoRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/skills': {
-      id: '/_authed/admin/skills'
-      path: '/skills'
-      fullPath: '/admin/skills'
-      preLoaderRoute: typeof AdminSkillsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/role-access': {
-      id: '/_authed/admin/role-access'
-      path: '/role-access'
-      fullPath: '/admin/role-access'
-      preLoaderRoute: typeof AdminRoleAccessRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/notifications': {
-      id: '/_authed/admin/notifications'
-      path: '/notifications'
-      fullPath: '/admin/notifications'
-      preLoaderRoute: typeof AdminNotificationsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/mail': {
-      id: '/_authed/admin/mail'
-      path: '/mail'
-      fullPath: '/admin/mail'
-      preLoaderRoute: typeof AdminMailRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_authed/admin/groups': {
-      id: '/_authed/admin/groups'
-      path: '/groups'
-      fullPath: '/admin/groups'
-      preLoaderRoute: typeof AdminGroupsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_authed/admin/audit': {
@@ -1155,6 +945,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/_authed/admin/groups': {
+      id: '/_authed/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AdminGroupsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/mail': {
+      id: '/_authed/admin/mail'
+      path: '/mail'
+      fullPath: '/admin/mail'
+      preLoaderRoute: typeof AdminMailRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/notifications': {
+      id: '/_authed/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/role-access': {
+      id: '/_authed/admin/role-access'
+      path: '/role-access'
+      fullPath: '/admin/role-access'
+      preLoaderRoute: typeof AdminRoleAccessRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/skills': {
+      id: '/_authed/admin/skills'
+      path: '/skills'
+      fullPath: '/admin/skills'
+      preLoaderRoute: typeof AdminSkillsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/sso': {
+      id: '/_authed/admin/sso'
+      path: '/sso'
+      fullPath: '/admin/sso'
+      preLoaderRoute: typeof AdminSsoRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/tenant': {
+      id: '/_authed/admin/tenant'
+      path: '/tenant'
+      fullPath: '/admin/tenant'
+      preLoaderRoute: typeof AdminTenantRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/users': {
+      id: '/_authed/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/agent/': {
+      id: '/_authed/agent/'
+      path: '/'
+      fullPath: '/agent/'
+      preLoaderRoute: typeof AgentIndexRouteImport
+      parentRoute: typeof AgentRouteRoute
+    }
+    '/_authed/agent/chat': {
+      id: '/_authed/agent/chat'
+      path: '/chat'
+      fullPath: '/agent/chat'
+      preLoaderRoute: typeof AgentChatRouteImport
+      parentRoute: typeof AgentRouteRoute
+    }
+    '/_authed/agent/knowledge': {
+      id: '/_authed/agent/knowledge'
+      path: '/knowledge'
+      fullPath: '/agent/knowledge'
+      preLoaderRoute: typeof AgentKnowledgeRouteImport
+      parentRoute: typeof AgentRouteRoute
+    }
     '/_authed/agent/workflows': {
       id: '/_authed/agent/workflows'
       path: '/workflows'
@@ -1162,81 +1029,151 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentWorkflowsRouteRouteImport
       parentRoute: typeof AgentRouteRoute
     }
-    '/_authed/pm/weekly/': {
-      id: '/_authed/pm/weekly/'
-      path: '/weekly'
-      fullPath: '/pm/weekly/'
-      preLoaderRoute: typeof PmWeeklyIndexRouteImport
-      parentRoute: typeof PmRouteRoute
+    '/_authed/hiring/': {
+      id: '/_authed/hiring/'
+      path: '/'
+      fullPath: '/hiring/'
+      preLoaderRoute: typeof HiringIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
     }
-    '/_authed/pm/risks/': {
-      id: '/_authed/pm/risks/'
-      path: '/risks'
-      fullPath: '/pm/risks/'
-      preLoaderRoute: typeof PmRisksIndexRouteImport
-      parentRoute: typeof PmRouteRoute
-    }
-    '/_authed/pm/resourcing/': {
-      id: '/_authed/pm/resourcing/'
-      path: '/resourcing'
-      fullPath: '/pm/resourcing/'
-      preLoaderRoute: typeof PmResourcingIndexRouteImport
-      parentRoute: typeof PmRouteRoute
-    }
-    '/_authed/pm/requests/': {
-      id: '/_authed/pm/requests/'
-      path: '/requests'
-      fullPath: '/pm/requests/'
-      preLoaderRoute: typeof PmRequestsIndexRouteImport
-      parentRoute: typeof PmRouteRoute
-    }
-    '/_authed/pm/projects/': {
-      id: '/_authed/pm/projects/'
-      path: '/projects'
-      fullPath: '/pm/projects/'
-      preLoaderRoute: typeof PmProjectsIndexRouteImport
-      parentRoute: typeof PmRouteRoute
-    }
-    '/_authed/pm/metrics/': {
-      id: '/_authed/pm/metrics/'
-      path: '/metrics'
-      fullPath: '/pm/metrics/'
-      preLoaderRoute: typeof PmMetricsIndexRouteImport
-      parentRoute: typeof PmRouteRoute
-    }
-    '/_authed/pm/accounts/': {
-      id: '/_authed/pm/accounts/'
-      path: '/accounts'
-      fullPath: '/pm/accounts/'
-      preLoaderRoute: typeof PmAccountsIndexRouteImport
-      parentRoute: typeof PmRouteRoute
-    }
-    '/_authed/people/employees/': {
-      id: '/_authed/people/employees/'
-      path: '/employees'
-      fullPath: '/people/employees/'
-      preLoaderRoute: typeof PeopleEmployeesIndexRouteImport
+    '/_authed/people/': {
+      id: '/_authed/people/'
+      path: '/'
+      fullPath: '/people/'
+      preLoaderRoute: typeof PeopleIndexRouteImport
       parentRoute: typeof PeopleRouteRoute
     }
-    '/_authed/hiring/settings/': {
-      id: '/_authed/hiring/settings/'
-      path: '/settings'
-      fullPath: '/hiring/settings/'
-      preLoaderRoute: typeof HiringSettingsIndexRouteImport
-      parentRoute: typeof HiringRouteRoute
+    '/_authed/people/allocation': {
+      id: '/_authed/people/allocation'
+      path: '/allocation'
+      fullPath: '/people/allocation'
+      preLoaderRoute: typeof PeopleAllocationRouteImport
+      parentRoute: typeof PeopleRouteRoute
     }
-    '/_authed/hiring/requisitions/': {
-      id: '/_authed/hiring/requisitions/'
-      path: '/requisitions'
-      fullPath: '/hiring/requisitions/'
-      preLoaderRoute: typeof HiringRequisitionsIndexRouteImport
-      parentRoute: typeof HiringRouteRoute
+    '/_authed/people/offboarding': {
+      id: '/_authed/people/offboarding'
+      path: '/offboarding'
+      fullPath: '/people/offboarding'
+      preLoaderRoute: typeof PeopleOffboardingRouteImport
+      parentRoute: typeof PeopleRouteRoute
     }
-    '/_authed/hiring/knowledge/': {
-      id: '/_authed/hiring/knowledge/'
-      path: '/knowledge'
-      fullPath: '/hiring/knowledge/'
-      preLoaderRoute: typeof HiringKnowledgeIndexRouteImport
+    '/_authed/people/onboarding': {
+      id: '/_authed/people/onboarding'
+      path: '/onboarding'
+      fullPath: '/people/onboarding'
+      preLoaderRoute: typeof PeopleOnboardingRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/people/org': {
+      id: '/_authed/people/org'
+      path: '/org'
+      fullPath: '/people/org'
+      preLoaderRoute: typeof PeopleOrgRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/people/performance': {
+      id: '/_authed/people/performance'
+      path: '/performance'
+      fullPath: '/people/performance'
+      preLoaderRoute: typeof PeoplePerformanceRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/people/probation': {
+      id: '/_authed/people/probation'
+      path: '/probation'
+      fullPath: '/people/probation'
+      preLoaderRoute: typeof PeopleProbationRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/planner/': {
+      id: '/_authed/planner/'
+      path: '/'
+      fullPath: '/planner/'
+      preLoaderRoute: typeof PlannerIndexRouteImport
+      parentRoute: typeof PlannerRouteRoute
+    }
+    '/_authed/planner/groups': {
+      id: '/_authed/planner/groups'
+      path: '/groups'
+      fullPath: '/planner/groups'
+      preLoaderRoute: typeof PlannerGroupsRouteImport
+      parentRoute: typeof PlannerRouteRoute
+    }
+    '/_authed/planner/my-tasks': {
+      id: '/_authed/planner/my-tasks'
+      path: '/my-tasks'
+      fullPath: '/planner/my-tasks'
+      preLoaderRoute: typeof PlannerMyTasksRouteImport
+      parentRoute: typeof PlannerRouteRoute
+    }
+    '/_authed/planner/trash': {
+      id: '/_authed/planner/trash'
+      path: '/trash'
+      fullPath: '/planner/trash'
+      preLoaderRoute: typeof PlannerTrashRouteImport
+      parentRoute: typeof PlannerRouteRoute
+    }
+    '/_authed/pm/': {
+      id: '/_authed/pm/'
+      path: '/'
+      fullPath: '/pm/'
+      preLoaderRoute: typeof PmIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/settings/availability': {
+      id: '/_authed/settings/availability'
+      path: '/settings/availability'
+      fullPath: '/settings/availability'
+      preLoaderRoute: typeof routesAuthedSettingsAvailabilityRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/notifications': {
+      id: '/_authed/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof routesAuthedSettingsNotificationsRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/profile': {
+      id: '/_authed/settings/profile'
+      path: '/settings/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof routesAuthedSettingsProfileRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/roles': {
+      id: '/_authed/settings/roles'
+      path: '/settings/roles'
+      fullPath: '/settings/roles'
+      preLoaderRoute: typeof routesAuthedSettingsRolesRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/security': {
+      id: '/_authed/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof routesAuthedSettingsSecurityRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/skills': {
+      id: '/_authed/settings/skills'
+      path: '/settings/skills'
+      fullPath: '/settings/skills'
+      preLoaderRoute: typeof routesAuthedSettingsSkillsRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/agent/workflows/': {
+      id: '/_authed/agent/workflows/'
+      path: '/'
+      fullPath: '/agent/workflows/'
+      preLoaderRoute: typeof AgentWorkflowsIndexRouteImport
+      parentRoute: typeof AgentWorkflowsRouteRoute
+    }
+    '/_authed/hiring/candidates/': {
+      id: '/_authed/hiring/candidates/'
+      path: '/candidates'
+      fullPath: '/hiring/candidates/'
+      preLoaderRoute: typeof HiringCandidatesIndexRouteImport
       parentRoute: typeof HiringRouteRoute
     }
     '/_authed/hiring/interviews/': {
@@ -1246,46 +1183,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HiringInterviewsIndexRouteImport
       parentRoute: typeof HiringRouteRoute
     }
-    '/_authed/hiring/candidates/': {
-      id: '/_authed/hiring/candidates/'
-      path: '/candidates'
-      fullPath: '/hiring/candidates/'
-      preLoaderRoute: typeof HiringCandidatesIndexRouteImport
+    '/_authed/hiring/knowledge/': {
+      id: '/_authed/hiring/knowledge/'
+      path: '/knowledge'
+      fullPath: '/hiring/knowledge/'
+      preLoaderRoute: typeof HiringKnowledgeIndexRouteImport
       parentRoute: typeof HiringRouteRoute
     }
-    '/_authed/agent/workflows/': {
-      id: '/_authed/agent/workflows/'
-      path: '/'
-      fullPath: '/agent/workflows/'
-      preLoaderRoute: typeof AgentWorkflowsIndexRouteImport
-      parentRoute: typeof AgentWorkflowsRouteRoute
+    '/_authed/hiring/requisitions/': {
+      id: '/_authed/hiring/requisitions/'
+      path: '/requisitions'
+      fullPath: '/hiring/requisitions/'
+      preLoaderRoute: typeof HiringRequisitionsIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
     }
-    '/_authed/pm/requests/$charterId': {
-      id: '/_authed/pm/requests/$charterId'
-      path: '/requests/$charterId'
-      fullPath: '/pm/requests/$charterId'
-      preLoaderRoute: typeof PmRequestsCharterIdRouteImport
-      parentRoute: typeof PmRouteRoute
+    '/_authed/hiring/requisitions/$requisitionId': {
+      id: '/_authed/hiring/requisitions/$requisitionId'
+      path: '/requisitions/$requisitionId'
+      fullPath: '/hiring/requisitions/$requisitionId'
+      preLoaderRoute: typeof HiringRequisitionsRequisitionIdRouteImport
+      parentRoute: typeof HiringRouteRoute
     }
-    '/_authed/pm/projects/$projectId': {
-      id: '/_authed/pm/projects/$projectId'
-      path: '/projects/$projectId'
-      fullPath: '/pm/projects/$projectId'
-      preLoaderRoute: typeof PmProjectsProjectIdRouteImport
-      parentRoute: typeof PmRouteRoute
+    '/_authed/hiring/settings/': {
+      id: '/_authed/hiring/settings/'
+      path: '/settings'
+      fullPath: '/hiring/settings/'
+      preLoaderRoute: typeof HiringSettingsIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
     }
-    '/_authed/pm/accounts/$accountId': {
-      id: '/_authed/pm/accounts/$accountId'
-      path: '/accounts/$accountId'
-      fullPath: '/pm/accounts/$accountId'
-      preLoaderRoute: typeof PmAccountsAccountIdRouteImport
-      parentRoute: typeof PmRouteRoute
+    '/_authed/people/employees/': {
+      id: '/_authed/people/employees/'
+      path: '/employees'
+      fullPath: '/people/employees/'
+      preLoaderRoute: typeof PeopleEmployeesIndexRouteImport
+      parentRoute: typeof PeopleRouteRoute
     }
-    '/_authed/planner/plans_/$planId': {
-      id: '/_authed/planner/plans_/$planId'
-      path: '/plans/$planId'
-      fullPath: '/planner/plans/$planId'
-      preLoaderRoute: typeof PlannerPlansPlanIdRouteImport
+    '/_authed/people/employees/$workerId': {
+      id: '/_authed/people/employees/$workerId'
+      path: '/employees/$workerId'
+      fullPath: '/people/employees/$workerId'
+      preLoaderRoute: typeof PeopleEmployeesWorkerIdRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/planner/groups_/$groupId': {
+      id: '/_authed/planner/groups_/$groupId'
+      path: '/groups/$groupId'
+      fullPath: '/planner/groups/$groupId'
+      preLoaderRoute: typeof PlannerGroupsGroupIdRouteImport
       parentRoute: typeof PlannerRouteRoute
     }
     '/_authed/planner/groups_/discover': {
@@ -1295,26 +1239,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlannerGroupsDiscoverRouteImport
       parentRoute: typeof PlannerRouteRoute
     }
-    '/_authed/planner/groups_/$groupId': {
-      id: '/_authed/planner/groups_/$groupId'
-      path: '/groups/$groupId'
-      fullPath: '/planner/groups/$groupId'
-      preLoaderRoute: typeof PlannerGroupsGroupIdRouteImport
+    '/_authed/planner/plans_/$planId': {
+      id: '/_authed/planner/plans_/$planId'
+      path: '/plans/$planId'
+      fullPath: '/planner/plans/$planId'
+      preLoaderRoute: typeof PlannerPlansPlanIdRouteImport
       parentRoute: typeof PlannerRouteRoute
     }
-    '/_authed/people/employees/$workerId': {
-      id: '/_authed/people/employees/$workerId'
-      path: '/employees/$workerId'
-      fullPath: '/people/employees/$workerId'
-      preLoaderRoute: typeof PeopleEmployeesWorkerIdRouteImport
-      parentRoute: typeof PeopleRouteRoute
+    '/_authed/pm/accounts/': {
+      id: '/_authed/pm/accounts/'
+      path: '/accounts'
+      fullPath: '/pm/accounts/'
+      preLoaderRoute: typeof PmAccountsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
     }
-    '/_authed/hiring/requisitions/$requisitionId': {
-      id: '/_authed/hiring/requisitions/$requisitionId'
-      path: '/requisitions/$requisitionId'
-      fullPath: '/hiring/requisitions/$requisitionId'
-      preLoaderRoute: typeof HiringRequisitionsRequisitionIdRouteImport
-      parentRoute: typeof HiringRouteRoute
+    '/_authed/pm/accounts/$accountId': {
+      id: '/_authed/pm/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/pm/accounts/$accountId'
+      preLoaderRoute: typeof PmAccountsAccountIdRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/metrics/': {
+      id: '/_authed/pm/metrics/'
+      path: '/metrics'
+      fullPath: '/pm/metrics/'
+      preLoaderRoute: typeof PmMetricsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/projects/': {
+      id: '/_authed/pm/projects/'
+      path: '/projects'
+      fullPath: '/pm/projects/'
+      preLoaderRoute: typeof PmProjectsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/projects/$projectId': {
+      id: '/_authed/pm/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/pm/projects/$projectId'
+      preLoaderRoute: typeof PmProjectsProjectIdRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/requests/': {
+      id: '/_authed/pm/requests/'
+      path: '/requests'
+      fullPath: '/pm/requests/'
+      preLoaderRoute: typeof PmRequestsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/requests/$charterId': {
+      id: '/_authed/pm/requests/$charterId'
+      path: '/requests/$charterId'
+      fullPath: '/pm/requests/$charterId'
+      preLoaderRoute: typeof PmRequestsCharterIdRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/resourcing/': {
+      id: '/_authed/pm/resourcing/'
+      path: '/resourcing'
+      fullPath: '/pm/resourcing/'
+      preLoaderRoute: typeof PmResourcingIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/risks/': {
+      id: '/_authed/pm/risks/'
+      path: '/risks'
+      fullPath: '/pm/risks/'
+      preLoaderRoute: typeof PmRisksIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/weekly/': {
+      id: '/_authed/pm/weekly/'
+      path: '/weekly'
+      fullPath: '/pm/weekly/'
+      preLoaderRoute: typeof PmWeeklyIndexRouteImport
+      parentRoute: typeof PmRouteRoute
     }
     '/_authed/agent/workflows/runs/$runId': {
       id: '/_authed/agent/workflows/runs/$runId'
@@ -1323,18 +1323,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentWorkflowsRunsRunIdRouteImport
       parentRoute: typeof AgentWorkflowsRouteRoute
     }
-    '/_authed/planner/plans_/$planId_/tasks_/$taskId': {
-      id: '/_authed/planner/plans_/$planId_/tasks_/$taskId'
-      path: '/plans/$planId/tasks/$taskId'
-      fullPath: '/planner/plans/$planId/tasks/$taskId'
-      preLoaderRoute: typeof PlannerPlansPlanIdTasksTaskIdRouteImport
-      parentRoute: typeof PlannerRouteRoute
-    }
     '/_authed/planner/plans_/$planId_/settings_/categories': {
       id: '/_authed/planner/plans_/$planId_/settings_/categories'
       path: '/plans/$planId/settings/categories'
       fullPath: '/planner/plans/$planId/settings/categories'
       preLoaderRoute: typeof PlannerPlansPlanIdSettingsCategoriesRouteImport
+      parentRoute: typeof PlannerRouteRoute
+    }
+    '/_authed/planner/plans_/$planId_/tasks_/$taskId': {
+      id: '/_authed/planner/plans_/$planId_/tasks_/$taskId'
+      path: '/plans/$planId/tasks/$taskId'
+      fullPath: '/planner/plans/$planId/tasks/$taskId'
+      preLoaderRoute: typeof PlannerPlansPlanIdTasksTaskIdRouteImport
       parentRoute: typeof PlannerRouteRoute
     }
   }

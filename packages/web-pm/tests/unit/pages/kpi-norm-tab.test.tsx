@@ -38,7 +38,7 @@ describe('KpiNormTab — Methodology lens & Executive reference sections', () =>
     renderTab();
     expect(screen.getByText('Methodology lens')).toBeInTheDocument();
     expect(
-      screen.getByText(/lớp bổ trợ theo methodology — không thay thế Core/),
+      screen.getByText(/supplementary lens per methodology — does not replace Core/),
     ).toBeInTheDocument();
     expect(screen.getByText('5.1 · Agile / Scrum')).toBeInTheDocument();
     expect(screen.getByText('5.2 · Kanban / Flow')).toBeInTheDocument();
