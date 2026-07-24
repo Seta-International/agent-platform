@@ -28,7 +28,6 @@ Node, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM on
 - **Install deps via CLI only** — `pnpm add <pkg>` with no version so the registry resolves latest. Never hand-edit `package.json` versions or `pnpm-lock.yaml`.
 - **New modules come from `pnpm gen module`** (see [`creating-modules.md`](docs/guides/creating-modules.md)) — don't invent commands; root `package.json` scripts are the contract.
 - **`docs/superpowers/` is gitignored — never `git add -f` or push it.** Local working docs only.
-- **`pnpm install` configures Claude Code usage telemetry** on your machine via `postinstall` — metadata only, no prompt or code content. `pnpm telemetry:status` shows exactly what is sent; `SETA_TELEMETRY_OPTOUT=1 pnpm install` removes it. See [`dev-telemetry.md`](docs/hosting/dev-telemetry.md).
 - **Onboarding must stay green:** `clone → install → db:up → db:migrate → bash scripts/dev/tenant-bootstrap.sh → dev` yields a working demo in 5 min on a fresh machine.
 
 ## Always
