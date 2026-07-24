@@ -1,5 +1,6 @@
 import type { Edge, Node } from '@xyflow/react';
-import type { OrgUnitNode } from '../../api/org-client.ts';
+import type { DeliveryAccount, OrgUnitNode } from '../../api/org-client.ts';
+import { buildDeliveryHierarchy } from './delivery-nodes.ts';
 import { emptyNode, layout, mkEdge, type OrgGraphNodeData } from './graph-layout.ts';
 
 type UnitMember = OrgUnitNode['members'][number];
@@ -59,30 +60,15 @@ function subDeptHeadNode(
   };
 }
 
-// ─── ancestor helper ──────────────────────────────────────────────────────────
-
-/** Returns units ordered from the root down to the direct parent of deptId. */
-function ancestorPath(units: OrgUnitNode[], deptId: string): OrgUnitNode[] {
-  const byId = new Map(units.map((u) => [u.id, u]));
-  const path: OrgUnitNode[] = [];
-  let parentId = byId.get(deptId)?.parent_id;
-  while (parentId) {
-    const parent = byId.get(parentId);
-    if (!parent) break;
-    path.unshift(parent);
-    parentId = parent.parent_id;
-  }
-  return path;
-}
-
 // ─── main export ──────────────────────────────────────────────────────────────
 
 /**
- * Department view — renders the full ancestor chain (root → … → parent) above
- * the selected unit so the user always sees context. Every ancestor node is
- * clickable and navigates to that department.
+ * Department view — renders the selected unit as the root node of the chart.
  *
- * Content below the selected unit follows three priorities:
+ * For delivery-type units (`kind === 'delivery'`), renders the account manager
+ * and account hierarchy using shared `buildDeliveryHierarchy`.
+ *
+ * For non-delivery units, content below the selected unit follows three priorities:
  *   1. Unit has members → show all people sorted alpha (subtitle = job_title).
  *   2. Unit has child sub-departments → show children each with their head.
  *   3. Leaf unit with only a head → show the head directly.
@@ -90,6 +76,7 @@ function ancestorPath(units: OrgUnitNode[], deptId: string): OrgUnitNode[] {
 export function buildDepartmentGraph(
   units: OrgUnitNode[],
   deptId: string | null,
+  accounts: DeliveryAccount[] = [],
 ): { nodes: Node<OrgGraphNodeData>[]; edges: Edge[] } {
   const nodes: Node<OrgGraphNodeData>[] = [];
   const edges: Edge[] = [];
@@ -97,18 +84,16 @@ export function buildDepartmentGraph(
   const selected = units.find((u) => u.id === deptId);
   if (!selected) return layout(nodes, edges);
 
-  // Ancestor chain: root → … → direct parent of selected (each is clickable).
-  const ancestors = ancestorPath(units, selected.id);
-  let prevId: string | null = null;
-  for (const anc of ancestors) {
-    nodes.push(deptNode(anc));
-    if (prevId) edges.push(mkEdge(prevId, anc.id));
-    prevId = anc.id;
-  }
-
-  // Selected department.
+  // Selected department is the root node.
   nodes.push(deptNode(selected));
-  if (prevId) edges.push(mkEdge(prevId, selected.id));
+
+  // Delivery units strictly use the account-manager → account hierarchy.
+  if (selected.kind === 'delivery') {
+    const deliveryGraph = buildDeliveryHierarchy(selected.id, accounts);
+    nodes.push(...deliveryGraph.nodes);
+    edges.push(...deliveryGraph.edges);
+    return layout(nodes, edges);
+  }
 
   // Priority 1: unit has people assigned — show all members.
   if (selected.members.length > 0) {
