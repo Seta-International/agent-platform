@@ -1,9 +1,10 @@
 import { listSkills, type SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type {
   AddCandidateInput,
+  ApplyInternalInput,
   CandidateSkillInput,
   EditCandidatePatch,
 } from '../../contracts.ts';
@@ -23,6 +24,7 @@ import {
   requisition,
 } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
+import { buildRequisitionScope } from './scope.ts';
 
 type Tx = Parameters<Parameters<typeof withEmit>[1]>[0];
 
@@ -363,4 +365,153 @@ export async function setApplicationRating(input: {
     },
   );
   return { version: next };
+}
+
+export async function applyInternalRequisition(
+  input: ApplyInternalInput & { requisition_id: string; session: SessionScope },
+): Promise<{ candidate_id: string; application_id: string }> {
+  const { session, requisition_id, note } = input;
+  requirePermission(session, 'hiring.requisition.read');
+
+  const conds = [eq(requisition.id, requisition_id), tenantScoped(requisition.tenant_id, session)];
+  const scope = await buildRequisitionScope(session);
+  if (scope) conds.push(scope);
+
+  const [req] = await hiringDb()
+    .select({ id: requisition.id, status: requisition.status })
+    .from(requisition)
+    .where(and(...conds))
+    .limit(1);
+
+  if (!req) throw new HiringError('NOT_FOUND', 'requisition not found');
+  if (req.status !== 'open') {
+    throw new HiringError(
+      'CONFLICT',
+      `requisition is ${req.status} — applications are only accepted for open requisitions`,
+    );
+  }
+
+  const userEmail = session.email.toLowerCase().trim();
+
+  let result!: { candidate_id: string; application_id: string };
+
+  try {
+    await withEmit(
+      { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+      async (tx) => {
+        let candidateId: string;
+        let isNewCandidate = false;
+
+        const [existing] = await tx
+          .select({ id: candidate.id })
+          .from(candidate)
+          .where(
+            and(
+              tenantScoped(candidate.tenant_id, session),
+              sql`LOWER(${candidate.contact}->>'personal_email') = ${userEmail}`,
+              isNull(candidate.deleted_at),
+            ),
+          )
+          .limit(1);
+
+        if (existing) {
+          candidateId = existing.id;
+        } else {
+          const [created] = await tx
+            .insert(candidate)
+            .values({
+              tenant_id: session.tenant_id,
+              name: session.display_name || session.email,
+              source: 'Internal application',
+              contact: { personal_email: userEmail },
+            })
+            .returning({ id: candidate.id });
+
+          if (!created) throw new Error('candidate insert returned no row');
+          candidateId = created.id;
+          isNewCandidate = true;
+        }
+
+        const [existingApp] = await tx
+          .select({ id: application.id })
+          .from(application)
+          .where(
+            and(
+              tenantScoped(application.tenant_id, session),
+              eq(application.requisition_id, requisition_id),
+              eq(application.candidate_id, candidateId),
+              inArray(application.status, ['active', 'hired']),
+            ),
+          )
+          .limit(1);
+
+        if (existingApp) {
+          throw new HiringError('CONFLICT', 'You have already applied for this requisition');
+        }
+
+        const [app] = await tx
+          .insert(application)
+          .values({
+            tenant_id: session.tenant_id,
+            requisition_id,
+            kind: 'internal',
+            candidate_id: candidateId,
+            stage: 'new',
+            status: 'active',
+            note: note ?? null,
+          })
+          .returning({ id: application.id });
+
+        if (!app) throw new Error('application insert returned no row');
+
+        await recordCandidateEvent(tx, {
+          session,
+          candidate_id: candidateId,
+          application_id: app.id,
+          kind: isNewCandidate ? 'created' : 'profile_changed',
+          summary: `Internal application submitted for requisition ${requisition_id}`,
+        });
+
+        if (isNewCandidate) {
+          await emit({
+            tenantId: session.tenant_id,
+            aggregateType: 'hiring.candidate',
+            aggregateId: candidateId,
+            eventType: HIRING_CANDIDATE_ADDED,
+            eventVersion: 1,
+            payload: { candidate_id: candidateId, tenant_id: session.tenant_id },
+          });
+        }
+
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'hiring.application',
+          aggregateId: app.id,
+          eventType: HIRING_APPLICATION_CREATED,
+          eventVersion: 1,
+          payload: {
+            application_id: app.id,
+            candidate_id: candidateId,
+            requisition_id,
+            tenant_id: session.tenant_id,
+          },
+        });
+
+        result = { candidate_id: candidateId, application_id: app.id };
+      },
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const errorObj = err as { code?: string };
+    if (
+      errorObj?.code === '23505' ||
+      msg.includes('application_uniq_candidate') ||
+      msg.includes('duplicate key value violates unique constraint')
+    ) {
+      throw new HiringError('CONFLICT', 'You have already applied for this requisition');
+    }
+    throw err;
+  }
+
+  return result;
 }

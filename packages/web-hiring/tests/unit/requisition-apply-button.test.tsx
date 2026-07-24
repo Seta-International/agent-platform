@@ -1,0 +1,105 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import type { RequisitionDetail } from '../../src/api/hiring-client.ts';
+import { RequisitionDetailView } from '../../src/pages/requisition-detail-view.tsx';
+
+const applyInternalRequisitionMock = vi.fn();
+
+const DETAIL_NOT_APPLIED: RequisitionDetail = {
+  requisition: {
+    id: 'r1',
+    title: 'Senior Engineer',
+    role_title: null,
+    grade: null,
+    account_id: null,
+    project_id: null,
+    kind: 'new',
+    approval_status: 'approved',
+    status: 'open',
+    stage: 'sourcing',
+    owner_user_id: null,
+    due_date: null,
+    start_date: null,
+    note: null,
+    default_interview_mode: 'online',
+    closed_at: null,
+    created_at: '2026-07-01T00:00:00Z',
+    version: 1,
+  },
+  account_name: null,
+  project_name: null,
+  openings: [],
+  jd_sections: [],
+  skills: [],
+  applicants: [],
+  has_applied: false,
+  user_application_id: null,
+};
+
+const DETAIL_APPLIED: RequisitionDetail = {
+  ...DETAIL_NOT_APPLIED,
+  has_applied: true,
+  user_application_id: 'app-user-1',
+};
+
+let currentDetail = DETAIL_NOT_APPLIED;
+
+vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
+  fetchRequisition: () => Promise.resolve(structuredClone(currentDetail)),
+  fetchAccounts: () => Promise.resolve([]),
+  fetchProjects: () => Promise.resolve([]),
+  fetchSkillCatalog: () => Promise.resolve({ categories: [], skills: [] }),
+  applyInternalRequisition: (reqId: string, note?: string) => {
+    applyInternalRequisitionMock(reqId, note);
+    return Promise.resolve({ candidate_id: 'cand-1', application_id: 'app-1' });
+  },
+}));
+
+vi.mock('@seta/web-identity', () => ({
+  usePermission: () => true,
+}));
+
+function wrap(qc: QueryClient) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  };
+}
+
+describe('RequisitionDetailView Apply button (FUT-650)', () => {
+  it('renders Apply button when user has not applied and triggers mutation on click', async () => {
+    currentDetail = DETAIL_NOT_APPLIED;
+    applyInternalRequisitionMock.mockClear();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(<RequisitionDetailView requisitionId="r1" variant="page" />, {
+      wrapper: wrap(qc),
+    });
+
+    const applyBtn = await screen.findByRole('button', { name: 'Apply' });
+    expect(applyBtn).toBeInTheDocument();
+    expect(applyBtn).not.toBeDisabled();
+
+    await userEvent.click(applyBtn);
+
+    expect(applyInternalRequisitionMock).toHaveBeenCalledTimes(1);
+    expect(applyInternalRequisitionMock).toHaveBeenCalledWith('r1', undefined);
+  });
+
+  it('renders disabled Applied button when has_applied is true', async () => {
+    currentDetail = DETAIL_APPLIED;
+    applyInternalRequisitionMock.mockClear();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(<RequisitionDetailView requisitionId="r1" variant="page" />, {
+      wrapper: wrap(qc),
+    });
+
+    const appliedBtn = await screen.findByRole('button', { name: 'Applied' });
+    expect(appliedBtn).toBeInTheDocument();
+    expect(appliedBtn).toBeDisabled();
+  });
+});

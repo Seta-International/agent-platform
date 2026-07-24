@@ -2,6 +2,7 @@ import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 import {
+  applyInternalInput,
   closeRequisitionInput,
   editRequisitionPatch,
   jdSectionInput,
@@ -9,6 +10,7 @@ import {
   skillInput,
 } from '../../contracts.ts';
 import {
+  applyInternalRequisition,
   closeRequisition,
   editRequisition,
   getRequisition,
@@ -64,6 +66,19 @@ export function registerHiringRequisitionRoutes(app: Hono<SessionEnv>): void {
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     return c.json(await openRequisition({ ...parsed.data, session: c.get('user') }), 201);
+  });
+  app.post('/api/hiring/v1/requisitions/:id/apply', async (c) => {
+    const parsed = applyInternalInput.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await applyInternalRequisition({
+        requisition_id: c.req.param('id'),
+        ...parsed.data,
+        session: c.get('user'),
+      }),
+      201,
+    );
   });
   app.patch('/api/hiring/v1/requisitions/:id', async (c) => {
     const parsed = editBody.safeParse(await c.req.json().catch(() => ({})));

@@ -1,3 +1,5 @@
+export { peopleDb } from './backend/db/client.ts';
+export { employmentPeriod } from './backend/db/schema.ts';
 export {
   type AllocationBucket,
   type AllocationFacets,

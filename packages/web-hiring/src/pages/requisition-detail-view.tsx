@@ -32,6 +32,7 @@ import { type CSSProperties, useId, useRef, useState } from 'react';
 import {
   type ApplicantRow,
   addOpening,
+  applyInternalRequisition,
   closeOpening,
   editRequisition,
   fetchAccounts,
@@ -216,6 +217,17 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const canClose = usePermission('hiring.requisition.close');
   const { data, isLoading, error } = useRequisition(requisitionId);
   const jdVariant: JdVariant = data ? pickJdVariant(data.jd_sections) : 'external';
+
+  const apply = useMutation({
+    mutationFn: () => applyInternalRequisition(requisitionId),
+    onSuccess: () => {
+      toast({ body: 'Application submitted successfully' });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.all });
+    },
+    onError: (err: Error) => {
+      toast({ body: err.message });
+    },
+  });
 
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'candidates' | 'jd'>('candidates');
@@ -1034,6 +1046,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           ) : undefined
         }
       >
+        {!isTerminal &&
+          (data.has_applied ? (
+            <Button size="sm" variant="secondary" label="Applied" isDisabled />
+          ) : (
+            <DisabledActionTooltip disabled={isOnHold} reason={onHoldReason}>
+              <Button
+                size="sm"
+                variant="primary"
+                label={apply.isPending ? 'Applying…' : 'Apply'}
+                isDisabled={isOnHold || apply.isPending}
+                onClick={() => apply.mutate()}
+              />
+            </DisabledActionTooltip>
+          ))}
         {!isTerminal && (
           <DisabledActionTooltip
             disabled={!canClose || isOnHold}
@@ -1055,7 +1081,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           >
             <Button
               size="sm"
-              variant="primary"
+              variant="secondary"
               label="Edit"
               icon={<Pencil className="size-4" />}
               isDisabled={!canManage || isOnHold}
