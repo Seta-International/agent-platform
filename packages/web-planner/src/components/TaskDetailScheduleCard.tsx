@@ -1,5 +1,4 @@
-import type { TaskWithAssigneesRow } from '@seta/planner';
-import { DateInput } from '@seta/shared-ui';
+import { Badge, DateInput } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { parseISO } from 'date-fns';
 import { useState } from 'react';
@@ -68,11 +67,7 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
     <section className="card" aria-label="Schedule">
       <header className="mb-1.5 flex items-center justify-between">
         <span className="text-sm font-medium text-secondary">Schedule</span>
-        {overdue && !hasRangeError && (
-          <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white shadow-xs">
-            Overdue
-          </span>
-        )}
+        {overdue && !hasRangeError && <Badge label="Overdue" variant="error" />}
       </header>
       <div className="flex flex-col gap-2">
         <DateField
