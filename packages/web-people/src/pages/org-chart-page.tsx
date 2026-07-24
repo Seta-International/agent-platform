@@ -56,19 +56,25 @@ export function OrgChartPage() {
     queryFn: fetchOrgCompany,
     enabled: view === 'company',
   });
-  const deliveryQ = useQuery({
-    queryKey: peopleKeys.orgDelivery(),
-    queryFn: fetchOrgDelivery,
-    enabled: view === 'account' || view === 'project',
-  });
   const structureQ = useQuery({
     queryKey: peopleKeys.orgStructure(),
     queryFn: fetchOrgStructure,
     enabled: view === 'department',
   });
 
-  const accounts = useMemo(() => deliveryQ.data?.accounts ?? [], [deliveryQ.data]);
   const units = useMemo(() => structureQ.data?.units ?? [], [structureQ.data]);
+  const selectedUnit = useMemo(() => units.find((u) => u.id === department), [units, department]);
+
+  const deliveryQ = useQuery({
+    queryKey: peopleKeys.orgDelivery(),
+    queryFn: fetchOrgDelivery,
+    enabled:
+      view === 'account' ||
+      view === 'project' ||
+      (view === 'department' && selectedUnit?.kind === 'delivery'),
+  });
+
+  const accounts = useMemo(() => deliveryQ.data?.accounts ?? [], [deliveryQ.data]);
 
   const accountItems = useMemo<SearchableItem[]>(
     () => accounts.map((a) => ({ id: a.account_id, label: a.name })),
@@ -122,7 +128,7 @@ export function OrgChartPage() {
   const graph = useMemo(() => {
     if (view === 'company') return buildCompanyGraph(companyQ.data?.nodes ?? []);
     if (view === 'account') return buildAccountGraph(accounts, account ?? null);
-    if (view === 'department') return buildDepartmentGraph(units, department ?? null);
+    if (view === 'department') return buildDepartmentGraph(units, department ?? null, accounts);
     return buildProjectGraph(accounts, project ?? null);
   }, [view, companyQ.data, accounts, account, project, units, department]);
 
@@ -152,8 +158,23 @@ export function OrgChartPage() {
     view === 'company'
       ? companyQ.isLoading
       : view === 'department'
-        ? structureQ.isLoading
+        ? structureQ.isLoading || (selectedUnit?.kind === 'delivery' && deliveryQ.isLoading)
         : deliveryQ.isLoading;
+
+  const isError =
+    view === 'company'
+      ? companyQ.isError
+      : view === 'department'
+        ? structureQ.isError || (selectedUnit?.kind === 'delivery' && deliveryQ.isError)
+        : deliveryQ.isError;
+
+  const errorMessage =
+    (view === 'company'
+      ? companyQ.error
+      : view === 'department'
+        ? (structureQ.error ?? deliveryQ.error)
+        : deliveryQ.error
+    )?.message ?? 'Failed to load org chart data.';
 
   const isRedirecting =
     (view === 'account' && !account && accountItems.length > 0) ||
@@ -245,6 +266,10 @@ export function OrgChartPage() {
               {showLoading ? (
                 <div className="grid h-full place-items-center text-sm text-secondary">
                   Loading…
+                </div>
+              ) : isError ? (
+                <div className="grid h-full place-items-center text-sm text-error">
+                  {errorMessage}
                 </div>
               ) : isEmpty ? (
                 <div className="grid h-full place-items-center text-sm text-secondary">
