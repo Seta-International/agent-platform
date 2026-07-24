@@ -62,6 +62,64 @@ function synthesizeFromSchema(schema: JsonSchemaLike | undefined, score: number)
   }
 }
 
+/** Returns the `{...}` starting at `start`, respecting nesting and strings. */
+function sliceBalancedObject(text: string, start: number): string | undefined {
+  if (start < 0) return undefined;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * @mastra/core >= 1.52 no longer sets `responseFormat` on the model call — it
+ * appends the JSON Schema to the prompt and validates the reply itself. Recover
+ * the schema from that trailing message so multi-step scorers still get a
+ * conforming value instead of a flat `{score}` they reject.
+ */
+function schemaFromPrompt(prompt: unknown): JsonSchemaLike | undefined {
+  if (!Array.isArray(prompt)) return undefined;
+  for (let i = prompt.length - 1; i >= 0; i--) {
+    const content = (prompt[i] as { content?: unknown } | undefined)?.content;
+    if (!Array.isArray(content)) continue;
+    for (let j = content.length - 1; j >= 0; j--) {
+      const text = (content[j] as { text?: unknown } | undefined)?.text;
+      if (typeof text !== 'string') continue;
+      const marker = text.indexOf('matching this schema:');
+      if (marker === -1) continue;
+      const raw = sliceBalancedObject(text, text.indexOf('{', marker));
+      if (!raw) continue;
+      try {
+        return JSON.parse(raw) as JsonSchemaLike;
+      } catch {
+        // Not the schema block after all — keep scanning earlier parts.
+      }
+    }
+  }
+  return undefined;
+}
+
 /**
  * A deterministic, key-free judge model for harness self-tests. Each call to
  * the model returns a canned, schema-conformant response derived from the
@@ -73,18 +131,16 @@ function synthesizeFromSchema(schema: JsonSchemaLike | undefined, score: number)
  * (`createAnswerRelevancyScorer`, `createToxicityScorer`, etc.) uses
  * internally — gets a deterministic, offline response either way.
  *
- * Verified by hand against the installed `@mastra/evals@1.5.1`: the prebuilt
- * scorers run a *multi-step* internal workflow (e.g. preprocess → analyze →
+ * Verified by hand against the installed `@mastra/evals`: the prebuilt scorers
+ * run a *multi-step* internal workflow (e.g. preprocess → analyze →
  * generateScore → generateReason), and each step requests a different
- * structured-output JSON schema from the model (`options.responseFormat.
- * schema`, a JSON Schema). A model that always returns a flat `{score}`
- * satisfies the *transport* contract but throws
- * `STRUCTURED_OUTPUT_SCHEMA_VALIDATION_FAILED` on the first step whose schema
- * isn't `{score}` shaped. `synthesizeFromSchema` reads that per-call schema
- * and fills in a conforming value instead, so the fake can drive a full
- * multi-step prebuilt scorer to a genuine `run()` result end to end. Steps
- * that request free text (no `responseFormat.schema`, e.g. `generateReason`)
- * still get the flat `{"score": n}` text, matching the original behavior.
+ * structured-output JSON schema. A model that always returns a flat `{score}`
+ * satisfies the *transport* contract but fails structured-output validation on
+ * the first step whose schema isn't `{score}` shaped. `schemaForCall` recovers
+ * that per-call schema and `synthesizeFromSchema` fills in a conforming value,
+ * so the fake can drive a full multi-step prebuilt scorer to a genuine `run()`
+ * result end to end. Steps that request free text (no schema, e.g.
+ * `generateReason`) still get the flat `{"score": n}` text.
  */
 export function fakeJudgeModel(scores: number[] = [1]): JudgeModel {
   let generateCall = 0;
@@ -95,11 +151,13 @@ export function fakeJudgeModel(scores: number[] = [1]): JudgeModel {
     const score = scores[call % scores.length] ?? 0;
     return JSON.stringify(synthesizeFromSchema(schema, score));
   };
+  const schemaForCall = (options: unknown): JsonSchemaLike | undefined => {
+    const o = options as { responseFormat?: { schema?: JsonSchemaLike }; prompt?: unknown };
+    return o.responseFormat?.schema ?? schemaFromPrompt(o.prompt);
+  };
   return new MockLanguageModelV3({
     doGenerate: async (options) => {
-      const schema = (options as { responseFormat?: { schema?: JsonSchemaLike } }).responseFormat
-        ?.schema;
-      const text = nextText(generateCall, schema);
+      const text = nextText(generateCall, schemaForCall(options));
       generateCall += 1;
       return {
         finishReason: 'stop',
@@ -109,9 +167,7 @@ export function fakeJudgeModel(scores: number[] = [1]): JudgeModel {
       } as never;
     },
     doStream: async (options) => {
-      const schema = (options as { responseFormat?: { schema?: JsonSchemaLike } }).responseFormat
-        ?.schema;
-      const text = nextText(streamCall, schema);
+      const text = nextText(streamCall, schemaForCall(options));
       streamCall += 1;
       return {
         stream: new ReadableStream({

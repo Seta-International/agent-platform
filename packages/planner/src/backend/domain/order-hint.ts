@@ -15,6 +15,9 @@ export const hintBetween = (
   planExternalSource: PlanExternalSource = 'native',
 ): string => {
   if (planExternalSource === 'm365') return m365Directive(prev, next);
+  // fractional-indexing v4 accepts endpoints in either order; inverted bounds mean a
+  // caller computed them wrong, so reject rather than silently reorder.
+  if (prev !== null && next !== null && prev >= next) throw new Error(`${prev} >= ${next}`);
   return generateKeyBetween(prev, next);
 };
 

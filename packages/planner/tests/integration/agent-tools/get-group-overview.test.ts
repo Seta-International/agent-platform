@@ -90,7 +90,7 @@ describe('planner_getGroupOverview tool', () => {
     });
   });
 
-  it('throws FORBIDDEN when the actor cannot read the group', async () => {
+  it('withholds the group from an actor who cannot read it', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
@@ -106,12 +106,14 @@ describe('planner_getGroupOverview tool', () => {
         { type: 'cli', user_id: null },
       );
 
-      await expect(
-        plannerGetGroupOverviewTool.execute!(
-          { groupId: group.id },
-          makeToolContext({ user_id: outsider.user_id, tenant_id }),
-        ),
-      ).rejects.toThrow();
+      const res = (await plannerGetGroupOverviewTool.execute!(
+        { groupId: group.id },
+        makeToolContext({ user_id: outsider.user_id, tenant_id }),
+      )) as { group?: unknown; members?: unknown[]; error?: string };
+
+      expect(res.error).toMatch(/no accessible group/i);
+      expect(res.group).toBeUndefined();
+      expect(res.members).toBeUndefined();
     });
   });
 });

@@ -12,12 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mastra/core": "^1.50.1",
+    "@mastra/core": "^1.52.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
-    "@opentelemetry/exporter-prometheus": "^0.218.0",
-    "@opentelemetry/sdk-node": "^0.218.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.78.0",
+    "@opentelemetry/exporter-prometheus": "^0.221.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@seta/agent": "workspace:^",
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
@@ -37,21 +37,21 @@
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.27",
+    "hono": "^4.12.31",
     "pino": "^10.3.1",
-    "tsx": "^4.22.4",
-    "undici": "^8.5.0",
+    "tsx": "^4.23.1",
+    "undici": "^8.8.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@hono/node-server": "^2.0.10",
+    "@hono/node-server": "^2.0.11",
     "@seta/shared-agent-evals": "workspace:*",
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
-    "@types/node": "^25.9.3",
+    "@types/node": "26.1.1",
     "@types/pg": "^8.20.0",
-    "pg": "^8.21.0",
+    "pg": "^8.22.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "4.1.10"
   }
 }

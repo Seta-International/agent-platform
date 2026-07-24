@@ -2,7 +2,7 @@ import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { listPlanTasksByDateRange } from '../domain/list-plan-tasks-by-date-range.ts';
-import { resolvePlanScope } from './resolve-scope.ts';
+import { resolvePlanScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetTimelineTool = defineAgentTool({
   id: 'planner_getTimeline',
@@ -24,19 +24,21 @@ export const plannerGetTimelineTool = defineAgentTool({
     limit: z.number().int().min(1).max(200).optional().describe('Page size (default 50).'),
     cursor: z.string().optional().describe('Opaque pagination cursor from a prior call.'),
   }),
-  output: z.object({
-    items: z.array(
-      z.object({
-        taskId: z.string(),
-        title: z.string(),
-        startAt: z.string().nullable(),
-        dueAt: z.string().nullable(),
-      }),
-    ),
-    totalCount: z.number(),
-    nextCursor: z.string().nullable(),
-    dependenciesAvailable: z.literal(false),
-  }),
+  output: withScopeError(
+    z.object({
+      items: z.array(
+        z.object({
+          taskId: z.string(),
+          title: z.string(),
+          startAt: z.string().nullable(),
+          dueAt: z.string().nullable(),
+        }),
+      ),
+      totalCount: z.number(),
+      nextCursor: z.string().nullable(),
+      dependenciesAvailable: z.literal(false),
+    }),
+  ),
   rbac: 'planner.task.read',
   execute: async (input, ctx) => {
     const session = await buildActorSession(actorFromContext(ctx));
@@ -46,11 +48,11 @@ export const plannerGetTimelineTool = defineAgentTool({
       planName: input.planName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible plan found matching that criteria.' } as never;
+      return { error: 'No accessible plan found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple plans found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple plans found: ${names}. Please specify which one.` };
     }
 
     const planId = resolved.id;

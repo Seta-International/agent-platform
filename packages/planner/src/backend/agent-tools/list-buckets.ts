@@ -2,7 +2,7 @@ import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { listBuckets } from '../domain/list-buckets.ts';
-import { resolvePlanScope } from './resolve-scope.ts';
+import { resolvePlanScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerListBucketsTool = defineAgentTool({
   id: 'planner_listBuckets',
@@ -21,15 +21,17 @@ export const plannerListBucketsTool = defineAgentTool({
       .describe('The plan UUID. Optional if planName is provided or user has exactly one plan.'),
     planName: z.string().optional().describe('Plan name (case-insensitive substring match).'),
   }),
-  output: z.object({
-    buckets: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        planId: z.string(),
-      }),
-    ),
-  }),
+  output: withScopeError(
+    z.object({
+      buckets: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          planId: z.string(),
+        }),
+      ),
+    }),
+  ),
   rbac: 'planner.bucket.read',
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
@@ -40,11 +42,11 @@ export const plannerListBucketsTool = defineAgentTool({
       planName: input.planName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible plan found matching that criteria.' } as never;
+      return { error: 'No accessible plan found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple plans found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple plans found: ${names}. Please specify which one.` };
     }
 
     const planId = resolved.id;

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getPlan } from '../domain/get-plan.ts';
 import { getPlanChartData } from '../domain/get-plan-chart-data.ts';
 import { listBuckets } from '../domain/list-buckets.ts';
-import { resolvePlanScope } from './resolve-scope.ts';
+import { resolvePlanScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetBoardSnapshotTool = defineAgentTool({
   id: 'planner_getBoardSnapshot',
@@ -21,16 +21,18 @@ export const plannerGetBoardSnapshotTool = defineAgentTool({
       .describe('The plan UUID. Optional if planName is provided or user has exactly one plan.'),
     planName: z.string().optional().describe('Plan name (case-insensitive substring match).'),
   }),
-  output: z.object({
-    plan: z.object({ planId: z.string(), name: z.string(), groupId: z.string() }),
-    buckets: z.array(z.object({ id: z.string(), name: z.string() })),
-    counts: z.object({
-      notStarted: z.number(),
-      inProgress: z.number(),
-      completed: z.number(),
-      total: z.number(),
+  output: withScopeError(
+    z.object({
+      plan: z.object({ planId: z.string(), name: z.string(), groupId: z.string() }),
+      buckets: z.array(z.object({ id: z.string(), name: z.string() })),
+      counts: z.object({
+        notStarted: z.number(),
+        inProgress: z.number(),
+        completed: z.number(),
+        total: z.number(),
+      }),
     }),
-  }),
+  ),
   rbac: 'planner.reporting.read',
   execute: async (input, ctx) => {
     const session = await buildActorSession(actorFromContext(ctx));
@@ -40,11 +42,11 @@ export const plannerGetBoardSnapshotTool = defineAgentTool({
       planName: input.planName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible plan found matching that criteria.' } as never;
+      return { error: 'No accessible plan found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple plans found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple plans found: ${names}. Please specify which one.` };
     }
 
     const planId = resolved.id;

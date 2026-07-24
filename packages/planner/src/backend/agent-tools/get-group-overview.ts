@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { listGroupMembers } from '../domain/list-group-members.ts';
 import { listPlans } from '../domain/list-plans.ts';
 import { PlannerError } from '../rbac.ts';
-import { resolveGroupScope } from './resolve-scope.ts';
+import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetGroupOverviewTool = defineAgentTool({
   id: 'planner_getGroupOverview',
@@ -38,27 +38,29 @@ export const plannerGetGroupOverviewTool = defineAgentTool({
       .optional()
       .describe('Pagination offset for members (default 0)'),
   }),
-  output: z.object({
-    group: z.object({
-      name: z.string(),
-    }),
-    totalMembers: z.number().describe('Total members in the group'),
-    members: z.array(
-      z.object({
-        displayName: z.string(),
-        email: z.string(),
-        role: z.string().describe('Group role, e.g. owner / member'),
+  output: withScopeError(
+    z.object({
+      group: z.object({
+        name: z.string(),
       }),
-    ),
-    plans: z
-      .array(
+      totalMembers: z.number().describe('Total members in the group'),
+      members: z.array(
         z.object({
-          id: z.string(),
-          name: z.string(),
+          displayName: z.string(),
+          email: z.string(),
+          role: z.string().describe('Group role, e.g. owner / member'),
         }),
-      )
-      .describe('Active plans in this group; empty if caller lacks plan-read access'),
-  }),
+      ),
+      plans: z
+        .array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+          }),
+        )
+        .describe('Active plans in this group; empty if caller lacks plan-read access'),
+    }),
+  ),
   rbac: 'planner.group.member.read',
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
@@ -69,11 +71,11 @@ export const plannerGetGroupOverviewTool = defineAgentTool({
       groupName: input.groupName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible group found matching that criteria.' } as never;
+      return { error: 'No accessible group found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple groups found: ${names}. Please specify which one.` };
     }
 
     const page = await listGroupMembers({

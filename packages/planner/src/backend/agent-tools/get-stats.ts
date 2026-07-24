@@ -3,7 +3,7 @@ import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getPlanChartData } from '../domain/get-plan-chart-data.ts';
 import { listGroupPlansWithRollups } from '../domain/list-group-plans-with-rollups.ts';
-import { resolveGroupScope, resolvePlanScope } from './resolve-scope.ts';
+import { resolveGroupScope, resolvePlanScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetStatsTool = defineAgentTool({
   id: 'planner_getStats',
@@ -30,15 +30,17 @@ export const plannerGetStatsTool = defineAgentTool({
           'Provide plan (planId/planName) OR group (groupId/groupName), or omit all to auto-resolve.',
       },
     ),
-  output: z.object({
-    scope: z.enum(['plan', 'group']),
-    totalTasks: z.number(),
-    byStatus: z.object({
-      notStarted: z.number(),
-      inProgress: z.number(),
-      completed: z.number(),
+  output: withScopeError(
+    z.object({
+      scope: z.enum(['plan', 'group']),
+      totalTasks: z.number(),
+      byStatus: z.object({
+        notStarted: z.number(),
+        inProgress: z.number(),
+        completed: z.number(),
+      }),
     }),
-  }),
+  ),
   rbac: 'planner.reporting.read',
   execute: async (input, ctx) => {
     const session = await buildActorSession(actorFromContext(ctx));
@@ -49,11 +51,11 @@ export const plannerGetStatsTool = defineAgentTool({
         planName: input.planName,
       });
       if ('notFound' in resolved) {
-        return { error: 'No accessible plan found matching that criteria.' } as never;
+        return { error: 'No accessible plan found matching that criteria.' };
       }
       if ('ambiguous' in resolved) {
         const names = resolved.options.map((o) => o.name).join(', ');
-        return { error: `Multiple plans found: ${names}. Please specify which one.` } as never;
+        return { error: `Multiple plans found: ${names}. Please specify which one.` };
       }
 
       const chart = await getPlanChartData({ plan_id: resolved.id }, session);
@@ -74,11 +76,11 @@ export const plannerGetStatsTool = defineAgentTool({
       groupName: input.groupName,
     });
     if ('notFound' in resolved) {
-      return { error: 'No accessible group found matching that criteria.' } as never;
+      return { error: 'No accessible group found matching that criteria.' };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
-      return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+      return { error: `Multiple groups found: ${names}. Please specify which one.` };
     }
 
     const rollups = await listGroupPlansWithRollups({

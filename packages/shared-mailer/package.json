@@ -17,19 +17,19 @@
   },
   "dependencies": {
     "@seta/shared-crypto": "workspace:^",
-    "nodemailer": "^9.0.1",
+    "nodemailer": "^9.0.3",
     "pino": "^10.3.1",
-    "react": "^19.2.7",
-    "react-email": "^6.6.0",
+    "react": "^19.2.8",
+    "react-email": "^6.9.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
-    "@types/node": "^25.9.3",
+    "@types/node": "26.1.1",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.17",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "4.1.10"
   }
 }
