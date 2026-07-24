@@ -22,6 +22,7 @@ import {
   listTaskEvents,
   listTasks,
   moveTask,
+  purgeTask,
   removeChecklistItem,
   removeTaskReference,
   reopenTask,
@@ -498,6 +499,12 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
   app.post('/api/planner/v1/tasks/:id/restore', async (c) => {
     const session = c.get('user');
     return c.json(await restoreTask({ task_id: c.req.param('id'), session }));
+  });
+
+  app.post('/api/planner/v1/tasks/:id/purge', async (c) => {
+    const session = c.get('user');
+    await purgeTask({ task_id: c.req.param('id'), session });
+    return c.body(null, 204);
   });
 
   app.post('/api/planner/v1/tasks/:id/labels', async (c) => {

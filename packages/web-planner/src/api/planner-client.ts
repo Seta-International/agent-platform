@@ -204,6 +204,12 @@ async function restoreGroup(input: { group_id: string }): Promise<GroupRow> {
   })) as GroupRow;
 }
 
+async function purgeGroup(input: { group_id: string }): Promise<void> {
+  await request<void>(`/api/planner/v1/groups/${input.group_id}/purge`, {
+    method: 'POST',
+  });
+}
+
 async function listGroupMembers(
   group_id: string,
   opts?: { limit?: number; offset?: number },
@@ -419,6 +425,12 @@ async function restorePlan(input: { plan_id: string }): Promise<PlanRow> {
   return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/restore`, {
     method: 'POST',
   })) as PlanRow;
+}
+
+async function purgePlan(input: { plan_id: string }): Promise<void> {
+  await request<void>(`/api/planner/v1/plans/${input.plan_id}/purge`, {
+    method: 'POST',
+  });
 }
 
 async function archivePlan(input: { plan_id: string }): Promise<PlanRow> {
@@ -815,6 +827,12 @@ async function restoreTask(input: { task_id: string }): Promise<TaskRow> {
   })) as TaskRow;
 }
 
+async function purgeTask(input: { task_id: string }): Promise<void> {
+  await request<void>(`/api/planner/v1/tasks/${input.task_id}/purge`, {
+    method: 'POST',
+  });
+}
+
 async function applyLabel(input: { task_id: string; label_id: string }): Promise<void> {
   await request<void>(`/api/planner/v1/tasks/${input.task_id}/labels`, {
     method: 'POST',
@@ -974,6 +992,7 @@ export const plannerClient = {
   updateGroup,
   deleteGroup,
   restoreGroup,
+  purgeGroup,
   listGroupMembers,
   listGroupMemberCandidates,
   addGroupMembersBulk,
@@ -994,6 +1013,7 @@ export const plannerClient = {
   updatePlan,
   deletePlan,
   restorePlan,
+  purgePlan,
   archivePlan,
   unarchivePlan,
   duplicatePlan,
@@ -1028,6 +1048,7 @@ export const plannerClient = {
   deleteTask,
   duplicateTask,
   restoreTask,
+  purgeTask,
   applyLabel,
   unapplyLabel,
   listChecklistItems,

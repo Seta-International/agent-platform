@@ -107,6 +107,19 @@ export interface PlannerGroupDeleted {
   };
 }
 
+export interface PlannerGroupPurged {
+  event_type: 'planner.group.purged';
+  event_version: 1;
+  aggregate_type: 'planner.group';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    group_id: Uuid;
+    version_before: number;
+    purged_at: string;
+  };
+}
+
 export interface PlannerGroupRestored {
   event_type: 'planner.group.restored';
   event_version: 1;
@@ -274,6 +287,20 @@ export interface PlannerPlanDeleted {
     plan_id: Uuid;
     version_before: number;
     deleted_at: string;
+  };
+}
+
+export interface PlannerPlanPurged {
+  event_type: 'planner.plan.purged';
+  event_version: 1;
+  aggregate_type: 'planner.plan';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    group_id: Uuid;
+    plan_id: Uuid;
+    version_before: number;
+    purged_at: string;
   };
 }
 
@@ -454,6 +481,21 @@ export interface PlannerTaskDeleted {
     plan_id: Uuid;
     version_before: number;
     deleted_at: string;
+  };
+}
+
+export interface PlannerTaskPurged {
+  event_type: 'planner.task.purged';
+  event_version: 1;
+  aggregate_type: 'planner.task';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    group_id: Uuid;
+    task_id: Uuid;
+    plan_id: Uuid;
+    version_before: number;
+    purged_at: string;
   };
 }
 
@@ -847,4 +889,7 @@ export type PlannerEvent =
   | PlannerPlanConflictResolved
   | PlannerCommentCreated
   | PlannerCommentUpdated
-  | PlannerCommentDeleted;
+  | PlannerCommentDeleted
+  | PlannerGroupPurged
+  | PlannerPlanPurged
+  | PlannerTaskPurged;

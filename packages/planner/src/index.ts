@@ -87,6 +87,9 @@ export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
 export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';
 export { moveBucket } from './backend/domain/move-bucket.ts';
 export { moveTask } from './backend/domain/move-task.ts';
+export { purgeGroup } from './backend/domain/purge-group.ts';
+export { purgePlan } from './backend/domain/purge-plan.ts';
+export { purgeTask } from './backend/domain/purge-task.ts';
 export { type RefreshPlanSyncDeps, refreshPlanSync } from './backend/domain/refresh-plan-sync.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
@@ -101,6 +104,7 @@ export {
   resolvePlanConflicts,
 } from './backend/domain/resolve-plan-conflicts.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
+
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
 export type { CandidateRow } from './backend/domain/search-users-by-skills.ts';
