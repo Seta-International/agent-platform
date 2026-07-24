@@ -141,6 +141,26 @@ describe('AllocationPage (Astryx Table migration)', () => {
     const table = await screen.findByRole('table');
     expect(within(table).getByText('No allocations')).toBeInTheDocument();
   });
+
+  it('renders the Export button enabled when allocation rows exist', async () => {
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('table');
+    const exportBtn = screen.getByRole('button', { name: /export/i });
+    expect(exportBtn).toBeInTheDocument();
+    expect(exportBtn).not.toBeDisabled();
+  });
+
+  it('disables the Export button when there are no allocation rows', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: [] });
+    renderPage();
+
+    await screen.findByRole('table');
+    const exportBtn = screen.getByRole('button', { name: /export/i });
+    expect(exportBtn).toBeInTheDocument();
+    expect(exportBtn).toBeDisabled();
+  });
 });
 
 describe('AllocationPage — breadcrumb trail (Astryx migration, FUT-668)', () => {
