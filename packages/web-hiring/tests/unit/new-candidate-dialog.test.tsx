@@ -144,13 +144,13 @@ describe('NewCandidateDialog', () => {
     });
   });
 
-  it('displays inline error and blocks submission when invalid phone number is entered (FUT-625)', async () => {
+  it('displays inline error and blocks submission when invalid phone number is entered, but accepts international format with spaces (FUT-625)', async () => {
     addCandidate.mockClear();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<NewCandidateDialog />, { wrapper: wrap(qc) });
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
     await userEvent.type(screen.getByLabelText(/full name/i), 'Invalid Phone Test');
-    await userEvent.type(screen.getByLabelText(/phone/i), '0962 093864');
+    await userEvent.type(screen.getByLabelText(/phone/i), 'invalid_phone_abc');
 
     await waitFor(() =>
       expect(screen.getByText('Enter a valid phone number.')).toBeInTheDocument(),
@@ -158,6 +158,15 @@ describe('NewCandidateDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
     expect(addCandidate).not.toHaveBeenCalled();
+
+    // Now type a valid international phone number containing spaces
+    const phoneInput = screen.getByLabelText(/phone/i);
+    await userEvent.clear(phoneInput);
+    await userEvent.type(phoneInput, '+49 123 456 789');
+
+    await waitFor(() =>
+      expect(screen.queryByText('Enter a valid phone number.')).not.toBeInTheDocument(),
+    );
   });
 
   /** Astryx FileInput renders the native input hidden + a div[role=button] with the same label.

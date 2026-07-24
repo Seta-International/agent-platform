@@ -107,21 +107,25 @@ describe('hiring contracts (HIR-2)', () => {
 
   it('validates candidate phone format in addCandidateInput and editCandidatePatch (FUT-625)', () => {
     const reqId = crypto.randomUUID();
-    // Valid phone formats
-    expect(
-      addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone: '0962093864' })
-        .success,
-    ).toBe(true);
-    expect(
-      addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone: '+84962093864' })
-        .success,
-    ).toBe(true);
-    expect(
-      addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone: '' }).success,
-    ).toBe(true);
+    // Valid phone formats (including international numbers with spaces/hyphens/parentheses)
+    const validPhones = [
+      '0962093864',
+      '+84962093864',
+      '+49 123 456 789',
+      '+84 900 000 222',
+      '+1 (650) 555-0123',
+      '0962 093864',
+      '0962-093-864',
+      '',
+    ];
+    for (const phone of validPhones) {
+      expect(
+        addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone }).success,
+      ).toBe(true);
+    }
 
-    // Invalid phone formats (FUT-625 test cases)
-    const invalidPhones = ['abc', '09abc', '@@@@', '0962 093864', '0962-093-864'];
+    // Invalid phone formats (non-digits, too short <7 digits, too long >15 digits)
+    const invalidPhones = ['abc', '09abc', '@@@@', '12345', '1234567890123456', '+'];
     for (const phone of invalidPhones) {
       expect(
         addCandidateInput.safeParse({ name: 'Test', requisition_id: reqId, phone }).success,
