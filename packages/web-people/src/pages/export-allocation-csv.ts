@@ -9,17 +9,7 @@ function toCsvCell(value: string | number): string {
 
 /** Pure function — returns CSV string with UTF-8 BOM. Separated from DOM trigger for testability. */
 export function buildAllocationCsv(rows: AllocationGridRow[], _year: number): string {
-  const header = [
-    'Employee ID',
-    'Name',
-    'Account',
-    'Project',
-    'Bucket',
-    ...MONTHS,
-    'YTD %',
-    'FY %',
-    'Total MM',
-  ];
+  const header = ['Employee ID', 'Name', 'Account', 'Project', 'Bucket', ...MONTHS, 'Total MM'];
   const lines = rows.map((r) => [
     r.employee_no ?? '',
     r.full_name,
@@ -29,8 +19,6 @@ export function buildAllocationCsv(rows: AllocationGridRow[], _year: number): st
     // Raw percentage integer — NOT formatLoad fraction.
     // CSV consumers (Excel) need raw values for SUM/AVERAGE.
     ...r.months.map((v) => (v == null ? '' : String(v))),
-    String(r.ytd_pct),
-    String(r.fy_pct),
     r.total_mm.toFixed(2),
   ]);
   return '\uFEFF' + [header, ...lines].map((line) => line.map(toCsvCell).join(',')).join('\n');

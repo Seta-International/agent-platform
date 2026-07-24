@@ -14,8 +14,6 @@ function makeRow(overrides: Partial<AllocationGridRow> = {}): AllocationGridRow 
     is_account_am: false,
     bucket: 'billable',
     months: [100, 100, 50, 50, null, null, null, null, null, null, null, null],
-    ytd_pct: 75,
-    fy_pct: 60,
     total_mm: 6.1,
     ...overrides,
   };
@@ -51,8 +49,6 @@ describe('buildAllocationCsv', () => {
       'Oct',
       'Nov',
       'Dec',
-      'YTD %',
-      'FY %',
       'Total MM',
     ]);
 
@@ -67,9 +63,7 @@ describe('buildAllocationCsv', () => {
     expect(data[7]).toBe('50'); // Mar — raw percentage, NOT "0.5"
     expect(data[8]).toBe('50'); // Apr
     expect(data[9]).toBe(''); // May — null → empty
-    expect(data[17]).toBe('75'); // YTD %
-    expect(data[18]).toBe('60'); // FY %
-    expect(data[19]).toBe('6.10'); // Total MM — 2 decimal places
+    expect(data[17]).toBe('6.10'); // Total MM — 2 decimal places
   });
 
   it('escapes cell values containing commas (RFC 4180)', () => {
@@ -151,7 +145,7 @@ describe('buildAllocationCsv', () => {
   it('formats total_mm with exactly 2 decimal places', () => {
     const csv = buildAllocationCsv([makeRow({ total_mm: 3 })], 2026);
     const rows = parseCsv(csv);
-    expect(rows[1][19]).toBe('3.00');
+    expect(rows[1][17]).toBe('3.00');
   });
 
   it('renders null employee_no as empty cell', () => {
