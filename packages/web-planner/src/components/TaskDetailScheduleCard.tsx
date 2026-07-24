@@ -1,3 +1,4 @@
+import type { TaskWithAssigneesRow } from '@seta/planner';
 import { Badge, DateInput } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { parseISO } from 'date-fns';
