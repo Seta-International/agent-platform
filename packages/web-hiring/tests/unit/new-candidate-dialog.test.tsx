@@ -1,6 +1,6 @@
 import { FileInput } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -273,5 +273,27 @@ describe('NewCandidateDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     await vi.waitFor(() => expect(capturedSignal!.aborted).toBe(true));
+  });
+
+  it('displays inline error and blocks submission when invalid calendar date or browser badInput is entered (FUT-624)', async () => {
+    addCandidate.mockClear();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Invalid DOB Test');
+
+    const dobInput = screen.getByLabelText(/date of birth/i);
+
+    // Mock native browser badInput flag (e.g. Feb 31 typed directly in browser date picker)
+    Object.defineProperty(dobInput, 'validity', {
+      get: () => ({ badInput: true, valid: false }),
+      configurable: true,
+    });
+    fireEvent.blur(dobInput);
+
+    await waitFor(() => expect(screen.getByText('Invalid calendar date.')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    expect(addCandidate).not.toHaveBeenCalled();
   });
 });
