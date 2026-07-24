@@ -159,6 +159,26 @@ async function updateTaskImpl(input: {
 
       await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
+      const isDateChanged = patch.start_at !== undefined || patch.due_at !== undefined;
+      const effStart =
+        patch.start_at !== undefined
+          ? patch.start_at
+            ? new Date(patch.start_at)
+            : null
+          : existing.start_at;
+      const effDue =
+        patch.due_at !== undefined
+          ? patch.due_at
+            ? new Date(patch.due_at)
+            : null
+          : existing.due_at;
+
+      if (isDateChanged && effStart && effDue && effStart > effDue) {
+        throw new PlannerError('VALIDATION', 'Start date cannot be later than due date', {
+          task_id: input.task_id,
+        });
+      }
+
       const before: Partial<TaskMutableFields> = {};
       const after: Partial<TaskMutableFields> = {};
       const changed: TaskChangedField[] = [];
