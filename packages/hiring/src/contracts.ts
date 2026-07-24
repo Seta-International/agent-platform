@@ -126,14 +126,22 @@ export const candidateSkillInput = z.object({
 });
 export type CandidateSkillInput = z.infer<typeof candidateSkillInput>;
 
-export const PHONE_REGEX = /^\+?[0-9]{7,15}$/;
+export const PHONE_REGEX = /^\+?[0-9()\-.\s]{7,25}$/;
 
 export const candidatePhoneSchema = z
   .string()
   .trim()
-  .refine((v) => !v || PHONE_REGEX.test(v), {
-    message: 'Invalid phone number format',
-  })
+  .refine(
+    (v) => {
+      if (!v) return true;
+      if (!PHONE_REGEX.test(v)) return false;
+      const digits = v.replace(/\D/g, '');
+      return digits.length >= 7 && digits.length <= 15;
+    },
+    {
+      message: 'Invalid phone number format',
+    },
+  )
   .optional();
 
 // Reusable DOB validator — valid calendar date, not future, age 18-99.

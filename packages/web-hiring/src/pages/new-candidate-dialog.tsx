@@ -34,9 +34,17 @@ import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
 const NONE = '__none__';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+?[0-9]{7,15}$/;
+const PHONE_RE = /^\+?[0-9()\-.\s]{7,25}$/;
 const NAME_ERROR_MESSAGE = 'Full name must be a valid person name.';
 const NAME_RE = /^[\p{L}\p{M}]+(?:[ '’-][\p{L}\p{M}]+)*$/u;
+
+function isValidPhone(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (!PHONE_RE.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
 
 function normalizeName(value: string) {
   return value.normalize('NFC').replace(/\s+/g, ' ').replace(/‐/g, '-').trim();
@@ -71,8 +79,7 @@ export function NewCandidateDialog() {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
-  const phoneError =
-    phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
+  const phoneError = phone.trim() && !isValidPhone(phone) ? 'Enter a valid phone number.' : null;
   const nameError = name.trim() && !NAME_RE.test(normalizeName(name)) ? NAME_ERROR_MESSAGE : null;
   const dobError = (() => {
     // Browser rejected the date entirely (e.g. Feb 29 non-leap)
