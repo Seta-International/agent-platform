@@ -41,6 +41,10 @@ export async function createTask(
 
       await requirePermission(input.session, 'planner.task.create', plan.group_id);
 
+      if (input.start_at && input.due_at && new Date(input.start_at) > new Date(input.due_at)) {
+        throw new PlannerError('VALIDATION', 'Start date cannot be later than due date');
+      }
+
       if (input.bucket_id !== undefined) {
         const [bucket] = await tx
           .select()
