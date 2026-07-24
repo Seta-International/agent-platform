@@ -9,8 +9,6 @@ export interface AllocationGridRow {
   is_account_am: boolean;
   bucket: 'billable' | 'internal' | 'bench' | null;
   months: (number | null)[];
-  ytd_pct: number;
-  fy_pct: number;
   total_mm: number;
 }
 export interface WorkerMonthTotal {
