@@ -19,6 +19,7 @@ import type {
   PlannerGroupDeleted,
   PlannerGroupMemberAdded,
   PlannerGroupMemberRemoved,
+  PlannerGroupPurged,
   PlannerGroupRestored,
   PlannerGroupUpdated,
   PlannerLabelApplied,
@@ -32,6 +33,7 @@ import type {
   PlannerPlanConflictResolved,
   PlannerPlanCreated,
   PlannerPlanDeleted,
+  PlannerPlanPurged,
   PlannerPlanRestored,
   PlannerPlanSyncStatusChanged,
   PlannerPlanUnarchived,
@@ -41,6 +43,7 @@ import type {
   PlannerTaskCreated,
   PlannerTaskDeleted,
   PlannerTaskMoved,
+  PlannerTaskPurged,
   PlannerTaskReferenceAdded,
   PlannerTaskReferenceRemoved,
   PlannerTaskReopened,
@@ -141,6 +144,28 @@ export async function emitPlannerGroupDeleted(args: {
       group_id: args.group_id,
       version_before: args.version_before,
       deleted_at: args.deleted_at,
+    },
+  });
+}
+
+export async function emitPlannerGroupPurged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  version_before: PlannerGroupPurged['payload']['version_before'];
+  purged_at: PlannerGroupPurged['payload']['purged_at'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.group',
+    aggregateId: args.group_id,
+    eventType: 'planner.group.purged',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      group_id: args.group_id,
+      version_before: args.version_before,
+      purged_at: args.purged_at,
     },
   });
 }
@@ -385,6 +410,30 @@ export async function emitPlannerPlanDeleted(args: {
   });
 }
 
+export async function emitPlannerPlanPurged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  plan_id: Uuid;
+  version_before: PlannerPlanPurged['payload']['version_before'];
+  purged_at: PlannerPlanPurged['payload']['purged_at'];
+}): Promise<{ eventId: string }> {
+  return emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.plan',
+    aggregateId: args.plan_id,
+    eventType: 'planner.plan.purged',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      group_id: args.group_id,
+      plan_id: args.plan_id,
+      version_before: args.version_before,
+      purged_at: args.purged_at,
+    },
+  });
+}
+
 export async function emitPlannerPlanRestored(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
@@ -611,6 +660,32 @@ export async function emitPlannerTaskDeleted(args: {
       plan_id: args.plan_id,
       version_before: args.version_before,
       deleted_at: args.deleted_at,
+    },
+  });
+}
+
+export async function emitPlannerTaskPurged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  task_id: Uuid;
+  plan_id: Uuid;
+  version_before: PlannerTaskPurged['payload']['version_before'];
+  purged_at: PlannerTaskPurged['payload']['purged_at'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.task',
+    aggregateId: args.task_id,
+    eventType: 'planner.task.purged',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      group_id: args.group_id,
+      task_id: args.task_id,
+      plan_id: args.plan_id,
+      version_before: args.version_before,
+      purged_at: args.purged_at,
     },
   });
 }
