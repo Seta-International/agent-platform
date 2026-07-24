@@ -163,7 +163,9 @@ function filterCandidates(
   if (f.q.trim()) {
     const needle = f.q.toLowerCase();
     r = r.filter((c) =>
-      `${c.name} ${c.requisition_title} ${c.seniority ?? ''}`.toLowerCase().includes(needle),
+      `${c.name} ${c.requisition_title} ${c.seniority ?? ''} ${c.skills.map((s) => s.skill_name).join(' ')}`
+        .toLowerCase()
+        .includes(needle),
     );
   }
   return r;
