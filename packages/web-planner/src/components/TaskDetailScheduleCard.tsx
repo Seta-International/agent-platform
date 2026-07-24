@@ -62,30 +62,33 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
     update.mutate({ task_id: task.id, expected_version: task.version, due_at });
   };
 
+  const hasRangeError = !!dateError;
+
   return (
     <section className="card" aria-label="Schedule">
       <header className="mb-1.5">
         <span className="text-sm text-secondary">Schedule</span>
       </header>
       <div className="flex flex-col gap-2">
-        {dateError && (
-          <p className="text-xs text-danger" role="alert">
-            {dateError}
-          </p>
-        )}
         <DateField
           label="Start"
           value={task.start_at}
+          danger={hasRangeError}
           disabled={!canUpdate}
           onChange={handleStartChange}
         />
         <DateField
           label="Due"
           value={task.due_at}
-          danger={overdue}
+          danger={overdue || hasRangeError}
           disabled={!canUpdate}
           onChange={handleDueChange}
         />
+        {dateError && (
+          <p className="text-xs font-medium text-red-600 dark:text-red-400 mt-1" role="alert">
+            {dateError}
+          </p>
+        )}
       </div>
     </section>
   );
