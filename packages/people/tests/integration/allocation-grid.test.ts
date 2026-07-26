@@ -276,6 +276,12 @@ describe('getAllocationGrid', () => {
         const acme = await getAllocationGrid(t.adminSession, { year: 2026, accountId: acmeAcc });
         expect(acme.rows.every((r) => r.account_id === acmeAcc)).toBe(true);
         expect(acme.rows).toHaveLength(1);
+        // Effort-by-account follows the filter so the summary still renders for that account.
+        expect(acme.effort_by_account).toHaveLength(1);
+        expect(acme.effort_by_account[0]!.account_id).toBe(acmeAcc);
+        expect(acme.effort_by_account[0]!.total_mm).toBe(acme.rows[0]!.total_mm);
+        // KPIs stay at full scope when filtered.
+        expect(acme.kpis.member_count).toBe(2);
 
         // project filter narrows to a single project's line.
         const proj = await getAllocationGrid(t.adminSession, {
@@ -300,6 +306,25 @@ describe('getAllocationGrid', () => {
         expect(new Set(all.facets.projects.map((p) => p.id))).toEqual(
           new Set([projAcme, projInternal]),
         );
+        // Unfiltered effort rolls up both accounts; totals match row MM sums.
+        expect(new Set(all.effort_by_account.map((a) => a.account_id))).toEqual(
+          new Set([acmeAcc, internalAcc]),
+        );
+        const expectedMm = (accountId: string) =>
+          Math.round(
+            all.rows.filter((r) => r.account_id === accountId).reduce((s, r) => s + r.total_mm, 0) *
+              100,
+          ) / 100;
+        for (const entry of all.effort_by_account) {
+          expect(entry.total_mm).toBe(expectedMm(entry.account_id));
+        }
+        // Unknown account filter → empty effort summary (empty state on UI).
+        const none = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          accountId: crypto.randomUUID(),
+        });
+        expect(none.rows).toHaveLength(0);
+        expect(none.effort_by_account).toEqual([]);
         // KPIs stay at full scope regardless of the active filter.
         expect(over.kpis.member_count).toBe(2);
       } finally {

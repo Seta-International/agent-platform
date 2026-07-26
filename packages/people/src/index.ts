@@ -8,6 +8,7 @@ export {
   type AllocationGridQuery,
   type AllocationGridRow,
   type AllocationStatus,
+  type EffortByAccount,
   getAllocationGrid,
   type WorkerMonthTotal,
 } from './backend/domain/allocation-grid.ts';

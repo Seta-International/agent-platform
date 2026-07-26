@@ -26,12 +26,18 @@ export interface AllocationFacets {
   accounts: { id: string; name: string }[];
   projects: { id: string; name: string; account_id: string }[];
 }
+export interface EffortByAccount {
+  account_id: string;
+  account_name: string;
+  total_mm: number;
+}
 export interface AllocationGrid {
   year: number;
   rows: AllocationGridRow[];
   worker_totals: WorkerMonthTotal[];
   kpis: AllocationGridKpis;
   facets: AllocationFacets;
+  effort_by_account: EffortByAccount[];
 }
 export type AllocationStatus = 'over' | 'under';
 export type AllocationBucket = 'billable' | 'internal' | 'bench';
