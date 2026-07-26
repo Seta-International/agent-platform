@@ -8,6 +8,8 @@ import {
   type ColumnSettingsOption,
   cn,
   createStaticSource,
+  DonutChart,
+  type DonutSlice,
   EmptyState,
   HStack,
   Input,
@@ -35,7 +37,7 @@ import {
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { BarChart3, Download, Settings2, User, X } from 'lucide-react';
+import { BarChart3, Building2, Download, Settings2, User, X } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationBucket,
@@ -50,6 +52,22 @@ import { peopleKeys } from '../state/query-keys.ts';
 import { exportAllocationCsv } from './export-allocation-csv.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Collapse the donut legend when many accounts; matches the portfolio summary in the mock. */
+const EFFORT_DONUT_TOP_N = 6;
+
+const EFFORT_PALETTE = [
+  '#F59E0B',
+  '#1E3A5F',
+  '#9333EA',
+  '#00A3A3',
+  '#0047FF',
+  '#4F46E5',
+  '#16A34A',
+  '#DC2626',
+  '#0891B2',
+  '#DB2777',
+] as const;
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO
 // lacks an index signature, so alias locally (do not touch the shared DTO).
@@ -390,6 +408,40 @@ export function AllocationPage() {
   );
 
   const kpis = data?.kpis;
+  const effortByAccount = data?.effort_by_account ?? [];
+  const effortTotalMm = useMemo(
+    () => Math.round(effortByAccount.reduce((s, a) => s + a.total_mm, 0) * 100) / 100,
+    [effortByAccount],
+  );
+  const [effortExpanded, setEffortExpanded] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset expand when the filtered set changes.
+  useEffect(() => {
+    setEffortExpanded(false);
+  }, [effortByAccount]);
+  const effortSlices = useMemo<DonutSlice[]>(() => {
+    const source =
+      effortExpanded || effortByAccount.length <= EFFORT_DONUT_TOP_N
+        ? effortByAccount
+        : (() => {
+            const top = effortByAccount.slice(0, EFFORT_DONUT_TOP_N);
+            const rest = effortByAccount.slice(EFFORT_DONUT_TOP_N);
+            const otherMm = Math.round(rest.reduce((s, a) => s + a.total_mm, 0) * 100) / 100;
+            return [
+              ...top,
+              {
+                account_id: '__other__',
+                account_name: `Other (${rest.length})`,
+                total_mm: otherMm,
+              },
+            ];
+          })();
+    return source.map((a, i) => ({
+      key: a.account_id,
+      name: a.account_name || '—',
+      value: Math.round(a.total_mm * 100) / 100,
+      color: EFFORT_PALETTE[i % EFFORT_PALETTE.length] ?? EFFORT_PALETTE[0],
+    }));
+  }, [effortByAccount, effortExpanded]);
   const rowCount = data?.rows.length ?? 0;
   const activeFiltersCount = [
     raw.q,
@@ -441,7 +493,81 @@ export function AllocationPage() {
               </Card>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+                  <Card className="lg:col-span-2 p-4" data-testid="effort-by-account">
+                    {isLoading ? (
+                      <Skeleton height={140} />
+                    ) : effortByAccount.length === 0 ? (
+                      <EmptyState
+                        icon={<Building2 className="size-6" />}
+                        title="No effort in scope"
+                        description="No man-months for the current filters."
+                      />
+                    ) : (
+                      <section
+                        aria-label="Effort by account breakdown"
+                        className="flex items-center gap-4"
+                      >
+                        {/* Scale the shared DonutChart down — its ring radii are fixed for ~220px. */}
+                        <div className="relative h-[112px] w-[112px] shrink-0 overflow-hidden [&_.recharts-tooltip-wrapper]:hidden">
+                          <div className="absolute left-1/2 top-1/2 w-[200px] -translate-x-1/2 -translate-y-1/2 scale-[0.56]">
+                            <DonutChart
+                              slices={effortSlices}
+                              height={200}
+                              legend="none"
+                              centerValue={effortTotalMm}
+                            />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex items-center gap-2">
+                            <h3 className="min-w-0 truncate text-base font-semibold text-primary">
+                              Effort by account
+                            </h3>
+                            {effortByAccount.length > EFFORT_DONUT_TOP_N ? (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                label={effortExpanded ? 'Show less' : 'Show all'}
+                                onClick={() => setEffortExpanded((v) => !v)}
+                              />
+                            ) : null}
+                            <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-primary">
+                              TOTAL: {effortTotalMm} MM
+                            </span>
+                          </div>
+                          <ul className="flex flex-col gap-1.5">
+                            {effortSlices.map((s) => (
+                              <li key={s.key}>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 text-sm hover:opacity-80"
+                                  onClick={() => {
+                                    if (s.key === '__other__') {
+                                      setEffortExpanded(true);
+                                      return;
+                                    }
+                                    setSearch({ account: s.key, project: undefined });
+                                  }}
+                                >
+                                  <span
+                                    aria-hidden="true"
+                                    className="size-2.5 shrink-0 rounded-[3px]"
+                                    style={{ background: s.color }}
+                                  />
+                                  <span className="truncate text-primary">{s.name}</span>
+                                  <span className="ml-auto font-medium tabular-nums text-primary">
+                                    {s.value}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </section>
+                    )}
+                  </Card>
                   <Kpi
                     label="Avg. utilization"
                     value={`${kpis?.avg_utilization ?? 0}%`}
