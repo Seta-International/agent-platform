@@ -25,6 +25,11 @@ export interface UtilizationByPerson {
 }
 export interface UtilizationQuery {
   asOf?: string;
+  /**
+   * When true, skip account/project row-scope so visible workers include every project segment.
+   * Person scope still applies.
+   */
+  crossProject?: boolean;
 }
 
 interface RawRow {
@@ -45,7 +50,7 @@ export async function getUtilizationByPerson(
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
   const scope = await buildWorkerScope(session);
-  const rowScope = await buildAllocationRowScope(session);
+  const rowScope = query.crossProject ? null : await buildAllocationRowScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),

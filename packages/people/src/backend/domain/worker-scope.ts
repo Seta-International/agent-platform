@@ -134,7 +134,8 @@ export async function buildWorkerScope(session: SessionScope): Promise<SQL | nul
  *   - person_id in an explicitly assigned org-unit (subset org_unit scope)
  *
  * Returns `null` for tenant-wide viewers (same gate as `buildWorkerScope`). AND with the person
- * scope when querying `worker_allocation_projection`.
+ * scope when querying `worker_allocation_projection`. Callers may skip this predicate when the
+ * viewer opts into cross-project load for already-visible workers.
  *
  * Note: org-unit / reports arms intentionally include all allocation rows of those people (full
  * load). The dual-account leak fixed here is the AM/lead path, which must not widen to foreign

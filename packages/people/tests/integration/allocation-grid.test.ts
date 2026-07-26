@@ -584,6 +584,35 @@ describe('getAllocationGrid', () => {
         // KPIs stay within the managed-account slice (not both accounts' projects).
         expect(grid.kpis.project_count).toBe(1);
         expect(grid.kpis.member_count).toBe(1);
+
+        // Cross project: same people only, but all of their allocation rows.
+        const cross = await getAllocationGrid(amSession, { year: 2026, crossProject: true });
+        expect(cross.rows).toHaveLength(2);
+        expect(cross.rows.every((r) => r.worker_id === worker)).toBe(true);
+        expect(new Set(cross.rows.map((r) => r.account_id))).toEqual(new Set([granted, foreign]));
+        expect(cross.kpis.project_count).toBe(2);
+
+        // Out-of-scope people on foreign accounts stay hidden even with crossProject.
+        const stranger = crypto.randomUUID();
+        await peopleDb().insert(person).values({
+          id: stranger,
+          tenant_id: t.tenant_id,
+          full_name: 'Stranger Only Foreign',
+        });
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: stranger,
+          project_id: crypto.randomUUID(),
+          account_id: foreign,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          planned_pct: '100',
+          bucket: 'billable',
+          active: true,
+        });
+        const cross2 = await getAllocationGrid(amSession, { year: 2026, crossProject: true });
+        expect(cross2.rows.find((r) => r.worker_id === stranger)).toBeUndefined();
       } finally {
         resetPeopleDb();
         resetPmDb();

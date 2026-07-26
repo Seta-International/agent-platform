@@ -16,6 +16,8 @@ export function registerPeopleAllocationRoutes(app: Hono<SessionEnv>): void {
       bucketRaw === 'billable' || bucketRaw === 'internal' || bucketRaw === 'bench'
         ? bucketRaw
         : undefined;
+    const crossProject =
+      c.req.query('crossProject') === '1' || c.req.query('crossProject') === 'true';
     return c.json(
       await getAllocationGrid(c.get('user'), {
         ...(Number.isFinite(year) ? { year } : {}),
@@ -24,11 +26,19 @@ export function registerPeopleAllocationRoutes(app: Hono<SessionEnv>): void {
         ...(accountId ? { accountId } : {}),
         ...(projectId ? { projectId } : {}),
         ...(bucket ? { bucket } : {}),
+        ...(crossProject ? { crossProject: true } : {}),
       }),
     );
   });
   app.get('/api/people/v1/allocation/utilization', async (c) => {
     const asOf = c.req.query('asOf');
-    return c.json(await getUtilizationByPerson(c.get('user'), asOf ? { asOf } : {}));
+    const crossProject =
+      c.req.query('crossProject') === '1' || c.req.query('crossProject') === 'true';
+    return c.json(
+      await getUtilizationByPerson(c.get('user'), {
+        ...(asOf ? { asOf } : {}),
+        ...(crossProject ? { crossProject: true } : {}),
+      }),
+    );
   });
 }

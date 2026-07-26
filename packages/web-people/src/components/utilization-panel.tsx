@@ -40,14 +40,14 @@ function segmentKeys(
   });
 }
 
-export function UtilizationPanel() {
+export function UtilizationPanel({ crossProject = false }: { crossProject?: boolean }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const { data, isLoading, error } = useQuery<UtilizationByPerson>({
-    queryKey: peopleKeys.allocationUtilization(),
-    queryFn: () => fetchUtilizationByPerson(),
+    queryKey: peopleKeys.allocationUtilization(crossProject),
+    queryFn: () => fetchUtilizationByPerson({ crossProject: crossProject || undefined }),
   });
 
   const colorByProject = useMemo(() => {

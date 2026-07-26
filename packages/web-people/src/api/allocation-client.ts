@@ -42,6 +42,8 @@ export interface AllocationGridFilters {
   accountId?: string;
   projectId?: string;
   bucket?: AllocationBucket;
+  /** Full person load across projects for already-visible workers (skips AM/EM row-scope). */
+  crossProject?: boolean;
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -68,6 +70,7 @@ export async function fetchAllocationGrid(
   if (filters.accountId) params.set('accountId', filters.accountId);
   if (filters.projectId) params.set('projectId', filters.projectId);
   if (filters.bucket) params.set('bucket', filters.bucket);
+  if (filters.crossProject) params.set('crossProject', '1');
   const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`/api/people/v1/allocation/grid${qs}`, { credentials: 'include' });
   return handleResponse<AllocationGrid>(res);
@@ -92,8 +95,14 @@ export interface UtilizationByPerson {
   rows: UtilizationRow[];
 }
 
-export async function fetchUtilizationByPerson(asOf?: string): Promise<UtilizationByPerson> {
-  const qs = asOf ? `?asOf=${asOf}` : '';
+export async function fetchUtilizationByPerson(opts?: {
+  asOf?: string;
+  crossProject?: boolean;
+}): Promise<UtilizationByPerson> {
+  const params = new URLSearchParams();
+  if (opts?.asOf) params.set('asOf', opts.asOf);
+  if (opts?.crossProject) params.set('crossProject', '1');
+  const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`/api/people/v1/allocation/utilization${qs}`, { credentials: 'include' });
   return handleResponse<UtilizationByPerson>(res);
 }

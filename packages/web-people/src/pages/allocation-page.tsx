@@ -140,6 +140,8 @@ export interface AllocationSearch {
   account?: string;
   project?: string;
   bucket?: AllocationBucket;
+  /** Show all projects for workers already in scope (AM/EM cross-project load). */
+  crossProject?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -210,8 +212,9 @@ export function AllocationPage() {
       accountId: raw.account || undefined,
       projectId: raw.project || undefined,
       bucket: raw.bucket,
+      ...(raw.crossProject ? { crossProject: true } : {}),
     }),
-    [raw.q, raw.status, raw.account, raw.project, raw.bucket],
+    [raw.q, raw.status, raw.account, raw.project, raw.bucket, raw.crossProject],
   );
 
   const { data, isLoading, error } = useQuery<AllocationGrid>({
@@ -388,9 +391,14 @@ export function AllocationPage() {
 
   const kpis = data?.kpis;
   const rowCount = data?.rows.length ?? 0;
-  const activeFiltersCount = [raw.q, raw.status, raw.account, raw.project, raw.bucket].filter(
-    Boolean,
-  ).length;
+  const activeFiltersCount = [
+    raw.q,
+    raw.status,
+    raw.account,
+    raw.project,
+    raw.bucket,
+    raw.crossProject ? '1' : undefined,
+  ].filter(Boolean).length;
 
   return (
     <Layout
@@ -479,12 +487,20 @@ export function AllocationPage() {
                               account: undefined,
                               project: undefined,
                               bucket: undefined,
+                              crossProject: undefined,
                             });
                           }}
                           icon={<X className="size-3.5" />}
                           label={`Clear filters (${activeFiltersCount})`}
                         />
                       )}
+                      <Checkbox
+                        label="Cross project"
+                        value={!!raw.crossProject}
+                        onChange={() =>
+                          setSearch({ crossProject: raw.crossProject ? undefined : true })
+                        }
+                      />
                       <div className="flex items-center gap-2 text-base text-secondary">
                         <span className="flex items-center gap-1 font-medium text-primary">
                           <User className="size-3.5 text-secondary" />
@@ -538,12 +554,14 @@ export function AllocationPage() {
                       ))}
                     </SegmentedControl>
                     <Typeahead
+                      key={`account-${accountItems.map((a) => a.id).join('|')}`}
                       className="h-8 w-44"
                       label="Account"
                       isLabelHidden
                       searchSource={accountSource}
                       debounceMs={0}
                       hasEntriesOnFocus
+                      maxMenuItems={Math.max(accountItems.length, 10)}
                       value={accountValue}
                       onChange={(item) =>
                         setSearch({ account: item?.id ?? undefined, project: undefined })
@@ -551,12 +569,14 @@ export function AllocationPage() {
                       placeholder="All accounts"
                     />
                     <Typeahead
+                      key={`project-${projectItems.map((p) => p.id).join('|')}-${raw.account ?? ''}`}
                       className="h-8 w-44"
                       label="Project"
                       isLabelHidden
                       searchSource={projectSource}
                       debounceMs={0}
                       hasEntriesOnFocus
+                      maxMenuItems={Math.max(projectItems.length, 10)}
                       value={projectValue}
                       onChange={(item) => setSearch({ project: item?.id ?? undefined })}
                       placeholder="All projects"
@@ -568,6 +588,7 @@ export function AllocationPage() {
                       searchSource={bucketSource}
                       debounceMs={0}
                       hasEntriesOnFocus
+                      maxMenuItems={bucketItems.length}
                       value={bucketValue}
                       onChange={(item) =>
                         setSearch({ bucket: (item?.id as AllocationBucket) ?? undefined })
@@ -627,7 +648,7 @@ export function AllocationPage() {
                 <p className="text-xs text-secondary">
                   Solid red = that person is over 100% allocated that month.
                 </p>
-                <UtilizationPanel />
+                <UtilizationPanel crossProject={!!raw.crossProject} />
               </>
             )}
           </div>

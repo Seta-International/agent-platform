@@ -229,6 +229,15 @@ describe('getUtilizationByPerson', () => {
         expect(row.segments).toHaveLength(1);
         expect(row.segments[0]!.project_id).toBe(projGranted);
         expect(row.total_pct).toBe(60);
+
+        const cross = await getUtilizationByPerson(amSession, {
+          asOf: '2026-06-15',
+          crossProject: true,
+        });
+        const crossRow = cross.rows.find((r) => r.worker_id === worker)!;
+        expect(crossRow.segments).toHaveLength(2);
+        expect(crossRow.total_pct).toBe(110);
+        expect(cross.rows.every((r) => r.worker_id === worker)).toBe(true);
       } finally {
         resetPeopleDb();
         resetPmDb();
