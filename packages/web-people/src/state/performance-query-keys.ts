@@ -9,6 +9,7 @@ export const performanceKeys = {
   all: ['people', 'performance'] as const,
   context: (asOfMonth: string) => [...performanceKeys.all, 'context', asOfMonth] as const,
   cycleStatus: (month: string) => [...performanceKeys.all, 'cycleStatus', month] as const,
+  monthTasks: (month: string) => [...performanceKeys.all, 'monthTasks', month] as const,
   section: (section: string, resolved: ResolvedPerformanceScope) =>
     [...performanceKeys.all, section, scopeTuple(resolved)] as const,
 };

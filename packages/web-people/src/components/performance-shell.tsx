@@ -6,6 +6,7 @@ import { usePerformanceScope } from '../hooks/use-performance-scope.ts';
 import { filterPerformanceNav, isPerformanceNavAllowed } from '../nav/performance-nav.ts';
 import { navIdFromPath } from '../nav/performance-path.ts';
 import type { PerformanceScopeSearch } from '../state/performance-scope.ts';
+import { PerformanceScopeProvider } from '../state/performance-scope-context.tsx';
 import { CycleStatusBadgeLoader } from './cycle-status-badge-loader.tsx';
 import { ProjectContextSwitcher } from './project-context-switcher.tsx';
 
@@ -51,50 +52,52 @@ export function PerformanceShell({
   }, [activeId, navigate, resolved.capacity, role_slugs]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-      <nav
-        aria-label="Performance sections"
-        className="flex shrink-0 gap-1 overflow-x-auto border-b border-hairline pb-2 md:w-48 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r md:pb-0 md:pr-3"
-        data-testid="performance-sidebar"
-      >
-        {navItems.map((item) => {
-          const active = item.id === activeId;
-          return (
-            <Link
-              key={item.id}
-              to={item.to}
-              search={linkSearch}
-              className={
-                active
-                  ? 'rounded-md bg-surface-secondary px-3 py-2 text-sm font-medium whitespace-nowrap'
-                  : 'rounded-md px-3 py-2 text-sm text-secondary whitespace-nowrap hover:bg-surface-secondary'
-              }
-              data-testid={`performance-nav-${item.id}`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+    <PerformanceScopeProvider value={{ role_slugs, capacities, resolved, search }}>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
+        <nav
+          aria-label="Performance sections"
+          className="flex shrink-0 gap-1 overflow-x-auto border-b border-hairline pb-2 md:w-48 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r md:pb-0 md:pr-3"
+          data-testid="performance-sidebar"
+        >
+          {navItems.map((item) => {
+            const active = item.id === activeId;
+            return (
+              <Link
+                key={item.id}
+                to={item.to}
+                search={linkSearch}
+                className={
+                  active
+                    ? 'rounded-md bg-surface-secondary px-3 py-2 text-sm font-medium whitespace-nowrap'
+                    : 'rounded-md px-3 py-2 text-sm text-secondary whitespace-nowrap hover:bg-surface-secondary'
+                }
+                data-testid={`performance-nav-${item.id}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div data-testid="performance-cycle-badge-slot">
-            <CycleStatusBadgeLoader month={cycleMonth} />
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div data-testid="performance-cycle-badge-slot">
+              <CycleStatusBadgeLoader month={cycleMonth} />
+            </div>
+            <ProjectContextSwitcher
+              capacities={capacities}
+              resolved={resolved}
+              onSelect={setCapacity}
+            />
           </div>
-          <ProjectContextSwitcher
-            capacities={capacities}
-            resolved={resolved}
-            onSelect={setCapacity}
-          />
+          <div className="min-w-0 flex-1">{children}</div>
         </div>
-        <div className="min-w-0 flex-1">{children}</div>
       </div>
-    </div>
+    </PerformanceScopeProvider>
   );
 }
 
-/** Stub body for sections not yet built (S1.4 / E2). Cycle badge lives in the shell only. */
+/** Stub body for sections not yet built (later stories). Cycle badge lives in the shell only. */
 export function PerformanceSectionStub({ title }: { title: string }) {
   return (
     <div className="flex flex-col gap-3">

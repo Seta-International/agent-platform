@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { performanceKeys } from '../state/performance-query-keys.ts';
-import { fetchCycleStatus, fetchPerformanceContext } from './people-client.ts';
+import { fetchCycleStatus, fetchMonthTasks, fetchPerformanceContext } from './people-client.ts';
 
 /**
  * Current Performance cycle month (YYYY-MM) in Asia/Ho_Chi_Minh.
@@ -26,6 +26,14 @@ export function cycleStatusOptions(month: string) {
     queryKey: performanceKeys.cycleStatus(month),
     queryFn: () => fetchCycleStatus(month),
     // Window flips on calendar boundaries — don't serve a stale open/makeup for a minute.
+    staleTime: 0,
+  });
+}
+
+export function monthTasksOptions(month: string) {
+  return queryOptions({
+    queryKey: performanceKeys.monthTasks(month),
+    queryFn: () => fetchMonthTasks(month),
     staleTime: 0,
   });
 }
