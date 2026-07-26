@@ -59,6 +59,11 @@ export interface AllocationGridQuery {
   accountId?: string;
   projectId?: string;
   bucket?: AllocationBucket;
+  /**
+   * When true, skip account/project row-scope (FUT-342) so visible workers show every allocation
+   * row. Person scope still applies — workers outside the viewer's reach never appear.
+   */
+  crossProject?: boolean;
 }
 
 // Target utilization; a worker whose busiest month stays below this counts as under-utilized.
@@ -110,7 +115,9 @@ export async function getAllocationGrid(
 
   const year = query.year ?? new Date().getUTCFullYear();
   const scope = await buildWorkerScope(session); // SQL predicate on person.id, or null for tenant scope
-  const rowScope = await buildAllocationRowScope(session); // FUT-342/343: account/project row gate
+  // Default: row-scope hides foreign account/project rows for AM/EM. crossProject opts into full
+  // person load for already-visible workers without widening who is visible.
+  const rowScope = query.crossProject ? null : await buildAllocationRowScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),

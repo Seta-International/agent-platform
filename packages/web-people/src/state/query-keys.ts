@@ -11,5 +11,6 @@ export const peopleKeys = {
   orgCompany: () => [...peopleKeys.all, 'org', 'company'] as const,
   allocationGrid: (filters?: AllocationGridFilters) =>
     [...peopleKeys.all, 'allocation', 'grid', filters ?? {}] as const,
-  allocationUtilization: () => [...peopleKeys.all, 'allocation', 'utilization'] as const,
+  allocationUtilization: (crossProject?: boolean) =>
+    [...peopleKeys.all, 'allocation', 'utilization', { crossProject: !!crossProject }] as const,
 };
