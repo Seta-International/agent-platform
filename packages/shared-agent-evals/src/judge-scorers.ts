@@ -21,6 +21,33 @@ const defaultAnswerOf = (r: unknown): string =>
     ? String((r as { answer: unknown }).answer)
     : JSON.stringify(r);
 
+/** The shape our runner hands the wrapper. `context` (retrieved chunks / tool
+ *  outputs) is only meaningful to the groundedness judges (faithfulness /
+ *  hallucination); relevancy/toxicity ignore it. */
+export interface JudgeRunInput {
+  input?: unknown;
+  output: unknown; // AgentResult
+  groundTruth?: unknown;
+  context?: unknown;
+}
+
+/**
+ * Builds the object passed to a prebuilt scorer's `run()`. Pure + exported so
+ * the context-forwarding rule is unit-testable without a model: `context` is
+ * included only when `forwardContext` is set AND a context was supplied.
+ */
+export function buildPrebuiltRunInput(
+  runInput: JudgeRunInput,
+  answerOf: (result: unknown) => string,
+  opts: { forwardContext: boolean },
+): { input: unknown; output: string; groundTruth?: unknown; context?: unknown } {
+  const answer = answerOf((runInput.output as ResultOutput).result);
+  const base = { input: runInput.input, output: answer, groundTruth: runInput.groundTruth };
+  return opts.forwardContext && runInput.context !== undefined
+    ? { ...base, context: runInput.context }
+    : base;
+}
+
 /**
  * Wrap a prebuilt Mastra judge scorer so our runner's
  * `run({ input, output: AgentResult, groundTruth })` shape maps to the
@@ -47,6 +74,7 @@ function adapt(
   id: string,
   prebuilt: MastraScorer,
   answerOf: (result: unknown) => string,
+  opts: { forwardContext: boolean } = { forwardContext: false },
 ): MastraScorer {
   return {
     id,
@@ -56,13 +84,9 @@ function adapt(
     // the returned scorer get the prebuilt's values, not `undefined`.
     name: prebuilt.name,
     description: prebuilt.description,
-    run: async (runInput: { input?: unknown; output: unknown; groundTruth?: unknown }) => {
-      const answer = answerOf((runInput.output as ResultOutput).result);
-      return prebuilt.run({
-        input: runInput.input as never,
-        output: answer as never,
-        groundTruth: runInput.groundTruth as never,
-      });
+    run: async (runInput: JudgeRunInput) => {
+      const prebuiltInput = buildPrebuiltRunInput(runInput, answerOf, opts);
+      return prebuilt.run(prebuiltInput as never);
     },
   } as unknown as MastraScorer;
 }
@@ -80,6 +104,7 @@ export function faithfulnessScorer(cfg: JudgeScorerCfg): MastraScorer {
     'faithfulness',
     createFaithfulnessScorer({ model: cfg.model as never }) as MastraScorer,
     cfg.answerOf ?? defaultAnswerOf,
+    { forwardContext: true },
   );
 }
 
@@ -88,6 +113,7 @@ export function hallucinationScorer(cfg: JudgeScorerCfg): MastraScorer {
     'hallucination',
     createHallucinationScorer({ model: cfg.model as never }) as MastraScorer,
     cfg.answerOf ?? defaultAnswerOf,
+    { forwardContext: true },
   );
 }
 

@@ -78,8 +78,10 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent, toast: Sh
   switch (event.eventType) {
     case 'planner.group.created':
     case 'planner.group.deleted':
+    case 'planner.group.purged':
     case 'planner.group.restored':
       qc.invalidateQueries({ queryKey: plannerKeys.groups() });
+      qc.invalidateQueries({ queryKey: plannerKeys.trash() });
       return;
     case 'planner.group.updated':
       if (groupId) qc.invalidateQueries({ queryKey: plannerKeys.group(groupId) });
@@ -94,9 +96,11 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent, toast: Sh
     case 'planner.plan.created':
     case 'planner.plan.updated':
     case 'planner.plan.deleted':
+    case 'planner.plan.purged':
     case 'planner.plan.restored':
       if (groupId) qc.invalidateQueries({ queryKey: plannerKeys.groupPlans(groupId) });
       if (planId) qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
+      qc.invalidateQueries({ queryKey: plannerKeys.trash() });
       return;
 
     case 'planner.bucket.created': {
@@ -339,6 +343,12 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent, toast: Sh
         prev ? prev.filter((t) => t.id !== taskId) : prev,
       );
       qc.invalidateQueries({ queryKey: plannerKeys.trash() });
+      return;
+    }
+
+    case 'planner.task.purged': {
+      qc.invalidateQueries({ queryKey: plannerKeys.trash() });
+      if (planId) qc.invalidateQueries({ queryKey: tasksKey(planId) });
       return;
     }
 

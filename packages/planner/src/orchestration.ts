@@ -15,12 +15,16 @@ export {
   type AssignmentPorts,
   buildAssignmentOrchestrationRuntime,
 } from './backend/orchestration/assignment/register.ts';
-
-// Public surface for composing the planner QnA runtime at the app tier.
+// Eval-target factory for @seta/shared-agent-evals consumption.
 export {
-  buildPlannerQnaRuntime,
-  type PlannerQnaRuntime,
-  type PlannerQnaRuntimeDeps,
+  buildPlannerQueryEvalTarget,
+  type PlannerQueryEvalTarget,
+} from './backend/orchestration/eval-target.ts';
+// Public surface for composing the planner Query runtime at the app tier.
+export {
+  buildPlannerQueryRuntime,
+  type PlannerQueryRuntime,
+  type PlannerQueryRuntimeDeps,
 } from './backend/orchestration/register.ts';
 // Weekly planner runtime (weekly_planner chat intent).
 export {

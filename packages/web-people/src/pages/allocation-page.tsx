@@ -35,7 +35,7 @@ import {
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { BarChart3, Settings2, User, X } from 'lucide-react';
+import { BarChart3, Download, Settings2, User, X } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationBucket,
@@ -47,6 +47,7 @@ import {
 } from '../api/allocation-client.ts';
 import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
+import { exportAllocationCsv } from './export-allocation-csv.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -407,6 +408,18 @@ export function AllocationPage() {
                   Resource Allocation
                 </Text>
               </HStack>
+              <HStack gap={2} vAlign="center">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  label="Export"
+                  icon={<Download className="size-4" />}
+                  isDisabled={!data?.rows?.length}
+                  onClick={() =>
+                    exportAllocationCsv(sortedData, data?.year ?? new Date().getFullYear())
+                  }
+                />
+              </HStack>
             </HStack>
           </VStack>
         </LayoutHeader>
@@ -444,11 +457,11 @@ export function AllocationPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap items-center gap-3">
                       <Input
-                        label="Search name or worker ID"
+                        label="Search name or employee ID"
                         isLabelHidden
                         className="w-64"
                         size="sm"
-                        placeholder="Search name or worker ID…"
+                        placeholder="Search name or employee ID…"
                         value={searchInput}
                         onChange={(value) => setSearchInput(value)}
                       />

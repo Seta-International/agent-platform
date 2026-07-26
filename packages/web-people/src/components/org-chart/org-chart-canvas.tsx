@@ -44,7 +44,7 @@ function Inner({ nodes: inNodes, edges: inEdges, onNodeClick }: OrgChartCanvasPr
       return;
     }
     prevNodes.current = inNodes.length;
-    fitView({ padding: 0.2 });
+    fitView({ padding: 0.1, minZoom: 0.05 });
   }, [inNodes, fitView]);
 
   const handleNodeClick: NodeMouseHandler = (_e, node) =>
@@ -64,7 +64,7 @@ function Inner({ nodes: inNodes, edges: inEdges, onNodeClick }: OrgChartCanvasPr
             setZoomPct(Math.round(getZoom() * 100));
           }}
           onFit={() => {
-            void fitView({ padding: 0.2 });
+            void fitView({ padding: 0.1, minZoom: 0.05 });
           }}
         />
       </div>
@@ -77,8 +77,8 @@ function Inner({ nodes: inNodes, edges: inEdges, onNodeClick }: OrgChartCanvasPr
         onNodeClick={handleNodeClick}
         onMoveEnd={() => setZoomPct(Math.round(getZoom() * 100))}
         fitView
-        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-        minZoom={0.4}
+        fitViewOptions={{ padding: 0.1, maxZoom: 1, minZoom: 0.05 }}
+        minZoom={0.05}
         maxZoom={1.3}
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}

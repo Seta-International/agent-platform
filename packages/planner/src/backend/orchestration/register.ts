@@ -1,56 +1,69 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import { type AgentTool, SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
 import {
-  makeQnaGeneralAnswerAgent,
-  makeQnaTaskDetailAgent,
-  makeQnaTaskQueryAgent,
-  makeQnaTeamInfoAgent,
+  makeQueryGeneralAnswerAgent,
+  makeQueryTaskDetailAgent,
+  makeQueryTaskSearchAgent,
+  makeQueryTeamInfoAgent,
 } from './agents/index.ts';
 import {
-  makeQnaChatStreamer,
-  makeQnaOrchestrator,
-  type QnaOrchestratorDeps,
+  makeQueryChatStreamer,
+  makeQueryOrchestrator,
+  type QueryOrchestratorDeps,
 } from './orchestrator.ts';
-import { qnaOrchestratorSpec } from './orchestrator-spec.ts';
+import { queryOrchestratorSpec } from './orchestrator-spec.ts';
 
-export interface PlannerQnaRuntimeDeps {
+export interface PlannerQueryRuntimeDeps {
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /** Built find-similar tool (factory needs provider + databaseUrl). */
   findSimilarTasksTool: AgentTool;
   /** Test seam forwarded to the orchestrator streamer. */
-  streamAgent?: QnaOrchestratorDeps['streamAgent'];
+  streamAgent?: QueryOrchestratorDeps['streamAgent'];
 }
 
-export interface PlannerQnaRuntime {
+export interface PlannerQueryRuntime {
   runStream: (
     runInput: { userText: string; taskId: string | null },
     ctx: RunCtx,
   ) => Promise<ChatStreamRun>;
 }
 
-export function buildPlannerQnaRuntime(deps: PlannerQnaRuntimeDeps): PlannerQnaRuntime {
-  const taskQuery = makeQnaTaskQueryAgent({
+export function buildPlannerQueryRuntime(deps: PlannerQueryRuntimeDeps): PlannerQueryRuntime {
+  const taskSearch = makeQueryTaskSearchAgent({
     resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
     findSimilarTasksTool: deps.findSimilarTasksTool,
   });
-  const taskDetail = makeQnaTaskDetailAgent({ resolveModel: deps.resolveModel });
-  const teamInfo = makeQnaTeamInfoAgent({ resolveModel: deps.resolveModel });
-  const generalAnswer = makeQnaGeneralAnswerAgent({ resolveModel: deps.resolveModel });
+  const taskDetail = makeQueryTaskDetailAgent({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
+  const teamInfo = makeQueryTeamInfoAgent({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
+  const generalAnswer = makeQueryGeneralAnswerAgent({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
 
-  const orchestratorDeps: QnaOrchestratorDeps = {
-    taskQuery,
+  const orchestratorDeps: QueryOrchestratorDeps = {
+    taskQuery: taskSearch,
     taskDetail,
     teamInfo,
     generalAnswer,
     resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
     streamAgent: deps.streamAgent,
   };
 
-  const orchestrator = makeQnaOrchestrator(orchestratorDeps);
+  const orchestrator = makeQueryOrchestrator(orchestratorDeps);
   SpecializedAgentRegistry.register(orchestrator);
-  OrchestrationRegistry.register(qnaOrchestratorSpec);
+  OrchestrationRegistry.register(queryOrchestratorSpec);
 
-  const runStream = makeQnaChatStreamer(orchestratorDeps);
+  const runStream = makeQueryChatStreamer(orchestratorDeps);
   return { runStream };
 }

@@ -1,0 +1,24 @@
+{
+  "datasetVersion": "2.0.0",
+  "caseSchemaVersion": 1,
+  "designSpecVersion": "golden-dataset-v2",
+  "referenceTime": "2026-07-01T09:00:00+07:00",
+  "seedChecksum": "d36b91730d54bf3665fad4f96d50adb9c3e9bac80586c1afd244709c1cb16f7e",
+  "counts": {
+    "main": { "people": 50, "groups": 4, "plans": 8, "tasks": 200 },
+    "decoy": { "people": 2, "groups": 1, "tasks": 2 }
+  },
+  "embedding": {
+    "modelVersion": "openai:text-embedding-3-small",
+    "tasks": {
+      "index": "task_embeddings",
+      "mainExpectedRows": 200,
+      "decoyExpectedRows": 2
+    },
+    "people": {
+      "index": "person_profile_embeddings",
+      "mainExpectedRows": 50,
+      "decoyExpectedRows": 2
+    }
+  }
+}

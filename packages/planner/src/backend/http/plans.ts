@@ -14,6 +14,7 @@ import {
   listGroupPlansWithRollups,
   listLabels,
   listPlans,
+  purgePlan,
   refreshPlanSync,
   resolvePlanConflicts,
   restorePlan,
@@ -186,6 +187,12 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
   app.post('/api/planner/v1/plans/:id/restore', async (c) => {
     const session = c.get('user');
     return c.json(await restorePlan({ plan_id: c.req.param('id'), session }));
+  });
+
+  app.post('/api/planner/v1/plans/:id/purge', async (c) => {
+    const session = c.get('user');
+    await purgePlan({ plan_id: c.req.param('id'), session });
+    return c.body(null, 204);
   });
 
   app.post('/api/planner/v1/plans/:id/archive', async (c) => {

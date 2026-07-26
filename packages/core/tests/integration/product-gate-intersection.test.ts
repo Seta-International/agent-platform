@@ -42,6 +42,7 @@ describe('product gate intersection', () => {
 
         const rawPerms = new Set([
           'pm.account.read',
+          'people.worker.create',
           'people.worker.read',
           'people.self.read',
           'core.audit.read',
@@ -60,7 +61,8 @@ describe('product gate intersection', () => {
           'Gate',
         );
         expect(scope.permissions.has('pm.account.read')).toBe(true); // pm granted
-        expect(scope.permissions.has('people.worker.read')).toBe(false); // people not granted → stripped
+        expect(scope.permissions.has('people.worker.create')).toBe(false); // people not granted → stripped
+        expect(scope.permissions.has('people.worker.read')).toBe(true); // exempt (cross-product staffing lookup)
         expect(scope.permissions.has('people.self.read')).toBe(true); // exempt
         expect(scope.permissions.has('core.audit.read')).toBe(true); // non-product namespace
         expect([...scope.product_access]).toEqual(['pm']);
@@ -79,7 +81,8 @@ describe('product gate intersection', () => {
           'Gate',
         );
         expect(scopeCached.permissions.has('pm.account.read')).toBe(true);
-        expect(scopeCached.permissions.has('people.worker.read')).toBe(false);
+        expect(scopeCached.permissions.has('people.worker.create')).toBe(false);
+        expect(scopeCached.permissions.has('people.worker.read')).toBe(true); // exempt
         expect([...scopeCached.product_access]).toEqual(['pm']);
 
         // Case 3: WITHOUT resolveProductAccess — permissions pass through unstripped; product_access is empty

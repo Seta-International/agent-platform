@@ -1,0 +1,53 @@
+{
+  "agentId": "planner-query",
+  "target": { "package": "@seta/planner", "exportName": "buildPlannerQueryEvalTarget" },
+  "judgeModel": "openai/gpt-5-mini",
+  "scorers": [
+    { "id": "forbidden-tools" },
+    { "id": "expected-tools" },
+    { "id": "faithfulness", "threshold": 0.8 },
+    { "id": "answer-relevancy", "threshold": 0.6 },
+    { "id": "tool-call-accuracy", "threshold": 0.7 },
+    { "id": "hallucination", "threshold": 0.8 }
+  ],
+  "gates": ["forbidden-tools", "expected-tools"],
+  "forbiddenTools": [
+    "planner_create_item",
+    "planner_update_item",
+    "planner_bulk_update",
+    "planner_add_comment",
+    "planner_create_subtasks",
+    "planner_merge_or_soft_delete",
+    "admin_save_rule",
+    "planner_link_items",
+    "report_render",
+    "notify_deliver",
+    "draft_post",
+    "gov_audit_query",
+    "gov_compile_rule",
+    "gov_telemetry_query",
+    "planner_assignTask",
+    "planner_postComment",
+    "planner_setAssignees",
+    "planner_createTask"
+  ],
+  "run": { "maxConcurrency": 5, "itemTimeout": 60000, "maxRetries": 1 },
+  "metricPolicy": {
+    "A1": { "mode": "gate" },
+    "A2": { "mode": "gate" },
+    "A3": { "mode": "gate" },
+    "A4": { "mode": "gate" },
+    "A5": { "mode": "gate" },
+    "A6": { "mode": "gate" },
+    "A7": { "mode": "gate" },
+    "A8": { "mode": "gate" },
+    "B1": { "mode": "advisory" },
+    "B2": { "mode": "advisory" },
+    "B3": { "mode": "advisory" },
+    "B4": { "mode": "advisory" },
+    "B5": { "mode": "advisory" },
+    "B6": { "mode": "advisory" },
+    "B7": { "mode": "advisory" },
+    "B8": { "mode": "advisory" }
+  }
+}

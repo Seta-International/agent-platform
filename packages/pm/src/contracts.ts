@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// Read-only KPI Norm reference sections (Methodology lens, Executive EQI/TDI) — documentation
+// content the web Norm tab renders; see kpi-norm-reference.ts for why it is not norm config.
+export {
+  KPI_EXECUTIVE_MATRIX_WARNING,
+  KPI_EXECUTIVE_METRICS,
+  KPI_METHODOLOGY_LENS,
+  type KpiMethodologyLensGroup,
+  type KpiReferenceMetric,
+} from './kpi-norm-reference.ts';
+
 export const createAccountInput = z.object({
   name: z.string().min(1),
   industry: z.string().optional(),
@@ -389,6 +399,11 @@ export const ensureWeeklyReportInput = z.object({
   iso_week: z.number().int().min(1).max(53),
 });
 export type EnsureWeeklyReportInput = z.infer<typeof ensureWeeklyReportInput>;
+
+// Discard the reporter's abandoned draft-on-entry (same identity as ensure). Only a pristine,
+// never-saved draft is removed — see discardWeeklyReport for the guard.
+export const discardWeeklyReportInput = ensureWeeklyReportInput;
+export type DiscardWeeklyReportInput = z.infer<typeof discardWeeklyReportInput>;
 
 // Overriding a computed colour is a governance action — the reason is mandatory so the
 // flag_audit_entry trail stays meaningful (system-computed entries are the only reason-less ones).

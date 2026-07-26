@@ -2,6 +2,7 @@ import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import {
   addReportCommentInput,
+  discardWeeklyReportInput,
   ensureWeeklyReportInput,
   overrideFlagInput,
   upsertWeeklyReportInput,
@@ -10,6 +11,7 @@ import {
 } from '../../contracts.ts';
 import {
   addReportComment,
+  discardWeeklyReport,
   ensureWeeklyReport,
   getCurrentIsoWeek,
   getWeeklyReportDetail,
@@ -44,6 +46,15 @@ export function registerPmWeeklyReportsRoutes(app: Hono<SessionEnv>): void {
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     return c.json(await ensureWeeklyReport({ ...parsed.data, session: c.get('user') }));
+  });
+
+  // FUT-740: reverse of draft-on-entry — the composer calls this when it's abandoned without a
+  // save, so the empty draft it opened with doesn't survive as a stray "Unknown · Draft" card.
+  app.post('/api/pm/v1/weekly-reports/discard', async (c) => {
+    const parsed = discardWeeklyReportInput.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(await discardWeeklyReport({ ...parsed.data, session: c.get('user') }));
   });
 
   app.put('/api/pm/v1/weekly-reports', async (c) => {

@@ -94,11 +94,11 @@ export function UtilizationPanel() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold">Utilization by person</h3>
         <Input
-          label="Search name or worker ID"
+          label="Search name or employee ID"
           isLabelHidden
           className="w-56"
           size="sm"
-          placeholder="Search name or worker ID…"
+          placeholder="Search name or employee ID…"
           value={search}
           onChange={(value) => {
             setSearch(value);

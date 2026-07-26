@@ -57,11 +57,13 @@ async function listPlanTasksByDateRangeImpl(
   // collapse to [start,start], due-only to [due,due]; both-NULL yields an
   // unbounded range (,) in Postgres which overlaps everything, so we
   // explicitly gate on at least one date being present (AC-5).
+  const lowerBound = sql`LEAST(coalesce(${tasks.start_at}, ${tasks.due_at}), coalesce(${tasks.due_at}, ${tasks.start_at}))`;
+  const upperBound = sql`GREATEST(coalesce(${tasks.start_at}, ${tasks.due_at}), coalesce(${tasks.due_at}, ${tasks.start_at}))`;
   const overlap = sql`${tasks.plan_id} = ${input.plan_id}::uuid
     AND ${tasks.tenant_id} = ${session.tenant_id}::uuid
     AND ${tasks.deleted_at} IS NULL
     AND (${tasks.start_at} IS NOT NULL OR ${tasks.due_at} IS NOT NULL)
-    AND tstzrange(coalesce(${tasks.start_at}, ${tasks.due_at}), coalesce(${tasks.due_at}, ${tasks.start_at}), '[]')
+    AND tstzrange(${lowerBound}, ${upperBound}, '[]')
         && tstzrange(${input.from}::timestamptz, ${input.to}::timestamptz, '[]')`;
 
   let pageWhere = overlap;

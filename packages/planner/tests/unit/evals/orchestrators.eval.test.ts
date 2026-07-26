@@ -5,16 +5,16 @@ import {
 } from '@seta/shared-agent-evals';
 import { describe, expect, it } from 'vitest';
 import {
-  qnaOrchestratorEvalSuite,
+  queryOrchestratorEvalSuite,
   weeklyPlanOrchestratorEvalSuite,
 } from '../../../src/backend/orchestration/eval-manifest.ts';
 
-describe('eval: planner.qna.orchestrator (deterministic gate)', () => {
+describe('eval: planner.query.orchestrator (deterministic gate)', () => {
   it('every case yields schema-valid output with a valid trust envelope', async () => {
-    const spec = qnaOrchestratorEvalSuite.buildSpec();
+    const spec = queryOrchestratorEvalSuite.buildSpec();
     const res = await runSpecEvals({
       target: spec,
-      data: qnaOrchestratorEvalSuite.cases,
+      data: queryOrchestratorEvalSuite.cases,
       scorers: [
         { scorer: schemaConformanceScorer(spec.outputSchema) },
         { scorer: trustEnvelopeScorer() },

@@ -34,8 +34,8 @@ export interface ExplorerGroupColumn<T> {
 export type ExplorerColumn<T> = ExplorerLeafColumn<T> | ExplorerGroupColumn<T>;
 
 const headCellClass =
-  'h-10 px-md text-left align-middle text-xs uppercase tracking-[0.04em] font-medium text-secondary';
-const cellClass = 'px-md py-2.5 align-middle text-sm text-primary';
+  'h-10 px-3 text-left align-middle text-xs uppercase tracking-[0.04em] font-medium text-secondary';
+const cellClass = 'px-3 py-2.5 align-middle text-sm text-primary';
 
 function isGroup<T>(c: ExplorerColumn<T>): c is ExplorerGroupColumn<T> {
   return 'columns' in c;
@@ -69,10 +69,10 @@ export function KpiExplorerTable<T>({
   const colKey = (c: ExplorerLeafColumn<T>, i: number) => c.id ?? c.accessorKey ?? String(i);
 
   return (
-    <div className="rounded-lg border border-hairline bg-canvas">
+    <div className="rounded-lg border border-border bg-card">
       <table className="w-full caption-bottom border-collapse">
-        <thead className="bg-surface-1">
-          <tr className="border-b border-hairline">
+        <thead className="bg-surface">
+          <tr className="border-b border-border">
             {columns.map((c) =>
               isGroup(c) ? (
                 <th
@@ -80,7 +80,7 @@ export function KpiExplorerTable<T>({
                   colSpan={c.columns.length}
                   className={cn(
                     headCellClass,
-                    'sticky top-0 z-10 bg-surface-1 text-center shadow-[0_1px_0_var(--color-hairline)]',
+                    'sticky top-0 z-10 bg-surface text-center shadow-[0_1px_0_var(--color-border)]',
                     c.meta?.headerClassName,
                   )}
                 >
@@ -92,7 +92,7 @@ export function KpiExplorerTable<T>({
                   rowSpan={hasGroups ? 2 : 1}
                   className={cn(
                     headCellClass,
-                    'sticky top-0 z-10 bg-surface-1 shadow-[0_1px_0_var(--color-hairline)]',
+                    'sticky top-0 z-10 bg-surface shadow-[0_1px_0_var(--color-border)]',
                     c.meta?.headerClassName,
                   )}
                 >
@@ -102,7 +102,7 @@ export function KpiExplorerTable<T>({
             )}
           </tr>
           {hasGroups && (
-            <tr className="border-b border-hairline">
+            <tr className="border-b border-border">
               {columns.flatMap((c) =>
                 isGroup(c)
                   ? c.columns.map((leaf, i) => (
@@ -110,7 +110,7 @@ export function KpiExplorerTable<T>({
                         key={leaf.id ?? `${c.id}-${i}`}
                         className={cn(
                           headCellClass,
-                          'sticky top-10 z-10 bg-surface-1 shadow-[0_1px_0_var(--color-hairline)]',
+                          'sticky top-10 z-10 bg-surface shadow-[0_1px_0_var(--color-border)]',
                           leaf.meta?.headerClassName,
                         )}
                       >
@@ -125,7 +125,7 @@ export function KpiExplorerTable<T>({
         <tbody>
           {isLoading ? (
             ['s0', 's1', 's2', 's3', 's4'].map((skId) => (
-              <tr key={skId} className="border-b border-hairline-tertiary">
+              <tr key={skId} className="border-b border-border">
                 {leaves.map((c, j) => (
                   <td key={`${skId}-${colKey(c, j)}`} className={cellClass}>
                     <Skeleton height={16} />
@@ -143,7 +143,7 @@ export function KpiExplorerTable<T>({
             data.map((row, rowIdx) => (
               <tr
                 key={getRowKey(row, rowIdx)}
-                className="group border-b border-hairline-tertiary transition-colors hover:bg-surface-2"
+                className="group border-b border-border transition-colors hover:bg-muted"
               >
                 {leaves.map((c, j) => (
                   <td key={colKey(c, j)} className={cn(cellClass, c.meta?.cellClassName)}>

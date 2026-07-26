@@ -12,6 +12,10 @@ export const PRODUCT_NAMESPACES: ReadonlySet<string> = new Set(PRODUCTS.map((p) 
 export const PRODUCT_GATE_EXEMPT: ReadonlySet<string> = new Set([
   'people.self.read',
   'people.self.manage',
+  // Cross-product staffing: a PM (or any role granting it) must look up the worker directory
+  // to allocate people, without holding the People product. The People app/nav stays hidden —
+  // that is gated on `product_access`, not on this permission (see apps/web manifest-registry).
+  'people.worker.read',
 ]);
 
 const byNamespace = new Map<string, ProductId>(PRODUCTS.map((p) => [p.namespace, p.id]));

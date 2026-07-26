@@ -6,6 +6,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { resetPmDb } from '../../src/backend/db/client.ts';
 import {
   addReportComment,
+  discardWeeklyReport,
   ensureWeeklyReport,
   getWeeklyReportDetail,
   listWeeklyReports,
@@ -226,6 +227,77 @@ describe('weekly report draft lifecycle (FUT-591 + FUT-601)', () => {
             session: pm,
           }),
         ).rejects.toMatchObject({ code: 'VALIDATION' });
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('discard removes the reporter’s abandoned empty draft, but never content or a submitted report (FUT-740)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const session = reporterSession(t.tenant_id, t.admin_user_id);
+        const week = { iso_year: 2026, iso_week: 29 } as const;
+
+        // Draft-on-entry reports whether it actually created the empty draft (vs. reopened one).
+        const first = await ensureWeeklyReport({ project_id: projectId, ...week, session });
+        expect(first.created).toBe(true);
+        const again = await ensureWeeklyReport({ project_id: projectId, ...week, session });
+        expect(again.created).toBe(false);
+
+        // Abandon: the pristine draft is discarded and the week returns to "no report yet".
+        const gone = await discardWeeklyReport({ project_id: projectId, ...week, session });
+        expect(gone.discarded).toBe(true);
+        const afterDiscard = await getWeeklyReportDetail({
+          project_id: projectId,
+          ...week,
+          session,
+        });
+        expect(afterDiscard.reports).toHaveLength(0);
+
+        // Discard is idempotent and a no-op once there's nothing to remove.
+        const noop = await discardWeeklyReport({ project_id: projectId, ...week, session });
+        expect(noop.discarded).toBe(false);
+
+        // A draft the reporter actually wrote is protected by its content — never discarded.
+        await upsertWeeklyReport({
+          project_id: projectId,
+          ...week,
+          save_mode: 'draft',
+          executive_summary: 'real WIP',
+          session,
+        });
+        const keptDraft = await discardWeeklyReport({ project_id: projectId, ...week, session });
+        expect(keptDraft.discarded).toBe(false);
+        const stillDraft = await getWeeklyReportDetail({ project_id: projectId, ...week, session });
+        expect(stillDraft.reports.map((r) => r.status)).toEqual(['draft']);
+
+        // A submitted report is never discardable.
+        await upsertWeeklyReport({
+          project_id: projectId,
+          ...week,
+          executive_summary: 'final',
+          category_colours: {
+            quality: 'green',
+            cost_capacity: 'green',
+            delivery: 'green',
+            process: 'green',
+          },
+          session,
+        });
+        const keptSubmitted = await discardWeeklyReport({
+          project_id: projectId,
+          ...week,
+          session,
+        });
+        expect(keptSubmitted.discarded).toBe(false);
       } finally {
         resetPmDb();
         resetCoreDb();

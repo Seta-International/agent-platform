@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  Avatar,
   Badge,
   Banner,
   Button,
@@ -33,6 +32,7 @@ import { type CSSProperties, useId, useRef, useState } from 'react';
 import {
   type ApplicantRow,
   addOpening,
+  applyInternalRequisition,
   closeOpening,
   editRequisition,
   fetchAccounts,
@@ -217,6 +217,17 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const canClose = usePermission('hiring.requisition.close');
   const { data, isLoading, error } = useRequisition(requisitionId);
   const jdVariant: JdVariant = data ? pickJdVariant(data.jd_sections) : 'external';
+
+  const apply = useMutation({
+    mutationFn: () => applyInternalRequisition(requisitionId),
+    onSuccess: () => {
+      toast({ body: 'Application submitted successfully' });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.all });
+    },
+    onError: (err: Error) => {
+      toast({ body: err.message });
+    },
+  });
 
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'candidates' | 'jd'>('candidates');
@@ -531,9 +542,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         key={a.id}
         type="button"
         onClick={() => a.candidate_id && setSelectedCandidate(a.candidate_id)}
-        className="flex w-full items-center gap-3 py-3 text-left hover:bg-surface"
+        className="-mx-3 flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-muted"
       >
-        <Avatar name={name} size={36} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium text-primary">{name}</div>
           <div className="truncate text-base text-secondary">
@@ -1036,6 +1046,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           ) : undefined
         }
       >
+        {!isTerminal &&
+          (data.has_applied ? (
+            <Button size="sm" variant="secondary" label="Applied" isDisabled />
+          ) : (
+            <DisabledActionTooltip disabled={isOnHold} reason={onHoldReason}>
+              <Button
+                size="sm"
+                variant="primary"
+                label={apply.isPending ? 'Applying…' : 'Apply'}
+                isDisabled={isOnHold || apply.isPending}
+                onClick={() => apply.mutate()}
+              />
+            </DisabledActionTooltip>
+          ))}
         {!isTerminal && (
           <DisabledActionTooltip
             disabled={!canClose || isOnHold}
@@ -1057,7 +1081,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           >
             <Button
               size="sm"
-              variant="primary"
+              variant="secondary"
               label="Edit"
               icon={<Pencil className="size-4" />}
               isDisabled={!canManage || isOnHold}

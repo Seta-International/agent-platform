@@ -336,7 +336,11 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
   });
 
-  it('warns in red and disables Review impact when a new project start is in the past', async () => {
+  // Astryx's DateInput enforces `min` on typed input as well as in the picker: a date
+  // before `min` never reaches onChange, and blur reverts the field. So a past start is
+  // now prevented rather than flagged — the pastStart validator that used to surface it
+  // is covered directly in target-allocation-errors.test.ts.
+  it('refuses a past start typed into a new project row', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
@@ -363,24 +367,31 @@ describe('ReassignWizardDialog', () => {
     // Defaults to today → valid.
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
 
-    // Move the start into the past → red warning + gated button.
-    fireEvent.change(screen.getByLabelText('Start date'), { target: { value: PAST_START } });
-    expect(screen.getByText(/start date cannot be in the past/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+    const startDate = screen.getByLabelText('Start date');
+    const beforeEdit = (startDate as HTMLInputElement).value;
+
+    fireEvent.change(startDate, { target: { value: PAST_START } });
+    fireEvent.blur(startDate);
+
+    expect((startDate as HTMLInputElement).value).toBe(beforeEdit);
+    expect(screen.queryByText(/start date cannot be in the past/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
   });
 
-  it('warns and disables Save when an existing row start is edited into the past', () => {
+  it('refuses a past start typed into an existing row', () => {
     // Default allocation starts in the future, so its start is editable.
     renderWizard([allocation({ project_name: 'Aeris - Watchtower' })]);
 
-    fireEvent.change(screen.getByLabelText('Start date for Aeris - Watchtower'), {
-      target: { value: PAST_START },
-    });
+    const startDate = screen.getByLabelText('Start date for Aeris - Watchtower');
+    const beforeEdit = (startDate as HTMLInputElement).value;
 
+    fireEvent.change(startDate, { target: { value: PAST_START } });
+    fireEvent.blur(startDate);
+
+    expect((startDate as HTMLInputElement).value).toBe(beforeEdit);
     expect(
-      screen.getByText(/aeris - watchtower: start date cannot be in the past/i),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /save aeris - watchtower/i })).toBeDisabled();
+      screen.queryByText(/aeris - watchtower: start date cannot be in the past/i),
+    ).not.toBeInTheDocument();
   });
 
   // Occlusion smoke test (plan Task 2 Step 5): the wizard is now an Astryx `Dialog` rendered

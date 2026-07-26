@@ -69,15 +69,16 @@ describe('planner_listBuckets tool', () => {
     });
   });
 
-  it('throws NOT_FOUND for an unknown plan', async () => {
+  it('returns a recoverable not-found error for an unknown plan', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
-      await expect(
-        plannerListBucketsTool.execute!(
-          { planId: crypto.randomUUID() },
-          makeToolContext({ user_id: admin_user_id, tenant_id }),
-        ),
-      ).rejects.toThrow();
+      const res = (await plannerListBucketsTool.execute!(
+        { planId: crypto.randomUUID() },
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
+      )) as { buckets?: unknown[]; error?: string };
+
+      expect(res.error).toMatch(/no accessible plan/i);
+      expect(res.buckets).toBeUndefined();
     });
   });
 });

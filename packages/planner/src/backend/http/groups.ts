@@ -18,6 +18,7 @@ import {
   listGroupsWithCounts,
   listJoinRequests,
   listMyAccessibleGroups,
+  purgeGroup,
   removeGroupMember,
   removeGroupMembers,
   resolveJoinRequest,
@@ -155,6 +156,12 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
   app.post('/api/planner/v1/groups/:id/restore', async (c) => {
     const session = c.get('user');
     return c.json(await restoreGroup({ group_id: c.req.param('id'), session }));
+  });
+
+  app.post('/api/planner/v1/groups/:id/purge', async (c) => {
+    const session = c.get('user');
+    await purgeGroup({ group_id: c.req.param('id'), session });
+    return c.body(null, 204);
   });
 
   app.get('/api/planner/v1/groups/:id/members/candidates', async (c) => {

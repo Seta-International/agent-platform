@@ -85,6 +85,7 @@ export type {
 } from './backend/domain/weekly-reports.ts';
 export {
   addReportComment,
+  discardWeeklyReport,
   ensureWeeklyReport,
   getCurrentIsoWeek,
   getWeeklyReportDetail,

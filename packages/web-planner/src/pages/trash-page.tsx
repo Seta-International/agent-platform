@@ -29,6 +29,9 @@ import { usePermission } from '@seta/web-identity';
 import { CheckSquare, Layers, MoreHorizontal, Search, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useDeleteArchivedPlan } from '../hooks/mutations/delete-archived-plan';
+import { usePurgeGroup } from '../hooks/mutations/purge-group';
+import { usePurgePlan } from '../hooks/mutations/purge-plan';
+import { usePurgeTask } from '../hooks/mutations/purge-task';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useRestorePlan } from '../hooks/mutations/restore-plan';
 import { useRestoreTask } from '../hooks/mutations/restore-task';
@@ -110,11 +113,28 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const restorePlan = useRestorePlan();
   const unarchivePlan = useUnarchivePlan();
   const deleteArchivedPlan = useDeleteArchivedPlan();
+  const purgeTask = usePurgeTask();
+  const purgePlan = usePurgePlan();
+  const purgeGroup = usePurgeGroup();
   const [confirmingPurge, setConfirmingPurge] = useState<TrashItem | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<TrashStatus | null>(null);
   const [typeFilter, setTypeFilter] = useState<TrashKind | null>(null);
-  const closePurgeDialog = () => setConfirmingPurge(null);
+  const isPurging = purgeTask.isPending || purgePlan.isPending || purgeGroup.isPending;
+  const closePurgeDialog = () => {
+    if (!isPurging) setConfirmingPurge(null);
+  };
+
+  function onConfirmPurge() {
+    if (!confirmingPurge || isPurging) return;
+    if (confirmingPurge.kind === 'task') {
+      purgeTask.mutate({ task_id: confirmingPurge.id }, { onSuccess: closePurgeDialog });
+    } else if (confirmingPurge.kind === 'plan') {
+      purgePlan.mutate({ plan_id: confirmingPurge.id }, { onSuccess: closePurgeDialog });
+    } else if (confirmingPurge.kind === 'group') {
+      purgeGroup.mutate({ group_id: confirmingPurge.id }, { onSuccess: closePurgeDialog });
+    }
+  }
 
   const canUpdatePlan = usePermission('planner.plan.update');
   const canDeletePlan = usePermission('planner.plan.delete');
@@ -505,15 +525,18 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
               content={<LayoutContent />}
               footer={
                 <DialogFooter>
-                  <Button variant="ghost" label="Cancel" onClick={closePurgeDialog} />
+                  <Button
+                    variant="ghost"
+                    label="Cancel"
+                    isDisabled={isPurging}
+                    onClick={closePurgeDialog}
+                  />
                   <Button
                     variant="destructive"
                     label="Permanently delete"
-                    onClick={() => {
-                      // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
-                      // a manual API); this dialog confirms intent until that endpoint lands.
-                      setConfirmingPurge(null);
-                    }}
+                    isDisabled={isPurging}
+                    isLoading={isPurging}
+                    onClick={onConfirmPurge}
                   />
                 </DialogFooter>
               }

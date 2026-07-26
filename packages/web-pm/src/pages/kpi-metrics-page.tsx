@@ -1,3 +1,13 @@
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -10,15 +20,9 @@ import {
 import { pmKeys } from '../state/query-keys.ts';
 import {
   Button,
-  Combobox,
   DisabledActionTooltip,
   EmptyState,
-  PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Tabs,
   TabsContent,
   TabsList,
@@ -60,15 +64,15 @@ export interface KpiMetricsSearch {
 const PIN = {
   project: {
     header: 'left-0 z-30 w-48 min-w-48 max-w-48',
-    cell: 'sticky left-0 z-10 w-48 min-w-48 max-w-48 bg-canvas group-hover:bg-surface-2 transition-colors',
+    cell: 'sticky left-0 z-10 w-48 min-w-48 max-w-48 bg-card group-hover:bg-muted transition-colors',
   },
   account: {
     header: 'left-[12rem] z-30 w-36 min-w-36 max-w-36',
-    cell: 'sticky left-[12rem] z-10 w-36 min-w-36 max-w-36 bg-canvas group-hover:bg-surface-2 transition-colors',
+    cell: 'sticky left-[12rem] z-10 w-36 min-w-36 max-w-36 bg-card group-hover:bg-muted transition-colors',
   },
   health: {
-    header: 'left-[21rem] z-30 w-28 min-w-28 max-w-28 border-r border-hairline',
-    cell: 'sticky left-[21rem] z-10 w-28 min-w-28 max-w-28 bg-canvas group-hover:bg-surface-2 transition-colors border-r border-hairline',
+    header: 'left-[21rem] z-30 w-28 min-w-28 max-w-28 border-r border-border',
+    cell: 'sticky left-[21rem] z-10 w-28 min-w-28 max-w-28 bg-card group-hover:bg-muted transition-colors border-r border-border',
   },
 };
 
@@ -82,12 +86,12 @@ const CATEGORY_STYLES: Record<string, { band: string; column: string }> = {
     column: 'bg-warning-muted/35',
   },
   delivery: {
-    band: 'bg-info-tint text-blue-vivid',
-    column: 'bg-info-tint/35',
+    band: 'bg-blue-subtle text-blue-vivid',
+    column: 'bg-blue-subtle/35',
   },
   process: {
-    band: 'bg-group-theme-purple/15 text-secondary',
-    column: 'bg-group-theme-purple/5',
+    band: 'bg-purple-vivid/15 text-secondary',
+    column: 'bg-purple-vivid/5',
   },
 };
 
@@ -126,6 +130,10 @@ export function KpiMetricsPage() {
   // (functional-analysis.md §8b: both screens open the same detail content).
   const [detailProject, setDetailProject] = useState<string | null>(null);
 
+  const weekOptions = useMemo(
+    () => weeks.map((w) => ({ value: `${w.iso_year}-${w.iso_week}`, label: w.label })),
+    [weeks],
+  );
   const accountOptions = useMemo(
     () => (accountsQuery.data ?? []).map((a) => ({ value: a.account_id, label: a.name })),
     [accountsQuery.data],
@@ -178,7 +186,10 @@ export function KpiMetricsPage() {
           meta: { headerClassName: `${styles.band} text-center font-semibold` },
           columns: catMetrics.map((m) => ({
             id: m.metric_id,
-            meta: { headerClassName: styles.column, cellClassName: styles.column },
+            meta: {
+              headerClassName: `${styles.column} text-right whitespace-nowrap`,
+              cellClassName: `${styles.column} text-right tabular-nums whitespace-nowrap`,
+            },
             header: () => (
               // nowrap: the table already scrolls horizontally, so columns should widen
               // instead of breaking "ON-TIME ≥ 90%" across three lines.
@@ -237,7 +248,7 @@ export function KpiMetricsPage() {
       },
       {
         id: 'actions',
-        header: '',
+        header: 'Actions',
         cell: ({ row }: Ctx) =>
           row.original.can_manage ? (
             <Button
@@ -257,168 +268,171 @@ export function KpiMetricsPage() {
   );
 
   return (
-    <PageChrome
-      title="KPI Metrics"
-      subtitle="Pick a week and a project, then input or edit each KPI record — the table shows the stored values for that week."
-      actions={
-        <DisabledActionTooltip
-          disabled={!canConfigure}
-          reason="You do not manage any project — configuring applied metrics needs manage rights."
-        >
-          <Button
-            variant="secondary"
-            disabled={!canConfigure}
-            onClick={() => setConfigureOpen(true)}
-          >
-            Configure metrics
-          </Button>
-        </DisabledActionTooltip>
-      }
-    >
-      <div className="space-y-4 p-6">
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setSearch({ tab: v === 'norm' ? 'norm' : 'explorer' })}
-        >
-          <TabsList>
-            <TabsTrigger value="explorer">KPI Explorer</TabsTrigger>
-            <TabsTrigger value="norm">KPI Norm</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="explorer" className="space-y-4">
-            {/* Sticky context selector (FUT-589) — the (Project, Week) pair stays visible
-                while the wide Explorer table scrolls under it. */}
-            <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-end gap-3 border-b border-hairline bg-canvas px-6 py-3">
-              <div className="space-y-1">
-                <div className="text-xs text-secondary">Week</div>
-                <Select
-                  value={`${iso_year}-${iso_week}`}
-                  onValueChange={(v) => {
-                    const [y, w] = v.split('-').map(Number);
-                    setSearch({ iso_year: y, iso_week: w });
-                  }}
-                >
-                  <SelectTrigger className="w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {weeks.map((w) => (
-                      <SelectItem
-                        key={`${w.iso_year}-${w.iso_week}`}
-                        value={`${w.iso_year}-${w.iso_week}`}
-                      >
-                        {w.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <div className="text-xs text-secondary">Account</div>
-                <Combobox
-                  options={[{ value: '', label: 'All' }, ...accountOptions]}
-                  value={search.account ?? ''}
-                  onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
-                  className="w-52"
-                  placeholder="All accounts"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="text-xs text-secondary">Project</div>
-                <Combobox
-                  options={[{ value: '', label: 'All' }, ...projectOptions]}
-                  value={search.project ?? ''}
-                  onChange={(v) => setSearch({ project: v || undefined })}
-                  className="w-52"
-                  placeholder="All projects"
-                />
-              </div>
-              {/* The one action on this screen sits apart from the filters, pinned right. */}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>KPI Metrics</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <Text as="h1" size="lg" weight="semibold">
+                KPI Metrics
+              </Text>
               <DisabledActionTooltip
                 disabled={!canConfigure}
-                reason="You do not manage any project — KPI records are read-only for you."
-                className="ml-auto"
+                reason="You do not manage any project — configuring applied metrics needs manage rights."
               >
                 <Button
-                  className={canConfigure ? 'ml-auto' : undefined}
-                  onClick={() => {
-                    // Straight into the form: the filtered project when manageable, else the
-                    // first manageable one — the dialog's own Project select stays visible
-                    // and editable, so the context is explicit without an extra pick step.
-                    const manageable = (projectsQuery.data ?? []).filter((p) => p.can_manage);
-                    const preset =
-                      manageable.find((p) => p.project_id === search.project) ?? manageable[0];
-                    setManualInput({
-                      project_id: preset?.project_id ?? '',
-                      iso_year,
-                      iso_week,
-                    });
-                  }}
-                  disabled={!canConfigure || (!search.project && projectOptions.length === 0)}
+                  variant="secondary"
+                  disabled={!canConfigure}
+                  onClick={() => setConfigureOpen(true)}
                 >
-                  Manual KPI input
+                  Configure metrics
                 </Button>
               </DisabledActionTooltip>
-            </div>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="space-y-4 p-6">
+            <Tabs
+              value={tab}
+              onValueChange={(v) => setSearch({ tab: v === 'norm' ? 'norm' : 'explorer' })}
+            >
+              <TabsList>
+                <TabsTrigger value="explorer">KPI Explorer</TabsTrigger>
+                <TabsTrigger value="norm">KPI Norm</TabsTrigger>
+              </TabsList>
 
-            {/* Table toolbar is off: free-text search duplicates the Project filter above, and
+              <TabsContent value="explorer" className="space-y-4">
+                {/* Sticky context selector (FUT-589) — the (Project, Week) pair stays visible
+                while the wide Explorer table scrolls under it. Labels are a11y-only (the
+                web-planner filter-bar convention) — the trigger text is self-describing. */}
+                <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-border bg-card px-6 py-3">
+                  <Selector
+                    label="Week"
+                    isLabelHidden
+                    size="sm"
+                    width={200}
+                    options={weekOptions}
+                    value={`${iso_year}-${iso_week}`}
+                    onChange={(v) => {
+                      const [y, w] = v.split('-').map(Number);
+                      if (y !== undefined && w !== undefined)
+                        setSearch({ iso_year: y, iso_week: w });
+                    }}
+                  />
+                  <Selector
+                    label="Account"
+                    isLabelHidden
+                    size="sm"
+                    width={208}
+                    options={[{ value: '', label: 'All accounts' }, ...accountOptions]}
+                    value={search.account ?? ''}
+                    onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
+                  />
+                  <Selector
+                    label="Project"
+                    isLabelHidden
+                    size="sm"
+                    width={208}
+                    options={[{ value: '', label: 'All projects' }, ...projectOptions]}
+                    value={search.project ?? ''}
+                    onChange={(v) => setSearch({ project: v || undefined })}
+                  />
+                  {/* The one action on this screen sits apart from the filters, pinned right. */}
+                  <DisabledActionTooltip
+                    disabled={!canConfigure}
+                    reason="You do not manage any project — KPI records are read-only for you."
+                    className="ml-auto"
+                  >
+                    <Button
+                      className={canConfigure ? 'ml-auto' : undefined}
+                      onClick={() => {
+                        // Straight into the form: the filtered project when manageable, else the
+                        // first manageable one — the dialog's own Project select stays visible
+                        // and editable, so the context is explicit without an extra pick step.
+                        const manageable = (projectsQuery.data ?? []).filter((p) => p.can_manage);
+                        const preset =
+                          manageable.find((p) => p.project_id === search.project) ?? manageable[0];
+                        setManualInput({
+                          project_id: preset?.project_id ?? '',
+                          iso_year,
+                          iso_week,
+                        });
+                      }}
+                      disabled={!canConfigure || (!search.project && projectOptions.length === 0)}
+                    >
+                      Manual KPI input
+                    </Button>
+                  </DisabledActionTooltip>
+                </div>
+
+                {/* Table toolbar is off: free-text search duplicates the Project filter above, and
                 the column-visibility menu would list metric columns by their UUID ids. Wide
                 weeks scroll inside the table wrapper, never the page. */}
-            <div className="overflow-x-auto">
-              <KpiExplorerTable
-                data={explorerQuery.data?.rows ?? []}
-                columns={columns}
-                isLoading={explorerQuery.isLoading}
-                emptyState={<EmptyState title="No projects for this week" />}
-                getRowKey={(row) => row.project_id}
-              />
-            </div>
+                <div className="overflow-x-auto">
+                  <KpiExplorerTable
+                    data={explorerQuery.data?.rows ?? []}
+                    columns={columns}
+                    isLoading={explorerQuery.isLoading}
+                    emptyState={<EmptyState title="No projects for this week" />}
+                    getRowKey={(row) => row.project_id}
+                  />
+                </div>
 
-            <p className="text-xs text-secondary">
-              {appliedSummary.applied}/{appliedSummary.total} library metrics applied (
-              {appliedSummary.core} core · {appliedSummary.extended} extended) · norm bands in KPI
-              Norm.
-            </p>
-          </TabsContent>
+                <p className="text-xs text-secondary">
+                  {appliedSummary.applied}/{appliedSummary.total} library metrics applied (
+                  {appliedSummary.core} core · {appliedSummary.extended} extended) · norm bands in
+                  KPI Norm.
+                </p>
+              </TabsContent>
 
-          <TabsContent value="norm">
-            <KpiNormTab
-              norm={normQuery.data ?? null}
-              appliedIds={new Set(appliedIds)}
-              isLoading={normQuery.isLoading}
+              <TabsContent value="norm">
+                <KpiNormTab
+                  norm={normQuery.data ?? null}
+                  appliedIds={new Set(appliedIds)}
+                  isLoading={normQuery.isLoading}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {configureOpen ? (
+            <KpiConfigureDialog
+              open={configureOpen}
+              onOpenChange={setConfigureOpen}
+              projects={(projectsQuery.data ?? []).filter((p) => p.can_manage)}
+              initialProjectId={search.project}
             />
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {configureOpen ? (
-        <KpiConfigureDialog
-          open={configureOpen}
-          onOpenChange={setConfigureOpen}
-          projects={(projectsQuery.data ?? []).filter((p) => p.can_manage)}
-          initialProjectId={search.project}
-        />
-      ) : null}
-      {manualInput ? (
-        <KpiManualInputDialog
-          initial={manualInput}
-          projects={projectOptions}
-          weeks={weeks}
-          onOpenChange={(open) => {
-            if (!open) setManualInput(null);
-          }}
-        />
-      ) : null}
-      {detailProject ? (
-        <WeeklyReportDetailDialog
-          project_id={detailProject}
-          iso_year={iso_year}
-          iso_week={iso_week}
-          onOpenChange={(open) => {
-            if (!open) setDetailProject(null);
-          }}
-        />
-      ) : null}
-    </PageChrome>
+          ) : null}
+          {manualInput ? (
+            <KpiManualInputDialog
+              initial={manualInput}
+              projects={projectOptions}
+              weeks={weeks}
+              onOpenChange={(open) => {
+                if (!open) setManualInput(null);
+              }}
+            />
+          ) : null}
+          {detailProject ? (
+            <WeeklyReportDetailDialog
+              project_id={detailProject}
+              iso_year={iso_year}
+              iso_week={iso_week}
+              onOpenChange={(open) => {
+                if (!open) setDetailProject(null);
+              }}
+            />
+          ) : null}
+        </LayoutContent>
+      }
+    />
   );
 }

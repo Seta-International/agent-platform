@@ -4,32 +4,14 @@ packages:
   - "sdks/*"
   - "infra/grafana/dashboards-src"
 overrides:
-  # @better-auth/core@1.6.11 peer-requires better-call@1.3.5, but @better-auth/cli@1.4.21
-  # (no 1.6.x published) drags in better-call@1.1.8, which pnpm mis-links into core@1.6.11
-  # → "kAPIErrorHeaderSymbol" missing export crash at server boot. Force a single version.
-  better-call: 1.3.5
-  # Radix reaches us only through @assistant-ui/react*. react-dialog and react-menu pin
-  # different react-dismissable-layer minors, giving two module instances that each keep
-  # their own layer stack and `originalBodyPointerEvents`; opening a Dialog from a menu
-  # item leaves body pointer-events stuck at "none" (page looks frozen). Force one shared
-  # instance. The older "hold every Radix package back for @hello-pangea/dnd's
-  # CSSProperties types" pins are gone — dnd's types caught up, verified by typecheck.
-  "@radix-ui/react-menu": 2.1.16
-  "@radix-ui/react-dismissable-layer": 1.1.12
-  # Last react-dialog whose dep is exactly 1.1.12; 1.1.17+ needs 1.1.16 and the pin above
-  # then breaks the web build with a MISSING_EXPORT on useDismissableLayerSurface.
-  "@radix-ui/react-dialog": 1.1.16
-  happy-dom: 20.9.0
-  # Root pinned vitest ^4.1.10 while every leaf pinned ^4.1.9, and @types/node was split
-  # 25/26 across the tree (tooling pulled 26). vitest is peer-keyed on @types/node, so it
-  # forked into two instances with separate @vitest/snapshot copies: shared-ui snapshot
-  # tests failed "SnapshotClient.setup() not called" (runner and test's expect on different
-  # instances) and notifications typecheck hit cross-instance InlineConfig conflicts. Force
-  # one vitest + one @types/node so a single instance backs the whole workspace.
-  vitest: 4.1.10
-  "@vitest/coverage-v8": 4.1.10
-  "@types/node": 25.9.5
+  # dependency-cruiser (the module-boundary gate) supports only typescript >=2 <7; on TS 7
+  # it silently cruises 0 modules and reports "no violations". Hold the whole tree — incl.
+  # msw's optional peer, which otherwise pulls TS 7 and forks vitest into two @vitest/mocker
+  # instances (shared-ui snapshot tests then fail "SnapshotClient.setup() not called").
+  typescript: 6.0.3
 allowBuilds:
+  '@astryxdesign/cli': true
+  '@astryxdesign/core': true
   '@prisma/client': true
   better-sqlite3: true
   cpu-features: true

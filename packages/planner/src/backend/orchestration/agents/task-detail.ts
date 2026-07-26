@@ -1,38 +1,42 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
-} from '@seta/agent-sdk';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
+import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import {
+  plannerGetItemActivityTool,
   plannerGetTaskTool,
+  plannerGetTimelineTool,
   plannerListCommentsTool,
   plannerQueryTasksTool,
 } from '@seta/planner/agent-tools';
 import { pickModel } from '../model.ts';
 import {
-  type QnaSubAgentInput as In,
-  type QnaSubAgentOutput as Out,
-  QnaSubAgentInputSchema,
-  QnaSubAgentOutputSchema,
+  type QuerySubAgentInput as In,
+  type QuerySubAgentOutput as Out,
+  QuerySubAgentInputSchema,
+  QuerySubAgentOutputSchema,
 } from '../schemas.ts';
+import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
+import { GROUNDING_POLICY } from './grounding.ts';
 
 export const TASK_DETAIL_TOOL_IDS = [
   'planner_getTask',
+  'planner_getItemActivity',
+  'planner_getTimeline',
   'planner_listComments',
   'planner_queryTasks',
 ] as const;
 
-export interface QnaTaskDetailDeps {
+export interface QueryTaskDetailDeps {
   resolveModel: () => MastraModelConfig;
-  /** Optional tool overrides for eval mocking; default to the real module tools. */
-  getTaskTool?: AgentTool;
-  listCommentsTool?: AgentTool;
-  queryTasksTool?: AgentTool;
+  mastraStorage: MastraCompositeStore;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
+  /** Eval seam — receives this agent's executed tool calls after generate(). */
+  onToolActivity?: OnToolActivity;
 }
 
 const INSTRUCTIONS = `You answer questions about ONE known task in prose.
@@ -47,6 +51,8 @@ Tools:
   instead of UUID. Call with titleContains + status:"any", take the matching
   task's taskId, then call planner_getTask with that taskId.
   Do NOT use for listing or filtering — you are a single-task detail agent.
+- planner_getItemActivity: change history (activity feed) for a task, newest first.
+- planner_getTimeline: tasks in a plan within a date window (start/due dates).
 - planner_listComments: the task's discussion thread (only when comments are asked about).
 
 Workflow:
@@ -59,14 +65,17 @@ Workflow:
 Call planner_getTask to ground every answer in the live record. Call
 planner_listComments only if the user asks about comments/discussion. If no task
 can be identified and no name is given, ask the user which task they mean — do not
-guess. Read-only: never claim to have changed anything.`;
+guess.
 
-export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgentSpec<In, Out> {
+${GROUNDING_POLICY}
+Read-only: never claim to have changed anything.`;
+
+export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): SpecializedAgentSpec<In, Out> {
   return {
-    id: 'planner.qna.taskDetail',
+    id: 'planner.query.taskDetail',
     description: 'Deep-dives one known task (details, checklist, assignees, comments) in prose.',
-    inputSchema: QnaSubAgentInputSchema,
-    outputSchema: QnaSubAgentOutputSchema,
+    inputSchema: QuerySubAgentInputSchema,
+    outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
@@ -76,21 +85,47 @@ export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgen
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
-            const agent = new Agent({
-              id: 'planner.qna.taskDetail',
+            const agentId = 'planner.query.taskDetail';
+            const rawAgent = new Agent({
+              id: agentId,
               name: 'Planner Task Detail',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_getTask: deps.getTaskTool ?? plannerGetTaskTool,
-                planner_listComments: deps.listCommentsTool ?? plannerListCommentsTool,
-                planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
+                planner_getTask: plannerGetTaskTool,
+                planner_getItemActivity: plannerGetItemActivityTool,
+                planner_getTimeline: plannerGetTimelineTool,
+                planner_listComments: plannerListCommentsTool,
+                planner_queryTasks: plannerQueryTasksTool,
               } as never,
             });
+            const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
+            const mastra = new Mastra({
+              agents: { [agentId]: rawAgent },
+              ...(hasStorage ? { storage: deps.mastraStorage } : {}),
+              logger: new ConsoleLogger({
+                name: 'Mastra',
+                level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+              }),
+              ...(hasStorage
+                ? {
+                    observability: new Observability({
+                      configs: {
+                        default: {
+                          serviceName: 'query-task-detail',
+                          exporters: [new MastraStorageExporter()],
+                        },
+                      },
+                    }),
+                  }
+                : {}),
+            });
+            const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
               requestContext: rc,
               abortSignal: ctx.abortSignal,
             });
+            deps.onToolActivity?.(mapToolActivity(r.toolCalls, r.toolResults));
             return { text: r.text };
           })();
 

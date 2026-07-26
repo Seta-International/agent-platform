@@ -144,6 +144,8 @@ export interface RequisitionDetail {
   jd_sections: JdSectionRow[];
   skills: SkillRow[];
   applicants: ApplicantRow[];
+  has_applied: boolean;
+  user_application_id: string | null;
 }
 export interface AccountOption {
   account_id: string;
@@ -680,4 +682,15 @@ export async function putCvToS3(uploadUrl: string, file: File): Promise<void> {
     headers: { 'Content-Type': file.type || 'application/octet-stream' },
   });
   if (!res.ok) throw new Error(`CV upload failed: HTTP ${res.status}`);
+}
+
+export async function applyInternalRequisition(
+  requisitionId: string,
+  note?: string,
+): Promise<{ candidate_id: string; application_id: string }> {
+  const res = await fetch(
+    `/api/hiring/v1/requisitions/${requisitionId}/apply`,
+    json('POST', { note }),
+  );
+  return handleResponse<{ candidate_id: string; application_id: string }>(res);
 }

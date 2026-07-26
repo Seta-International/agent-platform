@@ -34,9 +34,17 @@ import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
 const NONE = '__none__';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+?[0-9]{7,15}$/;
+const PHONE_RE = /^\+?[0-9()\-.\s]{7,25}$/;
 const NAME_ERROR_MESSAGE = 'Full name must be a valid person name.';
 const NAME_RE = /^[\p{L}\p{M}]+(?:[ '’-][\p{L}\p{M}]+)*$/u;
+
+function isValidPhone(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (!PHONE_RE.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
 
 function normalizeName(value: string) {
   return value.normalize('NFC').replace(/\s+/g, ' ').replace(/‐/g, '-').trim();
@@ -48,6 +56,8 @@ export function NewCandidateDialog() {
   const skillsId = useId();
   const parseGen = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const dobFieldRef = useRef<HTMLDivElement>(null);
+  const dobInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -71,12 +81,11 @@ export function NewCandidateDialog() {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
-  const phoneError =
-    phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
+  const phoneError = phone.trim() && !isValidPhone(phone) ? 'Enter a valid phone number.' : null;
   const nameError = name.trim() && !NAME_RE.test(normalizeName(name)) ? NAME_ERROR_MESSAGE : null;
   const dobError = (() => {
-    // Browser rejected the date entirely (e.g. Feb 29 non-leap)
-    if (dobBadInput) return 'Invalid calendar date.';
+    // Browser rejected the date entirely (e.g. Feb 31, Feb 29 non-leap)
+    if (dobBadInput || dobInputRef.current?.validity?.badInput) return 'Invalid calendar date.';
     if (!dob) return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return 'Invalid date format.';
     const parts = dob.split('-').map(Number) as [number, number, number];
@@ -241,13 +250,19 @@ export function NewCandidateDialog() {
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || emailError || phoneError || nameError || dobError) {
+    const isBadInput = dobBadInput || dobInputRef.current?.validity?.badInput;
+    if (isBadInput) {
+      setDobBadInput(true);
+    }
+    if (missingRequired || emailError || phoneError || nameError || dobError || isBadInput) {
       const target =
         !name.trim() || nameError
           ? nameFieldRef.current
           : !effectiveReq
             ? reqFieldRef.current
-            : null;
+            : dobError || isBadInput
+              ? dobFieldRef.current
+              : null;
       target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -388,8 +403,9 @@ export function NewCandidateDialog() {
                     <Input label="Phone" value={phone} onChange={(value) => setPhone(value)} />
                     {phoneError && <p className="text-sm text-error">{phoneError}</p>}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1" ref={dobFieldRef}>
                     <Input
+                      ref={dobInputRef}
                       id="cand-dob"
                       type={'date' as unknown as undefined}
                       label="Date of birth"
@@ -398,6 +414,12 @@ export function NewCandidateDialog() {
                         setDob(value);
                         setDobBadInput(
                           (e as unknown as React.ChangeEvent<HTMLInputElement>)?.target?.validity
+                            ?.badInput ?? false,
+                        );
+                      }}
+                      onBlur={(e) => {
+                        setDobBadInput(
+                          (e as unknown as React.FocusEvent<HTMLInputElement>)?.target?.validity
                             ?.badInput ?? false,
                         );
                       }}

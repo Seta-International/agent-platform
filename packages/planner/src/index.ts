@@ -30,6 +30,11 @@ export { duplicatePlan } from './backend/domain/duplicate-plan.ts';
 export { duplicateTask } from './backend/domain/duplicate-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getGroupActivity } from './backend/domain/get-group-activity.ts';
+export {
+  type GetGroupWorkloadResult,
+  getGroupWorkload,
+  type WorkloadRow,
+} from './backend/domain/get-group-workload.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
 export { getPlanChartData } from './backend/domain/get-plan-chart-data.ts';
 export { getTask } from './backend/domain/get-task.ts';
@@ -38,6 +43,12 @@ export type {
   TaskForEmbedding,
 } from './backend/domain/get-task-for-embedding.ts';
 export { getTaskForEmbedding } from './backend/domain/get-task-for-embedding.ts';
+export {
+  type GetUserActivityOpts,
+  type GetUserActivityResult,
+  getUserActivity,
+  type UserActivityEvent,
+} from './backend/domain/get-user-activity.ts';
 export { linkGroupToM365 } from './backend/domain/link-group-to-m365.ts';
 export { linkPlanToM365 } from './backend/domain/link-plan-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
@@ -76,6 +87,9 @@ export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
 export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';
 export { moveBucket } from './backend/domain/move-bucket.ts';
 export { moveTask } from './backend/domain/move-task.ts';
+export { purgeGroup } from './backend/domain/purge-group.ts';
+export { purgePlan } from './backend/domain/purge-plan.ts';
+export { purgeTask } from './backend/domain/purge-task.ts';
 export { type RefreshPlanSyncDeps, refreshPlanSync } from './backend/domain/refresh-plan-sync.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
@@ -90,6 +104,7 @@ export {
   resolvePlanConflicts,
 } from './backend/domain/resolve-plan-conflicts.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
+
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
 export type { CandidateRow } from './backend/domain/search-users-by-skills.ts';

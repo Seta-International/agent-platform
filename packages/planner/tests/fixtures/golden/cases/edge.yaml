@@ -1,0 +1,160 @@
+# Edge cases (migrated from testcases.csv PQ-019..PQ-027): empty results, not-found
+# entities, ambiguity (clarify), and graceful tool-error recovery. All kind:agent.
+- schemaVersion: 1
+  kind: agent
+  id: PQ-019
+  category: edge
+  suites: [regression, nightly]
+  holdout: false
+  actor: &actor { tenantId: '00000000-aaaa-4000-8000-000000000001', userId: '00000000-bbbb-4000-8000-000000000001' }
+  input:
+    messages:
+      - role: user
+        content: Tasks about quantum computing on board Alpha
+  expected:
+    behavior: empty
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_queryTasks]
+  metrics: { enabled: [A4] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-020
+  category: edge
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        # Well-formed UUID that is absent from the seed: resolveTaskRef passes it
+        # through (valid uuid), then the DB lookup throws NOT_FOUND. The agent must
+        # recover gracefully — there is no "clean answer for a missing task" path.
+        content: '[Context: planner.task#00000000-ffff-4000-8000-0000000000ff] Tell me about this task'
+  expected:
+    behavior: error-recovery
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_getTask]
+  metrics: { enabled: [A4] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-021
+  category: edge
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Show me Nguyen's tasks
+  expected:
+    behavior: clarify
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_resolveMember]
+  metrics: { enabled: [A5] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-022
+  category: edge
+  suites: [regression]
+  holdout: true
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Tell me about the migration task
+  expected:
+    behavior: clarify
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_queryTasks]
+  metrics: { enabled: [A5] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-023
+  category: edge
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Show me Gandalf's tasks
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_resolveMember]
+  metrics: { enabled: [A4] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-024
+  category: edge
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Who has Haskell experience on my team?
+  expected:
+    behavior: empty
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_searchGroupMembersBySkills]
+  metrics: { enabled: [A4] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-025
+  category: edge
+  suites: [regression, nightly]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: '[Context: planner.board#board-alpha] Board snapshot please'
+  expected:
+    behavior: error-recovery
+    trajectory:
+      # Board overview routes via either team-info or task-query — both carry
+      # planner_getBoardSnapshot; assert the leaf tool, not the delegate.
+      requiredTools: [planner_getBoardSnapshot]
+      allowedTools: [planner_teamInfoAgent, planner_queryTasksAgent]
+  metrics: { enabled: [A4] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-026
+  category: edge
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: What's the status of my group?
+  expected:
+    behavior: clarify
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_getGroupOverview]
+  metrics: { enabled: [A5] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-027
+  category: edge
+  suites: [regression]
+  holdout: true
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Tell me about the 'API Rate Limit Fix' task
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_queryTasks, planner_getTask]
+  metrics: { enabled: [A1] }

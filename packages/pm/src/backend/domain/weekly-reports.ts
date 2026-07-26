@@ -1,9 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from 'drizzle-orm';
 import type {
   AddReportCommentInput,
+  DiscardWeeklyReportInput,
   EnsureWeeklyReportInput,
   OverrideFlagInput,
   UpsertWeeklyReportInput,
@@ -346,6 +347,42 @@ async function loadNames(
 
 // ── List (card view) ────────────────────────────────────────────────────────────────────
 
+// The three named norm metrics surfaced as the card/detail "delivery pulse" (util · predictability
+// · CSS). Kept in one place so the list and the drill-down never drift.
+const HEADLINE_METRIC_NAMES: [name: string, label: string][] = [
+  ['Utilization Rate', 'util'],
+  ['Release Predictability', 'predictability'],
+  ['eNPS / CSS', 'CSS'],
+];
+export interface HeadlineMetric {
+  label: string;
+  name: string;
+  computed_value: number;
+  component_count: 1 | 2;
+  status: RagStatus | null;
+}
+function computeHeadlineMetrics(
+  defs: { metric_id: string; name: string; component_count: 1 | 2 }[],
+  entries: { metric_id: string; computed_value: number | null; status: RagStatus | null }[],
+): HeadlineMetric[] {
+  const defByName = new Map(defs.map((d) => [d.name, d]));
+  return HEADLINE_METRIC_NAMES.flatMap(([name, label]) => {
+    const def = defByName.get(name);
+    if (!def) return [];
+    const entry = entries.find((e) => e.metric_id === def.metric_id);
+    if (!entry || entry.computed_value === null) return [];
+    return [
+      {
+        label,
+        name,
+        computed_value: entry.computed_value,
+        component_count: def.component_count,
+        status: entry.status,
+      },
+    ];
+  });
+}
+
 export interface WeeklyReportCard {
   project_id: string;
   project_name: string;
@@ -356,6 +393,12 @@ export interface WeeklyReportCard {
   overall_colour: ReportColour;
   category_colours: Record<KpiCategory, ReportColour>;
   stats: WeekStats;
+  /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
+  staffed: number;
+  team_size: number | null;
+  /** Delivery pulse (util · predictability · CSS) — the week's measured values of three norm
+   * metrics; a metric not measured this week is omitted. */
+  headline_metrics: HeadlineMetric[];
   latest_summary: string | null;
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;
@@ -393,6 +436,7 @@ export async function listWeeklyReports(input: {
       account_name: account.name,
       pm_person_id: project.pm_person_id,
       pmo_person_id: project.pmo_person_id,
+      team_size: project.team_size,
       can_manage: buildProjectManageFlag(session),
     })
     .from(project)
@@ -411,7 +455,28 @@ export async function listWeeklyReports(input: {
   if (projectRows.length === 0) return { rows: [] };
   const projectIds = projectRows.map((p) => p.project_id);
 
-  const [defsByKey, entriesByKey, flagRows, reportRows] = await Promise.all([
+  const week = isoWeekRange(iso_year, iso_week);
+  const [staffedRows, defsByKey, entriesByKey, flagRows, reportRows] = await Promise.all([
+    // Staffed = distinct people with a live allocation overlapping the selected week — the same
+    // rule the drill-down uses for "Staffed X/Y", aggregated per project in one pass.
+    pmDb()
+      .select({
+        project_id: allocation.project_id,
+        staffed: sql<number>`count(distinct ${allocation.person_id})::int`,
+      })
+      .from(allocation)
+      .where(
+        and(
+          tenantScoped(allocation.tenant_id, session),
+          inArray(allocation.project_id, projectIds),
+          isNull(allocation.deleted_at),
+          isNotNull(allocation.person_id),
+          inArray(allocation.status, ['tentative', 'committed']),
+          or(isNull(allocation.date_from), sql`${allocation.date_from} <= ${week.to}`),
+          or(isNull(allocation.date_to), sql`${allocation.date_to} >= ${week.from}`),
+        ),
+      )
+      .groupBy(allocation.project_id),
     // FUT-593: colours are measured against the week's frozen NORM baseline, never the
     // live catalog — a mid-week catalog change cannot move this list.
     ensureBaselineDefs(session, projectIds, [{ iso_year, iso_week }]),
@@ -516,11 +581,11 @@ export async function listWeeklyReports(input: {
     reportsByProject.set(r.project_id, list);
   }
 
+  const staffedByProject = new Map(staffedRows.map((r) => [r.project_id, r.staffed]));
   const rows = projectRows.map((p) => {
-    const computation = computeProjectWeek(
-      defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [],
-      entriesByKey.get(`${p.project_id}:${iso_year}:${iso_week}`) ?? [],
-    );
+    const defs = defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [];
+    const entries = entriesByKey.get(`${p.project_id}:${iso_year}:${iso_week}`) ?? [];
+    const computation = computeProjectWeek(defs, entries);
     const stored = storedByProject.get(p.project_id);
     const category_colours = Object.fromEntries(
       CATEGORIES.map((c) => {
@@ -541,6 +606,9 @@ export async function listWeeklyReports(input: {
       overall_colour: worstColour(CATEGORIES.map((c) => category_colours[c])),
       category_colours,
       stats: computation.stats,
+      staffed: staffedByProject.get(p.project_id) ?? 0,
+      team_size: p.team_size,
+      headline_metrics: computeHeadlineMetrics(defs, entries),
       latest_summary: projectReports.find((r) => r.executive_summary)?.executive_summary ?? null,
       reporters: projectReports.map((r) => ({
         reporter_id: r.reporter_id,
@@ -799,30 +867,11 @@ export async function getWeeklyReportDetail(input: {
     defs,
     entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
   );
-  // Headline stats per the mock's detail modal: three named norm metrics, shown only when
-  // this week's record actually measured them.
-  const HEADLINE_METRICS: [name: string, label: string][] = [
-    ['Utilization Rate', 'util'],
-    ['Release Predictability', 'predictability'],
-    ['eNPS / CSS', 'CSS'],
-  ];
-  const selectedEntries = entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [];
-  const defByName = new Map(defs.map((d) => [d.name, d]));
-  const headline_metrics = HEADLINE_METRICS.flatMap(([name, label]) => {
-    const def = defByName.get(name);
-    if (!def) return [];
-    const entry = selectedEntries.find((e) => e.metric_id === def.metric_id);
-    if (!entry || entry.computed_value === null) return [];
-    return [
-      {
-        label,
-        name,
-        computed_value: entry.computed_value,
-        component_count: def.component_count,
-        status: entry.status,
-      },
-    ];
-  });
+  // Delivery pulse — the same three named metrics the list card surfaces.
+  const headline_metrics = computeHeadlineMetrics(
+    defs,
+    entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
+  );
 
   // Flag resolution: the OPEN week is live (KPI edits show immediately; a stored flag only
   // wins as a human override — final ≠ computed stored with it). A CLOSED week reads the
@@ -955,7 +1004,12 @@ export async function getWeeklyReportDetail(input: {
  */
 export async function ensureWeeklyReport(
   input: EnsureWeeklyReportInput & { session: SessionScope },
-): Promise<{ report_id: string; version: number; status: 'draft' | 'submitted' }> {
+): Promise<{
+  report_id: string;
+  version: number;
+  status: 'draft' | 'submitted';
+  created: boolean;
+}> {
   const { project_id, iso_year, iso_week, session } = input;
   await assertProjectManageable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
@@ -964,7 +1018,9 @@ export async function ensureWeeklyReport(
     throw new PmError('VALIDATION', 'your account is not linked to a worker profile');
   }
 
-  await pmDb()
+  // `created` distinguishes a freshly-inserted empty draft from a returned pre-existing one — the
+  // composer uses it to know whether an abandoned draft is safe to discard (see discardWeeklyReport).
+  const inserted = await pmDb()
     .insert(report)
     .values({
       tenant_id: session.tenant_id,
@@ -975,7 +1031,8 @@ export async function ensureWeeklyReport(
       status: 'draft',
       executive_summary: '',
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: report.id });
   const [row] = await pmDb()
     .select({ id: report.id, version: report.version, status: report.status })
     .from(report)
@@ -990,7 +1047,71 @@ export async function ensureWeeklyReport(
     )
     .limit(1);
   if (!row) throw new PmError('CONFLICT', 'report could not be ensured');
-  return { report_id: row.id, version: row.version, status: row.status as 'draft' | 'submitted' };
+  return {
+    report_id: row.id,
+    version: row.version,
+    status: row.status as 'draft' | 'submitted',
+    created: inserted.length > 0,
+  };
+}
+
+/**
+ * FUT-740: reverse of draft-on-entry. When the reporter opens the composer and leaves without
+ * saving, the empty draft ensureWeeklyReport created has no value and must not linger as a stray
+ * "Unknown · Draft" card. This removes ONLY that pristine draft — the reporter's own, still empty
+ * (never saved with content), never published (no revision) and never discussed (no comment).
+ * Anything with content, a submitted report, or a frozen one is left untouched, so this can never
+ * destroy real work. Idempotent: discarded=false when there was nothing safe to remove.
+ */
+export async function discardWeeklyReport(
+  input: DiscardWeeklyReportInput & { session: SessionScope },
+): Promise<{ discarded: boolean }> {
+  const { project_id, iso_year, iso_week, session } = input;
+  await assertProjectManageable(project_id, session);
+  assertWeekEditable(iso_year, iso_week);
+  const reporter_id = session.person_id;
+  if (!reporter_id) {
+    throw new PmError('VALIDATION', 'your account is not linked to a worker profile');
+  }
+
+  const deleted = await pmDb()
+    .delete(report)
+    .where(
+      and(
+        eq(report.tenant_id, session.tenant_id),
+        eq(report.project_id, project_id),
+        eq(report.iso_year, iso_year),
+        eq(report.iso_week, iso_week),
+        eq(report.reporter_id, reporter_id),
+        eq(report.status, 'draft'),
+        // Pristine content only — the exact shape ensureWeeklyReport inserts. Any real edit
+        // (summary, risk/issue, road-to-green, or a declared colour) protects the draft.
+        eq(report.executive_summary, ''),
+        isNull(report.risk_issue),
+        isNull(report.road_to_green),
+        isNull(report.declared_colours),
+        // Never published and never discussed — a revision or comment means it isn't disposable.
+        notExists(
+          pmDb()
+            .select({ one: sql`1` })
+            .from(reportRevision)
+            .where(
+              and(
+                eq(reportRevision.tenant_id, session.tenant_id),
+                eq(reportRevision.report_id, report.id),
+              ),
+            ),
+        ),
+        notExists(
+          pmDb()
+            .select({ one: sql`1` })
+            .from(comment)
+            .where(and(eq(comment.tenant_id, session.tenant_id), eq(comment.report_id, report.id))),
+        ),
+      ),
+    )
+    .returning({ id: report.id });
+  return { discarded: deleted.length > 0 };
 }
 
 export async function upsertWeeklyReport(
@@ -1058,6 +1179,14 @@ export async function upsertWeeklyReport(
     }
   }
 
+  // A Green submit has nothing to recover from — discard any Road-to-Green the composer carried
+  // over from a previous non-Green revision (it prefills the last saved values), instead of
+  // publishing a contradictory "Green with a recovery plan" report. Drafts keep what was typed.
+  const keepRoad = !(save_mode === 'submit' && overall_colour === 'green');
+  const road_to_green = keepRoad ? input.road_to_green?.trim() || null : null;
+  const road_to_green_owner_id = keepRoad ? (input.road_to_green_owner_id ?? null) : null;
+  const road_to_green_due = keepRoad ? (input.road_to_green_due ?? null) : null;
+
   let result!: { report_id: string; version: number };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
@@ -1101,9 +1230,9 @@ export async function upsertWeeklyReport(
         status: save_mode === 'submit' ? ('submitted' as const) : ('draft' as const),
         executive_summary: input.executive_summary,
         risk_issue: input.risk_issue?.trim() || null,
-        road_to_green: input.road_to_green?.trim() || null,
-        road_to_green_owner_id: input.road_to_green_owner_id ?? null,
-        road_to_green_due: input.road_to_green_due ?? null,
+        road_to_green,
+        road_to_green_owner_id,
+        road_to_green_due,
         // A draft projects no colour of its own; declared colours are kept for the day it
         // (re-)submits and for the demote recompute of the shared flags.
         overall_colour: save_mode === 'submit' ? overall_colour : null,
@@ -1151,9 +1280,9 @@ export async function upsertWeeklyReport(
         report_id,
         executive_summary: input.executive_summary,
         risk_issue: input.risk_issue?.trim() || null,
-        road_to_green: input.road_to_green?.trim() || null,
-        road_to_green_owner_id: input.road_to_green_owner_id ?? null,
-        road_to_green_due: input.road_to_green_due ?? null,
+        road_to_green,
+        road_to_green_owner_id,
+        road_to_green_due,
         overall_colour,
         declared_colours: input.category_colours ?? null,
       });

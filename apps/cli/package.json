@@ -16,7 +16,7 @@
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "4.1.10"
   },
   "dependencies": {
     "@faker-js/faker": "^10.5.0",
@@ -36,10 +36,10 @@
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "commander": "^15.0.0",
-    "csv-parse": "^6.2.1",
+    "csv-parse": "^7.0.1",
     "drizzle-orm": "^0.45.2",
     "pino": "^10.3.1",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.1",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   }

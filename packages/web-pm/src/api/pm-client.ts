@@ -644,6 +644,7 @@ export interface RaMonitoringAllocation {
 export async function fetchAllocations(params: {
   account_id?: string;
   project_id?: string;
+  worker_id?: string;
   active_from?: string;
   active_to?: string;
   q?: string;
@@ -900,6 +901,14 @@ export interface WeekStats {
   } | null;
 }
 
+export interface WeeklyHeadlineMetric {
+  label: string;
+  name: string;
+  computed_value: number;
+  component_count: 1 | 2;
+  status: RagStatus | null;
+}
+
 export interface WeeklyReportCard {
   project_id: string;
   project_name: string;
@@ -910,6 +919,11 @@ export interface WeeklyReportCard {
   overall_colour: ReportColour;
   category_colours: Record<KpiCategory, ReportColour>;
   stats: WeekStats;
+  /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
+  staffed: number;
+  team_size: number | null;
+  /** Delivery pulse (util · predictability · CSS) for the week; unmeasured metrics omitted. */
+  headline_metrics: WeeklyHeadlineMetric[];
   latest_summary: string | null;
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;
@@ -1025,8 +1039,29 @@ export async function ensureWeeklyReport(body: {
   project_id: string;
   iso_year: number;
   iso_week: number;
-}): Promise<{ report_id: string; version: number; status: 'draft' | 'submitted' }> {
+}): Promise<{
+  report_id: string;
+  version: number;
+  status: 'draft' | 'submitted';
+  created: boolean;
+}> {
   const res = await fetch('/api/pm/v1/weekly-reports/ensure', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}
+
+/** Reverse of ensureWeeklyReport — drops the pristine empty draft when the composer is abandoned
+ * without a save (FUT-740). No-op server-side for anything with content or a submitted report. */
+export async function discardWeeklyReport(body: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+}): Promise<{ discarded: boolean }> {
+  const res = await fetch('/api/pm/v1/weekly-reports/discard', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

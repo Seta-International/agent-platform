@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Badge,
   formatRelative,
   KanbanCardShell,
@@ -39,26 +38,21 @@ export function CandidateCard({
   const fit = fitLabel(item.fit);
 
   const header = (
-    <div className="flex items-start gap-2.5">
-      <Avatar name={item.name} size={40} />
-      <div className="min-w-0 flex-1">
-        {/* Name + seniority share a line (name truncates first); the requisition title gets its
-            own full-width line below, so it shows as much as fits and only ellipsises when it
-            genuinely overflows. Nothing else competes for that line. */}
-        <div className="flex items-center gap-1.5">
-          <span className="min-w-0 flex-1">
-            <Text weight="medium" maxLines={1} display="block">
-              {item.name}
-            </Text>
-          </span>
-          {item.seniority && (
-            <Badge variant="neutral" label={item.seniority} className="flex-none" />
-          )}
-        </div>
-        <Text type="supporting" maxLines={1} display="block" className="mt-0.5">
-          {item.requisition_title}
-        </Text>
+    <div className="min-w-0 flex-1">
+      {/* Name + seniority share a line (name truncates first); the requisition title gets its
+          own full-width line below, so it shows as much as fits and only ellipsises when it
+          genuinely overflows. Nothing else competes for that line. */}
+      <div className="flex items-center gap-1.5">
+        <span className="min-w-0 flex-1">
+          <Text weight="medium" maxLines={1} display="block">
+            {item.name}
+          </Text>
+        </span>
+        {item.seniority && <Badge variant="neutral" label={item.seniority} className="flex-none" />}
       </div>
+      <Text type="supporting" maxLines={1} display="block" className="mt-0.5">
+        {item.requisition_title}
+      </Text>
     </div>
   );
   const footer = (

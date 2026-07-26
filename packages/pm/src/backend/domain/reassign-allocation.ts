@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, gte, inArray, isNull, lte, notInArray, or, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, notInArray, or, type SQL } from 'drizzle-orm';
 import type { ReassignAllocationInput, ReassignWorkerAllocationsInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED, PM_ALLOCATION_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
@@ -161,32 +161,19 @@ async function computeCombinedPeak(args: {
   peak_to: string | null;
 }> {
   const { worker_id, exclude_allocation_ids, candidates, session } = args;
-  const finiteCandidateEnds = candidates
-    .map((c) => c.date_to)
-    .filter((d): d is string => d !== null);
-  // Bound for candidates/rows with no end date: the latest known finite end,
-  // or (rare) a far-future date if literally everything here is open-ended.
-  // Deliberately not year 9999: `addDaysIso` adds a day via `Date.toISOString()`,
-  // which switches to a 6-digit extended year (e.g. `+010000-01-01`) once the
-  // result rolls past year 9999 — that string sorts *before* ordinary 4-digit
-  // dates, silently dropping the open-ended segment from the peak sweep below.
-  const sortedEnds = finiteCandidateEnds.sort();
-  const openEndedBound =
-    sortedEnds.length > 0 ? (sortedEnds[sortedEnds.length - 1] as string) : '2999-12-31';
-  const windowFrom = candidates.map((c) => c.date_from).sort()[0] as string;
-  const windowTo = candidates
-    .map((c) => c.date_to ?? openEndedBound)
-    .sort()
-    .at(-1) as string;
 
+  // Sweep the worker's ENTIRE book, not just the window the previewed change spans.
+  // Over-allocation is a property of the person's schedule as a whole: two existing
+  // allocations that already overlap at 200% must surface even when this operation
+  // adds an unrelated allocation elsewhere in time (and doesn't touch them). Scoping
+  // the peak to the candidates' window would hide such a pre-existing conflict — the
+  // Review step would paint a red 200% on its timeline yet show no warning.
   const conds: (SQL | undefined)[] = [
     tenantScoped(allocation.tenant_id, session),
     eq(allocation.person_id, worker_id),
     isNull(allocation.deleted_at),
     notInArray(allocation.id, exclude_allocation_ids),
     or(eq(allocation.status, 'tentative'), eq(allocation.status, 'committed')),
-    or(isNull(allocation.date_from), lte(allocation.date_from, windowTo)),
-    or(isNull(allocation.date_to), gte(allocation.date_to, windowFrom)),
   ];
 
   const otherRows = await pmDb()
@@ -197,6 +184,19 @@ async function computeCombinedPeak(args: {
     })
     .from(allocation)
     .where(and(...conds));
+
+  // Bound for any segment with no end date: the latest known finite end across every
+  // segment we sweep (candidates AND the worker's other rows), or (rare) a far-future
+  // date if literally everything is open-ended. Deliberately not year 9999:
+  // `addDaysIso` adds a day via `Date.toISOString()`, which switches to a 6-digit
+  // extended year (e.g. `+010000-01-01`) once the result rolls past year 9999 — that
+  // string sorts *before* ordinary 4-digit dates, silently dropping the open-ended
+  // segment from the peak sweep below.
+  const finiteEnds = [...candidates.map((c) => c.date_to), ...otherRows.map((r) => r.date_to)]
+    .filter((d): d is string => d !== null)
+    .sort();
+  const openEndedBound =
+    finiteEnds.length > 0 ? (finiteEnds[finiteEnds.length - 1] as string) : '2999-12-31';
 
   const segments = [
     ...otherRows

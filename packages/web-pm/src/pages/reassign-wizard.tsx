@@ -1,14 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  ArrowRight,
-  Building2,
-  Check,
-  FolderKanban,
-  Info,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { ArrowRight, Building2, Check, FolderKanban, Info, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import {
   type ProjectListRow,
@@ -42,7 +33,9 @@ import {
   type Bucket,
   daysBetweenInclusive,
   emptyReassignRow,
+  endDateIsInPast,
   existingAllocationErrors,
+  existingRowChanged,
   formatDisplayDate,
   fractionToPct,
   isValidIsoDate,
@@ -53,6 +46,16 @@ import {
 } from './ra-shared.tsx';
 
 type Step = 1 | 2;
+
+// Shared grid tracks so each table's header and body rows always line up. The two date columns
+// are 11.25rem (180px) because Astryx's DateInput has a hard 180px min-width — a narrower track
+// lets the input overflow and shove the row's trailing action buttons off the edge (the original
+// bug). Account / Project / Note flex; allocation, dates, type and actions are fixed. Applied via
+// inline style because Tailwind's JIT can't see an interpolated arbitrary `grid-cols-[…]` value.
+const EXISTING_GRID =
+  'minmax(7.5rem,1.1fr) minmax(9rem,1.4fr) 4.25rem 11.25rem 11.25rem 6.75rem minmax(7.5rem,1.1fr) 4.75rem';
+const TARGET_GRID =
+  'minmax(7.5rem,1.1fr) minmax(9rem,1.4fr) 4.25rem 11.25rem 11.25rem 6.75rem 3rem';
 
 interface RowDraft {
   account_id: string;
@@ -68,6 +71,18 @@ export interface ReassignWizardTarget {
   worker_id: string;
   worker_name: string | null;
   worker_title: string | null;
+  /**
+   * When the wizard is opened from a project-filtered RA Monitoring view, the id of
+   * that project — pre-seeded as an "Add project" target row so the PM doesn't have to
+   * re-pick the project they're already scoped to. Absent for the row-level edit flow.
+   */
+  seed_project_id?: string | null;
+  /**
+   * When the list is scoped to an account but no single project (an account has many),
+   * the id of that account — pre-seeded on the target row so the PM only picks the
+   * project. Ignored when `seed_project_id` is set (the project already implies its account).
+   */
+  seed_account_id?: string | null;
 }
 
 export function ReassignWizardDialog({
@@ -91,6 +106,13 @@ export function ReassignWizardDialog({
   const [targetRows, setTargetRows] = useState<ReassignTargetRow[]>([]);
   const [preview, setPreview] = useState<ReassignGroupPreviewResult | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<RaMonitoringAllocation | null>(null);
+  // Pending per-row save awaiting confirmation because its end date is in the past — saving it
+  // would drop the allocation out of RA Monitoring's active window, so we warn before applying.
+  const [pastEndConfirm, setPastEndConfirm] = useState<{
+    allocationId: string;
+    draft: RowDraft;
+    expectedVersion: number;
+  } | null>(null);
   // Locally reflects a row already saved directly on this screen, so it shows
   // the new values immediately without waiting on the parent's allocations
   // query to refetch.
@@ -118,9 +140,22 @@ export function ReassignWizardDialog({
     targetPrevRef.current = target;
     if (target) {
       setStep(1);
-      setTargetRows([]);
+      // Pre-seed the first target row from the list's scope so the PM doesn't re-pick what
+      // they're already filtered to: a project filter seeds both account and project; an
+      // account-only filter seeds just the account (project left blank to choose among that
+      // account's projects). Neither → start with no target rows.
+      const seedProject = target.seed_project_id
+        ? projects.find((p) => p.project_id === target.seed_project_id)
+        : undefined;
+      const seedRow = seedProject
+        ? { account_id: seedProject.account_id, project_id: seedProject.project_id }
+        : target.seed_account_id
+          ? { account_id: target.seed_account_id, project_id: '' }
+          : null;
+      setTargetRows(seedRow ? [{ ...emptyReassignRow(todayIso()), ...seedRow }] : []);
       setPreview(null);
       setConfirmTarget(null);
+      setPastEndConfirm(null);
       setSavedOverrides({});
       setRowDrafts({});
     }
@@ -181,7 +216,11 @@ export function ReassignWizardDialog({
         expected_version: vars.expectedVersion,
       }),
     onSuccess: (_, vars) => {
+      // A past end date is confirmed up front through the AlertDialog below (it spells out that
+      // the row will leave RA Monitoring's active window), so a successful save just needs the
+      // standard confirmation. Close the past-end dialog in case this save came from it.
       toast({ body: 'Allocation updated' });
+      setPastEndConfirm(null);
       setSavedOverrides((m) => ({
         ...m,
         [vars.allocationId]: {
@@ -261,7 +300,83 @@ export function ReassignWizardDialog({
     },
   });
 
-  function goToReview() {
+  // Existing-row edits (e.g. shortening an allocation's end date so it stops overlapping a new
+  // one) live only as local drafts until saved. The over-allocation preview reads the worker's
+  // book from the DB, so an unsaved edit is invisible to it — the FUT-748 defect: Review impact
+  // still counts the allocation at its old length and warns about a phantom over-allocation
+  // (and confirming would leave the real overlap in place). Persist any pending, valid edits
+  // first so the preview — and the final saved state — reflect exactly what's on screen.
+  async function goToReview() {
+    const dirtyRows = futureAllocations.filter((a) => {
+      if (!rowDrafts[a.allocation_id]) return false;
+      const d = draftFor(a);
+      // Same gate as the row's own Save button: needs an account + project and no row error.
+      if (!d.account_id || !d.project_id || existingErrors[a.allocation_id] != null) return false;
+      const eff = effectiveRow(a);
+      return existingRowChanged(
+        {
+          account_id: d.account_id,
+          project_id: d.project_id,
+          planned_pct: fractionToPct(d.planned_pct),
+          date_from: d.date_from,
+          date_to: d.date_to,
+          bucket: d.bucket,
+          note: d.note,
+        },
+        {
+          account_id: eff.account_id,
+          project_id: eff.project_id,
+          planned_pct: eff.planned_pct,
+          date_from: eff.date_from ?? '',
+          date_to: eff.date_to ?? '',
+          bucket: eff.bucket,
+          note: eff.note ?? '',
+        },
+      );
+    });
+
+    if (dirtyRows.length > 0) {
+      try {
+        await Promise.all(
+          dirtyRows.map((a) => {
+            const d = draftFor(a);
+            return updateAllocation(a.allocation_id, {
+              project_id: d.project_id,
+              planned_pct: fractionToPct(d.planned_pct),
+              date_from: d.date_from,
+              date_to: d.date_to || null,
+              bucket: d.bucket,
+              note: d.note || null,
+              expected_version: a.version,
+            });
+          }),
+        );
+      } catch (e) {
+        // Leave the wizard on step 1 rather than preview a half-applied edit.
+        toast({ body: (e as Error).message, type: 'error' });
+        return;
+      }
+      // Mirror the saved values locally (as the per-row Save does) so the UI stays in sync,
+      // and refetch the parent so any further edit gets a fresh version.
+      setSavedOverrides((m) => {
+        const next = { ...m };
+        for (const a of dirtyRows) {
+          const d = draftFor(a);
+          next[a.allocation_id] = {
+            account_id: d.account_id,
+            project_id: d.project_id,
+            planned_pct: fractionToPct(d.planned_pct),
+            date_from: d.date_from,
+            date_to: d.date_to,
+            bucket: d.bucket,
+            note: d.note || null,
+          };
+        }
+        return next;
+      });
+      onReassigned();
+    }
+
     setStep(2);
     previewMutation.mutate();
   }
@@ -332,7 +447,7 @@ export function ReassignWizardDialog({
         onOpenChange={(open) => {
           if (!open) onClose();
         }}
-        width={1152}
+        width={1200}
         maxHeight="90vh"
         purpose="form"
       >
@@ -361,174 +476,198 @@ export function ReassignWizardDialog({
                 />
               ) : (
                 <div className="space-y-4">
-                  <div className="overflow-hidden rounded-md border border-border">
-                    <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-card px-2 py-2 text-sm text-secondary">
-                      <div className="text-left font-medium">Account</div>
-                      <div className="text-left font-medium">Project</div>
-                      <div className="text-left font-medium">Allocation</div>
-                      <div className="text-left font-medium">Start date</div>
-                      <div className="text-left font-medium">End date</div>
-                      <div className="text-left font-medium">Type</div>
-                      <div className="text-left font-medium">Note</div>
-                      <div className="text-left font-medium">Action</div>
-                    </div>
-                    {futureAllocations.map((a) => {
-                      const draft = draftFor(a);
-                      // A row that already started (start date in the past) is locked to end-date and
-                      // delete only — you can shorten/extend or remove it, but not rewrite its terms.
-                      const eff = effectiveRow(a);
-                      const startLocked = !!eff.date_from && eff.date_from < todayIso();
-                      // Reassign target must be a project the caller manages (FUT-353) — the
-                      // backend rejects others, so don't offer them. Recomputed per row (not
-                      // memoized — this is a per-iteration render, not a hook-eligible scope)
-                      // since the cascade depends on this row's own selected account.
-                      const rowProjectItems = projects
-                        .filter(
-                          (p) =>
-                            p.can_manage &&
-                            (!draft.account_id || p.account_id === draft.account_id),
-                        )
-                        .map((p) => ({ id: p.project_id, label: p.name }));
-                      const rowProjectSource = createStaticSource(rowProjectItems);
-                      return (
-                        <div
-                          key={a.allocation_id}
-                          className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-border px-2 py-2 text-base"
-                        >
-                          <div className="relative">
-                            <Building2
-                              aria-hidden="true"
-                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[1068px] overflow-hidden rounded-md border border-border">
+                      <div
+                        className="grid gap-2 bg-card px-2 py-2 text-sm text-secondary"
+                        style={{ gridTemplateColumns: EXISTING_GRID }}
+                      >
+                        <div className="text-left font-medium">Account</div>
+                        <div className="text-left font-medium">Project</div>
+                        <div className="text-left font-medium">Allocation</div>
+                        <div className="text-left font-medium">Start date</div>
+                        <div className="text-left font-medium">End date</div>
+                        <div className="text-left font-medium">Type</div>
+                        <div className="text-left font-medium">Note</div>
+                        <div className="text-left font-medium">Action</div>
+                      </div>
+                      {futureAllocations.map((a) => {
+                        const draft = draftFor(a);
+                        // A row that already started (start date in the past) is locked to end-date and
+                        // delete only — you can shorten/extend or remove it, but not rewrite its terms.
+                        const eff = effectiveRow(a);
+                        const startLocked = !!eff.date_from && eff.date_from < todayIso();
+                        // Reassign target must be a project the caller manages (FUT-353) — the
+                        // backend rejects others, so don't offer them. Recomputed per row (not
+                        // memoized — this is a per-iteration render, not a hook-eligible scope)
+                        // since the cascade depends on this row's own selected account.
+                        const rowProjectItems = projects
+                          .filter(
+                            (p) =>
+                              p.can_manage &&
+                              (!draft.account_id || p.account_id === draft.account_id),
+                          )
+                          .map((p) => ({ id: p.project_id, label: p.name }));
+                        const rowProjectSource = createStaticSource(rowProjectItems);
+                        return (
+                          <div
+                            key={a.allocation_id}
+                            className="grid items-center gap-2 border-t border-border px-2 py-2 text-base"
+                            style={{ gridTemplateColumns: EXISTING_GRID }}
+                          >
+                            <div className="relative">
+                              <Building2
+                                aria-hidden="true"
+                                className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
+                              />
+                              <Typeahead
+                                label={`Account for ${a.project_name}`}
+                                isLabelHidden
+                                searchSource={accountSource}
+                                debounceMs={0}
+                                // No hasEntriesOnFocus here: this is the first tabbable field in the
+                                // Dialog, and the native <dialog> element's own showModal()-driven
+                                // auto-focus behavior (HTML living standard, not a Radix-specific
+                                // quirk) can land on it — combined with hasEntriesOnFocus that would
+                                // silently pop its dropdown open the instant the wizard appears
+                                // (confirmed via focusin firing synchronously during the Dialog's
+                                // mount commit). The "Add project" rows below don't exist at mount
+                                // time, so they're unaffected and keep it.
+                                value={
+                                  accountOptions.find((o) => o.id === draft.account_id) ?? null
+                                }
+                                isDisabled={startLocked}
+                                onChange={(item) =>
+                                  updateRowDraft(a, {
+                                    account_id: item?.id ?? '',
+                                    project_id: '',
+                                  })
+                                }
+                                placeholder="Select account…"
+                                className="w-full pl-7"
+                              />
+                            </div>
+                            <div className="relative">
+                              <FolderKanban
+                                aria-hidden="true"
+                                className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
+                              />
+                              <Typeahead
+                                label={`Project for ${a.project_name}`}
+                                isLabelHidden
+                                searchSource={rowProjectSource}
+                                debounceMs={0}
+                                value={
+                                  rowProjectItems.find((o) => o.id === draft.project_id) ?? null
+                                }
+                                isDisabled={startLocked}
+                                onChange={(item) =>
+                                  updateRowDraft(a, { project_id: item?.id ?? '' })
+                                }
+                                placeholder={
+                                  draft.account_id ? 'Select project…' : 'Pick an account first'
+                                }
+                                className="w-full pl-7"
+                              />
+                            </div>
+                            <AllocationSelect
+                              value={draft.planned_pct}
+                              disabled={startLocked}
+                              ariaLabel={`Allocation for ${a.project_name}`}
+                              onChange={(v) => updateRowDraft(a, { planned_pct: v })}
                             />
-                            <Typeahead
-                              label={`Account for ${a.project_name}`}
+                            <DateInput
+                              label={`Start date for ${a.project_name}`}
                               isLabelHidden
-                              searchSource={accountSource}
-                              debounceMs={0}
-                              // No hasEntriesOnFocus here: this is the first tabbable field in the
-                              // Dialog, and the native <dialog> element's own showModal()-driven
-                              // auto-focus behavior (HTML living standard, not a Radix-specific
-                              // quirk) can land on it — combined with hasEntriesOnFocus that would
-                              // silently pop its dropdown open the instant the wizard appears
-                              // (confirmed via focusin firing synchronously during the Dialog's
-                              // mount commit). The "Add project" rows below don't exist at mount
-                              // time, so they're unaffected and keep it.
-                              value={accountOptions.find((o) => o.id === draft.account_id) ?? null}
+                              size="sm"
+                              // Grey out past days in the picker: an editable start can only move to
+                              // today or later. Locked rows keep their committed past start (the
+                              // field is disabled, so min is moot there).
+                              min={todayIso()}
                               isDisabled={startLocked}
-                              onChange={(item) =>
+                              value={draft.date_from || undefined}
+                              onChange={(v) => {
+                                const newFrom = v ?? '';
                                 updateRowDraft(a, {
-                                  account_id: item?.id ?? '',
-                                  project_id: '',
-                                })
-                              }
-                              placeholder="Select account…"
-                              className="w-full pl-7"
+                                  date_from: newFrom,
+                                  date_to:
+                                    draft.date_to && draft.date_to < newFrom
+                                      ? newFrom
+                                      : draft.date_to,
+                                });
+                              }}
                             />
-                          </div>
-                          <div className="relative">
-                            <FolderKanban
-                              aria-hidden="true"
-                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
-                            />
-                            <Typeahead
-                              label={`Project for ${a.project_name}`}
+                            <DateInput
+                              label={`End date for ${a.project_name}`}
                               isLabelHidden
-                              searchSource={rowProjectSource}
-                              debounceMs={0}
-                              value={rowProjectItems.find((o) => o.id === draft.project_id) ?? null}
+                              size="sm"
+                              min={draft.date_from || undefined}
+                              value={draft.date_to || undefined}
+                              onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
+                            />
+                            <Selector
+                              label={`Type for ${a.project_name}`}
+                              isLabelHidden
+                              size="sm"
+                              options={[
+                                { value: 'billable', label: 'Billable' },
+                                { value: 'internal', label: 'Internal' },
+                                { value: 'bench', label: 'Bench' },
+                              ]}
+                              value={draft.bucket}
                               isDisabled={startLocked}
-                              onChange={(item) => updateRowDraft(a, { project_id: item?.id ?? '' })}
-                              placeholder={
-                                draft.account_id ? 'Select project…' : 'Pick an account first'
-                              }
-                              className="w-full pl-7"
+                              onChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
                             />
-                          </div>
-                          <AllocationSelect
-                            value={draft.planned_pct}
-                            disabled={startLocked}
-                            ariaLabel={`Allocation for ${a.project_name}`}
-                            onChange={(v) => updateRowDraft(a, { planned_pct: v })}
-                          />
-                          <DateInput
-                            label={`Start date for ${a.project_name}`}
-                            isLabelHidden
-                            size="sm"
-                            isDisabled={startLocked}
-                            value={draft.date_from || undefined}
-                            onChange={(v) => {
-                              const newFrom = v ?? '';
-                              updateRowDraft(a, {
-                                date_from: newFrom,
-                                date_to:
-                                  draft.date_to && draft.date_to < newFrom
-                                    ? newFrom
-                                    : draft.date_to,
-                              });
-                            }}
-                          />
-                          <DateInput
-                            label={`End date for ${a.project_name}`}
-                            isLabelHidden
-                            size="sm"
-                            min={draft.date_from || undefined}
-                            value={draft.date_to || undefined}
-                            onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
-                          />
-                          <Selector
-                            label={`Type for ${a.project_name}`}
-                            isLabelHidden
-                            size="sm"
-                            options={[
-                              { value: 'billable', label: 'Billable' },
-                              { value: 'internal', label: 'Internal' },
-                              { value: 'bench', label: 'Bench' },
-                            ]}
-                            value={draft.bucket}
-                            isDisabled={startLocked}
-                            onChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
-                          />
-                          <Input
-                            label={`Note for ${a.project_name}`}
-                            isLabelHidden
-                            size="sm"
-                            isDisabled={startLocked}
-                            value={draft.note}
-                            onChange={(value) => updateRowDraft(a, { note: value })}
-                          />
-                          <div className="flex items-center gap-1">
-                            <Button
+                            <Input
+                              label={`Note for ${a.project_name}`}
+                              isLabelHidden
                               size="sm"
-                              variant="secondary"
-                              isIconOnly
-                              icon={<Check className="size-3.5 text-[var(--color-success)]" />}
-                              label={`Save ${a.project_name}`}
-                              isDisabled={
-                                saveRowMutation.isPending ||
-                                !draft.account_id ||
-                                !draft.project_id ||
-                                existingErrors[a.allocation_id] != null
-                              }
-                              onClick={() =>
-                                saveRowMutation.mutate({
-                                  allocationId: a.allocation_id,
-                                  draft,
-                                  expectedVersion: a.version,
-                                })
-                              }
+                              isDisabled={startLocked}
+                              value={draft.note}
+                              onChange={(value) => updateRowDraft(a, { note: value })}
                             />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              isIconOnly
-                              icon={<Trash2 className="size-3.5 text-secondary" />}
-                              label={`Delete ${a.project_name}`}
-                              onClick={() => setConfirmTarget(a)}
-                            />
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                isIconOnly
+                                icon={<Check className="size-3.5 text-[var(--color-success)]" />}
+                                label={`Save ${a.project_name}`}
+                                isDisabled={
+                                  saveRowMutation.isPending ||
+                                  !draft.account_id ||
+                                  !draft.project_id ||
+                                  existingErrors[a.allocation_id] != null
+                                }
+                                onClick={() => {
+                                  const vars = {
+                                    allocationId: a.allocation_id,
+                                    draft,
+                                    expectedVersion: a.version,
+                                  };
+                                  // A past end date silently drops the row out of the active
+                                  // window — confirm the consequence before applying, rather
+                                  // than saving first and explaining afterwards.
+                                  if (endDateIsInPast(draft.date_to, todayIso())) {
+                                    setPastEndConfirm(vars);
+                                  } else {
+                                    saveRowMutation.mutate(vars);
+                                  }
+                                }}
+                              />
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                isIconOnly
+                                icon={<Trash2 className="size-3.5 text-secondary" />}
+                                label={`Delete ${a.project_name}`}
+                                onClick={() => setConfirmTarget(a)}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {futureAllocations.some((a) => existingErrors[a.allocation_id]) ? (
@@ -557,44 +696,49 @@ export function ReassignWizardDialog({
                   />
 
                   {targetRows.length > 0 ? (
-                    <div className="overflow-hidden rounded-md border border-border">
-                      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-card px-2 py-2 text-sm text-secondary">
-                        <div className="text-left font-medium">
-                          Account <span className="text-error">*</span>
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[912px] overflow-hidden rounded-md border border-border">
+                        <div
+                          className="grid gap-2 bg-card px-2 py-2 text-sm text-secondary"
+                          style={{ gridTemplateColumns: TARGET_GRID }}
+                        >
+                          <div className="text-left font-medium">
+                            Account <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            Project <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            Allocation <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">Start date</div>
+                          <div className="text-left font-medium">End date</div>
+                          <div className="text-left font-medium">Type</div>
+                          <div className="text-left font-medium">Action</div>
                         </div>
-                        <div className="text-left font-medium">
-                          Project <span className="text-error">*</span>
-                        </div>
-                        <div className="text-left font-medium">
-                          Allocation <span className="text-error">*</span>
-                        </div>
-                        <div className="text-left font-medium">Start date</div>
-                        <div className="text-left font-medium">End date</div>
-                        <div className="text-left font-medium">Type</div>
-                        <div className="text-left font-medium">Action</div>
+                        {targetRows.map((row, i) => (
+                          <TargetRowFields
+                            key={row.key}
+                            row={row}
+                            error={targetErrors[i] ?? null}
+                            accountOptions={accountOptions}
+                            projects={projects}
+                            onChange={(patch) =>
+                              setTargetRows((rs) =>
+                                rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+                              )
+                            }
+                            onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
+                            canRemove={targetRows.length > 1}
+                          />
+                        ))}
                       </div>
-                      {targetRows.map((row, i) => (
-                        <TargetRowFields
-                          key={row.key}
-                          row={row}
-                          error={targetErrors[i] ?? null}
-                          accountOptions={accountOptions}
-                          projects={projects}
-                          onChange={(patch) =>
-                            setTargetRows((rs) =>
-                              rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
-                            )
-                          }
-                          onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
-                          canRemove={targetRows.length > 1}
-                        />
-                      ))}
                     </div>
                   ) : null}
 
                   <div
                     role="alert"
-                    className="flex items-center gap-3 rounded-md bg-accent-muted p-sm text-base text-accent"
+                    className="flex items-center gap-3 rounded-md bg-accent-muted p-2 text-base text-accent"
                   >
                     <Info className="size-4 shrink-0 text-accent" />
                     <div>
@@ -616,7 +760,7 @@ export function ReassignWizardDialog({
                     isDisabled={!canReview}
                     label="Review impact"
                     endContent={<ArrowRight className="size-4" />}
-                    onClick={goToReview}
+                    onClick={() => void goToReview()}
                   />
                 </>
               ) : (
@@ -652,6 +796,21 @@ export function ReassignWizardDialog({
         isActionLoading={removeMutation.isPending}
         onAction={() => {
           if (confirmTarget) removeMutation.mutate(confirmTarget.allocation_id);
+        }}
+      />
+
+      <AlertDialog
+        isOpen={pastEndConfirm !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPastEndConfirm(null);
+        }}
+        title="End this allocation in the past?"
+        description="The end date is before today, so once saved this allocation moves out of RA Monitoring's active window and no longer appears in this list. Widen the active-period filter to see ended allocations. Continue?"
+        actionLabel="Save anyway"
+        actionVariant="primary"
+        isActionLoading={saveRowMutation.isPending}
+        onAction={() => {
+          if (pastEndConfirm) saveRowMutation.mutate(pastEndConfirm);
         }}
       />
     </>
@@ -716,7 +875,10 @@ function TargetRowFields({
 
   return (
     <div className="border-t border-border">
-      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] items-center gap-2 px-2 py-2">
+      <div
+        className="grid items-center gap-2 px-2 py-2"
+        style={{ gridTemplateColumns: TARGET_GRID }}
+      >
         <div className="relative">
           <Building2
             aria-hidden="true"
@@ -760,6 +922,9 @@ function TargetRowFields({
           label="Start date"
           isLabelHidden
           size="sm"
+          // A new allocation can't start in the past (mirrors ra-shared's pastStart guard),
+          // so disable every day before today in the picker.
+          min={todayIso()}
           value={row.date_from || undefined}
           onChange={(v) => {
             const newFrom = v ?? '';
@@ -773,13 +938,15 @@ function TargetRowFields({
           label="End date"
           isLabelHidden
           size="sm"
-          min={row.date_from || undefined}
+          // Not before the start date — and never in the past when no start is picked yet.
+          min={row.date_from || todayIso()}
           value={row.date_to || undefined}
           onChange={(v) => onChange({ date_to: v ?? '' })}
         />
         <Selector
           label="Type"
           isLabelHidden
+          size="sm"
           options={[
             { value: 'billable', label: 'Billable' },
             { value: 'internal', label: 'Internal' },
@@ -851,31 +1018,35 @@ function ReviewStep({
       {mutation.isError ? <Banner status="error" title={mutation.error?.message} /> : null}
 
       {preview?.exceeds ? (
-        // Over-allocation is a soft warning (you can still confirm), so it's amber, not red — and
-        // laid out as a centered flex row so the icon lines up with the middle of the text.
-        <div
-          role="alert"
-          className="flex items-center gap-3 rounded-md bg-warning-muted p-sm text-base text-warning"
-        >
-          <AlertCircle className="size-4 shrink-0" />
-          <div>
-            This will allocate {preview.worker_name ?? 'this person'} to{' '}
-            <strong>{preview.peak_pct}%</strong> at the busiest point.
-            {preview.peak_from ? (
+        // Over-allocation is a soft warning (you can still confirm), so it's a warning Banner —
+        // the same Astryx component as the error banners above, not a hand-rolled row.
+        <Banner
+          status="warning"
+          // Describe the *resulting* state, not what this change caused: the peak can
+          // come from a pre-existing overlap this operation never touched (the backend
+          // now measures the worker's whole book), so wording that blames "this change"
+          // would be wrong.
+          title={
+            <>
+              {preview.worker_name ?? 'This person'} will be allocated{' '}
+              <strong>{preview.peak_pct}%</strong> at the busiest point.
+            </>
+          }
+          description={
+            preview.peak_from ? (
               <>
-                <br />
-                Overlap occurs from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
+                They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
                 <strong>{preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}</strong>
                 {preview.peak_to
                   ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
-                  : ''}{' '}
-                — over 100%. You can still confirm below.
+                  : ''}
+                . You can still confirm below.
               </>
             ) : (
-              ' — over 100%. You can still confirm below.'
-            )}
-          </div>
-        </div>
+              'Over 100%. You can still confirm below.'
+            )
+          }
+        />
       ) : null}
 
       <AllocationTimeline rows={timelineRows} todayIso={todayIso()} />

@@ -1,0 +1,158 @@
+// packages/planner/tests/fixtures/golden/ctx-from-case.ts
+//
+// Maps a validated agent GoldenCase + the captured trajectory + the run's answer
+// into the PolicyEvalContext the deterministic scorers consume. Pure.
+import type { PolicyEvalContext } from './policy/registry.ts';
+import type { ToolCall, Trajectory } from './policy/trajectory.ts';
+import type { GoldenCase } from './schema.ts';
+
+// --- Behavior classification signals ----------------------------------------
+//
+// A deterministic (no-LLM) observed-behavior classifier. It reads BOTH the
+// answer text AND the trajectory, because three of the six behaviors are only
+// distinguishable with trajectory context that the answer text alone cannot
+// provide:
+//   • error-recovery — a tool actually failed (threw ⇒ ok:false, or returned a
+//     graceful `{error}`), yet the agent still produced a substantive answer.
+//   • empty          — a *collection/search* tool succeeded but returned zero
+//     rows (a "no results" outcome), vs. a not-found single entity, which is a
+//     normal `answer`.
+// Refusal and clarification remain phrasing signals (the agent's response IS
+// the observable), so they stay text-driven but with broadened patterns.
+
+/** Refusal phrasing (read-only agent declining a write / out-of-domain ask).
+ *  No `?` requirement — a refusal is a statement, not a question. */
+const REFUSE_RE =
+  /\b(cannot|can'?t|can not|could not help|won'?t|will not|not able|unable|not allowed|not permitted|no permission|don'?t have permission|not authorized|read[- ]only|only (?:answer|provide|help|assist|respond))\b/;
+
+/** Disambiguation phrasing. Paired with a `?` so a normal answer that merely
+ *  ends in an offer ("want me to list them?") is not misread as a clarify. */
+const CLARIFY_RE =
+  /\b(which one|which of|did you mean|do you mean|more than one|multiple (?:match|group|task|plan|user|member|people)|ambiguous|please specify|could you specify|can you clarify|need more detail)\b/;
+
+/** Failure narration: the agent telling the user it could not retrieve data.
+ *  A secondary signal for error-recovery when the tool returned a graceful
+ *  `{error}` (ok:true) rather than throwing. */
+const FAILURE_TEXT_RE =
+  /\b(couldn'?t (?:find|retrieve|load|get|access)|could not (?:find|retrieve|load|get|access)|unable to (?:find|retrieve|load|get|access)|ran into (?:an? )?(?:error|problem|issue)|something went wrong|an error occurred|failed to (?:retrieve|load|get))\b/;
+
+/** *Search* tools whose result directly answers the user's find-intent: an
+ *  empty result set here means the ask found nothing (⇒ empty behavior). This
+ *  is intentionally NARROWER than "any list tool": an auxiliary list that comes
+ *  back empty (e.g. listComments on a task that simply has no discussion) must
+ *  NOT flip a substantive answer to `empty`, and an entity resolver/getter
+ *  (resolveMember, getTask, getBoardSnapshot) coming back not-found is a normal
+ *  `answer`, not an empty list. resolveMember shares the `candidates` result
+ *  shape with searchGroupMembersBySkills, so this MUST key on tool name, not
+ *  result shape. */
+const SEARCH_TOOLS = new Set([
+  'planner_queryTasks',
+  'planner_findSimilarTasks',
+  'planner_searchGroupMembersBySkills',
+]);
+
+/** True when `call` observably failed: it threw (ok:false) or returned a
+ *  graceful `{ error: "…" }` payload (ok:true). */
+function callFailed(call: ToolCall): boolean {
+  if (!call.ok) return true;
+  const r = call.result;
+  return (
+    typeof r === 'object' &&
+    r !== null &&
+    typeof (r as { error?: unknown }).error === 'string' &&
+    (r as { error: string }).error.length > 0
+  );
+}
+
+/** Emptiness of a tool result: `true` when every array field is empty, `false`
+ *  when at least one array field has rows, `null` when the shape carries no
+ *  array field (indeterminate — not a collection payload). */
+function collectionEmptiness(result: unknown): boolean | null {
+  if (Array.isArray(result)) return result.length === 0;
+  if (typeof result !== 'object' || result === null) return null;
+  const arrays = Object.values(result as Record<string, unknown>).filter(Array.isArray);
+  if (arrays.length === 0) return null;
+  return arrays.every((a) => (a as unknown[]).length === 0);
+}
+
+/** True when a SEARCH tool succeeded (ok, no `{error}`) and returned no rows. */
+function searchReturnedEmpty(call: ToolCall): boolean {
+  if (!SEARCH_TOOLS.has(call.toolName) || callFailed(call)) return false;
+  return collectionEmptiness(call.result) === true;
+}
+
+/** True when a SEARCH tool succeeded and returned at least one row. */
+function searchReturnedData(call: ToolCall): boolean {
+  if (!SEARCH_TOOLS.has(call.toolName) || callFailed(call)) return false;
+  return collectionEmptiness(call.result) === false;
+}
+
+/**
+ * Classifies observed behavior from the answer + trajectory. Priority order is
+ * significant:
+ *   1. blank answer            → empty
+ *   2. refusal phrasing        → refuse
+ *   3. disambiguation question → clarify (a deliberate ask wins over a failed
+ *      tool, e.g. an ambiguity surfaced as a graceful `{error}`)
+ *   4. a failed tool call      → error-recovery
+ *   5. empty collection result → empty
+ *   6. otherwise               → answer
+ */
+function deriveObservedBehavior(answer: string, trajectory: Trajectory): string {
+  const a = answer.trim();
+  if (a.length === 0) return 'empty';
+  const lower = a.toLowerCase();
+
+  if (REFUSE_RE.test(lower)) return 'refuse';
+  if (CLARIFY_RE.test(lower) && a.includes('?')) return 'clarify';
+
+  const anyFailed = trajectory.toolCalls.some(callFailed);
+  if (anyFailed || FAILURE_TEXT_RE.test(lower)) return 'error-recovery';
+
+  // The user's find-intent found nothing: a search tool came back empty and no
+  // search tool returned rows (an auxiliary lookup returning data is irrelevant).
+  const anySearchEmpty = trajectory.toolCalls.some(searchReturnedEmpty);
+  const anySearchData = trajectory.toolCalls.some(searchReturnedData);
+  if (anySearchEmpty && !anySearchData) return 'empty';
+
+  return 'answer';
+}
+
+export function ctxFromCase(
+  c: GoldenCase,
+  trajectory: Trajectory,
+  answer: string,
+): PolicyEvalContext {
+  if (c.kind !== 'agent' && c.kind !== 'conversation') {
+    throw new Error(`ctxFromCase: unsupported kind "${c.kind}"`);
+  }
+  const expected = c.kind === 'agent' ? c.expected : c.turns[c.turns.length - 1]!.expected;
+  const t = expected.trajectory ?? {};
+  const constraints = {
+    requiredTools: t.requiredTools ?? [],
+    allowedTools: t.allowedTools ?? [],
+    forbiddenTools: t.forbiddenTools ?? [],
+    requiredPartialOrder: t.requiredPartialOrder ?? [],
+    argPredicates: t.argPredicates ?? [],
+    maxToolCalls: t.maxToolCalls,
+  };
+  const userText =
+    c.kind === 'agent'
+      ? (c.input.messages[c.input.messages.length - 1]?.content ?? '')
+      : (c.turns[c.turns.length - 1]?.user ?? '');
+  // Only successful calls are a legitimate source (a failed call returned no data).
+  const toolResults = trajectory.toolCalls.filter((call) => call.ok).map((call) => call.result);
+  return {
+    trajectory,
+    constraints,
+    observedBehavior: deriveObservedBehavior(answer, trajectory),
+    expectedBehaviorValue: expected.behavior,
+    answer,
+    expectedDelegationTool: constraints.requiredTools[0],
+    forbiddenEntities: expected.output?.forbiddenEntities ?? [],
+    forbiddenText: expected.output?.forbiddenText ?? [],
+    userText,
+    toolResults,
+    groundNumbers: expected.trajectory?.groundNumbers ?? false,
+  };
+}

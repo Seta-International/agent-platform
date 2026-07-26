@@ -2,17 +2,17 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { SpecializedAgentSpec } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { makeQnaOrchestratorTools } from '../../../src/backend/orchestration/orchestrator.tools.ts';
-import { QnaOrchestratorInputSchema } from '../../../src/backend/orchestration/orchestrator.ts';
+import { makeQueryOrchestratorTools } from '../../../src/backend/orchestration/orchestrator.tools.ts';
+import { QueryOrchestratorInputSchema } from '../../../src/backend/orchestration/orchestrator.ts';
 import type {
-  QnaSubAgentInput,
-  QnaSubAgentOutput,
+  QuerySubAgentInput,
+  QuerySubAgentOutput,
 } from '../../../src/backend/orchestration/schemas.ts';
 
 const stub = (
   id: string,
   answer: string,
-): SpecializedAgentSpec<QnaSubAgentInput, QnaSubAgentOutput> => ({
+): SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput> => ({
   id,
   description: id,
   inputSchema: z.object({ query: z.string() }),
@@ -23,13 +23,13 @@ const stub = (
   }),
 });
 
-describe('qna orchestrator delegation tools', () => {
+describe('query orchestrator delegation tools', () => {
   it('exposes the four delegation tool ids', () => {
-    const tools = makeQnaOrchestratorTools({
-      taskQuery: stub('planner.qna.taskQuery', 'q'),
-      taskDetail: stub('planner.qna.taskDetail', 'd'),
-      teamInfo: stub('planner.qna.teamInfo', 't'),
-      generalAnswer: stub('planner.qna.generalAnswer', 'g'),
+    const tools = makeQueryOrchestratorTools({
+      taskQuery: stub('planner.query.taskQuery', 'q'),
+      taskDetail: stub('planner.query.taskDetail', 'd'),
+      teamInfo: stub('planner.query.teamInfo', 't'),
+      generalAnswer: stub('planner.query.generalAnswer', 'g'),
       ctx: { tenantId: 't1', actorUserId: 'u1' },
     });
     expect(Object.keys(tools).sort()).toEqual([
@@ -41,11 +41,11 @@ describe('qna orchestrator delegation tools', () => {
   });
 
   it('delegates to the wrapped sub-agent and returns its answer', async () => {
-    const tools = makeQnaOrchestratorTools({
-      taskQuery: stub('planner.qna.taskQuery', 'you have 4 open tasks'),
-      taskDetail: stub('planner.qna.taskDetail', 'd'),
-      teamInfo: stub('planner.qna.teamInfo', 't'),
-      generalAnswer: stub('planner.qna.generalAnswer', 'g'),
+    const tools = makeQueryOrchestratorTools({
+      taskQuery: stub('planner.query.taskQuery', 'you have 4 open tasks'),
+      taskDetail: stub('planner.query.taskDetail', 'd'),
+      teamInfo: stub('planner.query.teamInfo', 't'),
+      generalAnswer: stub('planner.query.generalAnswer', 'g'),
       ctx: { tenantId: 't1', actorUserId: 'u1' },
     });
     const rc = new RequestContext();
@@ -58,9 +58,9 @@ describe('qna orchestrator delegation tools', () => {
   });
 });
 
-describe('qna orchestrator instructions', () => {
+describe('query orchestrator instructions', () => {
   it('input schema accepts userText + nullable taskId', () => {
-    const parsed = QnaOrchestratorInputSchema.parse({ userText: 'my tasks', taskId: null });
+    const parsed = QueryOrchestratorInputSchema.parse({ userText: 'my tasks', taskId: null });
     expect(parsed.userText).toBe('my tasks');
   });
 });

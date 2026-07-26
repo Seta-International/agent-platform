@@ -12,16 +12,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mastra/core": "^1.50.1",
-    "@mastra/evals": "^1.5.1",
+    "@mastra/core": "^1.52.1",
+    "@mastra/evals": "^1.6.0",
     "@seta/agent-sdk": "workspace:^",
-    "ai": "^6.0.200",
+    "ai": "^7.0.35",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
-    "@types/node": "^25.9.3",
+    "@types/node": "26.1.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "4.1.10"
   }
 }

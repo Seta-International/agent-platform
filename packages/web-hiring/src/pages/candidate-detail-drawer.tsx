@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  Avatar,
   Badge,
   Banner,
   Button,
@@ -10,11 +9,14 @@ import {
   DisabledActionTooltip,
   Layout,
   LayoutContent,
+  Link,
   ProgressBar,
+  Tooltip,
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import {
   ArrowRight,
   Building2,
@@ -35,6 +37,7 @@ import {
   type CandStage,
   editCandidate,
   fetchCandidate,
+  fetchRequisition,
   getCandidateCvDownloadUrl,
   hireApplication,
   moveApplicationStage,
@@ -116,6 +119,7 @@ export function CandidateDetailDrawer({
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const canManage = usePermission('hiring.candidate.manage');
   const canReject = usePermission('hiring.candidate.reject');
   const canTransfer = usePermission('hiring.candidate.transfer');
@@ -166,6 +170,15 @@ export function CandidateDetailDrawer({
   };
 
   const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
+
+  // The candidate payload carries only the fit counts (met/required), not which skills the
+  // requisition asks for. Fetch the requisition so the fit badge can list them on hover.
+  const { data: requisition } = useQuery({
+    queryKey: hiringKeys.requisition(app?.requisition_id ?? ''),
+    queryFn: () => fetchRequisition(app?.requisition_id as string),
+    enabled: !!app?.requisition_id && app.fit.required > 0,
+  });
+  const requiredSkills = requisition?.skills ?? [];
 
   const move = useMutation({
     mutationFn: (to: CandStage) => {
@@ -241,7 +254,6 @@ export function CandidateDetailDrawer({
             <DialogHeader
               title={data.candidate.name}
               subtitle={data.candidate.seniority ?? undefined}
-              startContent={<Avatar name={data.candidate.name} size={48} />}
               onOpenChange={(open) => !open && onClose()}
             />
           }
@@ -342,10 +354,27 @@ export function CandidateDetailDrawer({
                   <DetailCard title="Skills">
                     {app && app.fit.required > 0 && (
                       <div className="mb-3 flex items-center gap-2">
-                        <Badge
-                          variant={fit?.strong ? 'success' : 'neutral'}
-                          label={fit?.text ?? ''}
-                        />
+                        <Tooltip
+                          content={
+                            requiredSkills.length > 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                {requiredSkills.map((s) => (
+                                  <span key={s.skill_name}>
+                                    {s.skill_name}
+                                    {s.min_level ? ` · ${s.min_level}/5` : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              'Loading required skills…'
+                            )
+                          }
+                        >
+                          <Badge
+                            variant={fit?.strong ? 'success' : 'neutral'}
+                            label={fit?.text ?? ''}
+                          />
+                        </Tooltip>
                         <span className="text-sm text-secondary">
                           {fit?.strong ? 'Strong fit' : 'Partial fit'} for the required skills
                         </span>
@@ -421,7 +450,25 @@ export function CandidateDetailDrawer({
                     <DetailRow
                       icon={<Building2 className="size-3.5" aria-hidden />}
                       label="Requisition"
-                      value={app?.requisition_title ?? '—'}
+                      value={
+                        app ? (
+                          <Link
+                            onClick={() =>
+                              void navigate({
+                                to: '/hiring/requisitions',
+                                search: (prev: Record<string, unknown>) => ({
+                                  ...prev,
+                                  selectedRequisitionId: app.requisition_id,
+                                }),
+                              })
+                            }
+                          >
+                            {app.requisition_title}
+                          </Link>
+                        ) : (
+                          '—'
+                        )
+                      }
                     />
                     <DetailRow
                       icon={<CalendarDays className="size-3.5" aria-hidden />}

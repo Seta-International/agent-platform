@@ -1,5 +1,5 @@
 {
-  "autoCompactWindow": 200000,
+  "autoCompactWindow": 400000,
   "statusLine": {
     "type": "command",
     "command": "node .claude/statusline.mjs"
