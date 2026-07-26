@@ -12,6 +12,7 @@ export interface UtilizationSegment {
 }
 export interface UtilizationRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   segments: UtilizationSegment[];
   total_pct: number;
@@ -28,6 +29,7 @@ export interface UtilizationQuery {
 
 interface RawRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   project_id: string;
   project_name: string | null;
@@ -59,6 +61,7 @@ export async function getUtilizationByPerson(
   const raw = (await peopleDb()
     .select({
       worker_id: workerAllocationProjection.person_id,
+      employee_no: person.employee_no,
       full_name: person.full_name,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
@@ -90,7 +93,8 @@ export async function getUtilizationByPerson(
     if (!row) {
       row = {
         worker_id: r.worker_id,
-        full_name: r.full_name,
+        employee_no: r.employee_no,
+        full_name: r.full_name ?? '',
         segments: [],
         total_pct: 0,
         over_allocated: false,

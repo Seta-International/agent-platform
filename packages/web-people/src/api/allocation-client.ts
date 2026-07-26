@@ -80,6 +80,7 @@ export interface UtilizationSegment {
 }
 export interface UtilizationRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   segments: UtilizationSegment[];
   total_pct: number;

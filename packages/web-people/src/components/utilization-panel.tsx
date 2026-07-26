@@ -80,7 +80,10 @@ export function UtilizationPanel() {
     const q = search.trim().toLowerCase();
     return q
       ? rows.filter(
-          (r) => r.full_name.toLowerCase().includes(q) || r.worker_id.toLowerCase().includes(q),
+          (r) =>
+            r.full_name.toLowerCase().includes(q) ||
+            r.worker_id.toLowerCase().includes(q) ||
+            (r.employee_no?.toLowerCase().includes(q) ?? false),
         )
       : rows;
   }, [data, search]);
