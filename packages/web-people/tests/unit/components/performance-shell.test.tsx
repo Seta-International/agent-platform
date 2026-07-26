@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PerformanceShell } from '../../../src/components/performance-shell.tsx';
 
@@ -27,8 +27,17 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }));
 
+vi.mock('../../../src/api/people-client.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/api/people-client.ts')>()),
+  fetchCycleStatus: vi.fn(async () => ({
+    month: '2026-07',
+    status: 'open' as const,
+    evaluated_at: '2026-07-26T03:00:00.000Z',
+  })),
+}));
+
 describe('PerformanceShell', () => {
-  it('PMO: hides Scoring/Self-assessment; shows Dashboard/Audit/Cycle (AC1)', () => {
+  it('PMO: hides Scoring/Self-assessment; shows Dashboard/Audit/Cycle (AC1)', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
@@ -50,6 +59,11 @@ describe('PerformanceShell', () => {
     expect(screen.queryByTestId('performance-nav-self-assessment')).not.toBeInTheDocument();
     expect(screen.getByTestId('performance-context-switcher')).toHaveTextContent('Organization');
     expect(screen.getByTestId('performance-cycle-badge-slot')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('cycle-status-badge')).toHaveTextContent(
+        'Open (25th–end of month)',
+      ),
+    );
   });
 
   it('TL capacity: shows Scoring, hides Self-assessment', () => {
