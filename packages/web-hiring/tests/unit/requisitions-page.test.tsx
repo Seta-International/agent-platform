@@ -13,9 +13,11 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const fetchOpenRequisitions = vi.fn();
+const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchOpenRequisitions: () => fetchOpenRequisitions(),
+  fetchRequisitions: () => fetchRequisitions(),
   fetchAccounts: () => Promise.resolve([]),
   fetchProjects: () => Promise.resolve([]),
 }));
@@ -76,6 +78,7 @@ const wrap =
 
 async function renderListView(rows: RequisitionListRow[]) {
   fetchOpenRequisitions.mockResolvedValue(board(rows));
+  fetchRequisitions.mockResolvedValue(rows);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const user = userEvent.setup();
   render(<RequisitionsPage />, { wrapper: wrap(qc) });

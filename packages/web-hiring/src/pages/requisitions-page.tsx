@@ -39,6 +39,7 @@ import { Briefcase, Layers, LayoutGrid, List, Pause, Search, Settings2, Users } 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   fetchOpenRequisitions,
+  fetchRequisitions,
   type OpenRequisitionsBoard,
   type RequisitionListRow,
 } from '../api/hiring-client.ts';
@@ -115,12 +116,25 @@ export function RequisitionsPage() {
   const [pageSize, setPageSize] = useState(25);
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_REQ_COLUMN_KEYS);
 
-  const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
+  const boardQuery = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
     queryFn: fetchOpenRequisitions,
+    enabled: view === 'board',
   });
-  const rows = data?.requisitions ?? [];
-  const scopeNote = buildScopeNote(data);
+  // List view loads ALL requisitions including filled/cancelled (AC3: FUT-325) so the table
+  // can show lifecycle terminal states instead of a ghost "Sourcing" column — the board still
+  // filters to open/on_hold on the backend.
+  const listQuery = useQuery<RequisitionListRow[]>({
+    queryKey: hiringKeys.requisitionOptions(),
+    queryFn: fetchRequisitions,
+    enabled: view === 'list',
+  });
+  const boardRows = boardQuery.data?.requisitions ?? [];
+  const listRows = listQuery.data ?? [];
+  const rows = view === 'board' ? boardRows : listRows;
+  const scopeNote = buildScopeNote(boardQuery.data);
+  const isLoading = view === 'board' ? boardQuery.isLoading : listQuery.isLoading;
+  const error = view === 'board' ? boardQuery.error : listQuery.error;
 
   const accountOptions = useMemo(
     () =>
@@ -290,7 +304,13 @@ export function RequisitionsPage() {
         header: 'Stage',
         sortable: true,
         width: pixel(120),
-        renderCell: (r) => <span className="text-secondary">{STAGE_LABEL[r.stage]}</span>,
+        // AC3 (FUT-325): for non-open statuses show the lifecycle word instead of the
+        // pipeline stage — On hold / Filled / Cancelled, not Sourcing.
+        renderCell: (r) => (
+          <span className="text-secondary">
+            {r.status !== 'open' ? STATUS_LABEL[r.status] : STAGE_LABEL[r.stage]}
+          </span>
+        ),
       },
       {
         // Compact per-stage breakdown (New · Screening · Interview · Offer), the deepest reached
@@ -477,6 +497,8 @@ export function RequisitionsPage() {
                     { value: 'all', label: 'Status' },
                     { value: 'open', label: 'Open' },
                     { value: 'on_hold', label: 'On hold' },
+                    { value: 'filled', label: 'Filled' },
+                    { value: 'cancelled', label: 'Cancelled' },
                   ]}
                   value={statusFilter}
                   onChange={setStatusFilter}

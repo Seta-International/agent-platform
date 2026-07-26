@@ -16,6 +16,15 @@ import { application, candidate, opening, reason, requisition } from '../db/sche
 import { HiringError, requirePermission } from '../rbac.ts';
 import { assertApplicationRequisitionNotOnHold, recordCandidateEvent } from './candidates.ts';
 
+const REQ_STAGE_ORDER = ['sourcing', 'screening', 'interview', 'offer'] as const;
+type ReqStage = (typeof REQ_STAGE_ORDER)[number];
+const APP_TO_REQ_STAGE: Record<string, ReqStage> = {
+  new: 'sourcing',
+  screening: 'screening',
+  interview: 'interview',
+  offer: 'offer',
+};
+
 export async function moveApplicationStage(input: {
   application_id: string;
   expected_version?: number;
@@ -30,6 +39,7 @@ export async function moveApplicationStage(input: {
       stage: application.stage,
       status: application.status,
       candidate_id: application.candidate_id,
+      requisition_id: application.requisition_id,
     })
     .from(application)
     .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
@@ -60,6 +70,31 @@ export async function moveApplicationStage(input: {
         .returning({ id: application.id });
       if (updated.length === 0)
         throw new HiringError('CONFLICT', 'application was modified concurrently');
+
+      // Auto-advance requisition.stage (AC2: FUT-325): when a candidate reaches a pipeline
+      // stage ahead of the requisition's current stage, bump the requisition to match so
+      // both the Board and List views report the same most-advanced stage.
+      const targetReqStage = APP_TO_REQ_STAGE[input.to];
+      if (cur.requisition_id && targetReqStage) {
+        const [req] = await tx
+          .select({ stage: requisition.stage, version: requisition.version })
+          .from(requisition)
+          .where(eq(requisition.id, cur.requisition_id))
+          .limit(1);
+        if (req) {
+          const targetIdx = REQ_STAGE_ORDER.indexOf(
+            targetReqStage as (typeof REQ_STAGE_ORDER)[number],
+          );
+          const curIdx = REQ_STAGE_ORDER.indexOf(req.stage as (typeof REQ_STAGE_ORDER)[number]);
+          if (targetIdx > curIdx) {
+            await tx
+              .update(requisition)
+              .set({ stage: targetReqStage, version: req.version + 1, updated_at: new Date() })
+              .where(eq(requisition.id, cur.requisition_id));
+          }
+        }
+      }
+
       if (cur.candidate_id) {
         await recordCandidateEvent(tx, {
           session,
