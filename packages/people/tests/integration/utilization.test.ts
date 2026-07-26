@@ -35,6 +35,7 @@ describe('getUtilizationByPerson', () => {
           id: personId,
           tenant_id: t.tenant_id,
           full_name: 'Pat Lin',
+          employee_no: '6885',
         });
         await peopleDb()
           .insert(projectProjection)
@@ -89,6 +90,7 @@ describe('getUtilizationByPerson', () => {
         expect(row.segments).toHaveLength(2);
         expect(row.total_pct).toBe(120);
         expect(row.over_allocated).toBe(true);
+        expect(row.employee_no).toBe('6885');
         expect(row.split).toEqual({ billable: 80, internal: 40, bench: 0 });
       } finally {
         resetPeopleDb();
