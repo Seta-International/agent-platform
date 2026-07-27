@@ -78,6 +78,10 @@ export function NewCandidateDialog() {
   const [duplicates, setDuplicates] = useState<CandidateDuplicate[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // FUT-755: surface CV-parse failures inline in the dialog. A toast is promoted to the browser
+  // top layer at app mount, so it paints behind the modal (also top-layer, promoted later) and
+  // gets hidden. An inline Banner sits next to the upload field and can never be occluded.
+  const [cvError, setCvError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
@@ -155,6 +159,7 @@ export function NewCandidateDialog() {
     setDuplicates([]);
     setSuggestions([]);
     setError(null);
+    setCvError(null);
     setSubmitAttempted(false);
     setConfirmDiscard(false);
   }
@@ -310,6 +315,7 @@ export function NewCandidateDialog() {
                         setSuggestions([]);
                         setCvSha256(null);
                         setDuplicates([]);
+                        setCvError(null);
                       }}
                     />
                   </div>
@@ -325,6 +331,7 @@ export function NewCandidateDialog() {
                         abortRef.current?.abort();
                         abortRef.current = new AbortController();
                         setCvFile(file);
+                        setCvError(null);
                         parseGen.current += 1;
                         const gen = parseGen.current;
                         parse.mutate(file, {
@@ -357,7 +364,7 @@ export function NewCandidateDialog() {
                           },
                           onError: (e: Error) => {
                             if (parseGen.current !== gen) return;
-                            toast({ body: e.message, type: 'error' });
+                            setCvError(e.message);
                           },
                         });
                       }
@@ -368,6 +375,7 @@ export function NewCandidateDialog() {
                     description="PDF or DOCX, up to 10MB — parsed fields stay editable"
                   />
                 )}
+                {cvError && <Banner status="error" title={cvError} />}
                 {duplicates.length > 0 && (
                   <Banner
                     status="warning"
