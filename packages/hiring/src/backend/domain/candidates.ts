@@ -1,7 +1,7 @@
 import { listSkills, type SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type {
   AddCandidateInput,
   ApplyInternalInput,
@@ -402,25 +402,46 @@ export async function applyInternalRequisition(
         let candidateId: string;
         let isNewCandidate = false;
 
+        // Identify this user's own candidate profile by their stable identity (user_id), not by
+        // contact email. Email matching merged unrelated candidates — a recruiter-added candidate
+        // for a different person, or the same email reused — dragging their history into this
+        // user's timeline (FUT-761). The legacy branch reuses self-created internal candidates
+        // that predate the user_id column and backfills it below.
         const [existing] = await tx
-          .select({ id: candidate.id })
+          .select({ id: candidate.id, user_id: candidate.user_id })
           .from(candidate)
           .where(
             and(
               tenantScoped(candidate.tenant_id, session),
-              sql`LOWER(${candidate.contact}->>'personal_email') = ${userEmail}`,
               isNull(candidate.deleted_at),
+              or(
+                eq(candidate.user_id, session.user_id),
+                and(
+                  isNull(candidate.user_id),
+                  eq(candidate.source, 'Internal application'),
+                  sql`LOWER(${candidate.contact}->>'personal_email') = ${userEmail}`,
+                ),
+              ),
             ),
           )
           .limit(1);
 
         if (existing) {
           candidateId = existing.id;
+          // Backfill the identity link on a legacy internal candidate so future applies match by
+          // user_id directly.
+          if (existing.user_id === null) {
+            await tx
+              .update(candidate)
+              .set({ user_id: session.user_id, updated_at: new Date() })
+              .where(eq(candidate.id, existing.id));
+          }
         } else {
           const [created] = await tx
             .insert(candidate)
             .values({
               tenant_id: session.tenant_id,
+              user_id: session.user_id,
               name: session.display_name || session.email,
               source: 'Internal application',
               contact: { personal_email: userEmail },

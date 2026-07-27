@@ -253,6 +253,11 @@ export const candidate = hiringSchema.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
+    // The identity.user who owns this candidate profile, set only for self-created internal
+    // applications (see applyInternalRequisition). Recruiter-added candidates leave this null.
+    // Bare uuid — no cross-schema FK. This is the stable link for "the same user re-applying";
+    // matching by contact email alone merged unrelated candidates that reused an email (FUT-761).
+    user_id: uuid('user_id'),
     name: text('name').notNull(),
     source: text('source'),
     contact: jsonb('contact'),
@@ -270,6 +275,7 @@ export const candidate = hiringSchema.table(
   },
   (t) => [
     index('candidate_by_tenant').on(t.tenant_id, t.created_at),
+    index('candidate_by_user').on(t.tenant_id, t.user_id),
     index('candidate_by_cv_sha256').on(t.tenant_id, t.cv_sha256),
     textEnumCheck('candidate', 'gender', GENDERS),
   ],
