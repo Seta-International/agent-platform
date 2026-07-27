@@ -187,6 +187,17 @@ export function endDateIsInPast(dateTo: string | null | undefined, today: string
   return !!dateTo && isValidIsoDate(dateTo) && dateTo < today;
 }
 
+/**
+ * Earliest date the End-date picker may offer for an *existing* allocation row.
+ * An open/editable row can only start today-or-later, but a row whose start is already in the
+ * past is locked to end-date edits — and its end must never move *before today*, or the
+ * allocation silently drops out of RA Monitoring's active window (FUT-747). So the floor the
+ * picker greys everything below is the later of the row's own start and today.
+ */
+export function existingEndDateMin(dateFrom: string, today: string): string {
+  return dateFrom > today ? dateFrom : today;
+}
+
 /** The editable fields of one existing ("update") allocation row in the Reassign wizard. */
 export interface ExistingRowState {
   account_id: string;

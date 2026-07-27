@@ -35,6 +35,7 @@ import {
   emptyReassignRow,
   endDateIsInPast,
   existingAllocationErrors,
+  existingEndDateMin,
   existingRowChanged,
   formatDisplayDate,
   fractionToPct,
@@ -601,7 +602,10 @@ export function ReassignWizardDialog({
                               label={`End date for ${a.project_name}`}
                               isLabelHidden
                               size="sm"
-                              min={draft.date_from || undefined}
+                              // Never let the end move into the past (FUT-747): a locked row's
+                              // start is already behind us, so floor at today — not the start —
+                              // to keep the record inside RA Monitoring's active window.
+                              min={existingEndDateMin(draft.date_from, todayIso())}
                               value={draft.date_to || undefined}
                               onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
                             />
