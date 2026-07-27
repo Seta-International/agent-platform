@@ -70,7 +70,7 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.environment == 'prod-recovery' && 'prod' || inputs.environment }}"]
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Login to ECR (box IAM user, read-only)
         shell: bash
@@ -256,7 +256,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0 # full history so `gh release --generate-notes` has a diff base
 
