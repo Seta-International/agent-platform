@@ -31,6 +31,7 @@ const expand = (e: string) =>
     .replace(/\$env/g, '.*')
     .replace(/\$tenant/g, '.*')
     .replace(/\$model/g, '.*')
+    .replace(/\$container/g, '.*')
     .replace(/\$__rate_interval/g, '5m');
 
 let failures = 0;

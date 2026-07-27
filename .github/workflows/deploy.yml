@@ -131,6 +131,7 @@ jobs:
           LOKI_URL: ${{ vars.LOKI_URL }}
           CLOUDWATCH_TARGET: ${{ vars.CLOUDWATCH_TARGET }}
           DCGM_TARGET: ${{ vars.DCGM_TARGET }}
+          CADVISOR_TARGET: ${{ vars.CADVISOR_TARGET }}
           # ── Environment Secrets (sensitive) ──────────────────────────────
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_APP_URL: ${{ secrets.DATABASE_APP_URL }}
@@ -204,8 +205,8 @@ jobs:
           services="proxy server web worker"
           if [[ "$COMPOSE_PROFILES" == *obs-agent* ]]; then
             services="$services alloy node-exporter postgres-exporter"
-            # cloudwatch-exporter is only defined in compose.prod.yaml.
-            [[ "$COMPOSE_FILE" == *compose.prod.yaml* ]] && services="$services cloudwatch-exporter"
+            # cloudwatch-exporter and cadvisor are only defined in compose.prod.yaml.
+            [[ "$COMPOSE_FILE" == *compose.prod.yaml* ]] && services="$services cloudwatch-exporter cadvisor"
           fi
           dc up -d --remove-orphans --wait --wait-timeout 300 $services
 
