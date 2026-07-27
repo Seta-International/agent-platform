@@ -21,6 +21,7 @@ import {
   candidate,
   candidateEvent,
   candidateSkill,
+  opening,
   requisition,
 } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
@@ -95,13 +96,34 @@ export async function addCandidate(
   await assertSkillsInCatalog(session, skills);
 
   const [req] = await hiringDb()
-    .select({ id: requisition.id })
+    .select({ id: requisition.id, status: requisition.status })
     .from(requisition)
     .where(
       and(eq(requisition.id, input.requisition_id), tenantScoped(requisition.tenant_id, session)),
     )
     .limit(1);
   if (!req) throw new HiringError('NOT_FOUND', 'requisition not found');
+  // FUT-765: never attach a candidate to a requisition that is closed for hiring. Two ways it
+  // can be closed: a non-open status (on_hold/filled/cancelled), or — the subtler case — status
+  // 'open' but every opening already hired (hireApplication fills openings without flipping the
+  // requisition status). Both leave the candidate stranded, unable to progress to a hire.
+  if (req.status !== 'open') {
+    throw new HiringError(
+      'CONFLICT',
+      `requisition is ${req.status} — candidates can only be added to an open requisition`,
+    );
+  }
+  const [openOpening] = await hiringDb()
+    .select({ id: opening.id })
+    .from(opening)
+    .where(and(eq(opening.requisition_id, input.requisition_id), eq(opening.status, 'open')))
+    .limit(1);
+  if (!openOpening) {
+    throw new HiringError(
+      'CONFLICT',
+      'requisition headcount is already filled — no open openings remain',
+    );
+  }
 
   let result!: { candidate_id: string; application_id: string };
   await withEmit(
