@@ -2,8 +2,11 @@ import { RowBuilder } from '@grafana/grafana-foundation-sdk/dashboard';
 import { board, envVar, gaugeTile, prom, trend } from '../skeleton';
 import { SLO, stepsAsc, stepsDesc, UNIT } from '../tokens';
 
+// avg by (env), NOT (instance): instance is "node-exporter:9100" for every env, so
+// grouping by it collapses all selected envs into one averaged line and drops the env
+// label (blanking the {{env}} legend). Grouping by env keeps one line per env.
 const cpuBusy =
-  '100 - avg by (instance)(rate(node_cpu_seconds_total{env=~"$env",mode="idle"}[5m])) * 100';
+  '100 - avg by (env)(rate(node_cpu_seconds_total{env=~"$env",mode="idle"}[5m])) * 100';
 const memUsed =
   '(1 - node_memory_MemAvailable_bytes{env=~"$env"} / node_memory_MemTotal_bytes{env=~"$env"}) * 100';
 const diskFree =
@@ -45,17 +48,18 @@ export const buildHost = () =>
     .withPanel(
       trend({
         title: 'CPU busy %',
-        description: 'Per host.',
+        description:
+          'Per env (instance is always node-exporter:9100, so env is the discriminator).',
         unit: UNIT.percent,
-        targets: [prom(cpuBusy, '{{instance}}')],
+        targets: [prom(cpuBusy, '{{env}}')],
       }),
     )
     .withPanel(
       trend({
         title: 'Memory used %',
-        description: 'Per host.',
+        description: 'Per env.',
         unit: UNIT.percent,
-        targets: [prom(memUsed, '{{instance}}')],
+        targets: [prom(memUsed, '{{env}}')],
       }),
     )
     .withPanel(
@@ -64,7 +68,24 @@ export const buildHost = () =>
         description: 'Lines at 30% (DiskWillFillSoon) / 5% (DiskCritical).',
         unit: UNIT.percent,
         softMax: SLO.diskFreePct.warn,
-        targets: [prom(diskFree, '{{instance}} {{mountpoint}}')],
+        targets: [prom(diskFree, '{{env}} {{mountpoint}}')],
+      }),
+    )
+    .withPanel(
+      trend({
+        title: 'Disk I/O',
+        description: 'Bytes/sec read & written per physical device (loop/ram/dm excluded).',
+        unit: UNIT.Bps,
+        targets: [
+          prom(
+            'rate(node_disk_read_bytes_total{env=~"$env",device!~"loop.*|ram.*|dm-.*"}[$__rate_interval])',
+            '{{env}} read {{device}}',
+          ),
+          prom(
+            'rate(node_disk_written_bytes_total{env=~"$env",device!~"loop.*|ram.*|dm-.*"}[$__rate_interval])',
+            '{{env}} write {{device}}',
+          ),
+        ],
       }),
     )
     .withPanel(
@@ -73,9 +94,9 @@ export const buildHost = () =>
         description: '1/5/15m load.',
         unit: 'short',
         targets: [
-          prom('node_load1{env=~"$env"}', '1m'),
-          prom('node_load5{env=~"$env"}', '5m'),
-          prom('node_load15{env=~"$env"}', '15m'),
+          prom('node_load1{env=~"$env"}', '{{env}} 1m'),
+          prom('node_load5{env=~"$env"}', '{{env}} 5m'),
+          prom('node_load15{env=~"$env"}', '{{env}} 15m'),
         ],
       }),
     )
@@ -87,11 +108,11 @@ export const buildHost = () =>
         targets: [
           prom(
             'rate(node_network_receive_bytes_total{env=~"$env",device!="lo"}[$__rate_interval]) * 8',
-            'in {{device}}',
+            '{{env}} in {{device}}',
           ),
           prom(
             'rate(node_network_transmit_bytes_total{env=~"$env",device!="lo"}[$__rate_interval]) * 8',
-            'out {{device}}',
+            '{{env}} out {{device}}',
           ),
         ],
       }),

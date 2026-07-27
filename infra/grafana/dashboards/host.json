@@ -107,7 +107,7 @@
       },
       "targets": [
         {
-          "expr": "max(100 - avg by (instance)(rate(node_cpu_seconds_total{env=~\"$env\",mode=\"idle\"}[5m])) * 100)",
+          "expr": "max(100 - avg by (env)(rate(node_cpu_seconds_total{env=~\"$env\",mode=\"idle\"}[5m])) * 100)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -291,19 +291,19 @@
         "overrides": []
       },
       "title": "CPU busy %",
-      "description": "Per host.",
+      "description": "Per env (instance is always node-exporter:9100, so env is the discriminator).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "targets": [
         {
-          "expr": "100 - avg by (instance)(rate(node_cpu_seconds_total{env=~\"$env\",mode=\"idle\"}[5m])) * 100",
+          "expr": "100 - avg by (env)(rate(node_cpu_seconds_total{env=~\"$env\",mode=\"idle\"}[5m])) * 100",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{instance}}"
+          "legendFormat": "{{env}}"
         }
       ],
       "gridPos": {
@@ -340,7 +340,7 @@
         "overrides": []
       },
       "title": "Memory used %",
-      "description": "Per host.",
+      "description": "Per env.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -352,7 +352,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{instance}}"
+          "legendFormat": "{{env}}"
         }
       ],
       "gridPos": {
@@ -417,13 +417,70 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{instance}} {{mountpoint}}"
+          "legendFormat": "{{env}} {{mountpoint}}"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
+        "y": 29
+      }
+    },
+    {
+      "type": "timeseries",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "title": "Disk I/O",
+      "description": "Bytes/sec read & written per physical device (loop/ram/dm excluded).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(node_disk_read_bytes_total{env=~\"$env\",device!~\"loop.*|ram.*|dm-.*\"}[$__rate_interval])",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{env}} read {{device}}"
+        },
+        {
+          "expr": "rate(node_disk_written_bytes_total{env=~\"$env\",device!~\"loop.*|ram.*|dm-.*\"}[$__rate_interval])",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{env}} write {{device}}"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
         "y": 29
       }
     },
@@ -466,7 +523,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "1m"
+          "legendFormat": "{{env}} 1m"
         },
         {
           "expr": "node_load5{env=~\"$env\"}",
@@ -474,7 +531,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "5m"
+          "legendFormat": "{{env}} 5m"
         },
         {
           "expr": "node_load15{env=~\"$env\"}",
@@ -482,14 +539,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "15m"
+          "legendFormat": "{{env}} 15m"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 12,
-        "y": 29
+        "x": 0,
+        "y": 38
       }
     },
     {
@@ -531,7 +588,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "in {{device}}"
+          "legendFormat": "{{env}} in {{device}}"
         },
         {
           "expr": "rate(node_network_transmit_bytes_total{env=~\"$env\",device!=\"lo\"}[$__rate_interval]) * 8",
@@ -539,13 +596,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "out {{device}}"
+          "legendFormat": "{{env}} out {{device}}"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 38
       }
     }
