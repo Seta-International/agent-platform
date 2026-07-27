@@ -52,5 +52,6 @@ export const UNIT = {
   celsius: 'celsius',
   watt: 'watt',
   binbps: 'binbps',
+  Bps: 'Bps',
   TOKS: 'none',
 } as const;
