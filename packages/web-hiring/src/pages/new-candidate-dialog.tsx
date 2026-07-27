@@ -110,7 +110,10 @@ export function NewCandidateDialog() {
     queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
-  const openReqs = (reqs ?? []).filter((r) => r.status === 'open');
+  // FUT-765: only requisitions still open for recruitment are assignable. A requisition keeps
+  // status 'open' after its headcount is hired out (openings fill without closing it), so also
+  // require a remaining opening — a candidate added to a filled role could never be hired.
+  const openReqs = (reqs ?? []).filter((r) => r.status === 'open' && r.openings_open > 0);
 
   // Suggest values already in use (same distinct-value approach as the Candidates board filters).
   const { data: existingCandidates } = useQuery({
@@ -509,7 +512,13 @@ export function NewCandidateDialog() {
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-end gap-2">
                   <HStack gap={2} hAlign="end">
-                    <Button variant="secondary" label="Cancel" onClick={close} />
+                    {/* Route Cancel through the same dirty-guard as the close (X) button so
+                        unsaved input prompts a discard confirmation instead of vanishing. */}
+                    <Button
+                      variant="secondary"
+                      label="Cancel"
+                      onClick={() => handleOpenChange(false)}
+                    />
                     <Button
                       variant="primary"
                       icon={<Plus className="size-4" />}

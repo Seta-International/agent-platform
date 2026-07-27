@@ -430,10 +430,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-end gap-2">
                   <HStack gap={2} hAlign="end">
+                    {/* Route Cancel through the same dirty-guard as the close (X) button so
+                        unsaved input prompts a discard confirmation instead of vanishing. */}
                     <Button
                       variant="secondary"
                       label="Cancel"
-                      onClick={close}
+                      onClick={() => handleOpenChange(false)}
                       isDisabled={mutation.isPending}
                     />
                     <Button
