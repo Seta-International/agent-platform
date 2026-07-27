@@ -86,7 +86,7 @@ describe('NewRequisitionDialog', () => {
     const headcountInput = screen.getByRole('spinbutton', { name: /headcount/i });
     await userEvent.clear(headcountInput);
 
-    await userEvent.click(screen.getByRole('button', { name: /create requisition/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     expect(screen.getByText('Headcount must be a positive whole number.')).toBeInTheDocument();
     expect(openRequisition).not.toHaveBeenCalled();
@@ -102,7 +102,7 @@ describe('NewRequisitionDialog', () => {
     await userEvent.type(screen.getByLabelText(/job title/i), 'Senior Dev');
     await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Role details');
 
-    await userEvent.click(screen.getByRole('button', { name: /create requisition/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     expect(openRequisition).toHaveBeenCalledWith(
       expect.objectContaining({

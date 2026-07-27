@@ -92,7 +92,7 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
     // effectiveReq auto-selects r1 (Backend Eng, the only open req)
-    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     await waitFor(() =>
       expect(addCandidate).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Ada Lovelace', requisition_id: 'r1' }),
@@ -156,7 +156,7 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByText('Enter a valid phone number.')).toBeInTheDocument(),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     expect(addCandidate).not.toHaveBeenCalled();
 
     // Now type a valid international phone number containing spaces
@@ -302,7 +302,7 @@ describe('NewCandidateDialog', () => {
 
     await waitFor(() => expect(screen.getByText('Invalid calendar date.')).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     expect(addCandidate).not.toHaveBeenCalled();
   });
 });

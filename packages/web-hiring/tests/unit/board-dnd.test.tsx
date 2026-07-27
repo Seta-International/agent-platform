@@ -18,6 +18,7 @@ function item(over: Partial<CandidateListItem>): CandidateListItem {
     version: 9,
     applied_at: '2024-01-01T00:00:00.000Z',
     skills: [],
+    required_skills: [],
     fit: { met: 0, required: 0, score: 0, strong: false },
     ...over,
   };

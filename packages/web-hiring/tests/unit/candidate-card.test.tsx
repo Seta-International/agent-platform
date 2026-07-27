@@ -22,6 +22,10 @@ const base: CandidateListItem = {
     { skill_id: 's1', skill_name: 'Figma', level: null },
     { skill_id: 's2', skill_name: 'UX', level: null },
   ],
+  required_skills: [
+    { skill_id: 's1', skill_name: 'Figma', level: 3 },
+    { skill_id: 's2', skill_name: 'UX', level: null },
+  ],
   fit: { met: 1, required: 2, score: 0.5, strong: false },
 };
 

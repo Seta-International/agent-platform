@@ -50,15 +50,27 @@ function actorLabel(actorUserId: string | null, actorNames?: Record<string, stri
   return actorNames?.[actorUserId] ?? 'Unknown';
 }
 
+// Event summaries store the raw requisition_id (e.g. "…applying for requisition <uuid>"), the same
+// way they store actor_user_id — the human-facing name is resolved at display time. Swap any
+// requisition UUID in the summary for its title; leave unknown ids untouched.
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+function resolveSummary(summary: string, requisitionNames?: Record<string, string>): string {
+  if (!requisitionNames) return summary;
+  return summary.replace(UUID_RE, (id) => requisitionNames[id] ?? id);
+}
+
 export function CandidateTimeline({
   events,
   loading,
   actorNames,
+  requisitionNames,
 }: {
   events: CandidateEvent[];
   loading?: boolean;
   /** actor_user_id → display name, resolved against the identity directory by the caller. */
   actorNames?: Record<string, string>;
+  /** requisition_id → title, so summaries show the role name instead of a raw id. */
+  requisitionNames?: Record<string, string>;
 }) {
   if (loading) {
     return (
@@ -76,6 +88,7 @@ export function CandidateTimeline({
     <ol className="space-y-3">
       {events.map((e) => {
         const Icon = KIND_ICON[e.kind] ?? CircleUserRound;
+        const summary = resolveSummary(e.summary, requisitionNames);
         return (
           <li key={e.id} className="flex items-start gap-2.5">
             <span className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-full bg-accent-muted text-accent">
@@ -85,8 +98,8 @@ export function CandidateTimeline({
               <div className="text-base font-medium text-primary">
                 {KIND_LABEL[e.kind] ?? e.kind}
               </div>
-              {e.summary && KIND_LABEL[e.kind] && e.summary !== KIND_LABEL[e.kind] && (
-                <div className="text-sm text-secondary">{e.summary}</div>
+              {summary && KIND_LABEL[e.kind] && summary !== KIND_LABEL[e.kind] && (
+                <div className="text-sm text-secondary">{summary}</div>
               )}
               <div className="text-sm text-secondary">
                 by {actorLabel(e.actor_user_id, actorNames)} · {fmt(e.created_at)}

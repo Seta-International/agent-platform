@@ -4,6 +4,7 @@ import {
   KanbanCardShell,
   type KanbanCardShellProps,
   Text,
+  Tooltip,
 } from '@seta/shared-ui';
 import { Star } from 'lucide-react';
 import type { CandidateListItem } from '../api/hiring-client.ts';
@@ -36,6 +37,9 @@ export function CandidateCard({
 }) {
   // Fit speaks the same language as the detail drawer — "n/m skills", not a percentage.
   const fit = fitLabel(item.fit);
+  // Hovering the fit badge lists the requisition's required skills — same affordance as the
+  // candidate detail drawer, so a recruiter can see what "n/m" is measured against without opening.
+  const fitBadge = <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />;
 
   const header = (
     <div className="min-w-0 flex-1">
@@ -71,7 +75,24 @@ export function CandidateCard({
     >
       {/* Decision-support line: skill fit + rating, together. */}
       <div className="flex items-center gap-2.5">
-        <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
+        {item.required_skills.length > 0 ? (
+          <Tooltip
+            content={
+              <div className="flex flex-col gap-0.5">
+                {item.required_skills.map((s) => (
+                  <span key={s.skill_id}>
+                    {s.skill_name}
+                    {s.level ? ` · ${s.level}/5` : ''}
+                  </span>
+                ))}
+              </div>
+            }
+          >
+            {fitBadge}
+          </Tooltip>
+        ) : (
+          fitBadge
+        )}
         <RatingLine value={item.rating} />
       </div>
     </KanbanCardShell>

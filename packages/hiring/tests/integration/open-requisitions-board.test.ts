@@ -1,5 +1,6 @@
 // packages/hiring/tests/integration/open-requisitions-board.test.ts
-// FUT-326: BOD/PMO view every open (non-filled) requisition company-wide on a board.
+// FUT-326: BOD/PMO view every board requisition (open, on_hold or filled — cancelled excluded)
+// company-wide on a board.
 import { resetCoreDb } from '@seta/core/testing';
 import { createAccount } from '@seta/pm';
 import { resetPmDb } from '@seta/pm/testing';
@@ -18,7 +19,7 @@ const ctx = {
 };
 
 describe('open requisitions board (FUT-326)', () => {
-  it('BOD sees all non-filled requisitions across accounts; filled is excluded', async () => {
+  it('BOD sees requisitions across accounts, including filled ones', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
@@ -46,7 +47,8 @@ describe('open requisitions board (FUT-326)', () => {
           account_id: accountA,
           session: t.adminSession,
         });
-        // A filled requisition must not appear on the open board.
+        // A filled requisition stays on the board (recruiters still need to find it) — only
+        // cancelled drops off. It's told apart from live ones by its status pill.
         await hiringDb()
           .update(requisition)
           .set({ status: 'filled' })
@@ -63,7 +65,7 @@ describe('open requisitions board (FUT-326)', () => {
 
         expect(ids).toContain(openInA);
         expect(ids).toContain(openInB);
-        expect(ids).not.toContain(filledReq);
+        expect(ids).toContain(filledReq);
       } finally {
         resetHiringDb();
         resetCoreDb();

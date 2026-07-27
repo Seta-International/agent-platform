@@ -439,7 +439,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     <Button
                       variant="primary"
                       icon={<Plus className="size-4" />}
-                      label={mutation.isPending ? 'Creating…' : 'Create requisition'}
+                      label={mutation.isPending ? 'Creating…' : 'Create'}
                       onClick={submit}
                       isDisabled={mutation.isPending}
                     />
