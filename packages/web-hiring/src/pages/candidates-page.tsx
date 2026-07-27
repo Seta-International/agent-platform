@@ -436,15 +436,21 @@ export function CandidatesPage() {
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Input
-                label="Search candidates"
-                isLabelHidden
-                startIcon={<Search className="size-3.5" aria-hidden />}
-                value={q}
-                onChange={(value) => setQ(value)}
-                placeholder="Search by name, skill, seniority…"
-                className="max-w-xs flex-1"
-              />
+              {/* The Field wrapper is the flex child, so growth/width constraints live on this
+                  div — Astryx forwards Input's className to the inner control, where `flex-1`
+                  never took effect and `max-w-xs` clipped the placeholder (FUT-757). The Input
+                  fills the cell via its `width` prop, which sizes the whole field. */}
+              <div className="min-w-[16rem] max-w-sm flex-1">
+                <Input
+                  label="Search candidates"
+                  isLabelHidden
+                  startIcon={<Search className="size-3.5" aria-hidden />}
+                  value={q}
+                  onChange={(value) => setQ(value)}
+                  placeholder="Search by name, skill, seniority…"
+                  width="100%"
+                />
+              </div>
               <Selector
                 label="Filter by role"
                 isLabelHidden
