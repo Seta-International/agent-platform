@@ -10,6 +10,7 @@ import {
   HIRING_APPLICATION_REJECTED,
   HIRING_APPLICATION_STAGE_CHANGED,
   HIRING_APPLICATION_TRANSFERRED,
+  HIRING_REQUISITION_UPDATED,
 } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
 import { application, candidate, opening, reason, requisition } from '../db/schema.ts';
@@ -77,7 +78,11 @@ export async function moveApplicationStage(input: {
       const targetReqStage = APP_TO_REQ_STAGE[input.to];
       if (cur.requisition_id && targetReqStage) {
         const [req] = await tx
-          .select({ stage: requisition.stage, version: requisition.version })
+          .select({
+            stage: requisition.stage,
+            version: requisition.version,
+            status: requisition.status,
+          })
           .from(requisition)
           .where(eq(requisition.id, cur.requisition_id))
           .limit(1);
@@ -86,11 +91,35 @@ export async function moveApplicationStage(input: {
             targetReqStage as (typeof REQ_STAGE_ORDER)[number],
           );
           const curIdx = REQ_STAGE_ORDER.indexOf(req.stage as (typeof REQ_STAGE_ORDER)[number]);
-          if (targetIdx > curIdx) {
-            await tx
+          if (targetIdx > curIdx && req.status === 'open') {
+            // Version-gated update inside the tx — concurrent hold/close between
+            // assertApplicationRequisitionNotOnHold and withEmit would change the version
+            // or status, making the WHERE miss and returning 0 rows — safe no-op.
+            const updatedReq = await tx
               .update(requisition)
               .set({ stage: targetReqStage, version: req.version + 1, updated_at: new Date() })
-              .where(eq(requisition.id, cur.requisition_id));
+              .where(
+                and(
+                  eq(requisition.id, cur.requisition_id),
+                  eq(requisition.version, req.version),
+                  eq(requisition.status, 'open'),
+                ),
+              )
+              .returning({ id: requisition.id });
+            if (updatedReq.length > 0) {
+              await emit({
+                tenantId: session.tenant_id,
+                aggregateType: 'hiring.requisition',
+                aggregateId: cur.requisition_id,
+                eventType: HIRING_REQUISITION_UPDATED,
+                eventVersion: 1,
+                payload: {
+                  requisition_id: cur.requisition_id,
+                  tenant_id: session.tenant_id,
+                  fields: ['stage'],
+                },
+              });
+            }
           }
         }
       }
