@@ -281,6 +281,16 @@ export async function transferApplication(input: {
   // transfers — otherwise candidates pile up on positions nobody is working.
   if (req.status !== 'open')
     throw new HiringError('VALIDATION', 'target requisition is not open for applications');
+  // FUT-765: a headcount-filled requisition keeps status 'open' (hireApplication fills openings
+  // without closing the requisition), so the status check above lets it through. Block the
+  // transfer when no opening remains — the candidate could never be hired into the target.
+  const [targetOpening] = await hiringDb()
+    .select({ id: opening.id })
+    .from(opening)
+    .where(and(eq(opening.requisition_id, target), eq(opening.status, 'open')))
+    .limit(1);
+  if (!targetOpening)
+    throw new HiringError('VALIDATION', 'target requisition headcount is already filled');
 
   const dup = await hiringDb()
     .select({ id: application.id })
