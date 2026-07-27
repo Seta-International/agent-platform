@@ -470,8 +470,10 @@ export function RequisitionsPage() {
                 'bg-surface text-secondary',
               )}
               {stat(
-                'Total open',
-                rows.length,
+                // Counts every status shown (open, on hold, filled…), not just open — and follows
+                // the active filters like the other tiles, so it matches what's on screen (FUT-765).
+                'Total',
+                filteredRows.length,
                 <Layers className="size-5" aria-hidden />,
                 'bg-surface text-secondary',
               )}
