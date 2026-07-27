@@ -51,6 +51,9 @@ export interface CandidateListRow {
   version: number;
   applied_at: Date;
   skills: CandidateSkillBrief[];
+  // The requisition's required skills (name + min level) — powers the card's "n/m skills" hover,
+  // the same list the detail drawer shows. `level` carries requisition_skill.min_level.
+  required_skills: CandidateSkillBrief[];
   fit: FitResult;
 }
 
@@ -59,16 +62,22 @@ async function fitFor(
   reqIds: string[],
   candIds: string[],
 ): Promise<{
-  reqSkills: Map<string, { skill_id: string; min_level: number | null }[]>;
+  // skill_name rides along so callers can list a requisition's required skills (the card/detail
+  // "n/m skills" tooltip); computeFit reads only skill_id/min_level, so the extra field is inert.
+  reqSkills: Map<string, { skill_id: string; skill_name: string; min_level: number | null }[]>;
   candSkills: Map<string, CandidateSkillBrief[]>;
 }> {
-  const reqSkills = new Map<string, { skill_id: string; min_level: number | null }[]>();
+  const reqSkills = new Map<
+    string,
+    { skill_id: string; skill_name: string; min_level: number | null }[]
+  >();
   const candSkills = new Map<string, CandidateSkillBrief[]>();
   if (reqIds.length) {
     const rs = await hiringDb()
       .select({
         requisition_id: requisitionSkill.requisition_id,
         skill_id: requisitionSkill.skill_id,
+        skill_name: requisitionSkill.skill_name,
         min_level: requisitionSkill.min_level,
       })
       .from(requisitionSkill)
@@ -80,7 +89,11 @@ async function fitFor(
       );
     for (const r of rs) {
       const list = reqSkills.get(r.requisition_id) ?? [];
-      list.push({ skill_id: r.skill_id as string, min_level: r.min_level });
+      list.push({
+        skill_id: r.skill_id as string,
+        skill_name: r.skill_name,
+        min_level: r.min_level,
+      });
       reqSkills.set(r.requisition_id, list);
     }
   }
@@ -152,15 +165,20 @@ async function listApplicationRows(
     [...new Set(rows.map((r) => r.requisition_id))],
     [...new Set(rows.map((r) => r.candidate_id as string))],
   );
-  return rows.map((r) => ({
-    ...r,
-    candidate_id: r.candidate_id as string,
-    skills: candSkills.get(r.candidate_id as string) ?? [],
-    fit: computeFit(
-      reqSkills.get(r.requisition_id) ?? [],
-      candSkills.get(r.candidate_id as string) ?? [],
-    ),
-  }));
+  return rows.map((r) => {
+    const req = reqSkills.get(r.requisition_id) ?? [];
+    return {
+      ...r,
+      candidate_id: r.candidate_id as string,
+      skills: candSkills.get(r.candidate_id as string) ?? [],
+      required_skills: req.map((s) => ({
+        skill_id: s.skill_id,
+        skill_name: s.skill_name,
+        level: s.min_level,
+      })),
+      fit: computeFit(req, candSkills.get(r.candidate_id as string) ?? []),
+    };
+  });
 }
 
 // The board/list surface: the active pipeline plus hired. Terminal outcomes are read separately

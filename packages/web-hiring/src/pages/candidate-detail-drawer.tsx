@@ -158,6 +158,14 @@ export function CandidateDetailDrawer({
     return map;
   }, [directoryUsers]);
 
+  // requisition_id → title for the timeline: every requisition this candidate touched shows up as
+  // one of their applications, so summaries that store a raw requisition id can resolve to its name.
+  const requisitionNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const a of data?.applications ?? []) map[a.requisition_id] = a.requisition_title;
+    return map;
+  }, [data?.applications]);
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidate(candidateId ?? '') });
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
@@ -170,13 +178,16 @@ export function CandidateDetailDrawer({
   };
 
   const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
+  const terminal = app ? app.status !== 'active' : true;
 
   // The candidate payload carries only the fit counts (met/required), not which skills the
   // requisition asks for. Fetch the requisition so the fit badge can list them on hover.
   const { data: requisition } = useQuery({
     queryKey: hiringKeys.requisition(app?.requisition_id ?? ''),
     queryFn: () => fetchRequisition(app?.requisition_id as string),
-    enabled: !!app?.requisition_id && app.fit.required > 0,
+    // Needed both for the fit tooltip's required-skill list and — for an active application — to
+    // read the requisition's opening fill state (the fully-staffed action lock below).
+    enabled: !!app?.requisition_id && (app.fit.required > 0 || !terminal),
   });
   const requiredSkills = requisition?.skills ?? [];
 
@@ -214,10 +225,21 @@ export function CandidateDetailDrawer({
       onClose();
     },
   });
-  const terminal = app ? app.status !== 'active' : true;
   // FUT-559 on-hold lock: while the requisition is paused, its candidates can't be moved or
   // hired — resume the requisition first. (Terminal applications are already locked above.)
   const reqOnHold = !terminal && app?.requisition_status === 'on_hold';
+  // FUT-569: an active application on a fully-staffed requisition can't advance or be rejected —
+  // there's no opening left to move it into. "Fully staffed" is either the requisition marked
+  // `filled`, or every non-cancelled opening already filled while it's still nominally open (mirrors
+  // the requisition detail's isFullyStaffed). Openings come from the requisition detail query above.
+  const openingRows = requisition?.openings ?? [];
+  const openingsTotal = openingRows.filter((o) => o.status !== 'cancelled').length;
+  const openingsFilled = openingRows.filter((o) => o.status === 'filled').length;
+  const reqFilled =
+    !terminal &&
+    (app?.requisition_status === 'filled' ||
+      (openingsTotal > 0 && openingsFilled >= openingsTotal));
+  const filledReason = 'This requisition is fully staffed — all openings are filled.';
   const fit = app ? fitLabel(app.fit) : null;
   const dialogLabel = `Candidate: ${data?.candidate.name ?? 'Loading'}`;
 
@@ -225,7 +247,7 @@ export function CandidateDetailDrawer({
   // terminal Hire (its own confirm). Move stage (any stage) stays available in a secondary menu.
   const stageIdx = app?.stage ? STAGES.findIndex((s) => s.id === app.stage) : -1;
   const nextStage = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
-  const canAct = canManage && !terminal && !reqOnHold && !move.isPending;
+  const canAct = canManage && !terminal && !reqOnHold && !reqFilled && !move.isPending;
   const advanceLabel = nextStage ? `Advance to ${nextStage.label}` : 'Mark as hired';
   // Every forward move now confirms first: a next-stage advance opens its own dialog; the final
   // step past Offer is the terminal Hire, which already has one.
@@ -288,6 +310,9 @@ export function CandidateDetailDrawer({
                   status="warning"
                   title="Requisition on hold — resume it from the board to move this candidate."
                 />
+              )}
+              {reqFilled && !reqOnHold && (
+                <Banner className="mb-4" status="info" title={filledReason} />
               )}
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -491,7 +516,11 @@ export function CandidateDetailDrawer({
                   </DetailCard>
 
                   <DetailCard title="Activity timeline">
-                    <CandidateTimeline events={data.timeline} actorNames={actorNames} />
+                    <CandidateTimeline
+                      events={data.timeline}
+                      actorNames={actorNames}
+                      requisitionNames={requisitionNames}
+                    />
                   </DetailCard>
                 </div>
               </div>
@@ -515,15 +544,19 @@ export function CandidateDetailDrawer({
             >
               {canReject && (
                 <DisabledActionTooltip
-                  disabled={reqOnHold}
-                  reason="Requisition on hold — resume it from the board to reject this candidate."
+                  disabled={reqOnHold || reqFilled}
+                  reason={
+                    reqOnHold
+                      ? 'Requisition on hold — resume it from the board to reject this candidate.'
+                      : filledReason
+                  }
                 >
                   <Button
                     variant="secondary"
                     size="sm"
                     label="Reject"
                     style={{ color: 'var(--color-text-red)' }}
-                    isDisabled={reqOnHold || terminal}
+                    isDisabled={reqOnHold || reqFilled || terminal}
                     onClick={() => setRejectOpen(true)}
                   />
                 </DisabledActionTooltip>

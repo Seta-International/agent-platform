@@ -380,14 +380,21 @@ export function NewCandidateDialog() {
                   />
                 )}
                 <div className="space-y-1" ref={nameFieldRef}>
+                  {/* status drives the red border + message together, so an empty-on-submit or
+                      malformed name is flagged on the field itself, not just as text below it. */}
                   <Input
                     label="Full name"
                     isRequired
                     value={name}
                     onChange={(value) => setName(value)}
+                    status={
+                      nameInvalid
+                        ? { type: 'error', message: 'Full name is required.' }
+                        : nameError
+                          ? { type: 'error', message: nameError }
+                          : undefined
+                    }
                   />
-                  {nameInvalid && <p className="text-sm text-error">Full name is required.</p>}
-                  {nameError && <p className="text-sm text-error">{nameError}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -472,10 +479,12 @@ export function NewCandidateDialog() {
                     value={effectiveReq}
                     onChange={(v) => setReqId(v)}
                     placeholder="Select a position"
+                    status={
+                      reqInvalid
+                        ? { type: 'error', message: 'Position applied is required.' }
+                        : undefined
+                    }
                   />
-                  {reqInvalid && (
-                    <p className="text-sm text-error">Position applied is required.</p>
-                  )}
                 </div>
                 <Field label="Skills" inputID={skillsId} labelID={skillsId} isGroupLabel>
                   <fieldset aria-labelledby={skillsId}>
@@ -504,7 +513,7 @@ export function NewCandidateDialog() {
                     <Button
                       variant="primary"
                       icon={<Plus className="size-4" />}
-                      label={mutation.isPending ? 'Creating…' : 'Create candidate'}
+                      label={mutation.isPending ? 'Creating…' : 'Create'}
                       onClick={submit}
                       isDisabled={mutation.isPending || parse.isPending}
                     />
