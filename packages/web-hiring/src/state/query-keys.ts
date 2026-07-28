@@ -1,7 +1,15 @@
 export const hiringKeys = {
   all: ['hiring'] as const,
   // Open-positions board: `OpenRequisitionsBoard` (scope + requisitions), from fetchOpenRequisitions.
-  requisitions: () => [...hiringKeys.all, 'requisitions'] as const,
+  // FUT-771: the Cancelled status filter fetches a widened board (includeCancelled), which is a
+  // distinct cache entry. The extra segment is appended only for that variant, so bare
+  // `requisitions()` invalidations still prefix-match both entries.
+  requisitions: (includeCancelled = false) =>
+    [
+      ...hiringKeys.all,
+      'requisitions',
+      ...(includeCancelled ? (['with-cancelled'] as const) : []),
+    ] as const,
   requisition: (id: string) => [...hiringKeys.all, 'requisition', id] as const,
   // Flat requisition list for pickers (candidate create/transfer), from fetchRequisitions.
   // Deliberately a distinct key from `requisitions()` above — same cache key, different response
