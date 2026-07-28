@@ -1,7 +1,7 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
 import { application, candidateEvent } from '../../src/backend/db/schema.ts';
@@ -126,6 +126,84 @@ describe('transferApplication', () => {
           .where(eq(application.id, res2.to_application_id));
         expect(newApp?.requisition_id).toBe(r1.requisition_id);
         expect(newApp?.status).toBe('active');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  // FUT-783: transferring a candidate A→B→A must leave a single record on A. Before the fix the
+  // transfer always inserted a fresh active row, so the candidate ended up listed twice on A —
+  // once active and once as a lingering 'transferred' row in Past Applicants.
+  it('restores the original application instead of duplicating when transferred back (FUT-783)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const rA = await openRequisition({
+          title: 'A',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const rB = await openRequisition({
+          title: 'B',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { candidate_id, application_id: appAId } = await addCandidate({
+          requisition_id: rA.requisition_id,
+          name: 'Round Trip',
+          session: t.adminSession,
+        });
+
+        // A → B
+        const toB = await transferApplication({
+          application_id: appAId,
+          expected_version: 1,
+          input: { target_requisition_id: rB.requisition_id },
+          session: t.adminSession,
+        });
+        // B → A (back to the original requisition)
+        const back = await transferApplication({
+          application_id: toB.to_application_id,
+          expected_version: 1,
+          input: { target_requisition_id: rA.requisition_id },
+          session: t.adminSession,
+        });
+
+        // The original A application is restored, not duplicated.
+        expect(back.to_application_id).toBe(appAId);
+
+        const onA = await hiringDb()
+          .select()
+          .from(application)
+          .where(
+            and(
+              eq(application.requisition_id, rA.requisition_id),
+              eq(application.candidate_id, candidate_id),
+            ),
+          );
+        // Exactly one record on A, and it is the active one.
+        expect(onA).toHaveLength(1);
+        expect(onA[0]?.id).toBe(appAId);
+        expect(onA[0]?.status).toBe('active');
+        expect(onA[0]?.stage).toBe('new');
+        expect(onA[0]?.superseded_by_application_id).toBeNull();
+        expect(onA[0]?.closed_at).toBeNull();
+
+        // The B application is now the transferred one, pointing back at the restored A record.
+        const [onB] = await hiringDb()
+          .select()
+          .from(application)
+          .where(eq(application.id, toB.to_application_id));
+        expect(onB?.status).toBe('transferred');
+        expect(onB?.superseded_by_application_id).toBe(appAId);
       } finally {
         resetHiringDb();
         resetCoreDb();

@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { createWorker, employmentPeriod, getWorkerIdForUser, peopleDb } from '@seta/people';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
 import {
   HIRING_APPLICATION_CREATED,
@@ -313,25 +313,60 @@ export async function transferApplication(input: {
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      const [created] = await tx
-        .insert(application)
-        .values({
-          tenant_id: session.tenant_id,
-          requisition_id: target,
-          kind: 'external',
-          candidate_id: candidateId,
-          stage: 'new',
-          status: 'active',
-        })
-        .returning({ id: application.id });
-      if (!created) throw new Error('transfer target application insert returned no row');
-      toId = created.id;
+      // FUT-783: a candidate transferred A→B→A must not end up listed twice on A (once active,
+      // once lingering in Past Applicants). If the candidate already has a transferred
+      // application on the target requisition, restore that row to active instead of inserting a
+      // duplicate — a transfer toggles the same pair of rows back and forth between the two roles.
+      const [restorable] = await tx
+        .select({ id: application.id })
+        .from(application)
+        .where(
+          and(
+            eq(application.requisition_id, target),
+            eq(application.candidate_id, candidateId),
+            eq(application.status, 'transferred'),
+            tenantScoped(application.tenant_id, session),
+          ),
+        )
+        .orderBy(desc(application.updated_at))
+        .limit(1);
+
+      if (restorable) {
+        const [restored] = await tx
+          .update(application)
+          .set({
+            status: 'active',
+            stage: 'new',
+            superseded_by_application_id: null,
+            closed_at: null,
+            version: sql`${application.version} + 1`,
+            updated_at: new Date(),
+          })
+          .where(and(eq(application.id, restorable.id), eq(application.status, 'transferred')))
+          .returning({ id: application.id });
+        if (!restored) throw new HiringError('CONFLICT', 'application was modified concurrently');
+        toId = restored.id;
+      } else {
+        const [created] = await tx
+          .insert(application)
+          .values({
+            tenant_id: session.tenant_id,
+            requisition_id: target,
+            kind: 'external',
+            candidate_id: candidateId,
+            stage: 'new',
+            status: 'active',
+          })
+          .returning({ id: application.id });
+        if (!created) throw new Error('transfer target application insert returned no row');
+        toId = created.id;
+      }
 
       const updated = await tx
         .update(application)
         .set({
           status: 'transferred',
-          superseded_by_application_id: created.id,
+          superseded_by_application_id: toId,
           closed_at: new Date(),
           version: next,
           updated_at: new Date(),
@@ -353,7 +388,7 @@ export async function transferApplication(input: {
         application_id,
         kind: 'transferred',
         summary: `Transferred to requisition ${target}`,
-        detail: { to_application_id: created.id, target_requisition_id: target },
+        detail: { to_application_id: toId, target_requisition_id: target },
       });
       await emit({
         tenantId: session.tenant_id,
@@ -363,7 +398,7 @@ export async function transferApplication(input: {
         eventVersion: 1,
         payload: {
           application_id,
-          to_application_id: created.id,
+          to_application_id: toId,
           target_requisition_id: target,
           tenant_id: session.tenant_id,
         },
@@ -371,11 +406,11 @@ export async function transferApplication(input: {
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'hiring.application',
-        aggregateId: created.id,
+        aggregateId: toId,
         eventType: HIRING_APPLICATION_CREATED,
         eventVersion: 1,
         payload: {
-          application_id: created.id,
+          application_id: toId,
           candidate_id: candidateId,
           requisition_id: target,
           tenant_id: session.tenant_id,
