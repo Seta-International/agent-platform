@@ -22,6 +22,10 @@ const base: CandidateListItem = {
     { skill_id: 's1', skill_name: 'Figma', level: null },
     { skill_id: 's2', skill_name: 'UX', level: null },
   ],
+  required_skills: [
+    { skill_id: 's1', skill_name: 'Figma', level: 3 },
+    { skill_id: 's2', skill_name: 'UX', level: null },
+  ],
   fit: { met: 1, required: 2, score: 0.5, strong: false },
 };
 
@@ -58,5 +62,19 @@ describe('CandidateCard', () => {
     render(<CandidateCard item={base} onSelect={vi.fn()} draggable={{}} />);
     expect(screen.getByText(/LinkedIn/)).toBeInTheDocument();
     expect(screen.getByText(/ago|just now/)).toBeInTheDocument();
+  });
+
+  it('checks the matched required skills in the fit hover and leaves under-levelled ones unchecked', () => {
+    // Candidate has UX (met) and Figma at no level (below the required min of 3 → not met), so
+    // exactly one checked row must line up with fit.met = 1. The check — not colour — is the cue,
+    // so it also surfaces as a screen-reader label on precisely the matched rows.
+    render(<CandidateCard item={base} onSelect={vi.fn()} draggable={{}} />);
+    const matchedLabels = screen.getAllByText('(candidate has this skill)', { exact: false });
+    expect(matchedLabels).toHaveLength(base.fit.met);
+    const uxRow = matchedLabels[0]?.closest('span.flex');
+    expect(uxRow).toHaveTextContent('UX');
+    // Figma is required at level 3 but the candidate has no level → unmatched, no marker.
+    const figmaRow = screen.getByText(/Figma/).closest('span.flex') as HTMLElement;
+    expect(figmaRow).not.toHaveTextContent('candidate has this skill');
   });
 });

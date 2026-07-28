@@ -41,6 +41,7 @@ const baseGrid = {
   worker_totals: [],
   kpis: { avg_utilization: 80, over_allocated_count: 0, member_count: 2, project_count: 1 },
   facets: { accounts: [], projects: [] },
+  effort_by_account: [{ account_id: 'a1', account_name: 'Acme', total_mm: 15 }],
 };
 
 function renderPage() {
@@ -135,11 +136,56 @@ describe('AllocationPage (Astryx Table migration)', () => {
   });
 
   it('renders the empty state when there are no allocations', async () => {
-    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: [] });
+    mockFetchAllocationGrid.mockResolvedValue({
+      ...baseGrid,
+      rows: [],
+      effort_by_account: [],
+    });
     renderPage();
 
     const table = await screen.findByRole('table');
     expect(within(table).getByText('No allocations')).toBeInTheDocument();
+  });
+
+  it('renders effort-by-account donut and legend', async () => {
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('heading', { name: /Effort by account/i });
+    const region = await screen.findByRole('region', { name: 'Effort by account breakdown' });
+    expect(within(region).getByText('Acme')).toBeInTheDocument();
+    expect(within(region).getByText(/TOTAL:\s*15 MM/i)).toBeInTheDocument();
+    expect(within(region).getByRole('button', { name: /Acme/i })).toHaveTextContent('15');
+  });
+
+  it('collapses many accounts into Other with Show all', async () => {
+    const user = userEvent.setup();
+    const manyAccounts = Array.from({ length: 8 }, (_, i) => ({
+      account_id: `a${i}`,
+      account_name: `Account ${i}`,
+      total_mm: 10 - i,
+    }));
+    mockFetchAllocationGrid.mockResolvedValue({
+      ...baseGrid,
+      effort_by_account: manyAccounts,
+    });
+    renderPage();
+
+    const region = await screen.findByRole('region', { name: 'Effort by account breakdown' });
+    expect(within(region).getByText('Account 0')).toBeInTheDocument();
+    expect(within(region).getByText('Other (2)')).toBeInTheDocument();
+    expect(within(region).queryByText('Account 7')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(within(region).getByText('Account 7')).toBeInTheDocument();
+    expect(within(region).queryByText(/Other/)).not.toBeInTheDocument();
+  });
+
+  it('renders an empty state when effort_by_account is empty', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, effort_by_account: [] });
+    renderPage();
+
+    expect(await screen.findByText('No effort in scope')).toBeInTheDocument();
   });
 
   it('renders the Export button enabled when allocation rows exist', async () => {

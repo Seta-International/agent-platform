@@ -367,6 +367,8 @@ export interface CandidateListItem {
   version: number;
   applied_at: string;
   skills: CandidateSkillRow[];
+  /** The requisition's required skills (name + min level) — backs the card's "n/m skills" hover. */
+  required_skills: CandidateSkillRow[];
   fit: Fit;
 }
 

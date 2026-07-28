@@ -3,7 +3,7 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, projectProjection, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { buildWorkerScope } from './worker-scope.ts';
+import { buildAllocationRowScope, buildWorkerScope } from './worker-scope.ts';
 
 export interface UtilizationSegment {
   project_id: string;
@@ -12,6 +12,7 @@ export interface UtilizationSegment {
 }
 export interface UtilizationRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   segments: UtilizationSegment[];
   total_pct: number;
@@ -24,10 +25,16 @@ export interface UtilizationByPerson {
 }
 export interface UtilizationQuery {
   asOf?: string;
+  /**
+   * When true, skip account/project row-scope so visible workers include every project segment.
+   * Person scope still applies.
+   */
+  crossProject?: boolean;
 }
 
 interface RawRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   project_id: string;
   project_name: string | null;
@@ -43,6 +50,7 @@ export async function getUtilizationByPerson(
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
   const scope = await buildWorkerScope(session);
+  const rowScope = query.crossProject ? null : await buildAllocationRowScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
@@ -53,10 +61,12 @@ export async function getUtilizationByPerson(
     sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${asOf})`,
   ];
   if (scope) where.push(scope);
+  if (rowScope) where.push(rowScope);
 
   const raw = (await peopleDb()
     .select({
       worker_id: workerAllocationProjection.person_id,
+      employee_no: person.employee_no,
       full_name: person.full_name,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
@@ -88,7 +98,8 @@ export async function getUtilizationByPerson(
     if (!row) {
       row = {
         worker_id: r.worker_id,
-        full_name: r.full_name,
+        employee_no: r.employee_no,
+        full_name: r.full_name ?? '',
         segments: [],
         total_pct: 0,
         over_allocated: false,

@@ -65,12 +65,40 @@ describe('NewRequisitionDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     await userEvent.type(screen.getByLabelText(/job title/i), 'Stale Title');
+    // Dirty form → Cancel prompts to confirm; Discard actually closes it.
     await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Discard' }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     expect(screen.getByLabelText(/job title/i)).toHaveValue('');
+  });
+
+  // Cancel must mirror the close (X) button: with unsaved input it opens the discard confirmation
+  // (an alertdialog) rather than dropping the form silently.
+  it('opens the discard confirmation when Cancel is clicked with unsaved input', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+    await userEvent.type(screen.getByLabelText(/job title/i), 'Stale Title');
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByText('Discard this requisition?')).toBeInTheDocument();
+  });
+
+  // The confirmation is only for unsaved work — an untouched form closes on Cancel with no prompt.
+  it('closes without confirmation when Cancel is clicked on a pristine form', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('validates headcount bounds and prevents submission when invalid', async () => {
@@ -86,7 +114,7 @@ describe('NewRequisitionDialog', () => {
     const headcountInput = screen.getByRole('spinbutton', { name: /headcount/i });
     await userEvent.clear(headcountInput);
 
-    await userEvent.click(screen.getByRole('button', { name: /create requisition/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     expect(screen.getByText('Headcount must be a positive whole number.')).toBeInTheDocument();
     expect(openRequisition).not.toHaveBeenCalled();
@@ -102,7 +130,7 @@ describe('NewRequisitionDialog', () => {
     await userEvent.type(screen.getByLabelText(/job title/i), 'Senior Dev');
     await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Role details');
 
-    await userEvent.click(screen.getByRole('button', { name: /create requisition/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
 
     expect(openRequisition).toHaveBeenCalledWith(
       expect.objectContaining({

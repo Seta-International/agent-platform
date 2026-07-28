@@ -11,6 +11,10 @@ export const Route = createFileRoute('/_authed/people/allocation')({
       s.bucket === 'billable' || s.bucket === 'internal' || s.bucket === 'bench'
         ? s.bucket
         : undefined,
+    crossProject:
+      s.crossProject === true || s.crossProject === '1' || s.crossProject === 'true'
+        ? true
+        : undefined,
   }),
   component: AllocationPage,
 });

@@ -521,12 +521,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const isOnHold = req.status === 'on_hold';
   const onHoldReason =
     'This requisition is on hold — resume it from the Requisitions board to make changes.';
+  // A closed requisition keeps its footer visible (so the bar never collapses) but every action is
+  // locked — the outcome is settled and can't be reopened.
+  const terminalReason =
+    req.status === 'filled'
+      ? "This requisition is filled — it's closed and can no longer be changed."
+      : "This requisition is cancelled — it's closed and can no longer be changed.";
 
   // FUT-559: read applicants from the detail endpoint (candidate_id + name + seniority +
   // status), and split the active pipeline from the closed trail. A transferred/rejected
   // candidate must NOT linger in the old role's active list (bug: it still showed under Role A
   // after a transfer) — it drops to a dimmed "Past applicants" section instead.
   const activeApplicants = data.applicants.filter((a) => a.status === 'active');
+  // Hired applicants are the pipeline's positive terminal outcome: they leave the active stages
+  // but earn their own section under Offer (not the dimmed "Past applicants" trail, which is for
+  // rejected/transferred/cancelled).
+  const hiredApplicants = data.applicants.filter((a) => a.status === 'hired');
   const pastApplicants = data.applicants.filter(
     (a) => a.status !== 'active' && a.status !== 'hired',
   );
@@ -534,6 +544,28 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // target, and a filled one is progress. (See the edit form for the grow/shrink mechanics.)
   const openingsTotal = data.openings.filter((o) => o.status !== 'cancelled').length;
   const openingsFilled = data.openings.filter((o) => o.status === 'filled').length;
+  // FUT-569: a requisition whose openings are all filled is fully staffed — freeze every
+  // lifecycle action (cancel, pause/resume, mark-filled, edit, apply) even while its status is
+  // still `open`. Status `filled` is already terminal above (the footer collapses to no actions),
+  // so this guard covers the open-but-complete case (e.g. 1/1 filled, status Open). The
+  // `openingsTotal > 0` check keeps a requisition with zero live openings from reading as staffed.
+  const isFullyStaffed = openingsTotal > 0 && openingsFilled >= openingsTotal;
+  // A filled requisition is a closed, fully-resolved position, so its Headcount reads complete
+  // (A/A) regardless of how many openings an actual hire filled — the banner below carries the
+  // "how it closed" nuance. Non-filled requisitions still show real hire progress.
+  const headcountFilled = req.status === 'filled' ? openingsTotal : openingsFilled;
+  // Status `filled` only comes from the "Mark filled" button (hiring fills openings but never
+  // flips the requisition's status). Since Headcount now reads A/A, the banner is where we say how
+  // many openings an actual hire filled — the rest were closed out by the manual mark.
+  const markedFilledNotice =
+    req.status === 'filled'
+      ? openingsTotal > 0 && openingsFilled < openingsTotal
+        ? openingsFilled === 0
+          ? 'Marked filled with the button — no candidate was hired for this requisition.'
+          : `Marked filled with the button — ${openingsFilled} of ${openingsTotal} openings were filled by a hire, the rest were closed manually.`
+        : 'Marked filled with the button.'
+      : null;
+  const fullyStaffedReason = 'This requisition is fully staffed — all openings are filled.';
   const renderApplicant = (a: ApplicantRow) => {
     const name = a.candidate_name ?? 'Unknown candidate';
     const terminal = a.status !== 'active';
@@ -814,6 +846,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         }}
       />
 
+      {markedFilledNotice && (
+        <div className="flex-none px-6 pt-4">
+          <Banner status="info" title={markedFilledNotice} />
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 overflow-hidden bg-card">
         {/* Working area (left): candidate pipeline is the default view, job description second. */}
         <section className="flex min-w-0 flex-1 flex-col">
@@ -833,7 +871,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-6">
             {tab === 'candidates' ? (
-              activeApplicants.length === 0 && pastApplicants.length === 0 ? (
+              activeApplicants.length === 0 &&
+              hiredApplicants.length === 0 &&
+              pastApplicants.length === 0 ? (
                 <EmptyState
                   title="No applicants yet"
                   description="Candidates appear here, grouped by pipeline stage, as they apply."
@@ -864,6 +904,21 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                       </div>
                     );
                   })}
+                  {/* Hired sits under Offer as the pipeline's won outcome — same row shape as the
+                      stages above, with a success-toned count to mark the positive terminal state. */}
+                  {hiredApplicants.length > 0 && (
+                    <div>
+                      <div className="mb-2 flex items-center gap-2 border-b border-border pb-1.5">
+                        <Text type="supporting" className="uppercase">
+                          Hired
+                        </Text>
+                        <Badge variant="success" label={hiredApplicants.length} />
+                      </div>
+                      <div className="divide-y divide-border">
+                        {hiredApplicants.map((a) => renderApplicant(a))}
+                      </div>
+                    </div>
+                  )}
                   {pastApplicants.length > 0 && (
                     <div className="border-t border-border pt-3">
                       <div className="mb-1 text-sm font-medium text-secondary">
@@ -942,13 +997,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               <div className="mb-1 flex items-center justify-between">
                 <Text type="supporting">Headcount</Text>
                 <Text type="supporting">
-                  {openingsFilled}/{openingsTotal} filled
+                  {headcountFilled}/{openingsTotal} filled
                 </Text>
               </div>
               <ProgressBar
                 label="Headcount filled"
                 isLabelHidden
-                value={openingsFilled}
+                value={headcountFilled}
                 max={openingsTotal}
                 variant="success"
               />
@@ -966,7 +1021,17 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           <DetailRow label="Client" value={data.account_name ?? '—'} />
           <DetailRow label="Project" value={data.project_name ?? '—'} />
           <DetailRow label="Grade" value={req.grade ?? '—'} />
-          <DetailRow label="Candidates" value={`${data.applicants.length} total`} />
+          {/* The Candidates tab badge counts the active pipeline; this fact counts everyone who
+              ever applied. When they differ (terminal/hired applicants exist), show both so the
+              two sides reconcile — "0 active · 2 total" explains an empty pipeline with 2 past. */}
+          <DetailRow
+            label="Candidates"
+            value={
+              activeApplicants.length === data.applicants.length
+                ? `${data.applicants.length} total`
+                : `${activeApplicants.length} active · ${data.applicants.length} total`
+            }
+          />
           <DetailRow label="Start date" value={req.start_date ? formatDate(req.start_date) : '—'} />
           <DetailRow
             label="Due date"
@@ -994,101 +1059,125 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           avoid doubling. */}
       <Divider />
       {/* Footer mirrors the candidate drawer's DialogFooter: secondary lifecycle actions pinned
-          left, the primary action (Edit) on the right. A terminal requisition has no actions, so
-          the bar collapses to an empty strip — same as the drawer's settled state. */}
+          left, the primary action (Edit) on the right. A terminal requisition keeps the bar visible
+          but every action is disabled (with a reason) — the bar never collapses to an empty strip. */}
       <DialogFooter
         hasDivider={false}
         startContent={
-          !isTerminal ? (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <DisabledActionTooltip
+              disabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+              reason={
+                isTerminal
+                  ? terminalReason
+                  : !canClose
+                    ? PERMISSION_DENIED.requisition.manage
+                    : isFullyStaffed
+                      ? fullyStaffedReason
+                      : onHoldReason
+              }
+            >
+              <Button
+                size="sm"
+                variant="secondary"
+                label="Cancel"
+                isDisabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+                style={{ color: 'var(--color-text-red)' }}
+                onClick={() => setShowCancelDialog(true)}
+              />
+            </DisabledActionTooltip>
+            {/* Pause/Resume are status-specific: a filled/cancelled requisition is neither open nor
+                on_hold, so neither renders for a terminal one — the remaining actions cover it. */}
+            {req.status === 'open' && (
               <DisabledActionTooltip
-                disabled={!canClose || isOnHold}
-                reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
+                disabled={!canManage || isFullyStaffed}
+                reason={!canManage ? PERMISSION_DENIED.requisition.manage : fullyStaffedReason}
               >
                 <Button
                   size="sm"
                   variant="secondary"
-                  label="Cancel"
-                  isDisabled={!canClose || isOnHold}
-                  style={{ color: 'var(--color-text-red)' }}
-                  onClick={() => setShowCancelDialog(true)}
+                  label="Pause"
+                  isDisabled={!canManage || isFullyStaffed}
+                  onClick={() => pause.mutate()}
                 />
               </DisabledActionTooltip>
-              {req.status === 'open' && (
-                <DisabledActionTooltip
-                  disabled={!canManage}
-                  reason={PERMISSION_DENIED.requisition.manage}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    label="Pause"
-                    isDisabled={!canManage}
-                    onClick={() => pause.mutate()}
-                  />
-                </DisabledActionTooltip>
-              )}
-              {req.status === 'on_hold' && (
-                <DisabledActionTooltip
-                  disabled={!canManage}
-                  reason={PERMISSION_DENIED.requisition.manage}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    label="Resume"
-                    isDisabled={!canManage}
-                    onClick={() => resume.mutate()}
-                  />
-                </DisabledActionTooltip>
-              )}
-            </div>
-          ) : undefined
+            )}
+            {req.status === 'on_hold' && (
+              <DisabledActionTooltip
+                disabled={!canManage || isFullyStaffed}
+                reason={!canManage ? PERMISSION_DENIED.requisition.manage : fullyStaffedReason}
+              >
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  label="Resume"
+                  isDisabled={!canManage || isFullyStaffed}
+                  onClick={() => resume.mutate()}
+                />
+              </DisabledActionTooltip>
+            )}
+          </div>
         }
       >
-        {!isTerminal &&
-          (data.has_applied ? (
-            <Button size="sm" variant="secondary" label="Applied" isDisabled />
-          ) : (
-            <DisabledActionTooltip disabled={isOnHold} reason={onHoldReason}>
-              <Button
-                size="sm"
-                variant="primary"
-                label={apply.isPending ? 'Applying…' : 'Apply'}
-                isDisabled={isOnHold || apply.isPending}
-                onClick={() => apply.mutate()}
-              />
-            </DisabledActionTooltip>
-          ))}
-        {!isTerminal && (
+        {data.has_applied ? (
+          <Button size="sm" variant="secondary" label="Applied" isDisabled />
+        ) : (
           <DisabledActionTooltip
-            disabled={!canClose || isOnHold}
-            reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
+            disabled={isTerminal || isOnHold || isFullyStaffed}
+            reason={
+              isTerminal ? terminalReason : isFullyStaffed ? fullyStaffedReason : onHoldReason
+            }
           >
             <Button
               size="sm"
-              variant="secondary"
-              label="Mark filled"
-              isDisabled={!canClose || isOnHold}
-              onClick={() => setShowFillConfirm(true)}
+              variant="primary"
+              label={apply.isPending ? 'Applying…' : 'Apply'}
+              isDisabled={isTerminal || isOnHold || isFullyStaffed || apply.isPending}
+              onClick={() => apply.mutate()}
             />
           </DisabledActionTooltip>
         )}
-        {!isTerminal && (
-          <DisabledActionTooltip
-            disabled={!canManage || isOnHold}
-            reason={!canManage ? PERMISSION_DENIED.requisition.edit : onHoldReason}
-          >
-            <Button
-              size="sm"
-              variant="secondary"
-              label="Edit"
-              icon={<Pencil className="size-4" />}
-              isDisabled={!canManage || isOnHold}
-              onClick={startEditing}
-            />
-          </DisabledActionTooltip>
-        )}
+        <DisabledActionTooltip
+          disabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+          reason={
+            isTerminal
+              ? terminalReason
+              : !canClose
+                ? PERMISSION_DENIED.requisition.manage
+                : isFullyStaffed
+                  ? fullyStaffedReason
+                  : onHoldReason
+          }
+        >
+          <Button
+            size="sm"
+            variant="secondary"
+            label="Mark filled"
+            isDisabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+            onClick={() => setShowFillConfirm(true)}
+          />
+        </DisabledActionTooltip>
+        <DisabledActionTooltip
+          disabled={isTerminal || !canManage || isOnHold || isFullyStaffed}
+          reason={
+            isTerminal
+              ? terminalReason
+              : !canManage
+                ? PERMISSION_DENIED.requisition.edit
+                : isFullyStaffed
+                  ? fullyStaffedReason
+                  : onHoldReason
+          }
+        >
+          <Button
+            size="sm"
+            variant="secondary"
+            label="Edit"
+            icon={<Pencil className="size-4" />}
+            isDisabled={isTerminal || !canManage || isOnHold || isFullyStaffed}
+            onClick={startEditing}
+          />
+        </DisabledActionTooltip>
       </DialogFooter>
       <MarkFilledDialog
         requisitionId={requisitionId}

@@ -13,9 +13,11 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const fetchOpenRequisitions = vi.fn();
+const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchOpenRequisitions: () => fetchOpenRequisitions(),
+  fetchRequisitions: () => fetchRequisitions(),
   fetchAccounts: () => Promise.resolve([]),
   fetchProjects: () => Promise.resolve([]),
 }));
@@ -76,6 +78,7 @@ const wrap =
 
 async function renderListView(rows: RequisitionListRow[]) {
   fetchOpenRequisitions.mockResolvedValue(board(rows));
+  fetchRequisitions.mockResolvedValue(rows);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const user = userEvent.setup();
   render(<RequisitionsPage />, { wrapper: wrap(qc) });
@@ -108,6 +111,42 @@ describe('RequisitionsPage', () => {
   it('switches to list view', async () => {
     const { table } = await renderListView([row()]);
     expect(within(table).getByRole('columnheader', { name: /position/i })).toBeInTheDocument();
+  });
+
+  // FUT-765 follow-up: the total tile is labelled "Total" (not "Total open" — it counts every
+  // status, not just open) and reflects the active filters like the other three tiles, so the
+  // number always matches the requisitions actually on screen.
+  it('labels the total tile "Total" and counts only the filtered requisitions', async () => {
+    // stat() renders the value then the label as adjacent siblings; the label's previous
+    // sibling is the number.
+    const totalValue = () => {
+      const label = screen.getByText('Total');
+      const value = label.previousElementSibling;
+      if (!value) throw new Error('total tile has no value node');
+      return value as HTMLElement;
+    };
+    fetchOpenRequisitions.mockResolvedValue(
+      board([
+        row({ id: 'r1', title: 'Open A', status: 'open' }),
+        row({ id: 'r2', title: 'Open B', status: 'open' }),
+        row({ id: 'r3', title: 'Filled C', status: 'filled' }),
+      ]),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    render(<RequisitionsPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Open A')).toBeInTheDocument());
+
+    // Renamed label, and the misleading "Total open" is gone.
+    expect(screen.queryByText('Total open')).not.toBeInTheDocument();
+    // Unfiltered: all three board requisitions.
+    expect(totalValue()).toHaveTextContent('3');
+
+    // Filtering to Filled leaves one requisition — the tile must follow.
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }));
+    await user.click(await screen.findByRole('option', { name: 'Filled' }));
+
+    await waitFor(() => expect(totalValue()).toHaveTextContent('1'));
   });
 
   it('clicking "Sort by Position" reorders the rows', async () => {
