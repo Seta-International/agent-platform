@@ -8,7 +8,7 @@ import {
   scopeDecision,
 } from '@seta/shared-rbac';
 import { type SQL, sql } from 'drizzle-orm';
-import { person } from '../db/schema.ts';
+import { person, workerAllocationProjection } from '../db/schema.ts';
 
 /**
  * Parenthesized subquery: the person_ids transitively reporting to `:me` via the org-unit
@@ -119,4 +119,69 @@ export async function buildWorkerScope(session: SessionScope): Promise<SQL | nul
       { userId: session.user_id, tenantId: session.tenant_id },
     ),
   );
+}
+
+/**
+ * Allocation-row predicate for the Resource Allocation grid and utilization panel (FUT-342/343).
+ *
+ * `buildWorkerScope` is person-level: once a worker is visible via a managed account/project,
+ * every allocation row for that person would otherwise leak — including accounts/projects the
+ * viewer does not manage. This predicate keeps only rows the viewer has a direct reason to see:
+ *   - account_id on an account they manage (AM) — FUT-342
+ *   - lead_person_id = me (EM/TL) — FUT-343
+ *   - person_id = me (self)
+ *   - person_id in the viewer's reports subtree (org-unit head)
+ *   - person_id in an explicitly assigned org-unit (subset org_unit scope)
+ *
+ * Returns `null` for tenant-wide viewers (same gate as `buildWorkerScope`). AND with the person
+ * scope when querying `worker_allocation_projection`. Callers may skip this predicate when the
+ * viewer opts into cross-project load for already-visible workers.
+ *
+ * Note: org-unit / reports arms intentionally include all allocation rows of those people (full
+ * load). The dual-account leak fixed here is the AM/lead path, which must not widen to foreign
+ * accounts/projects.
+ */
+export async function buildAllocationRowScope(session: SessionScope): Promise<SQL | null> {
+  const scope = resolveScope(
+    getDefaultRegistry(),
+    session.assignments,
+    IMPLICIT_PERMISSIONS,
+    'people.worker.read',
+  );
+  // Tenant-wide viewers see every allocation row — same short-circuit as buildWorkerScope.
+  if (scope.kind === 'tenant') return null;
+
+  const me = meSubquery(session.user_id, session.tenant_id);
+  const managedAccountIds = session.person_id
+    ? await listAccountIdsManagedBy(session.person_id, session.tenant_id)
+    : [];
+
+  const arms: SQL[] = [
+    sql`${workerAllocationProjection.person_id} = ${me}`,
+    sql`${workerAllocationProjection.lead_person_id} = ${me}`,
+    sql`${workerAllocationProjection.person_id} IN ${reportsSubtreeSql(me, session.tenant_id)}`,
+  ];
+  if (scope.kind === 'subset' && scope.org_unit_ids.length > 0) {
+    // Mirror buildWorkerScope's orgUnit arm: people in assigned units keep their allocation rows.
+    arms.push(
+      sql`${workerAllocationProjection.person_id} IN (
+        SELECT p.id FROM people.person p
+          WHERE p.tenant_id = ${session.tenant_id}
+            AND p.deleted_at IS NULL
+            AND p.org_unit_id IN (${sql.join(
+              scope.org_unit_ids.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )})
+      )`,
+    );
+  }
+  if (managedAccountIds.length > 0) {
+    arms.push(
+      sql`${workerAllocationProjection.account_id} IN (${sql.join(
+        managedAccountIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})`,
+    );
+  }
+  return sql`(${sql.join(arms, sql` OR `)})`;
 }

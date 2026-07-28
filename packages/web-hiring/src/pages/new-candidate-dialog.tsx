@@ -78,6 +78,10 @@ export function NewCandidateDialog() {
   const [duplicates, setDuplicates] = useState<CandidateDuplicate[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // FUT-755: surface CV-parse failures inline in the dialog. A toast is promoted to the browser
+  // top layer at app mount, so it paints behind the modal (also top-layer, promoted later) and
+  // gets hidden. An inline Banner sits next to the upload field and can never be occluded.
+  const [cvError, setCvError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
@@ -110,7 +114,10 @@ export function NewCandidateDialog() {
     queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
-  const openReqs = (reqs ?? []).filter((r) => r.status === 'open');
+  // FUT-765: only requisitions still open for recruitment are assignable. A requisition keeps
+  // status 'open' after its headcount is hired out (openings fill without closing it), so also
+  // require a remaining opening — a candidate added to a filled role could never be hired.
+  const openReqs = (reqs ?? []).filter((r) => r.status === 'open' && r.openings_open > 0);
 
   // Suggest values already in use (same distinct-value approach as the Candidates board filters).
   const { data: existingCandidates } = useQuery({
@@ -155,6 +162,7 @@ export function NewCandidateDialog() {
     setDuplicates([]);
     setSuggestions([]);
     setError(null);
+    setCvError(null);
     setSubmitAttempted(false);
     setConfirmDiscard(false);
   }
@@ -310,6 +318,7 @@ export function NewCandidateDialog() {
                         setSuggestions([]);
                         setCvSha256(null);
                         setDuplicates([]);
+                        setCvError(null);
                       }}
                     />
                   </div>
@@ -325,6 +334,7 @@ export function NewCandidateDialog() {
                         abortRef.current?.abort();
                         abortRef.current = new AbortController();
                         setCvFile(file);
+                        setCvError(null);
                         parseGen.current += 1;
                         const gen = parseGen.current;
                         parse.mutate(file, {
@@ -357,7 +367,7 @@ export function NewCandidateDialog() {
                           },
                           onError: (e: Error) => {
                             if (parseGen.current !== gen) return;
-                            toast({ body: e.message, type: 'error' });
+                            setCvError(e.message);
                           },
                         });
                       }
@@ -368,6 +378,7 @@ export function NewCandidateDialog() {
                     description="PDF or DOCX, up to 10MB — parsed fields stay editable"
                   />
                 )}
+                {cvError && <Banner status="error" title={cvError} />}
                 {duplicates.length > 0 && (
                   <Banner
                     status="warning"
@@ -380,14 +391,21 @@ export function NewCandidateDialog() {
                   />
                 )}
                 <div className="space-y-1" ref={nameFieldRef}>
+                  {/* status drives the red border + message together, so an empty-on-submit or
+                      malformed name is flagged on the field itself, not just as text below it. */}
                   <Input
                     label="Full name"
                     isRequired
                     value={name}
                     onChange={(value) => setName(value)}
+                    status={
+                      nameInvalid
+                        ? { type: 'error', message: 'Full name is required.' }
+                        : nameError
+                          ? { type: 'error', message: nameError }
+                          : undefined
+                    }
                   />
-                  {nameInvalid && <p className="text-sm text-error">Full name is required.</p>}
-                  {nameError && <p className="text-sm text-error">{nameError}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -472,10 +490,12 @@ export function NewCandidateDialog() {
                     value={effectiveReq}
                     onChange={(v) => setReqId(v)}
                     placeholder="Select a position"
+                    status={
+                      reqInvalid
+                        ? { type: 'error', message: 'Position applied is required.' }
+                        : undefined
+                    }
                   />
-                  {reqInvalid && (
-                    <p className="text-sm text-error">Position applied is required.</p>
-                  )}
                 </div>
                 <Field label="Skills" inputID={skillsId} labelID={skillsId} isGroupLabel>
                   <fieldset aria-labelledby={skillsId}>
@@ -500,11 +520,17 @@ export function NewCandidateDialog() {
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-end gap-2">
                   <HStack gap={2} hAlign="end">
-                    <Button variant="secondary" label="Cancel" onClick={close} />
+                    {/* Route Cancel through the same dirty-guard as the close (X) button so
+                        unsaved input prompts a discard confirmation instead of vanishing. */}
+                    <Button
+                      variant="secondary"
+                      label="Cancel"
+                      onClick={() => handleOpenChange(false)}
+                    />
                     <Button
                       variant="primary"
                       icon={<Plus className="size-4" />}
-                      label={mutation.isPending ? 'Creating…' : 'Create candidate'}
+                      label={mutation.isPending ? 'Creating…' : 'Create'}
                       onClick={submit}
                       isDisabled={mutation.isPending || parse.isPending}
                     />

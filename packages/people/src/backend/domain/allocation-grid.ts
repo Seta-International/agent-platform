@@ -9,7 +9,7 @@ import {
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { buildWorkerScope } from './worker-scope.ts';
+import { buildAllocationRowScope, buildWorkerScope } from './worker-scope.ts';
 
 export interface AllocationGridRow {
   worker_id: string;
@@ -40,6 +40,12 @@ export interface AllocationFacets {
   accounts: { id: string; name: string }[];
   projects: { id: string; name: string; account_id: string }[];
 }
+/** Man-months rolled up per account from the filtered grid rows. */
+export interface EffortByAccount {
+  account_id: string;
+  account_name: string;
+  total_mm: number;
+}
 export interface AllocationGrid {
   year: number;
   rows: AllocationGridRow[];
@@ -47,6 +53,8 @@ export interface AllocationGrid {
   kpis: AllocationGridKpis;
   /** Distinct accounts/projects across the viewer's full scope, for populating the filter pickers. */
   facets: AllocationFacets;
+  /** Effort breakdown over the filtered rows (follows account/project/bucket/search filters). */
+  effort_by_account: EffortByAccount[];
 }
 export type AllocationStatus = 'over' | 'under';
 export type AllocationBucket = 'billable' | 'internal' | 'bench';
@@ -59,6 +67,11 @@ export interface AllocationGridQuery {
   accountId?: string;
   projectId?: string;
   bucket?: AllocationBucket;
+  /**
+   * When true, skip account/project row-scope (FUT-342) so visible workers show every allocation
+   * row. Person scope still applies — workers outside the viewer's reach never appear.
+   */
+  crossProject?: boolean;
 }
 
 // Target utilization; a worker whose busiest month stays below this counts as under-utilized.
@@ -110,6 +123,9 @@ export async function getAllocationGrid(
 
   const year = query.year ?? new Date().getUTCFullYear();
   const scope = await buildWorkerScope(session); // SQL predicate on person.id, or null for tenant scope
+  // Default: row-scope hides foreign account/project rows for AM/EM. crossProject opts into full
+  // person load for already-visible workers without widening who is visible.
+  const rowScope = query.crossProject ? null : await buildAllocationRowScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
@@ -117,6 +133,7 @@ export async function getAllocationGrid(
     isNotNull(workerAllocationProjection.person_id),
   ];
   if (scope) where.push(scope);
+  if (rowScope) where.push(rowScope);
 
   const raw = (await peopleDb()
     .select({
@@ -279,6 +296,22 @@ export async function getAllocationGrid(
   const keptWorkers = new Set(outRows.map((r) => r.worker_id));
   const outTotals = worker_totals.filter((w) => keptWorkers.has(w.worker_id));
 
+  // Effort-by-account follows the filtered rows so an account filter still shows a summary.
+  const mmByAccount = new Map<string, { account_name: string; total_mm: number }>();
+  for (const r of outRows) {
+    const prev = mmByAccount.get(r.account_id);
+    if (prev) prev.total_mm += r.total_mm;
+    else mmByAccount.set(r.account_id, { account_name: r.account_name, total_mm: r.total_mm });
+  }
+  const effort_by_account: EffortByAccount[] = [...mmByAccount.entries()]
+    .map(([account_id, v]) => ({
+      account_id,
+      account_name: v.account_name,
+      total_mm: Math.round(v.total_mm * 100) / 100,
+    }))
+    // Heaviest accounts first — summary surfaces the top of the portfolio.
+    .sort((a, b) => b.total_mm - a.total_mm || a.account_name.localeCompare(b.account_name));
+
   return {
     year,
     rows: outRows,
@@ -297,5 +330,6 @@ export async function getAllocationGrid(
         .map(([id, v]) => ({ id, name: v.name, account_id: v.account_id }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     },
+    effort_by_account,
   };
 }

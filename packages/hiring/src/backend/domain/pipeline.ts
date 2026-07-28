@@ -10,11 +10,21 @@ import {
   HIRING_APPLICATION_REJECTED,
   HIRING_APPLICATION_STAGE_CHANGED,
   HIRING_APPLICATION_TRANSFERRED,
+  HIRING_REQUISITION_UPDATED,
 } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
 import { application, candidate, opening, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { assertApplicationRequisitionNotOnHold, recordCandidateEvent } from './candidates.ts';
+
+const REQ_STAGE_ORDER = ['sourcing', 'screening', 'interview', 'offer'] as const;
+type ReqStage = (typeof REQ_STAGE_ORDER)[number];
+const APP_TO_REQ_STAGE: Record<string, ReqStage> = {
+  new: 'sourcing',
+  screening: 'screening',
+  interview: 'interview',
+  offer: 'offer',
+};
 
 export async function moveApplicationStage(input: {
   application_id: string;
@@ -30,6 +40,7 @@ export async function moveApplicationStage(input: {
       stage: application.stage,
       status: application.status,
       candidate_id: application.candidate_id,
+      requisition_id: application.requisition_id,
     })
     .from(application)
     .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
@@ -60,6 +71,59 @@ export async function moveApplicationStage(input: {
         .returning({ id: application.id });
       if (updated.length === 0)
         throw new HiringError('CONFLICT', 'application was modified concurrently');
+
+      // Auto-advance requisition.stage (AC2: FUT-325): when a candidate reaches a pipeline
+      // stage ahead of the requisition's current stage, bump the requisition to match so
+      // both the Board and List views report the same most-advanced stage.
+      const targetReqStage = APP_TO_REQ_STAGE[input.to];
+      if (cur.requisition_id && targetReqStage) {
+        const [req] = await tx
+          .select({
+            stage: requisition.stage,
+            version: requisition.version,
+            status: requisition.status,
+          })
+          .from(requisition)
+          .where(eq(requisition.id, cur.requisition_id))
+          .limit(1);
+        if (req) {
+          const targetIdx = REQ_STAGE_ORDER.indexOf(
+            targetReqStage as (typeof REQ_STAGE_ORDER)[number],
+          );
+          const curIdx = REQ_STAGE_ORDER.indexOf(req.stage as (typeof REQ_STAGE_ORDER)[number]);
+          if (targetIdx > curIdx && req.status === 'open') {
+            // Version-gated update inside the tx — concurrent hold/close between
+            // assertApplicationRequisitionNotOnHold and withEmit would change the version
+            // or status, making the WHERE miss and returning 0 rows — safe no-op.
+            const updatedReq = await tx
+              .update(requisition)
+              .set({ stage: targetReqStage, version: req.version + 1, updated_at: new Date() })
+              .where(
+                and(
+                  eq(requisition.id, cur.requisition_id),
+                  eq(requisition.version, req.version),
+                  eq(requisition.status, 'open'),
+                ),
+              )
+              .returning({ id: requisition.id });
+            if (updatedReq.length > 0) {
+              await emit({
+                tenantId: session.tenant_id,
+                aggregateType: 'hiring.requisition',
+                aggregateId: cur.requisition_id,
+                eventType: HIRING_REQUISITION_UPDATED,
+                eventVersion: 1,
+                payload: {
+                  requisition_id: cur.requisition_id,
+                  tenant_id: session.tenant_id,
+                  fields: ['stage'],
+                },
+              });
+            }
+          }
+        }
+      }
+
       if (cur.candidate_id) {
         await recordCandidateEvent(tx, {
           session,
@@ -217,6 +281,16 @@ export async function transferApplication(input: {
   // transfers — otherwise candidates pile up on positions nobody is working.
   if (req.status !== 'open')
     throw new HiringError('VALIDATION', 'target requisition is not open for applications');
+  // FUT-765: a headcount-filled requisition keeps status 'open' (hireApplication fills openings
+  // without closing the requisition), so the status check above lets it through. Block the
+  // transfer when no opening remains — the candidate could never be hired into the target.
+  const [targetOpening] = await hiringDb()
+    .select({ id: opening.id })
+    .from(opening)
+    .where(and(eq(opening.requisition_id, target), eq(opening.status, 'open')))
+    .limit(1);
+  if (!targetOpening)
+    throw new HiringError('VALIDATION', 'target requisition headcount is already filled');
 
   const dup = await hiringDb()
     .select({ id: application.id })

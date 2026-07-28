@@ -4,10 +4,19 @@ import {
   KanbanCardShell,
   type KanbanCardShellProps,
   Text,
+  Tooltip,
 } from '@seta/shared-ui';
-import { Star } from 'lucide-react';
-import type { CandidateListItem } from '../api/hiring-client.ts';
+import { Check, Star } from 'lucide-react';
+import type { CandidateListItem, CandidateSkillRow } from '../api/hiring-client.ts';
 import { fitLabel } from './candidate-utils.ts';
+
+// A required skill is "met" when the candidate has that skill at or above its min level — the exact
+// rule computeFit uses for the "n/m skills" count, so the highlighted rows always sum to that n.
+// required_skills carries the requisition's min_level in its `level` field (see read-candidates.ts).
+function skillMet(required: CandidateSkillRow, have: Map<string, number>): boolean {
+  if (!have.has(required.skill_id)) return false;
+  return required.level == null || (have.get(required.skill_id) ?? 0) >= required.level;
+}
 
 function appliedLabel(appliedAt: string): string {
   const rel = formatRelative(appliedAt);
@@ -36,6 +45,11 @@ export function CandidateCard({
 }) {
   // Fit speaks the same language as the detail drawer — "n/m skills", not a percentage.
   const fit = fitLabel(item.fit);
+  // Hovering the fit badge lists the requisition's required skills — same affordance as the
+  // candidate detail drawer, so a recruiter can see what "n/m" is measured against without opening.
+  const fitBadge = <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />;
+  // Which required skills the candidate actually has — drives the hover's matched/unmatched split.
+  const candidateLevels = new Map(item.skills.map((s) => [s.skill_id, s.level ?? 0]));
 
   const header = (
     <div className="min-w-0 flex-1">
@@ -71,7 +85,39 @@ export function CandidateCard({
     >
       {/* Decision-support line: skill fit + rating, together. */}
       <div className="flex items-center gap-2.5">
-        <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
+        {item.required_skills.length > 0 ? (
+          <Tooltip
+            content={
+              <div className="flex flex-col gap-0.5">
+                {item.required_skills.map((s) => {
+                  // A leading check marks the skills the candidate has; unmatched rows reserve the
+                  // same column (hidden check) so names stay aligned. Text stays uniform white so a
+                  // zero-match candidate still lists every skill legibly — the check is the only cue,
+                  // which also means it survives for anyone who can't tell colours apart.
+                  const met = skillMet(s, candidateLevels);
+                  return (
+                    <span key={s.skill_id} className="flex items-center gap-1.5">
+                      <Check
+                        className="size-3 flex-none"
+                        style={met ? undefined : { visibility: 'hidden' }}
+                        aria-hidden
+                      />
+                      <span>
+                        {s.skill_name}
+                        {s.level ? ` · ${s.level}/5` : ''}
+                        {met && <span className="sr-only"> (candidate has this skill)</span>}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            }
+          >
+            {fitBadge}
+          </Tooltip>
+        ) : (
+          fitBadge
+        )}
         <RatingLine value={item.rating} />
       </div>
     </KanbanCardShell>

@@ -11,7 +11,7 @@ import {
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getAllocationGrid } from '../../src/backend/domain/allocation-grid.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, linkUserToPerson, seedTenant } from '../helpers.ts';
 
 /** A pm-capable session for seeding accounts (am ownership) through pm's public surface. */
 function pmManagerSession(tenantId: string) {
@@ -276,6 +276,12 @@ describe('getAllocationGrid', () => {
         const acme = await getAllocationGrid(t.adminSession, { year: 2026, accountId: acmeAcc });
         expect(acme.rows.every((r) => r.account_id === acmeAcc)).toBe(true);
         expect(acme.rows).toHaveLength(1);
+        // Effort-by-account follows the filter so the summary still renders for that account.
+        expect(acme.effort_by_account).toHaveLength(1);
+        expect(acme.effort_by_account[0]!.account_id).toBe(acmeAcc);
+        expect(acme.effort_by_account[0]!.total_mm).toBe(acme.rows[0]!.total_mm);
+        // KPIs stay at full scope when filtered.
+        expect(acme.kpis.member_count).toBe(2);
 
         // project filter narrows to a single project's line.
         const proj = await getAllocationGrid(t.adminSession, {
@@ -300,6 +306,25 @@ describe('getAllocationGrid', () => {
         expect(new Set(all.facets.projects.map((p) => p.id))).toEqual(
           new Set([projAcme, projInternal]),
         );
+        // Unfiltered effort rolls up both accounts; totals match row MM sums.
+        expect(new Set(all.effort_by_account.map((a) => a.account_id))).toEqual(
+          new Set([acmeAcc, internalAcc]),
+        );
+        const expectedMm = (accountId: string) =>
+          Math.round(
+            all.rows.filter((r) => r.account_id === accountId).reduce((s, r) => s + r.total_mm, 0) *
+              100,
+          ) / 100;
+        for (const entry of all.effort_by_account) {
+          expect(entry.total_mm).toBe(expectedMm(entry.account_id));
+        }
+        // Unknown account filter → empty effort summary (empty state on UI).
+        const none = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          accountId: crypto.randomUUID(),
+        });
+        expect(none.rows).toHaveLength(0);
+        expect(none.effort_by_account).toEqual([]);
         // KPIs stay at full scope regardless of the active filter.
         expect(over.kpis.member_count).toBe(2);
       } finally {
@@ -495,6 +520,197 @@ describe('getAllocationGrid', () => {
         });
         const grid = await getAllocationGrid(memberSession, { year: 2026 });
         expect(grid.rows.find((r) => r.worker_id === stranger)).toBeUndefined();
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('AM sees only allocation rows on managed accounts (FUT-342 dual-account leak)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const amUser = crypto.randomUUID();
+        const am = crypto.randomUUID();
+        const worker = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([
+            { id: am, tenant_id: t.tenant_id, full_name: 'Minh AM' },
+            { id: worker, tenant_id: t.tenant_id, full_name: 'Nhat Dual' },
+          ]);
+        await linkUserToPerson(t.tenant_id, am, amUser);
+
+        const { account_id: granted } = await createAccount({
+          name: 'SunWest Bank',
+          am_worker_id: am,
+          session: pmManagerSession(t.tenant_id),
+        });
+        const otherAm = crypto.randomUUID();
+        await peopleDb().insert(person).values({
+          id: otherAm,
+          tenant_id: t.tenant_id,
+          full_name: 'Other AM',
+        });
+        const { account_id: foreign } = await createAccount({
+          name: 'Gridbeyond',
+          am_worker_id: otherAm,
+          session: pmManagerSession(t.tenant_id),
+        });
+
+        const projGranted = crypto.randomUUID();
+        const projForeign = crypto.randomUUID();
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projGranted,
+              account_id: granted,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projForeign,
+              account_id: foreign,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const amSession = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: amUser,
+          roles: ['people.viewer'],
+          person_id: am,
+        });
+        const grid = await getAllocationGrid(amSession, { year: 2026 });
+        expect(grid.rows.every((r) => r.account_id === granted)).toBe(true);
+        expect(grid.rows).toHaveLength(1);
+        expect(grid.rows[0]!.worker_id).toBe(worker);
+        // KPIs stay within the managed-account slice (not both accounts' projects).
+        expect(grid.kpis.project_count).toBe(1);
+        expect(grid.kpis.member_count).toBe(1);
+
+        // Cross project: same people only, but all of their allocation rows.
+        const cross = await getAllocationGrid(amSession, { year: 2026, crossProject: true });
+        expect(cross.rows).toHaveLength(2);
+        expect(cross.rows.every((r) => r.worker_id === worker)).toBe(true);
+        expect(new Set(cross.rows.map((r) => r.account_id))).toEqual(new Set([granted, foreign]));
+        expect(cross.kpis.project_count).toBe(2);
+
+        // Out-of-scope people on foreign accounts stay hidden even with crossProject.
+        const stranger = crypto.randomUUID();
+        await peopleDb().insert(person).values({
+          id: stranger,
+          tenant_id: t.tenant_id,
+          full_name: 'Stranger Only Foreign',
+        });
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: stranger,
+          project_id: crypto.randomUUID(),
+          account_id: foreign,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          planned_pct: '100',
+          bucket: 'billable',
+          active: true,
+        });
+        const cross2 = await getAllocationGrid(amSession, { year: 2026, crossProject: true });
+        expect(cross2.rows.find((r) => r.worker_id === stranger)).toBeUndefined();
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('project lead sees only rows on projects they lead (FUT-343)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const leadUser = crypto.randomUUID();
+        const lead = crypto.randomUUID();
+        const worker = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([
+            { id: lead, tenant_id: t.tenant_id, full_name: 'Duy Lead' },
+            { id: worker, tenant_id: t.tenant_id, full_name: 'Member Dual' },
+          ]);
+        await linkUserToPerson(t.tenant_id, lead, leadUser);
+
+        const accA = crypto.randomUUID();
+        const accB = crypto.randomUUID();
+        const projLed = crypto.randomUUID();
+        const projOther = crypto.randomUUID();
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projLed,
+              account_id: accA,
+              lead_person_id: lead,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '70',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: worker,
+              project_id: projOther,
+              account_id: accB,
+              lead_person_id: null,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const leadSession = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: leadUser,
+          roles: ['people.viewer'],
+          person_id: lead,
+        });
+        const grid = await getAllocationGrid(leadSession, { year: 2026 });
+        expect(grid.rows).toHaveLength(1);
+        expect(grid.rows[0]!.project_id).toBe(projLed);
+        expect(grid.kpis.project_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();

@@ -11,16 +11,29 @@ import {
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchTalentPool } from '../api/hiring-client.ts';
+import { fetchTalentPool, type TalentPoolRow } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+
+// Why the candidate leaves the active pipeline — appended after seniority in the meta line.
+function statusSuffix(c: TalentPoolRow): string {
+  if (c.segment === 'alumni') return ' · alumni';
+  if (c.last_status === 'transferred') return ' · transferred';
+  if (c.last_status === 'rejected') return ' · rejected';
+  if (c.last_status === 'cancelled') return ' · cancelled';
+  return ' · past candidate';
+}
 
 export function TalentPoolCard({
   onOpenCandidate,
+  layout = 'board',
   q = '',
   reqFilter = '',
   seniorityFilter = '',
 }: {
   onOpenCandidate: (id: string) => void;
+  /** Match the surrounding candidates view: 'board' keeps the card grid, 'list' renders full-width
+   * rows so the pool reads like the list table above it instead of staying card-shaped. */
+  layout?: 'board' | 'list';
   /** Active board filters — the pool honours the ones it has data for (name search, seniority,
    * and requisition via its recommended roles). Source isn't stored on pool rows, so it's not
    * applied here. */
@@ -81,6 +94,39 @@ export function TalentPoolCard({
                 ? 'No talent-pool candidates match your filters.'
                 : 'No past candidates to re-match yet.'}
             </Text>
+          ) : layout === 'list' ? (
+            // List view: full-width rows (avatar + identity on the left, recommended roles on the
+            // right) so the pool reads like the candidates list table above it, not a card grid.
+            <div className="space-y-2">
+              {filtered.map((c) => (
+                <button
+                  key={c.candidate_id}
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-border-emphasized"
+                  onClick={() => onOpenCandidate(c.candidate_id)}
+                >
+                  <Avatar name={c.name} size={32} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-primary">{c.name}</span>
+                    <span className="block truncate text-sm text-secondary">
+                      {c.seniority ?? '—'}
+                      {statusSuffix(c)}
+                    </span>
+                  </span>
+                  {c.recommended.length > 0 ? (
+                    <span className="flex flex-[2] flex-wrap justify-end gap-1">
+                      {c.recommended.map((r) => (
+                        <Badge key={r.requisition_id} variant="neutral" label={r.title} />
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="flex-none text-sm text-secondary">
+                      No matching open role right now
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((c) => (
@@ -96,15 +142,7 @@ export function TalentPoolCard({
                       <span className="block truncate font-medium text-primary">{c.name}</span>
                       <span className="block truncate text-sm text-secondary">
                         {c.seniority ?? '—'}
-                        {c.segment === 'alumni'
-                          ? ' · alumni'
-                          : c.last_status === 'transferred'
-                            ? ' · transferred'
-                            : c.last_status === 'rejected'
-                              ? ' · rejected'
-                              : c.last_status === 'cancelled'
-                                ? ' · cancelled'
-                                : ' · past candidate'}
+                        {statusSuffix(c)}
                       </span>
                     </span>
                   </span>

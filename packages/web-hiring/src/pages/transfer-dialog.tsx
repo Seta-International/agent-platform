@@ -39,7 +39,11 @@ export function TransferDialog({
   });
   // FUT-559: only actively-hiring roles receive transfers — on-hold (and closed) requisitions
   // are excluded here, and the backend rejects them too.
-  const targets = (reqs ?? []).filter((r) => r.status === 'open' && r.id !== currentRequisitionId);
+  // FUT-765: also exclude roles whose headcount is filled (no open openings left) — they keep
+  // status 'open' but can't accept a hire, so they must not appear as a transfer target.
+  const targets = (reqs ?? []).filter(
+    (r) => r.status === 'open' && r.openings_open > 0 && r.id !== currentRequisitionId,
+  );
   const effectiveTarget = targetId || targets[0]?.id || '';
 
   const mutation = useMutation({
@@ -67,7 +71,7 @@ export function TransferDialog({
   return (
     <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="form">
       <Layout
-        header={<DialogHeader title="Move to another role" onOpenChange={onOpenChange} />}
+        header={<DialogHeader title="Change role" onOpenChange={onOpenChange} />}
         content={
           <LayoutContent>
             <div className="space-y-3">
