@@ -102,6 +102,59 @@ describe('CancelRequisitionDialog', () => {
     expect(createCloseReason).not.toHaveBeenCalled();
   });
 
+  // FUT-770: Offer is a late, sensitive stage. When the requisition still has candidates in
+  // Offer, the dialog must warn that cancelling closes their active offers — not just that the
+  // requisition can't be reopened.
+  it('warns that candidates in Offer will be cancelled, with a count', () => {
+    render(
+      <CancelRequisitionDialog
+        requisitionId="req1"
+        version={1}
+        offerCount={2}
+        open
+        onOpenChange={() => {}}
+        onDone={vi.fn()}
+      />,
+      { wrapper: wrap(newClient()) },
+    );
+    const dialog = screen.getByRole('alertdialog');
+    expect(
+      within(dialog).getByText(/2 candidates in Offer will be cancelled/i),
+    ).toBeInTheDocument();
+  });
+
+  it('uses the singular for a single candidate in Offer', () => {
+    render(
+      <CancelRequisitionDialog
+        requisitionId="req1"
+        version={1}
+        offerCount={1}
+        open
+        onOpenChange={() => {}}
+        onDone={vi.fn()}
+      />,
+      { wrapper: wrap(newClient()) },
+    );
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/1 candidate in Offer will be cancelled/i)).toBeInTheDocument();
+  });
+
+  it('shows no Offer warning when nobody is in Offer', () => {
+    render(
+      <CancelRequisitionDialog
+        requisitionId="req1"
+        version={1}
+        offerCount={0}
+        open
+        onOpenChange={() => {}}
+        onDone={vi.fn()}
+      />,
+      { wrapper: wrap(newClient()) },
+    );
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).queryByText(/in Offer will be cancelled/i)).not.toBeInTheDocument();
+  });
+
   it('keeps Cancel disabled until a reason is typed', async () => {
     render(
       <CancelRequisitionDialog
