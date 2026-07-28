@@ -32,7 +32,6 @@ import { type CSSProperties, useId, useRef, useState } from 'react';
 import {
   type ApplicantRow,
   addOpening,
-  applyInternalRequisition,
   closeOpening,
   editRequisition,
   fetchAccounts,
@@ -217,17 +216,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const canClose = usePermission('hiring.requisition.close');
   const { data, isLoading, error } = useRequisition(requisitionId);
   const jdVariant: JdVariant = data ? pickJdVariant(data.jd_sections) : 'external';
-
-  const apply = useMutation({
-    mutationFn: () => applyInternalRequisition(requisitionId),
-    onSuccess: () => {
-      toast({ body: 'Application submitted successfully' });
-      void queryClient.invalidateQueries({ queryKey: hiringKeys.all });
-    },
-    onError: (err: Error) => {
-      toast({ body: err.message });
-    },
-  });
 
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'candidates' | 'jd'>('candidates');
@@ -1122,38 +1110,30 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         {data.has_applied ? (
           <Button size="sm" variant="secondary" label="Applied" isDisabled />
         ) : (
-          <DisabledActionTooltip
-            disabled={isTerminal || isOnHold || isFullyStaffed}
-            reason={
-              isTerminal ? terminalReason : isFullyStaffed ? fullyStaffedReason : onHoldReason
-            }
-          >
-            <Button
-              size="sm"
-              variant="primary"
-              label={apply.isPending ? 'Applying…' : 'Apply'}
-              isDisabled={isTerminal || isOnHold || isFullyStaffed || apply.isPending}
-              onClick={() => apply.mutate()}
-            />
+          // Applying is not wired up yet — keep the button visible but always disabled, and explain
+          // on hover/focus that it's on the way.
+          <DisabledActionTooltip disabled reason="Coming soon">
+            <Button size="sm" variant="primary" label="Apply" isDisabled />
           </DisabledActionTooltip>
         )}
+        {/* Mark filled is the one lifecycle action that stays live when fully staffed: a req with
+            every opening filled is exactly when the recruiter wants to close it out. The other
+            actions (cancel, pause/resume, edit, apply) remain frozen by isFullyStaffed. */}
         <DisabledActionTooltip
-          disabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+          disabled={isTerminal || !canClose || isOnHold}
           reason={
             isTerminal
               ? terminalReason
               : !canClose
                 ? PERMISSION_DENIED.requisition.manage
-                : isFullyStaffed
-                  ? fullyStaffedReason
-                  : onHoldReason
+                : onHoldReason
           }
         >
           <Button
             size="sm"
             variant="secondary"
             label="Mark filled"
-            isDisabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+            isDisabled={isTerminal || !canClose || isOnHold}
             onClick={() => setShowFillConfirm(true)}
           />
         </DisabledActionTooltip>

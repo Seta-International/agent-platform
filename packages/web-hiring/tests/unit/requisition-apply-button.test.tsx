@@ -70,7 +70,7 @@ function wrap(qc: QueryClient) {
 }
 
 describe('RequisitionDetailView Apply button (FUT-650)', () => {
-  it('renders Apply button when user has not applied and triggers mutation on click', async () => {
+  it('renders Apply always disabled with a "Coming soon" tooltip and never applies', async () => {
     currentDetail = DETAIL_NOT_APPLIED;
     applyInternalRequisitionMock.mockClear();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -81,12 +81,15 @@ describe('RequisitionDetailView Apply button (FUT-650)', () => {
 
     const applyBtn = await screen.findByRole('button', { name: 'Apply' });
     expect(applyBtn).toBeInTheDocument();
-    expect(applyBtn).not.toBeDisabled();
+    expect(applyBtn).toBeDisabled();
 
+    // The disabled reason is reachable on hover/focus via the wrapping tooltip.
+    await userEvent.hover(applyBtn);
+    expect(await screen.findByText('Coming soon')).toBeInTheDocument();
+
+    // Applying is not wired up — the disabled control must never fire the mutation.
     await userEvent.click(applyBtn);
-
-    expect(applyInternalRequisitionMock).toHaveBeenCalledTimes(1);
-    expect(applyInternalRequisitionMock).toHaveBeenCalledWith('r1', undefined);
+    expect(applyInternalRequisitionMock).not.toHaveBeenCalled();
   });
 
   it('renders disabled Applied button when has_applied is true', async () => {
