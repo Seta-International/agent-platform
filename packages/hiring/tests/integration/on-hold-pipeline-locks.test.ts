@@ -22,7 +22,7 @@ const ctx = {
 };
 
 describe('on-hold requisitions freeze their pipeline (FUT-559)', () => {
-  it('blocks every application mutation while held, and transfers never target a held role', async () => {
+  it('blocks in-pipeline mutations while held, and transfers never target a held role', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
@@ -57,7 +57,7 @@ describe('on-hold requisitions freeze their pipeline (FUT-559)', () => {
           session,
         });
 
-        // Everything on the held requisition's pipeline is frozen.
+        // Progression within the held requisition's pipeline is frozen.
         await expect(
           moveApplicationStage({ application_id, expected_version: 1, to: 'screening', session }),
         ).rejects.toThrow(/on hold/i);
@@ -72,14 +72,6 @@ describe('on-hold requisitions freeze their pipeline (FUT-559)', () => {
             application_id,
             expected_version: 1,
             input: { reason: 'Not a fit', reason_id: crypto.randomUUID(), tags: [] },
-            session,
-          }),
-        ).rejects.toThrow(/on hold/i);
-        await expect(
-          transferApplication({
-            application_id,
-            expected_version: 1,
-            input: { target_requisition_id: other.requisition_id },
             session,
           }),
         ).rejects.toThrow(/on hold/i);
@@ -107,6 +99,50 @@ describe('on-hold requisitions freeze their pipeline (FUT-559)', () => {
           session,
         });
         expect(moved.version).toBe(2);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-773: moves a candidate out of a held requisition to an open one', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const session = t.adminSession;
+        // Source requisition must be open to receive the candidate, then it goes on hold.
+        const source = await openRequisition({
+          title: 'Paused role',
+          kind: 'new',
+          headcount: 1,
+          session,
+        });
+        const target = await openRequisition({
+          title: 'Active role',
+          kind: 'new',
+          headcount: 1,
+          session,
+        });
+        const { application_id } = await addCandidate({
+          requisition_id: source.requisition_id,
+          name: 'Movable Mia',
+          session,
+        });
+        await holdRequisition({ requisition_id: source.requisition_id, session });
+
+        // The candidate can still be moved out of the held role to an open one.
+        const res = await transferApplication({
+          application_id,
+          expected_version: 1,
+          input: { target_requisition_id: target.requisition_id },
+          session,
+        });
+        expect(res.to_application_id).toBeTruthy();
       } finally {
         resetHiringDb();
         resetCoreDb();
