@@ -376,6 +376,12 @@ export async function listTalentPool(session: SessionScope): Promise<TalentPoolR
   const active = new Set(
     apps.filter((a) => a.status === 'active').map((a) => a.candidate_id as string),
   );
+  // A hired candidate has become an employee — they are no longer available talent, so they
+  // must not surface in the pool (FUT-772). Alumni are the deliberate exception below: a former
+  // employee who has left is re-hireable and stays in the pool.
+  const hired = new Set(
+    apps.filter((a) => a.status === 'hired').map((a) => a.candidate_id as string),
+  );
 
   // latest application status per candidate — labels the pool card (rejected / transferred / alumni)
   const lastStatus = new Map<string, string>();
@@ -402,7 +408,9 @@ export async function listTalentPool(session: SessionScope): Promise<TalentPoolR
     .from(candidate)
     .where(and(...candConds));
 
-  const pool = cands.filter((c) => !active.has(c.id) || c.segment === 'alumni');
+  const pool = cands.filter(
+    (c) => c.segment === 'alumni' || (!active.has(c.id) && !hired.has(c.id)),
+  );
   if (pool.length === 0) return [];
 
   const requisitionScope = await buildRequisitionScope(session);
