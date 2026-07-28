@@ -16,7 +16,7 @@ const fetchOpenRequisitions = vi.fn();
 const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
-  fetchOpenRequisitions: () => fetchOpenRequisitions(),
+  fetchOpenRequisitions: (opts?: { includeCancelled?: boolean }) => fetchOpenRequisitions(opts),
   fetchRequisitions: () => fetchRequisitions(),
   fetchAccounts: () => Promise.resolve([]),
   fetchProjects: () => Promise.resolve([]),
@@ -147,6 +147,31 @@ describe('RequisitionsPage', () => {
     await user.click(await screen.findByRole('option', { name: 'Filled' }));
 
     await waitFor(() => expect(totalValue()).toHaveTextContent('1'));
+  });
+
+  // FUT-771: the board hides cancelled reqs by default, but its status filter still offers
+  // "Cancelled". Selecting it must refetch the board with includeCancelled and surface them —
+  // otherwise the filter matches an in-memory list that never contains a cancelled row.
+  it('surfaces cancelled requisitions on the board when the Cancelled filter is selected', async () => {
+    fetchOpenRequisitions.mockImplementation((opts?: { includeCancelled?: boolean }) =>
+      Promise.resolve(
+        board(
+          opts?.includeCancelled
+            ? [row({ id: 'c1', title: 'Abandoned Role', status: 'cancelled' })]
+            : [row({ id: 'r1', title: 'Open A', status: 'open' })],
+        ),
+      ),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    render(<RequisitionsPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Open A')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }));
+    await user.click(await screen.findByRole('option', { name: 'Cancelled' }));
+
+    await waitFor(() => expect(screen.getByText('Abandoned Role')).toBeInTheDocument());
+    expect(fetchOpenRequisitions).toHaveBeenCalledWith({ includeCancelled: true });
   });
 
   it('clicking "Sort by Position" reorders the rows', async () => {

@@ -116,9 +116,13 @@ export function RequisitionsPage() {
   const [pageSize, setPageSize] = useState(25);
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_REQ_COLUMN_KEYS);
 
+  // FUT-771: the board hides cancelled reqs by default, but the status filter still offers
+  // "Cancelled". Selecting it widens the board fetch to include them (keyed separately so the
+  // default board stays cached); the client-side filter below then narrows to just cancelled.
+  const boardIncludesCancelled = statusFilter === 'cancelled';
   const boardQuery = useQuery<OpenRequisitionsBoard>({
-    queryKey: hiringKeys.requisitions(),
-    queryFn: fetchOpenRequisitions,
+    queryKey: hiringKeys.requisitions(boardIncludesCancelled),
+    queryFn: () => fetchOpenRequisitions({ includeCancelled: boardIncludesCancelled }),
     enabled: view === 'board',
   });
   // List view loads ALL requisitions including filled/cancelled (AC3: FUT-325) so the table

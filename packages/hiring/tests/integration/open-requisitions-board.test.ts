@@ -109,6 +109,14 @@ describe('open requisitions board (FUT-326)', () => {
         const ids = (await listOpenRequisitions(pmo)).requisitions.map((r) => r.id);
         expect(ids).toContain(onHold);
         expect(ids).not.toContain(cancelled);
+
+        // FUT-771: the board excludes cancelled by default, but the Cancelled status filter
+        // opts them back in — otherwise selecting Cancelled on the board returns nothing.
+        const withCancelled = (
+          await listOpenRequisitions(pmo, { includeCancelled: true })
+        ).requisitions.map((r) => r.id);
+        expect(withCancelled).toContain(onHold);
+        expect(withCancelled).toContain(cancelled);
       } finally {
         resetHiringDb();
         resetCoreDb();

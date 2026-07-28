@@ -213,8 +213,13 @@ export interface OpenRequisitionsBoard {
   scoped_project_names: string[];
   requisitions: RequisitionListRow[];
 }
-export async function fetchOpenRequisitions(): Promise<OpenRequisitionsBoard> {
-  const res = await fetch('/api/hiring/v1/requisitions/board', { credentials: 'include' });
+// FUT-771: the board hides cancelled reqs by default; pass includeCancelled so the Cancelled
+// status filter can surface them (the client then narrows the widened set down to cancelled).
+export async function fetchOpenRequisitions(
+  options: { includeCancelled?: boolean } = {},
+): Promise<OpenRequisitionsBoard> {
+  const query = options.includeCancelled ? '?include_cancelled=true' : '';
+  const res = await fetch(`/api/hiring/v1/requisitions/board${query}`, { credentials: 'include' });
   return handleResponse<OpenRequisitionsBoard>(res);
 }
 // Backing data for the New Requisition account/project pickers.
