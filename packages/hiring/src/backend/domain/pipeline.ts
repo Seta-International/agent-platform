@@ -269,7 +269,10 @@ export async function transferApplication(input: {
     throw new HiringError('CONFLICT', 'version mismatch');
   if (cur.status !== 'active')
     throw new HiringError('CONFLICT', `cannot transfer a ${cur.status} application`);
-  await assertApplicationRequisitionNotOnHold(application_id, session);
+  // FUT-773: on-hold freezes progression *within* the source requisition (stage moves, rating,
+  // hire, reject) but must NOT block moving the candidate *out* to another role — that is exactly
+  // how a recruiter keeps a candidate progressing while the original role is paused. The
+  // target-is-open check below still prevents transfers *into* a held requisition.
 
   const [req] = await hiringDb()
     .select({ id: requisition.id, status: requisition.status })

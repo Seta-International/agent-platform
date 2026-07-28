@@ -30,8 +30,10 @@ import { buildRequisitionScope } from './scope.ts';
 type Tx = Parameters<Parameters<typeof withEmit>[1]>[0];
 
 /**
- * FUT-559: an on-hold requisition freezes its whole pipeline — no stage moves, rating,
- * hire, reject, or transfer until it is resumed. Shared by every application mutation.
+ * FUT-559: an on-hold requisition freezes progression within its pipeline — no stage moves,
+ * rating, hire, or reject until it is resumed. Shared by those application mutations.
+ * FUT-773: transferring a candidate *out* to another role is deliberately exempt — a paused role
+ * must not trap its candidates — so `transferApplication` does not call this.
  */
 export async function assertApplicationRequisitionNotOnHold(
   application_id: string,

@@ -243,8 +243,10 @@ export function CandidateDetailDrawer({
       onClose();
     },
   });
-  // FUT-559 on-hold lock: while the requisition is paused, its candidates can't be moved or
-  // hired — resume the requisition first. (Terminal applications are already locked above.)
+  // FUT-559 on-hold lock: while the requisition is paused, its candidates can't advance, be rated,
+  // hired, or rejected — resume the requisition first. FUT-773: moving a candidate *out* to another
+  // role stays allowed (a paused role must not trap its candidates), so `reqOnHold` gates advance/
+  // reject but not Change role. (Terminal applications are already locked above.)
   const reqOnHold = !terminal && app?.requisition_status === 'on_hold';
   // FUT-569: an active application on a fully-staffed requisition can't advance or be rejected —
   // there's no opening left to move it into. "Fully staffed" is either the requisition marked
@@ -326,7 +328,7 @@ export function CandidateDetailDrawer({
                 <Banner
                   className="mb-4"
                   status="warning"
-                  title="Requisition on hold — resume it from the board to move this candidate."
+                  title="Requisition on hold — advancing and rejecting are paused until it's resumed. You can still move this candidate to another role."
                 />
               )}
               {reqFilled && !reqOnHold && (
@@ -551,23 +553,17 @@ export function CandidateDetailDrawer({
             // continuity, but every action is locked — the outcome is already settled.
             <DialogFooter
               startContent={
-                // Every decision action requires an open, staffable requisition: a transfer is only
-                // valid while the current role is still open — an on-hold or fully-staffed requisition
-                // locks it just like advance/reject (and a terminal application locks everything).
+                // FUT-773: Change role stays available while the source requisition is on hold — a
+                // transfer moves the candidate *out* to another open role, so pausing the current one
+                // must not block it. A fully-staffed source keeps its existing lock, and a terminal
+                // application locks everything.
                 canTransfer ? (
-                  <DisabledActionTooltip
-                    disabled={reqOnHold || reqFilled}
-                    reason={
-                      reqOnHold
-                        ? 'Requisition on hold — resume it from the board to move this candidate to another role.'
-                        : filledReason
-                    }
-                  >
+                  <DisabledActionTooltip disabled={reqFilled} reason={filledReason}>
                     <Button
                       variant="secondary"
                       size="sm"
                       label="Change role"
-                      isDisabled={terminal || reqOnHold || reqFilled}
+                      isDisabled={terminal || reqFilled}
                       onClick={() => setTransferOpen(true)}
                     />
                   </DisabledActionTooltip>
