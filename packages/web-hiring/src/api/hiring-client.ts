@@ -78,6 +78,9 @@ export interface RequisitionListRow {
   applicants_count: number;
   applicants_internal: number;
   applicants_external: number;
+  // Hired applicants are terminal, so they're excluded from the active `applicants` array/counts
+  // above; the backend counts them separately for the list's pipeline cell.
+  hired_count: number;
   applicants: RequisitionApplicantSummary[];
   version: number;
 }
