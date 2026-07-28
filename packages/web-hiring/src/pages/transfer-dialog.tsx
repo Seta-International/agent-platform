@@ -71,7 +71,7 @@ export function TransferDialog({
   return (
     <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="form">
       <Layout
-        header={<DialogHeader title="Move to another role" onOpenChange={onOpenChange} />}
+        header={<DialogHeader title="Change role" onOpenChange={onOpenChange} />}
         content={
           <LayoutContent>
             <div className="space-y-3">
