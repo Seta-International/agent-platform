@@ -16,6 +16,7 @@ import { hiringDb } from '../db/client.ts';
 import { application, candidate, opening, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { assertApplicationRequisitionNotOnHold, recordCandidateEvent } from './candidates.ts';
+import { settleRequisitionAsClosed } from './requisition-lifecycle.ts';
 
 const REQ_STAGE_ORDER = ['sourcing', 'screening', 'interview', 'offer'] as const;
 type ReqStage = (typeof REQ_STAGE_ORDER)[number];
@@ -571,6 +572,38 @@ export async function hireApplication(input: {
           from_stage: appRow.stage,
         },
       });
+
+      // FUT-769: this hire just filled an opening — if it was the requisition's last open one, the
+      // requisition is now fully staffed, so auto-close it as `filled`. Same settlement as pressing
+      // "Mark filled": flip status, close the remaining pipeline, free the other candidates, and
+      // emit the requisition-closed event. No separate close permission is required — auto-fill is a
+      // system consequence of an already-authorized hire. If other openings remain open, we leave
+      // the requisition open and hiring continues.
+      const remainingOpen = await tx
+        .select({ id: opening.id })
+        .from(opening)
+        .where(and(eq(opening.requisition_id, appRow.requisition_id), eq(opening.status, 'open')))
+        .limit(1);
+      if (remainingOpen.length === 0) {
+        const [reqVersionRow] = await tx
+          .select({ version: requisition.version })
+          .from(requisition)
+          .where(
+            and(
+              eq(requisition.id, appRow.requisition_id),
+              tenantScoped(requisition.tenant_id, session),
+            ),
+          )
+          .limit(1);
+        if (reqVersionRow) {
+          await settleRequisitionAsClosed(tx, {
+            session,
+            requisition_id: appRow.requisition_id,
+            currentVersion: reqVersionRow.version,
+            status: 'filled',
+          });
+        }
+      }
     },
   );
 

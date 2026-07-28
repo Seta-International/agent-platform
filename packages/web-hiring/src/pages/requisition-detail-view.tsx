@@ -532,11 +532,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // target, and a filled one is progress. (See the edit form for the grow/shrink mechanics.)
   const openingsTotal = data.openings.filter((o) => o.status !== 'cancelled').length;
   const openingsFilled = data.openings.filter((o) => o.status === 'filled').length;
-  // FUT-569: a requisition whose openings are all filled is fully staffed — freeze every
-  // lifecycle action (cancel, pause/resume, mark-filled, edit, apply) even while its status is
-  // still `open`. Status `filled` is already terminal above (the footer collapses to no actions),
-  // so this guard covers the open-but-complete case (e.g. 1/1 filled, status Open). The
-  // `openingsTotal > 0` check keeps a requisition with zero live openings from reading as staffed.
+  // FUT-569: a requisition whose openings are all filled is fully staffed — freeze the lifecycle
+  // actions that would keep it running (cancel, pause/resume, edit, apply) even while its status is
+  // still `open`. Mark filled is the deliberate exception: it stays live so the recruiter can close
+  // out a fully-staffed req in one click (see the footer). Status `filled` is already terminal above
+  // (the footer collapses to no actions), so this guard covers the open-but-complete case (e.g. 1/1
+  // filled, status Open). The `openingsTotal > 0` check keeps a requisition with zero live openings
+  // from reading as staffed.
   const isFullyStaffed = openingsTotal > 0 && openingsFilled >= openingsTotal;
   // A filled requisition is a closed, fully-resolved position, so its Headcount reads complete
   // (A/A) regardless of how many openings an actual hire filled — the banner below carries the

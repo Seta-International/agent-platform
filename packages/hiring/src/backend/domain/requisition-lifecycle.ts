@@ -19,6 +19,123 @@ import { HiringError, requirePermission } from '../rbac.ts';
 import { recordCandidateEvent } from './candidates.ts';
 
 type RequisitionStatus = (typeof REQUISITION_STATUS)[number];
+type Tx = Parameters<Parameters<typeof withEmit>[1]>[0];
+
+/**
+ * Settle a requisition as closed (`filled` or `cancelled`) within an existing transaction: flip its
+ * status, close its remaining open openings, terminally close every still-active application, and
+ * emit the requisition-closed + application-cancelled events. Permission-free by design — callers
+ * own their authorization (`closeRequisition` checks `hiring.requisition.close`; the auto-fill path
+ * in `hireApplication` is a system consequence of an already-authorized hire). Shared so pressing
+ * "Mark filled" and auto-filling the last opening produce identical state and events.
+ */
+export async function settleRequisitionAsClosed(
+  tx: Tx,
+  params: {
+    session: SessionScope;
+    requisition_id: string;
+    currentVersion: number;
+    status: 'filled' | 'cancelled';
+    close_reason_id?: string;
+  },
+): Promise<{ version: number }> {
+  const { session, requisition_id, currentVersion, status, close_reason_id } = params;
+  const next = currentVersion + 1;
+  const updated = await tx
+    .update(requisition)
+    .set({
+      status,
+      close_reason_id,
+      closed_at: new Date(),
+      version: next,
+      updated_at: new Date(),
+    })
+    .where(
+      and(
+        eq(requisition.id, requisition_id),
+        eq(requisition.version, currentVersion),
+        inArray(requisition.status, ['open', 'on_hold']),
+      ),
+    )
+    .returning({ id: requisition.id });
+  if (updated.length === 0)
+    throw new HiringError('CONFLICT', 'requisition was modified concurrently');
+  // Closing a requisition (filled OR cancelled) ends its pipeline: any remaining open
+  // openings and every still-active application are terminally closed — hired ones are
+  // history and stay hired. Without this, filling a requisition left its other candidates
+  // "active" on a board-hidden role (they showed up applying for a role that's gone). The
+  // freed candidates surface in the talent pool for re-matching instead of lingering.
+  // Cancelled marks the openings cancelled; filled marks them closed (demand met elsewhere).
+  await tx
+    .update(opening)
+    .set({
+      status: status === 'cancelled' ? 'cancelled' : 'closed',
+      closed_at: new Date(),
+      updated_at: new Date(),
+    })
+    .where(and(eq(opening.requisition_id, requisition_id), eq(opening.status, 'open')));
+
+  // The application status enum has no dedicated "not selected" value, so both outcomes
+  // land on 'cancelled' (closed without a hire); the recorded reason keeps them distinct.
+  const closeSummary =
+    status === 'cancelled'
+      ? 'Requisition cancelled — application closed'
+      : 'Position filled — application closed';
+  const activeApps = await tx
+    .update(application)
+    .set({
+      status: 'cancelled',
+      closed_at: new Date(),
+      version: sql`${application.version} + 1`,
+      updated_at: new Date(),
+    })
+    .where(
+      and(
+        eq(application.requisition_id, requisition_id),
+        eq(application.status, 'active'),
+        tenantScoped(application.tenant_id, session),
+      ),
+    )
+    .returning({
+      id: application.id,
+      candidate_id: application.candidate_id,
+      stage: application.stage,
+    });
+  for (const app of activeApps) {
+    if (app.candidate_id) {
+      await recordCandidateEvent(tx, {
+        session,
+        candidate_id: app.candidate_id,
+        application_id: app.id,
+        kind: 'cancelled',
+        summary: closeSummary,
+        detail: { requisition_id, from_stage: app.stage, requisition_status: status },
+      });
+    }
+    await emit({
+      tenantId: session.tenant_id,
+      aggregateType: 'hiring.application',
+      aggregateId: app.id,
+      eventType: HIRING_APPLICATION_CANCELLED,
+      eventVersion: 1,
+      payload: {
+        application_id: app.id,
+        tenant_id: session.tenant_id,
+        requisition_id,
+        from_stage: app.stage,
+      },
+    });
+  }
+  await emit({
+    tenantId: session.tenant_id,
+    aggregateType: 'hiring.requisition',
+    aggregateId: requisition_id,
+    eventType: HIRING_REQUISITION_CLOSED,
+    eventVersion: 1,
+    payload: { requisition_id, tenant_id: session.tenant_id, status, close_reason_id },
+  });
+  return { version: next };
+}
 
 async function load(requisition_id: string, expected: number | undefined, session: SessionScope) {
   const [r] = await hiringDb()
@@ -132,104 +249,18 @@ export async function closeRequisition(input: {
     if (!reasonRow) throw new HiringError('VALIDATION', 'unknown close reason');
     close_reason_id = input.close_reason_id;
   }
-  const next = cur.version + 1;
+  let result!: { version: number };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      const updated = await tx
-        .update(requisition)
-        .set({
-          status,
-          close_reason_id,
-          closed_at: new Date(),
-          version: next,
-          updated_at: new Date(),
-        })
-        .where(
-          and(
-            eq(requisition.id, requisition_id),
-            eq(requisition.version, cur.version),
-            inArray(requisition.status, ['open', 'on_hold']),
-          ),
-        )
-        .returning({ id: requisition.id });
-      if (updated.length === 0)
-        throw new HiringError('CONFLICT', 'requisition was modified concurrently');
-      // Closing a requisition (filled OR cancelled) ends its pipeline: any remaining open
-      // openings and every still-active application are terminally closed — hired ones are
-      // history and stay hired. Without this, filling a requisition left its other candidates
-      // "active" on a board-hidden role (they showed up applying for a role that's gone). The
-      // freed candidates surface in the talent pool for re-matching instead of lingering.
-      // Cancelled marks the openings cancelled; filled marks them closed (demand met elsewhere).
-      await tx
-        .update(opening)
-        .set({
-          status: status === 'cancelled' ? 'cancelled' : 'closed',
-          closed_at: new Date(),
-          updated_at: new Date(),
-        })
-        .where(and(eq(opening.requisition_id, requisition_id), eq(opening.status, 'open')));
-
-      // The application status enum has no dedicated "not selected" value, so both outcomes
-      // land on 'cancelled' (closed without a hire); the recorded reason keeps them distinct.
-      const closeSummary =
-        status === 'cancelled'
-          ? 'Requisition cancelled — application closed'
-          : 'Position filled — application closed';
-      const activeApps = await tx
-        .update(application)
-        .set({
-          status: 'cancelled',
-          closed_at: new Date(),
-          version: sql`${application.version} + 1`,
-          updated_at: new Date(),
-        })
-        .where(
-          and(
-            eq(application.requisition_id, requisition_id),
-            eq(application.status, 'active'),
-            tenantScoped(application.tenant_id, session),
-          ),
-        )
-        .returning({
-          id: application.id,
-          candidate_id: application.candidate_id,
-          stage: application.stage,
-        });
-      for (const app of activeApps) {
-        if (app.candidate_id) {
-          await recordCandidateEvent(tx, {
-            session,
-            candidate_id: app.candidate_id,
-            application_id: app.id,
-            kind: 'cancelled',
-            summary: closeSummary,
-            detail: { requisition_id, from_stage: app.stage, requisition_status: status },
-          });
-        }
-        await emit({
-          tenantId: session.tenant_id,
-          aggregateType: 'hiring.application',
-          aggregateId: app.id,
-          eventType: HIRING_APPLICATION_CANCELLED,
-          eventVersion: 1,
-          payload: {
-            application_id: app.id,
-            tenant_id: session.tenant_id,
-            requisition_id,
-            from_stage: app.stage,
-          },
-        });
-      }
-      await emit({
-        tenantId: session.tenant_id,
-        aggregateType: 'hiring.requisition',
-        aggregateId: requisition_id,
-        eventType: HIRING_REQUISITION_CLOSED,
-        eventVersion: 1,
-        payload: { requisition_id, tenant_id: session.tenant_id, status, close_reason_id },
+      result = await settleRequisitionAsClosed(tx, {
+        session,
+        requisition_id,
+        currentVersion: cur.version,
+        status,
+        close_reason_id,
       });
     },
   );
-  return { version: next };
+  return result;
 }

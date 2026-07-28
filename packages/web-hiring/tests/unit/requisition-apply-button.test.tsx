@@ -45,6 +45,24 @@ const DETAIL_APPLIED: RequisitionDetail = {
   user_application_id: 'app-user-1',
 };
 
+// A fully-staffed requisition: still `open`, but every opening is filled. FUT-769 keeps Mark filled
+// live in this state (the recruiter's one-click close) while the other lifecycle actions stay frozen.
+const DETAIL_FULLY_STAFFED: RequisitionDetail = {
+  ...DETAIL_NOT_APPLIED,
+  openings: [
+    {
+      id: 'op-1',
+      requisition_id: 'r1',
+      seq: 1,
+      status: 'filled',
+      close_reason_id: null,
+      closed_at: null,
+      hired_application_id: 'app-hired-1',
+      version: 1,
+    },
+  ],
+};
+
 let currentDetail = DETAIL_NOT_APPLIED;
 
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
@@ -104,5 +122,23 @@ describe('RequisitionDetailView Apply button (FUT-650)', () => {
     const appliedBtn = await screen.findByRole('button', { name: 'Applied' });
     expect(appliedBtn).toBeInTheDocument();
     expect(appliedBtn).toBeDisabled();
+  });
+});
+
+describe('RequisitionDetailView fully-staffed actions (FUT-769)', () => {
+  it('keeps Mark filled enabled while other lifecycle actions stay frozen when fully staffed', async () => {
+    currentDetail = DETAIL_FULLY_STAFFED;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(<RequisitionDetailView requisitionId="r1" variant="page" />, {
+      wrapper: wrap(qc),
+    });
+
+    // Mark filled is the recruiter's one-click close for a fully-staffed req — it must stay live.
+    const markFilledBtn = await screen.findByRole('button', { name: 'Mark filled' });
+    expect(markFilledBtn).toBeEnabled();
+
+    // The other lifecycle actions remain frozen by isFullyStaffed.
+    expect(await screen.findByRole('button', { name: 'Pause' })).toBeDisabled();
   });
 });
