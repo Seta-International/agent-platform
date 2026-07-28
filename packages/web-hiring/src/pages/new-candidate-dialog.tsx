@@ -56,6 +56,9 @@ export function NewCandidateDialog() {
   const skillsId = useId();
   const parseGen = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  // FUT-633: when a second CV is uploaded before the dialog closes, replace ALL parseable
+  // fields instead of the default fill-only-empty guard, so no stale data from CV A survives.
+  const replacingCvRef = useRef(false);
   const dobFieldRef = useRef<HTMLDivElement>(null);
   const dobInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -146,6 +149,7 @@ export function NewCandidateDialog() {
     abortRef.current?.abort();
     parseGen.current += 1;
     parse.reset();
+    replacingCvRef.current = false;
     setName('');
     setEmail('');
     setPhone('');
@@ -314,6 +318,18 @@ export function NewCandidateDialog() {
                       onClick={() => {
                         abortRef.current?.abort();
                         parseGen.current += 1;
+                        // FUT-633: mark replace mode so the next upload overwrites
+                        // unconditionally instead of hitting the fill-only-empty guard.
+                        replacingCvRef.current = true;
+                        setName('');
+                        setEmail('');
+                        setPhone('');
+                        setDob('');
+                        setDobBadInput(false);
+                        setGender('');
+                        setSeniority('');
+                        setNote('');
+                        setSkills([]);
                         setCvFile(null);
                         setSuggestions([]);
                         setCvSha256(null);
@@ -333,6 +349,24 @@ export function NewCandidateDialog() {
                       if (file instanceof File) {
                         abortRef.current?.abort();
                         abortRef.current = new AbortController();
+                        // FUT-633: when replacing a CV (user removed the previous one),
+                        // clear every parseable field before the new parse so no stale
+                        // data survives.  The replacingCvRef flag also makes onSuccess
+                        // overwrite unconditionally instead of fill-only-empty.
+                        if (replacingCvRef.current) {
+                          setName('');
+                          setEmail('');
+                          setPhone('');
+                          setDob('');
+                          setDobBadInput(false);
+                          setGender('');
+                          setSeniority('');
+                          setNote('');
+                          setSkills([]);
+                          setSuggestions([]);
+                          setCvSha256(null);
+                          setDuplicates([]);
+                        }
                         setCvFile(file);
                         setCvError(null);
                         parseGen.current += 1;
@@ -340,24 +374,40 @@ export function NewCandidateDialog() {
                         parse.mutate(file, {
                           onSuccess: (draft) => {
                             if (parseGen.current !== gen) return;
-                            if (!name.trim() && draft.name) setName(draft.name);
-                            if (!email.trim() && draft.personal_email)
-                              setEmail(draft.personal_email);
-                            if (!phone.trim() && draft.phone) setPhone(draft.phone);
-                            if (!dob && draft.dob) {
-                              setDob(draft.dob);
-                              setDobBadInput(false);
+                            if (replacingCvRef.current) {
+                              // Replace mode: unconditionally overwrite with new CV data.
+                              if (draft.name) setName(draft.name);
+                              if (draft.personal_email) setEmail(draft.personal_email);
+                              if (draft.phone) setPhone(draft.phone);
+                              if (draft.dob) {
+                                setDob(draft.dob);
+                                setDobBadInput(false);
+                              }
+                              if (draft.gender) setGender(draft.gender);
+                              if (draft.seniority) setSeniority(draft.seniority);
+                              if (draft.note) setNote(draft.note);
+                              setSkills(draft.skills);
+                            } else {
+                              // Fill-only-empty: never overwrite what the recruiter typed.
+                              if (!name.trim() && draft.name) setName(draft.name);
+                              if (!email.trim() && draft.personal_email)
+                                setEmail(draft.personal_email);
+                              if (!phone.trim() && draft.phone) setPhone(draft.phone);
+                              if (!dob && draft.dob) {
+                                setDob(draft.dob);
+                                setDobBadInput(false);
+                              }
+                              if (!gender && draft.gender) setGender(draft.gender);
+                              if (!seniority && draft.seniority) setSeniority(draft.seniority);
+                              if (!note.trim() && draft.note) setNote(draft.note);
+                              setSkills((prev) => {
+                                const have = new Set(prev.map((s) => s.skill_id));
+                                return [
+                                  ...prev,
+                                  ...draft.skills.filter((s) => !have.has(s.skill_id)),
+                                ];
+                              });
                             }
-                            if (!gender && draft.gender) setGender(draft.gender);
-                            if (!seniority && draft.seniority) setSeniority(draft.seniority);
-                            if (!note.trim() && draft.note) setNote(draft.note);
-                            setSkills((prev) => {
-                              const have = new Set(prev.map((s) => s.skill_id));
-                              return [
-                                ...prev,
-                                ...draft.skills.filter((s) => !have.has(s.skill_id)),
-                              ];
-                            });
                             setSuggestions(draft.skill_suggestions);
                             setCvSha256(draft.cv_sha256);
                             setDuplicates(draft.possible_duplicates);
