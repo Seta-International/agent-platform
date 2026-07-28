@@ -16,12 +16,14 @@ import {
   LayoutHeader,
   Popover,
   paginateData,
+  proportional,
   SegmentedControl,
   SegmentedControlItem,
   Selector,
   Skeleton,
   Table,
   type TableColumn,
+  type TablePlugin,
   Text,
   useTableColumnSettings,
   useTableColumnSettingsState,
@@ -111,6 +113,18 @@ const CANDIDATE_COLUMN_OPTIONS: ColumnSettingsOption[] = [
 ];
 const DEFAULT_CANDIDATE_COLUMN_KEYS = CANDIDATE_COLUMN_OPTIONS.map((c) => c.key);
 const CANDIDATE_PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+// List-view cell: keep every value on one line — `truncate` (nowrap + ellipsis) plus the table's
+// horizontal scroll means long text is read by scrolling, never by wrapping.
+const LIST_CELL = 'block truncate';
+// Uniform min row height of two line-heights (`2lh` = double a single line) so rows stay tall and
+// even now that nothing wraps — the same plugin the Requisitions list uses, kept identical here.
+const uniformRowHeight: TablePlugin<Row> = {
+  transformBodyCell: (props) => ({
+    ...props,
+    htmlProps: { ...props.htmlProps, style: { ...props.htmlProps.style, height: '2lh' } },
+  }),
+};
 
 function toCsvCell(value: string | number): string {
   const s = String(value);
@@ -302,37 +316,53 @@ export function CandidatesPage() {
         key: 'name',
         header: 'Candidate',
         sortable: true,
-        renderCell: (r) => <span className="font-medium text-primary">{r.name}</span>,
+        // Each column gets a minWidth floor so its content sits on one line; the sum drives the
+        // table's min-width, and the wrapper below scrolls horizontally when it exceeds the view.
+        width: proportional(1, { minWidth: 180 }),
+        renderCell: (r) => (
+          <span className={`${LIST_CELL} font-medium text-primary`}>{r.name}</span>
+        ),
       },
       {
         key: 'requisition_title',
         header: 'Position',
         sortable: true,
-        renderCell: (r) => <span className="text-secondary">{r.requisition_title}</span>,
+        width: proportional(1, { minWidth: 260 }),
+        renderCell: (r) => (
+          <span className={`${LIST_CELL} text-secondary`}>{r.requisition_title}</span>
+        ),
       },
       {
         key: 'seniority',
         header: 'Seniority',
         sortable: true,
-        renderCell: (r) => <span className="text-secondary">{r.seniority ?? '—'}</span>,
+        width: proportional(1, { minWidth: 120 }),
+        renderCell: (r) => (
+          <span className={`${LIST_CELL} text-secondary`}>{r.seniority ?? '—'}</span>
+        ),
       },
       {
         key: 'source',
         header: 'Source',
         sortable: true,
-        renderCell: (r) => <span className="text-secondary">{r.source ?? '—'}</span>,
+        width: proportional(1, { minWidth: 140 }),
+        renderCell: (r) => <span className={`${LIST_CELL} text-secondary`}>{r.source ?? '—'}</span>,
       },
       {
         key: 'stage',
         header: 'Stage',
         sortable: true,
-        renderCell: (r) => <span className="text-secondary capitalize">{r.stage}</span>,
+        width: proportional(1, { minWidth: 130 }),
+        renderCell: (r) => (
+          <span className={`${LIST_CELL} text-secondary capitalize`}>{r.stage}</span>
+        ),
       },
       {
         key: 'rating',
         header: 'Rating',
         sortable: true,
-        renderCell: (r) => <span className="text-secondary">{r.rating ?? 0}/5</span>,
+        width: proportional(1, { minWidth: 100 }),
+        renderCell: (r) => <span className={`${LIST_CELL} text-secondary`}>{r.rating ?? 0}/5</span>,
       },
       {
         // The old column had accessorKey 'fit' (an object, not a primitive) and never disabled
@@ -342,7 +372,10 @@ export function CandidatesPage() {
         key: 'fit',
         header: 'Fit',
         sortable: true,
-        renderCell: (r) => <span className="text-secondary">{fitLabel(r.fit).text}</span>,
+        width: proportional(1, { minWidth: 110 }),
+        renderCell: (r) => (
+          <span className={`${LIST_CELL} text-secondary`}>{fitLabel(r.fit).text}</span>
+        ),
       },
     ],
     [],
@@ -409,7 +442,7 @@ export function CandidatesPage() {
                 startIcon={<Search className="size-3.5" aria-hidden />}
                 value={q}
                 onChange={(value) => setQ(value)}
-                placeholder="Search by name, skill, seniority…"
+                placeholder="Search candidate"
                 className="max-w-xs flex-1"
               />
               <Selector
@@ -505,33 +538,39 @@ export function CandidatesPage() {
                     ))}
                   </div>
                 ) : (
-                  <Table
-                    data={pageRows}
-                    columns={columns}
-                    idKey="application_id"
-                    plugins={{
-                      pagination,
-                      sortable,
-                      columnSettings,
-                      rowClick: {
-                        transformBodyRow: (props, item) => ({
-                          ...props,
-                          htmlProps: {
-                            ...props.htmlProps,
-                            style: { ...props.htmlProps.style, cursor: 'pointer' },
-                            onClick: () => setSelected(item.candidate_id),
-                          },
-                        }),
-                      },
-                    }}
-                    emptyState={
-                      <EmptyState
-                        icon={<Users className="size-6" />}
-                        title="No candidates yet"
-                        description="Add a candidate to get started."
-                      />
-                    }
-                  />
+                  // Horizontal scroll: with every cell on one line the table can exceed the view;
+                  // its column minWidths set the scroll width, and this wrapper does the scrolling.
+                  <div className="overflow-x-auto">
+                    <Table
+                      data={pageRows}
+                      columns={columns}
+                      idKey="application_id"
+                      textOverflow="truncate"
+                      plugins={{
+                        pagination,
+                        sortable,
+                        columnSettings,
+                        uniformRowHeight,
+                        rowClick: {
+                          transformBodyRow: (props, item) => ({
+                            ...props,
+                            htmlProps: {
+                              ...props.htmlProps,
+                              style: { ...props.htmlProps.style, cursor: 'pointer' },
+                              onClick: () => setSelected(item.candidate_id),
+                            },
+                          }),
+                        },
+                      }}
+                      emptyState={
+                        <EmptyState
+                          icon={<Users className="size-6" />}
+                          title="No candidates yet"
+                          description="Add a candidate to get started."
+                        />
+                      }
+                    />
+                  </div>
                 )}
               </div>
             ) : isLoading ? (
@@ -618,6 +657,7 @@ export function CandidatesPage() {
             )}
             <TalentPoolCard
               onOpenCandidate={setSelected}
+              layout={view}
               q={q}
               reqFilter={reqFilter}
               seniorityFilter={seniorityFilter}

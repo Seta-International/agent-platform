@@ -36,6 +36,7 @@ const rows: CandidateListItem[] = [
     version: 1,
     applied_at: '2024-01-01T00:00:00.000Z',
     skills: [],
+    required_skills: [],
     fit: { met: 1, required: 2, score: 0.5, strong: false },
   },
 ];
@@ -57,6 +58,7 @@ const twoRows: CandidateListItem[] = [
     version: 1,
     applied_at: '2024-01-01T00:00:00.000Z',
     skills: [],
+    required_skills: [],
     fit: { met: 1, required: 2, score: 0.5, strong: false },
   },
   {
@@ -74,6 +76,7 @@ const twoRows: CandidateListItem[] = [
     version: 1,
     applied_at: '2024-01-02T00:00:00.000Z',
     skills: [],
+    required_skills: [],
     fit: { met: 1, required: 2, score: 0.5, strong: false },
   },
 ];
@@ -195,6 +198,7 @@ describe('CandidatesPage', () => {
       version: 1,
       applied_at: '2024-01-01T00:00:00.000Z',
       skills: [],
+      required_skills: [],
       fit: { met: 1, required: 2, score: 0.5, strong: false },
     }));
     fetchCandidates.mockResolvedValue(manyCandidates);
@@ -234,6 +238,7 @@ describe('CandidatesPage', () => {
       version: 1,
       applied_at: '2024-01-01T00:00:00.000Z',
       skills: [],
+      required_skills: [],
       fit: { met: 1, required: 2, score: 0.5, strong: false },
     }));
     fetchCandidates.mockResolvedValue(manyCandidates);

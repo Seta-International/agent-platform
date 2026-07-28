@@ -8,6 +8,7 @@ import { application, candidateEvent } from '../../src/backend/db/schema.ts';
 import {
   addCandidate,
   createRejectionReason,
+  hireApplication,
   openRequisition,
   rejectApplication,
   transferApplication,
@@ -253,6 +254,57 @@ describe('transferApplication', () => {
             session: t.adminSession,
           }),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  // FUT-765: the target's status stays 'open' after its headcount is hired out, so the existing
+  // status check passes — yet a transfer there strands the candidate (no opening left to hire
+  // into). Reject when the target has no open openings.
+  it('rejects transferring to a target whose headcount is already filled', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const r1 = await openRequisition({
+          title: 'R1',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const r2 = await openRequisition({
+          title: 'R2',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const source = await addCandidate({
+          requisition_id: r1.requisition_id,
+          name: 'C',
+          session: t.adminSession,
+        });
+        // Fill r2's only opening by hiring someone into it — r2 stays status 'open', 0 open openings.
+        const filler = await addCandidate({
+          requisition_id: r2.requisition_id,
+          name: 'Filler',
+          session: t.adminSession,
+        });
+        await hireApplication({ application_id: filler.application_id, session: t.adminSession });
+
+        await expect(
+          transferApplication({
+            application_id: source.application_id,
+            expected_version: 1,
+            input: { target_requisition_id: r2.requisition_id },
+            session: t.adminSession,
+          }),
+        ).rejects.toThrow(/filled|no.*opening|not open/i);
       } finally {
         resetHiringDb();
         resetCoreDb();

@@ -11,7 +11,6 @@ import {
   LayoutContent,
   Link,
   ProgressBar,
-  Tooltip,
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -22,6 +21,7 @@ import {
   Building2,
   Cake,
   CalendarDays,
+  Check,
   CircleDot,
   FileText,
   Globe,
@@ -43,6 +43,7 @@ import {
   moveApplicationStage,
   putCvToS3,
   requestCandidateCvUpload,
+  type SkillRow,
 } from '../api/hiring-client.ts';
 import { fetchDirectoryUsersByIds } from '../api/identity-directory.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -158,6 +159,14 @@ export function CandidateDetailDrawer({
     return map;
   }, [directoryUsers]);
 
+  // requisition_id → title for the timeline: every requisition this candidate touched shows up as
+  // one of their applications, so summaries that store a raw requisition id can resolve to its name.
+  const requisitionNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const a of data?.applications ?? []) map[a.requisition_id] = a.requisition_title;
+    return map;
+  }, [data?.applications]);
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidate(candidateId ?? '') });
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
@@ -170,15 +179,35 @@ export function CandidateDetailDrawer({
   };
 
   const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
+  const terminal = app ? app.status !== 'active' : true;
 
   // The candidate payload carries only the fit counts (met/required), not which skills the
   // requisition asks for. Fetch the requisition so the fit badge can list them on hover.
   const { data: requisition } = useQuery({
     queryKey: hiringKeys.requisition(app?.requisition_id ?? ''),
     queryFn: () => fetchRequisition(app?.requisition_id as string),
-    enabled: !!app?.requisition_id && app.fit.required > 0,
+    // Needed both for the fit tooltip's required-skill list and — for an active application — to
+    // read the requisition's opening fill state (the fully-staffed action lock below).
+    enabled: !!app?.requisition_id && (app.fit.required > 0 || !terminal),
   });
   const requiredSkills = requisition?.skills ?? [];
+  // Which required skills this candidate actually meets — mirrors the backend fit count
+  // (hiring computeFit): a skill counts when the candidate holds it (matched by id, or by name for
+  // free-text skills that carry no id) at or above the required level. Drives the green "matched"
+  // badge below so "n/m skills" is legible at a glance without a hover.
+  const candidateSkills = data?.skills ?? [];
+  const isSkillMet = (req: SkillRow) => {
+    const own = candidateSkills.find((c) =>
+      req.skill_id
+        ? c.skill_id === req.skill_id
+        : c.skill_name.toLowerCase() === req.skill_name.toLowerCase(),
+    );
+    return !!own && (req.min_level == null || (own.level ?? 0) >= req.min_level);
+  };
+  // Group matched skills first so the green chips cluster together — the row itself reads as the
+  // "n of m" fit without needing a separate count badge.
+  const metSkills = requiredSkills.filter(isSkillMet);
+  const missingSkills = requiredSkills.filter((s) => !isSkillMet(s));
 
   const move = useMutation({
     mutationFn: (to: CandStage) => {
@@ -214,10 +243,21 @@ export function CandidateDetailDrawer({
       onClose();
     },
   });
-  const terminal = app ? app.status !== 'active' : true;
   // FUT-559 on-hold lock: while the requisition is paused, its candidates can't be moved or
   // hired — resume the requisition first. (Terminal applications are already locked above.)
   const reqOnHold = !terminal && app?.requisition_status === 'on_hold';
+  // FUT-569: an active application on a fully-staffed requisition can't advance or be rejected —
+  // there's no opening left to move it into. "Fully staffed" is either the requisition marked
+  // `filled`, or every non-cancelled opening already filled while it's still nominally open (mirrors
+  // the requisition detail's isFullyStaffed). Openings come from the requisition detail query above.
+  const openingRows = requisition?.openings ?? [];
+  const openingsTotal = openingRows.filter((o) => o.status !== 'cancelled').length;
+  const openingsFilled = openingRows.filter((o) => o.status === 'filled').length;
+  const reqFilled =
+    !terminal &&
+    (app?.requisition_status === 'filled' ||
+      (openingsTotal > 0 && openingsFilled >= openingsTotal));
+  const filledReason = 'This requisition is fully staffed — all openings are filled.';
   const fit = app ? fitLabel(app.fit) : null;
   const dialogLabel = `Candidate: ${data?.candidate.name ?? 'Loading'}`;
 
@@ -225,7 +265,7 @@ export function CandidateDetailDrawer({
   // terminal Hire (its own confirm). Move stage (any stage) stays available in a secondary menu.
   const stageIdx = app?.stage ? STAGES.findIndex((s) => s.id === app.stage) : -1;
   const nextStage = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
-  const canAct = canManage && !terminal && !reqOnHold && !move.isPending;
+  const canAct = canManage && !terminal && !reqOnHold && !reqFilled && !move.isPending;
   const advanceLabel = nextStage ? `Advance to ${nextStage.label}` : 'Mark as hired';
   // Every forward move now confirms first: a next-stage advance opens its own dialog; the final
   // step past Offer is the terminal Hire, which already has one.
@@ -288,6 +328,9 @@ export function CandidateDetailDrawer({
                   status="warning"
                   title="Requisition on hold — resume it from the board to move this candidate."
                 />
+              )}
+              {reqFilled && !reqOnHold && (
+                <Banner className="mb-4" status="info" title={filledReason} />
               )}
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -352,48 +395,50 @@ export function CandidateDetailDrawer({
                   </DetailCard>
 
                   <DetailCard title="Skills">
-                    {app && app.fit.required > 0 && (
-                      <div className="mb-3 flex items-center gap-2">
-                        <Tooltip
-                          content={
-                            requiredSkills.length > 0 ? (
-                              <div className="flex flex-col gap-0.5">
-                                {requiredSkills.map((s) => (
-                                  <span key={s.skill_name}>
-                                    {s.skill_name}
-                                    {s.min_level ? ` · ${s.min_level}/5` : ''}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              'Loading required skills…'
-                            )
-                          }
-                        >
-                          <Badge
-                            variant={fit?.strong ? 'success' : 'neutral'}
-                            label={fit?.text ?? ''}
-                          />
-                        </Tooltip>
-                        <span className="text-sm text-secondary">
-                          {fit?.strong ? 'Strong fit' : 'Partial fit'} for the required skills
-                        </span>
-                      </div>
-                    )}
-                    {data.skills.length === 0 ? (
-                      <p className="text-sm text-secondary">No skills listed.</p>
+                    {app && app.fit.required > 0 ? (
+                      requiredSkills.length > 0 ? (
+                        <>
+                          <p className="mb-3 text-sm text-secondary">
+                            {fit?.strong
+                              ? `Strong fit · all ${app.fit.required} required skills matched`
+                              : `Partial fit · ${app.fit.met} of ${app.fit.required} required skills matched`}
+                          </p>
+                          {/* Required skills, matched first: a green chip with a check reads as
+                              "has it", a neutral chip as "still missing" — so the count is visible
+                              at a glance and the match signal isn't carried by colour alone. */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {metSkills.map((s) => (
+                              <Badge
+                                key={s.skill_id ?? s.skill_name}
+                                variant="neutral"
+                                icon={<Check className="size-3.5" aria-hidden />}
+                                label={`${s.skill_name}${s.min_level ? ` · ${s.min_level}/5` : ''}`}
+                                // Soft green rather than the solid `success` fill: a whole matched
+                                // row of solid chips reads as a heavy block. This is the theme's own
+                                // subtle-green pairing (background-green + text-green, both
+                                // light-dark), applied via inline style — the sanctioned escape
+                                // hatch since Badge has no subtle variant. The ✓ inherits the text
+                                // colour. Missing skills below stay plain neutral.
+                                style={{
+                                  backgroundColor: 'var(--color-background-green)',
+                                  color: 'var(--color-text-green)',
+                                }}
+                              />
+                            ))}
+                            {missingSkills.map((s) => (
+                              <Badge
+                                key={s.skill_id ?? s.skill_name}
+                                variant="neutral"
+                                label={`${s.skill_name}${s.min_level ? ` · ${s.min_level}/5` : ''}`}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-secondary">Loading required skills…</p>
+                      )
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {data.skills.map((s) => (
-                          <span
-                            key={s.skill_id}
-                            className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
-                          >
-                            {s.skill_name}
-                            {s.level ? ` · ${s.level}/5` : ''}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="text-sm text-secondary">No skills required for this role.</p>
                     )}
                   </DetailCard>
 
@@ -491,7 +536,11 @@ export function CandidateDetailDrawer({
                   </DetailCard>
 
                   <DetailCard title="Activity timeline">
-                    <CandidateTimeline events={data.timeline} actorNames={actorNames} />
+                    <CandidateTimeline
+                      events={data.timeline}
+                      actorNames={actorNames}
+                      requisitionNames={requisitionNames}
+                    />
                   </DetailCard>
                 </div>
               </div>
@@ -502,28 +551,44 @@ export function CandidateDetailDrawer({
             // continuity, but every action is locked — the outcome is already settled.
             <DialogFooter
               startContent={
+                // Every decision action requires an open, staffable requisition: a transfer is only
+                // valid while the current role is still open — an on-hold or fully-staffed requisition
+                // locks it just like advance/reject (and a terminal application locks everything).
                 canTransfer ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    label="Move to another role"
-                    isDisabled={terminal}
-                    onClick={() => setTransferOpen(true)}
-                  />
+                  <DisabledActionTooltip
+                    disabled={reqOnHold || reqFilled}
+                    reason={
+                      reqOnHold
+                        ? 'Requisition on hold — resume it from the board to move this candidate to another role.'
+                        : filledReason
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      label="Change role"
+                      isDisabled={terminal || reqOnHold || reqFilled}
+                      onClick={() => setTransferOpen(true)}
+                    />
+                  </DisabledActionTooltip>
                 ) : undefined
               }
             >
               {canReject && (
                 <DisabledActionTooltip
-                  disabled={reqOnHold}
-                  reason="Requisition on hold — resume it from the board to reject this candidate."
+                  disabled={reqOnHold || reqFilled}
+                  reason={
+                    reqOnHold
+                      ? 'Requisition on hold — resume it from the board to reject this candidate.'
+                      : filledReason
+                  }
                 >
                   <Button
                     variant="secondary"
                     size="sm"
                     label="Reject"
                     style={{ color: 'var(--color-text-red)' }}
-                    isDisabled={reqOnHold || terminal}
+                    isDisabled={reqOnHold || reqFilled || terminal}
                     onClick={() => setRejectOpen(true)}
                   />
                 </DisabledActionTooltip>

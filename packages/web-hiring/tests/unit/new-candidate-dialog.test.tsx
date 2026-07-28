@@ -3,18 +3,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CandidateCvDraft } from '../../src/api/hiring-client.ts';
 
 const addCandidate = vi.fn();
 const parseCandidateCvDraft =
   vi.fn<(file: File, signal?: AbortSignal) => Promise<CandidateCvDraft>>();
+const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   addCandidate: (input: unknown) => addCandidate(input),
   parseCandidateCvDraft: (file: File, signal?: AbortSignal) => parseCandidateCvDraft(file, signal),
-  fetchRequisitions: () => Promise.resolve([{ id: 'r1', title: 'Backend Eng', status: 'open' }]),
+  fetchRequisitions: () => fetchRequisitions(),
   fetchSkillCatalog: () =>
     Promise.resolve({
       categories: [{ id: 'cat1', name: 'Backend', sort_order: 0, active: true }],
@@ -23,6 +24,14 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
 }));
 
 import { NewCandidateDialog } from '../../src/pages/new-candidate-dialog.tsx';
+
+beforeEach(() => {
+  // Real rows always carry openings_open; the default has remaining headcount so it stays a
+  // selectable position (the openings_open > 0 guard only removes filled requisitions).
+  fetchRequisitions
+    .mockReset()
+    .mockResolvedValue([{ id: 'r1', title: 'Backend Eng', status: 'open', openings_open: 3 }]);
+});
 
 const wrap =
   (qc: QueryClient) =>
@@ -92,12 +101,68 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
     // effectiveReq auto-selects r1 (Backend Eng, the only open req)
-    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     await waitFor(() =>
       expect(addCandidate).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Ada Lovelace', requisition_id: 'r1' }),
       ),
     );
+  });
+
+  // FUT-765: a filled requisition keeps status 'open' once its headcount is hired out, so the
+  // status check alone still lists it in the position picker. It must be excluded — a candidate
+  // added there can never be hired. Here the filled r1 is listed before the open r2; the default
+  // selection must skip r1 and land on r2.
+  it('excludes a headcount-filled requisition from the position picker', async () => {
+    fetchRequisitions.mockResolvedValueOnce([
+      { id: 'r1', title: 'Filled Role', status: 'open', openings_open: 0 },
+      { id: 'r2', title: 'Open Role', status: 'open', openings_open: 2 },
+    ]);
+    addCandidate.mockResolvedValueOnce({ candidate_id: 'c1', application_id: 'a1' });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
+    await waitFor(() =>
+      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
+    // Default position is the first *selectable* row: r1 is filled, so it must be r2, not r1.
+    await waitFor(() =>
+      expect(addCandidate).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Ada Lovelace', requisition_id: 'r2' }),
+      ),
+    );
+  });
+
+  // Cancel must mirror the close (X) button: with unsaved input it opens the discard confirmation
+  // (an alertdialog) rather than dropping the form silently. The AlertDialog title is always in
+  // the DOM, so openness is asserted via the alertdialog role, not text presence.
+  it('opens the discard confirmation when Cancel is clicked with unsaved input', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
+
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByText('Discard this candidate?')).toBeInTheDocument();
+  });
+
+  // The confirmation is only for unsaved work — an untouched form closes on Cancel with no prompt.
+  it('closes without confirmation when Cancel is clicked on a pristine form', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('renders the CV upload label and format hint visibly, not screen-reader-only', async () => {
@@ -156,7 +221,7 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByText('Enter a valid phone number.')).toBeInTheDocument(),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     expect(addCandidate).not.toHaveBeenCalled();
 
     // Now type a valid international phone number containing spaces
@@ -199,7 +264,10 @@ describe('NewCandidateDialog', () => {
     expect(screen.getByText('resume.pdf')).toBeInTheDocument();
     expect(screen.getByText(/parsing/i)).toBeInTheDocument();
 
+    // An uploaded CV makes the form dirty, so Cancel now prompts to confirm the discard —
+    // click through it to actually close (and abort the parse).
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
@@ -280,7 +348,9 @@ describe('NewCandidateDialog', () => {
     await vi.waitFor(() => expect(capturedSignal).toBeDefined());
     expect(capturedSignal!.aborted).toBe(false);
 
+    // Dirty form (CV uploaded) → Cancel prompts to confirm; Discard closes and aborts the parse.
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Discard' }));
     await vi.waitFor(() => expect(capturedSignal!.aborted).toBe(true));
   });
 
@@ -302,7 +372,7 @@ describe('NewCandidateDialog', () => {
 
     await waitFor(() => expect(screen.getByText('Invalid calendar date.')).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     expect(addCandidate).not.toHaveBeenCalled();
   });
 });
