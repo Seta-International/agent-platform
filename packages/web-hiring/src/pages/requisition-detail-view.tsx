@@ -540,6 +540,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const pastApplicants = data.applicants.filter(
     (a) => a.status !== 'active' && a.status !== 'hired',
   );
+  // Cancelling the requisition cancels its active candidates; those in Offer are the sensitive
+  // case the cancel dialog must call out (FUT-770).
+  const offerApplicantCount = activeApplicants.filter((a) => (a.stage ?? 'new') === 'offer').length;
   // Headcount is opening rows, not a column: a cancelled opening no longer counts toward the
   // target, and a filled one is progress. (See the edit form for the grow/shrink mechanics.)
   const openingsTotal = data.openings.filter((o) => o.status !== 'cancelled').length;
@@ -1189,6 +1192,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       <CancelRequisitionDialog
         requisitionId={requisitionId}
         version={req.version}
+        offerCount={offerApplicantCount}
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         onDone={refresh}
