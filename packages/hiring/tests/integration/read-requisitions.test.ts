@@ -11,6 +11,7 @@ import { accountProjectionCreated } from '../../src/backend/subscribers/account-
 import {
   addCandidate,
   getRequisition,
+  hireApplication,
   listAccounts,
   listProjects,
   listRequisitions,
@@ -146,6 +147,41 @@ describe('read requisitions', () => {
         });
         expect(detailA.applicants).toHaveLength(1);
         expect(detailA.applicants[0]?.status).toBe('transferred');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('counts hired applications in hired_count, separate from the active pipeline', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const r = await openRequisition({ title: 'Role', headcount: 2, session: t.adminSession });
+        const hired = await addCandidate({
+          requisition_id: r.requisition_id,
+          name: 'Hired Candidate',
+          session: t.adminSession,
+        });
+        await addCandidate({
+          requisition_id: r.requisition_id,
+          name: 'Active Candidate',
+          session: t.adminSession,
+        });
+
+        await hireApplication({ application_id: hired.application_id, session: t.adminSession });
+
+        const list = await listRequisitions(t.adminSession);
+        const row = list.find((r2) => r2.id === r.requisition_id);
+        // Hired is terminal — it leaves the active pipeline count and lands in hired_count.
+        expect(row?.hired_count).toBe(1);
+        expect(row?.applicants_count).toBe(1);
+        expect(row?.applicants.map((a) => a.name)).toEqual(['Active Candidate']);
       } finally {
         resetHiringDb();
         resetCoreDb();

@@ -49,6 +49,7 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
     applicants_count: 0,
     applicants_internal: 0,
     applicants_external: 0,
+    hired_count: 0,
     applicants: [],
     version: 1,
     ...over,
@@ -111,6 +112,25 @@ describe('RequisitionsPage', () => {
   it('switches to list view', async () => {
     const { table } = await renderListView([row()]);
     expect(within(table).getByRole('columnheader', { name: /position/i })).toBeInTheDocument();
+  });
+
+  // FUT-769: the pipeline cell shows a Hired figure alongside the four stage buckets, and the
+  // tooltip spells it out — hired applicants are terminal, so the count comes from hired_count,
+  // not the active applicants array.
+  it('shows the hired figure in the pipeline cell and tooltip', async () => {
+    const { user, table } = await renderListView([
+      row({ applicants_count: 2, hired_count: 3, applicants: [] }),
+    ]);
+    // The inline spans concatenate without whitespace; the em dash sets off the Hired figure.
+    const pipelineCell = within(table)
+      .getAllByText((_, el) => el?.textContent === '2·0·0·0—3')
+      .at(-1);
+    expect(pipelineCell).toBeInTheDocument();
+
+    await user.hover(pipelineCell!);
+    expect(
+      await screen.findByText('New 2 · Screening 0 · Interview 0 · Offer 0 · Hired 3'),
+    ).toBeInTheDocument();
   });
 
   // FUT-765 follow-up: the total tile is labelled "Total" (not "Total open" — it counts every

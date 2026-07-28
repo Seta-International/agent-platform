@@ -318,15 +318,16 @@ export function RequisitionsPage() {
         key: 'pipeline',
         header: 'Pipeline',
         sortable: false,
-        width: pixel(140),
+        width: pixel(160),
         renderCell: (r) => {
           const counts = stageCounts(r.applicants_count, r.applicants);
           const furthest = furthestReachedIndex(r.applicants);
+          const hired = r.hired_count;
+          const tooltip = `${STAGES.map((s, i) => `${PIPELINE_STAGE_LABEL[s]} ${counts[i]}`).join(
+            ' · ',
+          )} · Hired ${hired}`;
           return (
-            <Tooltip
-              content={STAGES.map((s, i) => `${PIPELINE_STAGE_LABEL[s]} ${counts[i]}`).join(' · ')}
-              hasHoverIndication={false}
-            >
+            <Tooltip content={tooltip} hasHoverIndication={false}>
               <span className="flex items-center gap-1 whitespace-nowrap tabular-nums">
                 {counts.map((c, i) => (
                   <span key={STAGES[i]} className="flex items-center gap-1">
@@ -338,6 +339,12 @@ export function RequisitionsPage() {
                     </span>
                   </span>
                 ))}
+                {/* Hired is a status, not a stage — set it off with an em dash so it reads as a
+                    separate figure rather than a 5th funnel bucket. */}
+                <span className="text-secondary">—</span>
+                <span className={hired > 0 ? 'font-semibold text-primary' : 'text-secondary'}>
+                  {hired}
+                </span>
               </span>
             </Tooltip>
           );

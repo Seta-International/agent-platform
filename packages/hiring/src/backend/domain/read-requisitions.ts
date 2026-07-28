@@ -55,6 +55,9 @@ export interface RequisitionListRow {
   applicants_count: number;
   applicants_internal: number;
   applicants_external: number;
+  // Hired applicants are terminal (not `active`), so they're excluded from `applicants`/counts
+  // above; count them separately so the list's pipeline cell can show a Hired figure.
+  hired_count: number;
   applicants: RequisitionApplicantSummary[];
   version: number;
 }
@@ -92,6 +95,9 @@ const REQUISITION_LIST_COLUMNS = {
   applicants_count: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.status = 'active')`,
   applicants_internal: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.kind = 'internal' AND a.status = 'active')`,
   applicants_external: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.kind = 'external' AND a.status = 'active')`,
+  // Hired candidates for this requisition — a terminal status, so it isn't part of the active
+  // pipeline counts/buckets above; shown as a separate figure on the list's pipeline cell.
+  hired_count: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.status = 'hired')`,
   // Top applicants surfaced inline on the card; candidate lives in the same hiring
   // schema, so this join stays module-local.
   applicants: sql<

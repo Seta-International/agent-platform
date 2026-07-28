@@ -33,6 +33,7 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
     applicants_count: 0,
     applicants_internal: 0,
     applicants_external: 0,
+    hired_count: 0,
     applicants: [],
     version: 1,
     ...over,
