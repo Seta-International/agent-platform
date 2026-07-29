@@ -698,7 +698,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     value={openCount}
                     onChange={(v) => setOpenCount(Math.max(1, v || 1))}
                     status={
-                      headcountError && submitAttempted
+                      headcountError
                         ? { type: 'error', message: headcountError }
                         : openCount < originalOpenCount
                           ? {
