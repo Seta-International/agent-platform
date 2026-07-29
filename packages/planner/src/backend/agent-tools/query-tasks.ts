@@ -1,4 +1,10 @@
-import { actorFromContext, defineAgentTool, recordEntityExposure } from '@seta/agent-sdk';
+import {
+  actorFromContext,
+  daysUntilDue,
+  defineAgentTool,
+  isOverdue,
+  recordEntityExposure,
+} from '@seta/agent-sdk';
 import type { SessionScope } from '@seta/core';
 import { buildActorSession } from '@seta/identity';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -27,6 +33,8 @@ export interface QueryTasksInput {
   titleContains?: string;
   limit?: number;
   cursor?: string;
+  /** Injectable clock for deterministic lateness in tests and evals. */
+  now?: Date;
   session: SessionScope;
 }
 
@@ -71,6 +79,10 @@ export interface QueryTaskItem {
   status: 'not_started' | 'in_progress' | 'completed' | 'deferred';
   priority: 'urgent' | 'important' | 'medium' | 'low';
   dueAt: string | null;
+  /** Server-computed: the due instant has passed. Never recomputed by the model. */
+  isOverdue: boolean;
+  /** Server-computed local calendar days to due; 0 = today, negative = past. */
+  daysUntilDue: number | null;
   labels: string[];
   assigneeUserIds: string[];
   planId: string;
@@ -143,12 +155,16 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
     labelsByTask.set(r.task_id, arr);
   }
 
+  // Captured once so every row on a page is judged against the same instant.
+  const now = input.now ?? new Date();
   const tasks: QueryTaskItem[] = raw.tasks.map((t) => ({
     taskId: t.id,
     title: t.title,
     status: deriveStatus(t.percent_complete, t.is_deferred),
     priority: PRIORITY_MAP[t.priority_number as keyof typeof PRIORITY_MAP] ?? 'medium',
     dueAt: t.due_at ?? null,
+    isOverdue: isOverdue(t.due_at, now),
+    daysUntilDue: daysUntilDue(t.due_at, now),
     labels: labelsByTask.get(t.id) ?? [],
     assigneeUserIds: (t.assignees ?? []).map((a) => a.user_id),
     planId: t.plan_id,
@@ -237,6 +253,19 @@ const taskItemSchema = z.object({
   status: z.enum(['not_started', 'in_progress', 'completed', 'deferred']),
   priority: z.enum(['urgent', 'important', 'medium', 'low']),
   dueAt: z.string().nullable(),
+  isOverdue: z
+    .boolean()
+    .describe(
+      'Server-computed in Asia/Ho_Chi_Minh: true when the due date has passed. ' +
+        'Use THIS to decide whether a task is late — never compare dates yourself.',
+    ),
+  daysUntilDue: z
+    .number()
+    .nullable()
+    .describe(
+      'Server-computed whole local calendar days until due. 0 = due today, ' +
+        'negative = overdue, null = no due date.',
+    ),
   labels: z.array(z.string()),
   assigneeUserIds: z.array(z.string()),
   planId: z.string(),
@@ -268,6 +297,8 @@ export const plannerQueryTasksTool = defineAgentTool({
     'to auto-resolve when the user belongs to exactly one group.\n\n' +
     'Use for: "find Tuấn\'s open tasks"; "task named billing migration"; "what\'s overdue in plan X"; ' +
     '"list deferred tasks in group Y". Each result includes its applied labels.\n' +
+    'Each result carries isOverdue and daysUntilDue, computed on the server in Vietnam time — ' +
+    'read those fields for lateness instead of comparing dates.\n' +
     'Do NOT use for topic or keyword discovery — use planner_findSimilarTasks instead.\n\n' +
     'At least one filter must be set. status defaults to "open" (percent < 100). For the current ' +
     'user pass assigneeScope: "me"; for another user pass assigneeUserId (a UUID from a lookup). ' +
