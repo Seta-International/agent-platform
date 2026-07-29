@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { KpiMetricsPage, type KpiMetricsSearch } from '../../pages/kpi-metrics-page.tsx';
+import type { KpiMetricsSearch } from '../../pages/kpi-metrics-page.tsx';
+import { PmComingSoon } from '../../pages/pm-coming-soon.tsx';
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 const num = (v: unknown): number | undefined => {
@@ -7,6 +8,12 @@ const num = (v: unknown): number | undefined => {
   const n = Number(v);
   return Number.isNaN(n) ? undefined : n;
 };
+
+function KpiMetricsPlaceholder() {
+  return (
+    <PmComingSoon title="KPI Metrics" description="KPI dashboards and metrics will appear here." />
+  );
+}
 
 export const Route = createFileRoute('/_authed/pm/metrics/')({
   validateSearch: (s: Record<string, unknown>): KpiMetricsSearch => ({
@@ -16,5 +23,5 @@ export const Route = createFileRoute('/_authed/pm/metrics/')({
     iso_year: num(s.iso_year),
     iso_week: num(s.iso_week),
   }),
-  component: KpiMetricsPage,
+  component: KpiMetricsPlaceholder,
 });
