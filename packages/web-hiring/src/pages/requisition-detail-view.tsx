@@ -268,6 +268,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         ? 'Due date cannot be in the past.'
         : null
     : null;
+  // FUT-785 headcount validation — mirrors the create form (NewRequisitionDialog).
+  const headcountError =
+    openCount < 1 || !Number.isInteger(openCount)
+      ? 'Headcount must be a positive whole number.'
+      : openCount > 1000
+        ? 'Headcount cannot exceed 1,000.'
+        : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
   // FUT-559 error focus: mark each empty required field in red on submit and scroll to the
   // first offender, instead of a single lumped message the user has to hunt the field for.
@@ -460,7 +467,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   function submitEdit() {
     setSubmitAttempted(true);
-    if (missingRequired || startInPast || dueBeforeStart || dueInPast) {
+    if (missingRequired || startInPast || dueBeforeStart || dueInPast || headcountError) {
       const target = !title.trim()
         ? titleFieldRef.current
         : isRichTextEmpty(sections.about)
@@ -698,14 +705,18 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     value={openCount}
                     onChange={(v) => setOpenCount(Math.max(1, v || 1))}
                     status={
-                      openCount < originalOpenCount
-                        ? {
-                            type: 'warning',
-                            message: `Saving cancels ${originalOpenCount - openCount} open opening${
-                              originalOpenCount - openCount > 1 ? 's' : ''
-                            }. Filled openings are kept.`,
-                          }
-                        : undefined
+                      headcountError && submitAttempted
+                        ? { type: 'error', message: headcountError }
+                        : openCount < originalOpenCount
+                          ? {
+                              type: 'warning',
+                              message: `Saving cancels ${
+                                originalOpenCount - openCount
+                              } open opening${
+                                originalOpenCount - openCount > 1 ? 's' : ''
+                              }. Filled openings are kept.`,
+                            }
+                          : undefined
                     }
                   />
                 </Grid>
