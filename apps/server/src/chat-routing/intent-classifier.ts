@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { withTemporalContext } from '@seta/agent-sdk';
 
 export type ChatIntent = 'assignment' | 'planner_qna' | 'weekly_planner';
 
@@ -60,29 +61,30 @@ async function llmFallback(
   const agent = new Agent({
     id: 'chat.intentClassifier',
     name: 'Chat Intent Classifier',
-    instructions:
+    instructions: withTemporalContext(
       'Classify the user message as exactly one word: "assignment", "weekly_planner", or "planner_qna".\n' +
-      '\n' +
-      '"assignment" — use when the user wants to:\n' +
-      '  • assign, reassign, recommend, or delegate work to someone\n' +
-      '  • find or list tasks by skill, label, area, or status (e.g. open/overdue tasks in a domain)\n' +
-      '  • search for tasks matching a criteria (infrastructure, frontend, devops, etc.)\n' +
-      '  • find people with a certain skill for a task\n' +
-      '\n' +
-      '"weekly_planner" — use when the user wants their OWN workload organized into a\n' +
-      'day-by-day schedule:\n' +
-      '  • plan, organize, or prioritize their week or their task list\n' +
-      '  • turn a list of tasks into a weekly schedule\n' +
-      '  • rebalance or regenerate an existing weekly plan\n' +
-      '\n' +
-      '"planner_qna" — use when the user wants to:\n' +
-      '  • read details about a specific task (deadline, description, assignee)\n' +
-      '  • check their own task list or workload\n' +
-      '  • ask about plans, groups, or team structure\n' +
-      '\n' +
-      'The message may be in Vietnamese or English.\n' +
-      'If conversation history is provided, use it to understand what the user is referring to.\n' +
-      'Output only the single word, nothing else.',
+        '\n' +
+        '"assignment" — use when the user wants to:\n' +
+        '  • assign, reassign, recommend, or delegate work to someone\n' +
+        '  • find or list tasks by skill, label, area, or status (e.g. open/overdue tasks in a domain)\n' +
+        '  • search for tasks matching a criteria (infrastructure, frontend, devops, etc.)\n' +
+        '  • find people with a certain skill for a task\n' +
+        '\n' +
+        '"weekly_planner" — use when the user wants their OWN workload organized into a\n' +
+        'day-by-day schedule:\n' +
+        '  • plan, organize, or prioritize their week or their task list\n' +
+        '  • turn a list of tasks into a weekly schedule\n' +
+        '  • rebalance or regenerate an existing weekly plan\n' +
+        '\n' +
+        '"planner_qna" — use when the user wants to:\n' +
+        '  • read details about a specific task (deadline, description, assignee)\n' +
+        '  • check their own task list or workload\n' +
+        '  • ask about plans, groups, or team structure\n' +
+        '\n' +
+        'The message may be in Vietnamese or English.\n' +
+        'If conversation history is provided, use it to understand what the user is referring to.\n' +
+        'Output only the single word, nothing else.',
+    ),
     model: deps.resolveModel(),
   });
   const historyPrefix = history?.length

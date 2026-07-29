@@ -1,7 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import {
+  type AgentResult,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
+} from '@seta/agent-sdk';
 import { pickModel } from '../../model.ts';
 import { capacityHint, fallbackPlan, prePassOrder, windowDays } from '../scheduling.ts';
 import {
@@ -14,6 +19,8 @@ import {
 } from '../schemas.ts';
 
 export interface WeeklyPlanScheduleBuilderDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   /** Test-only seam replacing the LLM placement call; the deterministic fallback runs for real. */
   generatePlan?: (args: { message: string; requestContext: RequestContext }) => Promise<WeeklyPlan>;
@@ -79,7 +86,7 @@ export function makeWeeklyPlanScheduleBuilder(
         const agent = new Agent({
           id: 'planner.weeklyPlan.scheduleBuilder',
           name: 'Weekly Plan Schedule Builder',
-          instructions: INSTRUCTIONS,
+          instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
           model: pickModel(ctx, deps.resolveModel),
         });
         console.log('[weeklyPlan.scheduleBuilder] in:', message);
