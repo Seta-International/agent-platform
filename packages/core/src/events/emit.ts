@@ -14,15 +14,22 @@ export class EmitContextRequired extends Error {
 }
 
 export async function emit<P>(event: DomainEventInput<P>): Promise<{ eventId: string }> {
+  const result = await emitBatch([event]);
+  // istanbul ignore next — unreachable: emitBatch(≥1) always returns ≥1
+  if (!result[0]) throw new Error('emit returned no event');
+  return result[0];
+}
+
+export async function emitBatch<P>(events: DomainEventInput<P>[]): Promise<{ eventId: string }[]> {
+  if (events.length === 0) return [];
   const ctx = emitContext.getStore();
   if (!ctx) throw new EmitContextRequired();
 
   const traceId = ctx.traceId ?? otelTrace.getActiveSpan()?.spanContext().traceId;
   const captured = captureActiveTraceContext();
-  const eventId = crypto.randomUUID();
 
-  await ctx.tx.insert(coreEvents).values({
-    id: eventId,
+  const rows = events.map((event) => ({
+    id: crypto.randomUUID(),
     tenantId: event.tenantId,
     aggregateType: event.aggregateType,
     aggregateId: event.aggregateId,
@@ -42,6 +49,8 @@ export async function emit<P>(event: DomainEventInput<P>): Promise<{ eventId: st
           user_agent: ctx.actor.userAgent,
         }
       : null,
-  });
-  return { eventId };
+  }));
+
+  await ctx.tx.insert(coreEvents).values(rows);
+  return rows.map((r) => ({ eventId: r.id }));
 }
