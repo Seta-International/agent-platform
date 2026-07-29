@@ -5,11 +5,12 @@ import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
+import {
+  type AgentResult,
+  type AgentTool,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  temporalContextBlock,
 } from '@seta/agent-sdk';
 import {
   plannerGetBoardSnapshotTool,
@@ -18,7 +19,6 @@ import {
   plannerQueryTasksTool,
   plannerResolveMemberTool,
 } from '@seta/planner/agent-tools';
-import { dateAnchorsPromptBlock } from '../../agent-tools/date-anchors.ts';
 import { pickModel } from '../model.ts';
 import {
   type QuerySubAgentInput as In,
@@ -54,7 +54,7 @@ export function buildInstructions(now: Date = new Date()): string {
   return `You answer "which tasks?" questions — the user is discovering a
 SET of tasks, not asking about one known task. Answer in prose.
 
-${dateAnchorsPromptBlock(now)}
+${temporalContextBlock(now)}
 
 Tools:
 - planner_queryTasks: structured filter (assignee, plan, status, due window, title substring) → list.

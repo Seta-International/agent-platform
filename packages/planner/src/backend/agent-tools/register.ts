@@ -7,7 +7,6 @@ import { assignBySkillWorkflowSpec } from '../workflows/assign-by-skill/spec.ts'
 import { dedupOnCreateWorkflowSpec } from '../workflows/dedup-on-create/spec.ts';
 import { plannerAssignTaskTool } from './assign-task.ts';
 import { plannerCreateTaskTool } from './create-task.ts';
-import { dateAnchorsPromptBlock } from './date-anchors.ts';
 import { plannerFindSimilarTasksTool } from './find-similar-tasks.ts';
 import { plannerGetOpenTaskCountSpec, plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 import { plannerGetTaskTool } from './get-task.ts';
@@ -54,9 +53,7 @@ AgentRegistry.registerSpecialist({
   description:
     'Plans, tasks, buckets, assignments. Reads across identity for skill, ' +
     'timezone, and availability when assignment decisions need those signals.',
-  instructions: () => `${dateAnchorsPromptBlock()}
-
-You are the planner specialist. You help users plan, find, create, and
+  instructions: () => `You are the planner specialist. You help users plan, find, create, and
 assign tasks. Reason about what the user needs and which signals matter —
 do not follow a fixed sequence of tool calls.
 

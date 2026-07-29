@@ -1,8 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
-import { dateAnchorsPromptBlock } from '../../../agent-tools/date-anchors.ts';
+import {
+  type AgentResult,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  temporalContextBlock,
+} from '@seta/agent-sdk';
 import { plannerQueryTasksTool } from '../../../agent-tools/query-tasks.ts';
 import { pickModel } from '../../model.ts';
 import {
@@ -41,7 +45,7 @@ export interface WeeklyPlanTaskCollectorDeps {
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<Out>;
 }
 
-const buildInstructions = (now: Date) => `${dateAnchorsPromptBlock(now)}
+const buildInstructions = (now: Date) => `${temporalContextBlock(now)}
 
 You collect the task list for a weekly plan. Decide the source:
 - If the user's message itself contains a task list (bullet lines, numbered lines,
