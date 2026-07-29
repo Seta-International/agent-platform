@@ -1,3 +1,4 @@
+import { localDayBounds } from '@seta/agent-sdk';
 import type { SessionScope } from '@seta/core';
 import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
@@ -274,7 +275,15 @@ export async function listTasks(input: {
   }
 
   if (filters.due_before !== undefined) {
-    conditions.push(lt(tasks.due_at, new Date(filters.due_before)));
+    // FUT-800: due_before is a platform-local (ICT) day key, so the exclusive
+    // bound is local midnight. `new Date('2026-08-03')` is 07:00 ICT and would
+    // wrongly include tasks due in the first hours of that day. A caller may
+    // still pass a full ISO instant, which is used as-is.
+    const bound =
+      filters.due_before.length === 10
+        ? localDayBounds(filters.due_before).start
+        : new Date(filters.due_before);
+    conditions.push(lt(tasks.due_at, bound));
   }
 
   if (filters.title_contains !== undefined) {
