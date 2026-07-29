@@ -234,3 +234,49 @@ export function daysUntilDue(
   const to = localDayProxy(due, tz).getTime();
   return Math.round((to - from) / MS_PER_DAY);
 }
+
+/**
+ * First line of every temporal block. The CI gate
+ * (tests/unit/temporal-context-gate.test.ts) keys on the wrapper name and the
+ * prompt-consistency test keys on this string — do not reword it without
+ * updating both.
+ */
+export const TEMPORAL_CONTEXT_MARKER = '## Temporal context (authoritative)';
+
+/**
+ * The date block injected into every agent's system prompt. These values are
+ * computed server-side and are the ONLY dates an agent may use.
+ */
+export function temporalContextBlock(
+  now: Date = new Date(),
+  tz: string = PLATFORM_TIMEZONE,
+): string {
+  const a = temporalAnchors(now, tz);
+  return `${TEMPORAL_CONTEXT_MARKER}
+Right now it is ${a.nowLocal} (${tz}). Use the values below EXACTLY as written —
+do NOT recompute them, do NOT do calendar arithmetic, and never use a year that
+does not appear here. Weeks start Monday (ISO). dueBefore is EXCLUSIVE
+(due_at < dueBefore).
+- today       = ${a.today}
+- tomorrow    = ${a.tomorrow}
+- yesterday   = ${a.yesterday}
+- this week   = ${a.thisWeekStart} .. ${a.thisWeekEnd}  (dueBefore ${a.thisWeekDueBefore})
+- next week   = ${a.nextWeekStart} .. ${a.nextWeekEnd}  (dueBefore ${a.nextWeekDueBefore})
+- last week   = ${a.lastWeekStart} .. ${a.lastWeekEnd}
+- this month  = ${a.thisMonth}  (dueBefore ${a.thisMonthDueBefore})
+- next month  = ${a.nextMonth}  (dueBefore ${a.nextMonthDueBefore})
+- last month  = ${a.lastMonth}
+For "due this week" pass dueBefore=${a.thisWeekDueBefore}.
+Lateness: read the isOverdue and daysUntilDue fields from tool output. Never
+decide whether something is late by comparing dates yourself.`;
+}
+
+/**
+ * Wrap an agent's instructions with the temporal block. Call this at agent
+ * CONSTRUCTION time (inside the per-turn factory), never at module load — a
+ * module-load call would freeze the date at process start, which is the bug
+ * FUT-800 fixes.
+ */
+export function withTemporalContext(base: string, opts: { now?: Date; tz?: string } = {}): string {
+  return `${temporalContextBlock(opts.now, opts.tz)}\n\n${base}`;
+}

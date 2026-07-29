@@ -5,7 +5,10 @@ import {
   localDateKey,
   localDayBounds,
   PLATFORM_TIMEZONE,
+  TEMPORAL_CONTEXT_MARKER,
   temporalAnchors,
+  temporalContextBlock,
+  withTemporalContext,
 } from '../../src/temporal-context.ts';
 
 // 2026-07-29T17:30:00Z is 2026-07-30 00:30 in Asia/Ho_Chi_Minh (UTC+7).
@@ -160,5 +163,52 @@ describe('daysUntilDue', () => {
 
   it('is null when there is no due date', () => {
     expect(daysUntilDue(null, now)).toBeNull();
+  });
+});
+
+describe('temporalContextBlock', () => {
+  const block = temporalContextBlock(new Date('2026-07-29T17:30:00Z'));
+
+  it('opens with the marker the CI gate greps for', () => {
+    expect(block.startsWith(TEMPORAL_CONTEXT_MARKER)).toBe(true);
+  });
+
+  it('states the local now and today', () => {
+    expect(block).toContain('2026-07-30 00:30 +07:00');
+    expect(block).toContain('today       = 2026-07-30');
+  });
+
+  it('states the exclusive dueBefore bound for this week', () => {
+    expect(block).toContain('dueBefore 2026-08-03');
+  });
+
+  it('forbids the model from recomputing dates or judging lateness itself', () => {
+    expect(block).toContain('do NOT recompute');
+    expect(block).toContain('isOverdue');
+  });
+});
+
+describe('withTemporalContext', () => {
+  it('prepends the block to the agent instructions', () => {
+    const out = withTemporalContext('You are a helpful agent.', {
+      now: new Date('2026-07-29T17:30:00Z'),
+    });
+    expect(out.startsWith(TEMPORAL_CONTEXT_MARKER)).toBe(true);
+    expect(out).toContain('You are a helpful agent.');
+    expect(out.indexOf(TEMPORAL_CONTEXT_MARKER)).toBeLessThan(
+      out.indexOf('You are a helpful agent.'),
+    );
+  });
+
+  it('defaults now to the wall clock, so a per-turn caller always gets today', () => {
+    expect(withTemporalContext('base')).toContain(`today       = ${localDateKey()}`);
+  });
+
+  it('honours an explicit timezone', () => {
+    const out = withTemporalContext('base', {
+      now: new Date('2026-07-29T17:30:00Z'),
+      tz: 'UTC',
+    });
+    expect(out).toContain('today       = 2026-07-29');
   });
 });
