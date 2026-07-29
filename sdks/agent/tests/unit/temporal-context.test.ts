@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { PLATFORM_TIMEZONE, temporalAnchors } from '../../src/temporal-context.ts';
+import {
+  daysUntilDue,
+  isOverdue,
+  localDateKey,
+  localDayBounds,
+  PLATFORM_TIMEZONE,
+  temporalAnchors,
+} from '../../src/temporal-context.ts';
 
 // 2026-07-29T17:30:00Z is 2026-07-30 00:30 in Asia/Ho_Chi_Minh (UTC+7).
 // This is the exact FUT-800 AC4 regression: UTC math answers 2026-07-29.
@@ -85,5 +92,73 @@ describe('temporalAnchors — explicit timezone override', () => {
     const a = temporalAnchors(EARLY_MORNING, 'UTC');
     expect(a.today).toBe('2026-07-29');
     expect(a.nowLocal).toBe('2026-07-29 17:30 +00:00');
+  });
+});
+
+describe('localDayBounds', () => {
+  it('starts the local day at ICT midnight, not UTC midnight', () => {
+    const { start, end } = localDayBounds('2026-08-03');
+    expect(start.toISOString()).toBe('2026-08-02T17:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-08-03T17:00:00.000Z');
+  });
+
+  it('rejects a malformed key', () => {
+    expect(() => localDayBounds('03-08-2026')).toThrow(RangeError);
+  });
+});
+
+describe('localDateKey', () => {
+  it('reads the local calendar day of an instant', () => {
+    expect(localDateKey(new Date('2026-07-29T17:30:00Z'))).toBe('2026-07-30');
+    expect(localDateKey(new Date('2026-07-29T16:59:00Z'))).toBe('2026-07-29');
+  });
+});
+
+describe('isOverdue', () => {
+  const now = new Date('2026-07-30T02:00:00Z'); // 09:00 ICT
+
+  it('is false for a task due later the same local day', () => {
+    expect(isOverdue('2026-07-30T10:00:00Z', now)).toBe(false);
+  });
+
+  it('is true once the due instant has passed', () => {
+    expect(isOverdue('2026-07-30T01:59:00Z', now)).toBe(true);
+  });
+
+  it('is false exactly at the due instant', () => {
+    expect(isOverdue('2026-07-30T02:00:00Z', now)).toBe(false);
+  });
+
+  it('is false when there is no due date', () => {
+    expect(isOverdue(null, now)).toBe(false);
+  });
+
+  it('is false for an unparseable due date rather than throwing', () => {
+    expect(isOverdue('not-a-date', now)).toBe(false);
+  });
+
+  it('accepts a Date as well as an ISO string', () => {
+    expect(isOverdue(new Date('2026-07-29T00:00:00Z'), now)).toBe(true);
+  });
+});
+
+describe('daysUntilDue', () => {
+  const now = new Date('2026-07-29T17:30:00Z'); // 2026-07-30 00:30 ICT
+
+  it('counts local calendar days, not 24-hour spans', () => {
+    // 2026-07-30T16:00:00Z is 23:00 ICT the same local day → 0, not 1.
+    expect(daysUntilDue('2026-07-30T16:00:00Z', now)).toBe(0);
+  });
+
+  it('is positive for a future local day', () => {
+    expect(daysUntilDue('2026-08-02T03:00:00Z', now)).toBe(3);
+  });
+
+  it('is negative for a past local day', () => {
+    expect(daysUntilDue('2026-07-28T03:00:00Z', now)).toBe(-2);
+  });
+
+  it('is null when there is no due date', () => {
+    expect(daysUntilDue(null, now)).toBeNull();
   });
 });

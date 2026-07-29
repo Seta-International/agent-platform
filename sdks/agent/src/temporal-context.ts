@@ -198,3 +198,39 @@ export function temporalAnchors(
     nextMonthDueBefore: dayKey(monthStart(2)),
   };
 }
+
+function toInstant(value: Date | string | null | undefined): Date | null {
+  if (value === null || value === undefined) return null;
+  const d = typeof value === 'string' ? new Date(value) : value;
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Whether a due date has passed. An INSTANT comparison, so it takes no
+ * timezone: a task due 17:00 local today is not overdue at 09:00 local today,
+ * in any zone. Mirrors `due_at < now` in domain/get-plan-chart-data.ts.
+ */
+export function isOverdue(
+  dueAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  const due = toInstant(dueAt);
+  return due === null ? false : due.getTime() < now.getTime();
+}
+
+/**
+ * Whole platform-local calendar days from today to the due day. 0 = due today,
+ * negative = in the past, null = no due date. Calendar days rather than
+ * 24-hour spans, so "due today at 23:00" reads as 0 rather than 1.
+ */
+export function daysUntilDue(
+  dueAt: Date | string | null | undefined,
+  now: Date = new Date(),
+  tz: string = PLATFORM_TIMEZONE,
+): number | null {
+  const due = toInstant(dueAt);
+  if (due === null) return null;
+  const from = localDayProxy(now, tz).getTime();
+  const to = localDayProxy(due, tz).getTime();
+  return Math.round((to - from) / MS_PER_DAY);
+}
