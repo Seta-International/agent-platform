@@ -5,7 +5,12 @@ import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import {
+  type AgentResult,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
+} from '@seta/agent-sdk';
 import {
   plannerGetItemActivityTool,
   plannerGetTaskTool,
@@ -32,6 +37,8 @@ export const TASK_DETAIL_TOOL_IDS = [
 ] as const;
 
 export interface QueryTaskDetailDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
@@ -89,7 +96,7 @@ export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): Specialized
             const rawAgent = new Agent({
               id: agentId,
               name: 'Planner Task Detail',
-              instructions: INSTRUCTIONS,
+              instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
               model: pickModel(ctx, deps.resolveModel),
               tools: {
                 planner_getTask: plannerGetTaskTool,

@@ -5,11 +5,12 @@ import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
+import {
+  type AgentResult,
+  type AgentTool,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { z } from 'zod';
@@ -30,6 +31,8 @@ export const QueryOrchestratorResultSchema = z.object({ answer: z.string() });
 export type QueryOrchestratorResult = z.infer<typeof QueryOrchestratorResultSchema>;
 
 export interface QueryOrchestratorDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   taskQuery: SubAgent;
   taskDetail: SubAgent;
   teamInfo: SubAgent;
@@ -130,7 +133,7 @@ function buildQueryOrchestrator(
   const rawAgent = new Agent({
     id: AGENT_ID,
     name: 'Planner Query Orchestrator',
-    instructions: INSTRUCTIONS,
+    instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
     model: pickModel(ctx, deps.resolveModel),
     tools: tools as never,
   });

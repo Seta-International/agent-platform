@@ -11,6 +11,7 @@ import {
   setBreakerEventEmitter,
   setConversationMemory,
   setExecutionPolicy,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import type { AgentSpec, ContributionRegistry } from '@seta/core';
 import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
@@ -87,7 +88,12 @@ export function buildAgentFromSpec(spec: AgentSpec, opts: { model?: unknown } = 
   return new Agent({
     id: spec.id,
     name: spec.id,
-    instructions: spec.instructions,
+    // FUT-800 chokepoint: every registry specialist gets the current date here,
+    // so no individual spec has to remember to ask for it. Deliberately a
+    // function, not a string: specialists are constructed once at boot
+    // (registerAgent), so a pre-rendered block would serve the deploy-day date
+    // forever. Mastra resolves function-valued instructions on every run.
+    instructions: () => withTemporalContext(spec.instructions),
     model: model as never,
   });
 }

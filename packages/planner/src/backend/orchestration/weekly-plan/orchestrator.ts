@@ -1,11 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
+import {
+  type AgentResult,
+  type AgentTool,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { z } from 'zod';
@@ -98,7 +99,7 @@ function buildWeeklyPlanOrchestrator(
   const agent = new Agent({
     id: 'planner.weeklyPlan.orchestrator',
     name: 'Weekly Planner Orchestrator',
-    instructions: INSTRUCTIONS,
+    instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
     model: pickModel(ctx, deps.resolveModel),
     tools: tools as never,
   });

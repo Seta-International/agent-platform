@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentSpec } from '@seta/agent-sdk';
+import { type AgentResult, type SpecializedAgentSpec, withTemporalContext } from '@seta/agent-sdk';
 import type { z } from 'zod';
 import { pickModel } from '../model.ts';
 import { GeneralAnswerInputSchema, GeneralAnswerOutputSchema } from '../schemas.ts';
@@ -10,6 +10,8 @@ type In = z.infer<typeof GeneralAnswerInputSchema>;
 type Out = z.infer<typeof GeneralAnswerOutputSchema>;
 
 export interface GeneralAnswerDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
@@ -44,7 +46,7 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
             const agent = new Agent({
               id: 'staffing.generalAnswer',
               name: 'General Answer',
-              instructions: INSTRUCTIONS,
+              instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
               model: pickModel(ctx, deps.resolveModel),
             });
             const r = await agent.generate(

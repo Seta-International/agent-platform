@@ -1,11 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import type {
-  AgentResult,
-  Citation,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
-  TrustEnvelope,
+import {
+  type AgentResult,
+  type Citation,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  type TrustEnvelope,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { pickModel } from '../model.ts';
@@ -23,6 +24,8 @@ type Out = TaskAnalyzerOutput;
 const FIND_TASKS_LIMIT = 20;
 
 export interface TaskAnalyzerDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   taskReader: TaskReaderPort;
   taskSearch: TaskSearchPort;
   /** Fast model used by the (LLM) extraction steps; resolved lazily, only when needed. */
@@ -52,13 +55,16 @@ async function extractTags(
   const agent = new Agent({
     id: 'staffing.taskAnalyzer.tagExtractor',
     name: 'Task Analyzer tag extraction',
-    instructions: [
-      'Extract the lowercase skill or area tag(s) named in the user message.',
-      vocabLine,
-      'Return an empty array if the message names no skills.',
-    ]
-      .filter(Boolean)
-      .join('\n'),
+    instructions: withTemporalContext(
+      [
+        'Extract the lowercase skill or area tag(s) named in the user message.',
+        vocabLine,
+        'Return an empty array if the message names no skills.',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      { now: deps.now?.() },
+    ),
     model: pickModel(ctx, deps.resolveModel),
   });
   const r = await agent.generate(`User message: ${query}`, {
@@ -81,10 +87,13 @@ async function extractSkills(
   const agent = new Agent({
     id: 'staffing.taskAnalyzer.skillExtractor',
     name: 'Task Analyzer skill extraction',
-    instructions: [
-      'Extract a concise list of technical skill tags (lowercase, no duplicates)',
-      'required to do this task. Return only skills clearly implied by the text.',
-    ].join('\n'),
+    instructions: withTemporalContext(
+      [
+        'Extract a concise list of technical skill tags (lowercase, no duplicates)',
+        'required to do this task. Return only skills clearly implied by the text.',
+      ].join('\n'),
+      { now: deps.now?.() },
+    ),
     model: pickModel(ctx, deps.resolveModel),
   });
   const r = await agent.generate(

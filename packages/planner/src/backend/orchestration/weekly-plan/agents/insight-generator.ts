@@ -1,7 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import {
+  type AgentResult,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
+} from '@seta/agent-sdk';
 import { pickModel } from '../../model.ts';
 import { synthesizeWorkloadInsight } from '../scheduling.ts';
 import {
@@ -13,6 +18,8 @@ import {
 } from '../schemas.ts';
 
 export interface WeeklyPlanInsightGeneratorDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   /** Test-only seam replacing the LLM call; the deterministic guarantees run for real. */
   generateInsights?: (args: { message: string; requestContext: RequestContext }) => Promise<Out>;
@@ -62,7 +69,7 @@ export function makeWeeklyPlanInsightGenerator(
             const agent = new Agent({
               id: 'planner.weeklyPlan.insightGenerator',
               name: 'Weekly Plan Insight Generator',
-              instructions: INSTRUCTIONS,
+              instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
               model: pickModel(ctx, deps.resolveModel),
             });
             console.log('[weeklyPlan.insightGenerator] in:', message);

@@ -12,6 +12,7 @@ import {
   RC_THREAD_ID,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import type { z } from 'zod';
@@ -67,6 +68,8 @@ type RecommenderSpec = SpecializedAgentSpec<
 type GeneralAnswerSpec = SpecializedAgentSpec<{ query: string }, { answer: string }>;
 
 export interface OrchestratorDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   taskAnalyzer: TaskAnalyzerSpec;
   skillMatcher: SkillMatcherSpec;
   avaiChecker: AvaiCheckerSpec;
@@ -280,9 +283,10 @@ async function buildOrchestrator(
   if (wmTool) tools.updateWorkingMemory = wmTool;
 
   const wmSection = await loadUserContextSection(ctx);
-  const instructions = wmSection
-    ? `${instructionsText(cap)}\n\n${wmSection}`
-    : instructionsText(cap);
+  const instructions = withTemporalContext(
+    wmSection ? `${instructionsText(cap)}\n\n${wmSection}` : instructionsText(cap),
+    { now: deps.now?.() },
+  );
 
   const agent = new Agent({
     id: 'planner.assignment-orchestrator',
