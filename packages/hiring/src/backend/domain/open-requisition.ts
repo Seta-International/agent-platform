@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { emit, withEmit } from '@seta/core/events';
+import { emit, emitBatch, withEmit } from '@seta/core/events';
 import type { OpenRequisitionInput } from '../../contracts.ts';
 import { HIRING_OPENING_OPENED, HIRING_REQUISITION_OPENED } from '../../events.ts';
 import { opening, requisition, requisitionJdSection, requisitionSkill } from '../db/schema.ts';
@@ -77,15 +77,17 @@ export async function openRequisition(
           })),
         )
         .returning({ id: opening.id });
-      for (const op of openings) {
-        await emit({
-          tenantId: session.tenant_id,
-          aggregateType: 'hiring.opening',
-          aggregateId: op.id,
-          eventType: HIRING_OPENING_OPENED,
-          eventVersion: 1,
-          payload: { opening_id: op.id, requisition_id: row.id, tenant_id: session.tenant_id },
-        });
+      if (openings.length > 0) {
+        await emitBatch(
+          openings.map((op) => ({
+            tenantId: session.tenant_id,
+            aggregateType: 'hiring.opening',
+            aggregateId: op.id,
+            eventType: HIRING_OPENING_OPENED,
+            eventVersion: 1,
+            payload: { opening_id: op.id, requisition_id: row.id, tenant_id: session.tenant_id },
+          })),
+        );
       }
     },
   );
