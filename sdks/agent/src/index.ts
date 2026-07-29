@@ -81,6 +81,19 @@ export {
   type TaskRefResolution,
   TaskRefResolveError,
 } from './task-ref-resolver.ts';
+export {
+  addDaysToKey,
+  daysUntilDue,
+  isOverdue,
+  localDateKey,
+  localDayBounds,
+  PLATFORM_TIMEZONE,
+  TEMPORAL_CONTEXT_MARKER,
+  type TemporalAnchors,
+  temporalAnchors,
+  temporalContextBlock,
+  withTemporalContext,
+} from './temporal-context.ts';
 export type {
   AgentTool,
   AgentToolContext,

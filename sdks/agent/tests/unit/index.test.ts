@@ -13,6 +13,24 @@ describe('sdk index re-exports', () => {
   });
 });
 
+describe('barrel exports for temporal context (FUT-800)', () => {
+  it('re-exports the prompt-side surface', () => {
+    expect(typeof sdk.withTemporalContext).toBe('function');
+    expect(typeof sdk.temporalContextBlock).toBe('function');
+    expect(typeof sdk.temporalAnchors).toBe('function');
+    expect(typeof sdk.TEMPORAL_CONTEXT_MARKER).toBe('string');
+    expect(typeof sdk.PLATFORM_TIMEZONE).toBe('string');
+  });
+
+  it('re-exports the read-path helpers', () => {
+    expect(typeof sdk.isOverdue).toBe('function');
+    expect(typeof sdk.daysUntilDue).toBe('function');
+    expect(typeof sdk.localDateKey).toBe('function');
+    expect(typeof sdk.localDayBounds).toBe('function');
+    expect(typeof sdk.addDaysToKey).toBe('function');
+  });
+});
+
 describe('barrel exports for tool-execution timeout', () => {
   it('re-exports the new error classes', () => {
     expect(sdk.ToolExecutionTimeoutError).toBeDefined();
