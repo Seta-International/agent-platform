@@ -7,6 +7,7 @@ import { buildFleet } from './boards/fleet';
 import { buildHost } from './boards/host';
 import { buildLlmGpu } from './boards/llm-gpu';
 import { buildLogs } from './boards/logs';
+import { buildLogsCenter } from './boards/logs-center';
 import { buildPostgres } from './boards/postgres';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,7 @@ const boards = [
   buildPostgres,
   buildLlmGpu,
   buildLogs,
+  buildLogsCenter,
   buildAgentQuality,
 ];
 
