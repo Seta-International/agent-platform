@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { queryTasks } from '../../../src/backend/agent-tools/query-tasks.ts';
-import { createGroup, createPlan, createTask } from '../../../src/index.ts';
+import { createGroup, createPlan, createTask, getPlanChartData } from '../../../src/index.ts';
 import { seedTenant } from '../../helpers.ts';
 
 function testDbOpts() {
@@ -58,6 +58,42 @@ describe('queryTasks lateness fields (FUT-800 AC3)', () => {
 
         expect(byId.get(undated.id)?.isOverdue).toBe(false);
         expect(byId.get(undated.id)?.daysUntilDue).toBeNull();
+      } finally {
+        await closePools();
+      }
+    });
+  });
+
+  it('agrees with the plan chart late count on the same fixture', async () => {
+    await withTestDb(testDbOpts(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
+
+        await createTask({
+          plan_id: plan.id,
+          title: 'late',
+          due_at: '2026-07-28T03:00:00Z',
+          session,
+        });
+        await createTask({
+          plan_id: plan.id,
+          title: 'due-today',
+          due_at: '2026-07-30T16:00:00Z',
+          session,
+        });
+        await createTask({ plan_id: plan.id, title: 'undated', session });
+
+        const chart = await getPlanChartData({ plan_id: plan.id }, session, NOW);
+        const queried = await queryTasks({ planId: plan.id, status: 'any', session, now: NOW });
+        const overdueCount = queried.tasks.filter((t) => t.isOverdue).length;
+
+        expect(chart.kpis.late).toBe(overdueCount);
+        expect(overdueCount).toBe(1);
       } finally {
         await closePools();
       }
