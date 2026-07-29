@@ -1,7 +1,9 @@
 import {
   actorFromContext,
+  daysUntilDue,
   defineAgentTool,
   getPendingAssignRunIdForTask,
+  isOverdue,
   recordEntityExposure,
   resolveTaskRef,
 } from '@seta/agent-sdk';
@@ -46,6 +48,19 @@ export const plannerGetTaskTool = defineAgentTool({
       isDeferred: z.boolean(),
       reviewState: z.enum(['needs_review']).nullable(),
       dueAt: z.string().nullable(),
+      isOverdue: z
+        .boolean()
+        .describe(
+          'Server-computed in Asia/Ho_Chi_Minh: true when the due date has passed. ' +
+            'Use THIS to decide whether a task is late — never compare dates yourself.',
+        ),
+      daysUntilDue: z
+        .number()
+        .nullable()
+        .describe(
+          'Server-computed whole local calendar days until due. 0 = due today, ' +
+            'negative = overdue, null = no due date.',
+        ),
       createdBy: z.string(),
       createdByName: z.string().nullable(),
       createdAt: z.string(),
@@ -155,6 +170,8 @@ export const plannerGetTaskTool = defineAgentTool({
         isDeferred: taskRow.is_deferred,
         reviewState: taskRow.review_state,
         dueAt: taskRow.due_at,
+        isOverdue: isOverdue(taskRow.due_at),
+        daysUntilDue: daysUntilDue(taskRow.due_at),
         createdBy: taskRow.created_by,
         createdByName: creatorRow?.display_name ?? null,
         createdAt: taskRow.created_at,
