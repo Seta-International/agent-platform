@@ -67,12 +67,17 @@ export async function openRequisition(
         payload: { requisition_id: row.id, tenant_id: session.tenant_id },
       });
 
-      for (let seq = 1; seq <= (input.headcount ?? 1); seq++) {
-        const [op] = await tx
-          .insert(opening)
-          .values({ tenant_id: session.tenant_id, requisition_id: row.id, seq })
-          .returning({ id: opening.id });
-        if (!op) throw new Error('opening insert returned no row');
+      const openings = await tx
+        .insert(opening)
+        .values(
+          Array.from({ length: input.headcount ?? 1 }, (_, i) => ({
+            tenant_id: session.tenant_id,
+            requisition_id: row.id,
+            seq: i + 1,
+          })),
+        )
+        .returning({ id: opening.id });
+      for (const op of openings) {
         await emit({
           tenantId: session.tenant_id,
           aggregateType: 'hiring.opening',
