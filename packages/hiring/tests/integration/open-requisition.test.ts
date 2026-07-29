@@ -136,4 +136,43 @@ describe('openRequisition', () => {
       }
     });
   });
+
+  it('batch-inserts openings and events: 200 headcount completes under 2s', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const t0 = performance.now();
+        const { requisition_id } = await openRequisition({
+          title: 'Batch Load Test',
+          kind: 'new',
+          headcount: 200,
+          session: t.adminSession,
+        });
+        const elapsed = performance.now() - t0;
+
+        // All 200 openings created
+        const ops = await hiringDb()
+          .select()
+          .from(opening)
+          .where(eq(opening.requisition_id, requisition_id));
+        expect(ops).toHaveLength(200);
+        expect(ops.every((o) => o.status === 'open')).toBe(true);
+
+        // All 200 events emitted (plus 1 requisition.opened)
+        expect(await countEvents(pool, t.tenant_id, 'hiring.opening.opened')).toBe(200);
+        expect(await countEvents(pool, t.tenant_id, 'hiring.requisition.opened')).toBe(1);
+
+        // On a local DB this runs in ~200-600ms; 2s gives CI/Container margin
+        expect(elapsed).toBeLessThan(2000);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
