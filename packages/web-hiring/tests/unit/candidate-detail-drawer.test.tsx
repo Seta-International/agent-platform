@@ -7,22 +7,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CandidateDetail } from '../../src/api/hiring-client.ts';
 
 const fetchCandidate = vi.fn();
+const fetchRequisition = vi.fn();
 const moveApplicationStage = vi.fn();
 const editCandidate = vi.fn();
 const requestCandidateCvUpload = vi.fn();
 const putCvToS3 = vi.fn();
 const getCandidateCvDownloadUrl = vi.fn();
 const hireApplication = vi.fn();
-const fetchRequisition = vi.fn().mockResolvedValue({
-  skills: [
-    { skill_id: 's1', skill_name: 'TypeScript', min_level: 4 },
-    { skill_id: 's2', skill_name: 'React', min_level: 3 },
-    { skill_id: 's3', skill_name: 'Node', min_level: 3 },
-  ],
-});
+
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fetchRequisition.mockResolvedValue({
+    id: 'r1',
+    title: 'Backend Eng',
+    skills: [
+      { skill_id: 's1', skill_name: 'TypeScript' },
+      { skill_id: 's2', skill_name: 'React' },
+      { skill_id: 's3', skill_name: 'Node.js' },
+    ],
+  });
 });
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),

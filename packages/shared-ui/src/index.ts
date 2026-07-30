@@ -47,6 +47,7 @@ export * from './composites/side-panel';
 export * from './composites/skill-level-rating';
 export * from './composites/status-tone-dot';
 export * from './composites/sync-badge';
+export * from './composites/sync-scrollbar';
 export * from './composites/task-conflict-group';
 export * from './composites/task-grid';
 export * from './composites/task-peek-panel';
