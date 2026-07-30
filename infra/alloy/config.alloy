@@ -44,6 +44,27 @@ prometheus.scrape "gpu" {
   forward_to   = [prometheus.remote_write.central.receiver]
 }
 
+// Per-container cpu/mem/disk-io/network, prod-only (cadvisor runs only there,
+// see compose.prod.yaml). dev/uat leave CADVISOR_TARGET empty (drop-on-empty).
+discovery.relabel "cadvisor" {
+  targets = [{ __address__ = sys.env("CADVISOR_TARGET") }]
+  rule {
+    source_labels = ["__address__"]
+    regex         = ""
+    action        = "drop"
+  }
+}
+prometheus.scrape "cadvisor" {
+  targets      = discovery.relabel.cadvisor.output
+  metrics_path = "/metrics"
+  // 15s matches cadvisor's --housekeeping_interval, so a ~1m rate window (via the
+  // board's per-query Min step) stays robust — 4 samples, no gaps — and surfaces
+  // ~30s CPU/IO bursts instead of averaging them away. Only this block; app/rds/gpu
+  // stay on the 60s default.
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.central.receiver]
+}
+
 prometheus.remote_write "central" {
   external_labels = { env = sys.env("MONITORING_ENV") }
   endpoint {

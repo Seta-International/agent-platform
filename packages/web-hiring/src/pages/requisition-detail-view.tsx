@@ -32,7 +32,6 @@ import { type CSSProperties, useId, useRef, useState } from 'react';
 import {
   type ApplicantRow,
   addOpening,
-  applyInternalRequisition,
   closeOpening,
   editRequisition,
   fetchAccounts,
@@ -217,17 +216,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const canClose = usePermission('hiring.requisition.close');
   const { data, isLoading, error } = useRequisition(requisitionId);
   const jdVariant: JdVariant = data ? pickJdVariant(data.jd_sections) : 'external';
-
-  const apply = useMutation({
-    mutationFn: () => applyInternalRequisition(requisitionId),
-    onSuccess: () => {
-      toast({ body: 'Application submitted successfully' });
-      void queryClient.invalidateQueries({ queryKey: hiringKeys.all });
-    },
-    onError: (err: Error) => {
-      toast({ body: err.message });
-    },
-  });
 
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'candidates' | 'jd'>('candidates');
@@ -540,15 +528,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const pastApplicants = data.applicants.filter(
     (a) => a.status !== 'active' && a.status !== 'hired',
   );
+  // Cancelling the requisition cancels its active candidates; those in Offer are the sensitive
+  // case the cancel dialog must call out (FUT-770).
+  const offerApplicantCount = activeApplicants.filter((a) => (a.stage ?? 'new') === 'offer').length;
   // Headcount is opening rows, not a column: a cancelled opening no longer counts toward the
   // target, and a filled one is progress. (See the edit form for the grow/shrink mechanics.)
   const openingsTotal = data.openings.filter((o) => o.status !== 'cancelled').length;
   const openingsFilled = data.openings.filter((o) => o.status === 'filled').length;
-  // FUT-569: a requisition whose openings are all filled is fully staffed — freeze every
-  // lifecycle action (cancel, pause/resume, mark-filled, edit, apply) even while its status is
-  // still `open`. Status `filled` is already terminal above (the footer collapses to no actions),
-  // so this guard covers the open-but-complete case (e.g. 1/1 filled, status Open). The
-  // `openingsTotal > 0` check keeps a requisition with zero live openings from reading as staffed.
+  // FUT-569: a requisition whose openings are all filled is fully staffed — freeze the lifecycle
+  // actions that would keep it running (cancel, pause/resume, edit, apply) even while its status is
+  // still `open`. Mark filled is the deliberate exception: it stays live so the recruiter can close
+  // out a fully-staffed req in one click (see the footer). Status `filled` is already terminal above
+  // (the footer collapses to no actions), so this guard covers the open-but-complete case (e.g. 1/1
+  // filled, status Open). The `openingsTotal > 0` check keeps a requisition with zero live openings
+  // from reading as staffed.
   const isFullyStaffed = openingsTotal > 0 && openingsFilled >= openingsTotal;
   // A filled requisition is a closed, fully-resolved position, so its Headcount reads complete
   // (A/A) regardless of how many openings an actual hire filled — the banner below carries the
@@ -1122,38 +1115,30 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         {data.has_applied ? (
           <Button size="sm" variant="secondary" label="Applied" isDisabled />
         ) : (
-          <DisabledActionTooltip
-            disabled={isTerminal || isOnHold || isFullyStaffed}
-            reason={
-              isTerminal ? terminalReason : isFullyStaffed ? fullyStaffedReason : onHoldReason
-            }
-          >
-            <Button
-              size="sm"
-              variant="primary"
-              label={apply.isPending ? 'Applying…' : 'Apply'}
-              isDisabled={isTerminal || isOnHold || isFullyStaffed || apply.isPending}
-              onClick={() => apply.mutate()}
-            />
+          // Applying is not wired up yet — keep the button visible but always disabled, and explain
+          // on hover/focus that it's on the way.
+          <DisabledActionTooltip disabled reason="Coming soon">
+            <Button size="sm" variant="primary" label="Apply" isDisabled />
           </DisabledActionTooltip>
         )}
+        {/* Mark filled is the one lifecycle action that stays live when fully staffed: a req with
+            every opening filled is exactly when the recruiter wants to close it out. The other
+            actions (cancel, pause/resume, edit, apply) remain frozen by isFullyStaffed. */}
         <DisabledActionTooltip
-          disabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+          disabled={isTerminal || !canClose || isOnHold}
           reason={
             isTerminal
               ? terminalReason
               : !canClose
                 ? PERMISSION_DENIED.requisition.manage
-                : isFullyStaffed
-                  ? fullyStaffedReason
-                  : onHoldReason
+                : onHoldReason
           }
         >
           <Button
             size="sm"
             variant="secondary"
             label="Mark filled"
-            isDisabled={isTerminal || !canClose || isOnHold || isFullyStaffed}
+            isDisabled={isTerminal || !canClose || isOnHold}
             onClick={() => setShowFillConfirm(true)}
           />
         </DisabledActionTooltip>
@@ -1189,6 +1174,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       <CancelRequisitionDialog
         requisitionId={requisitionId}
         version={req.version}
+        offerCount={offerApplicantCount}
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         onDone={refresh}

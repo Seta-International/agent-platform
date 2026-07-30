@@ -70,11 +70,13 @@ export const envVar = (metric: string) =>
     .includeAll(true)
     .multi(true);
 
-export const labelVar = (name: string, metric: string) =>
+// Pass promLabel when the dropdown's display name differs from the Prometheus
+// label (e.g. cAdvisor's container identity label is `name`, not `container`).
+export const labelVar = (name: string, metric: string, promLabel: string = name) =>
   new QueryVariableBuilder(name)
     .label(name)
     .datasource(PROM)
-    .query({ query: `label_values(${metric}, ${name})`, refId: 'StandardVariableQuery' })
+    .query({ query: `label_values(${metric}, ${promLabel})`, refId: 'StandardVariableQuery' })
     .refresh(VariableRefresh.OnTimeRangeChanged)
     .includeAll(true)
     .multi(true);

@@ -16,7 +16,7 @@ const fetchOpenRequisitions = vi.fn();
 const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
-  fetchOpenRequisitions: () => fetchOpenRequisitions(),
+  fetchOpenRequisitions: (opts?: { includeCancelled?: boolean }) => fetchOpenRequisitions(opts),
   fetchRequisitions: () => fetchRequisitions(),
   fetchAccounts: () => Promise.resolve([]),
   fetchProjects: () => Promise.resolve([]),
@@ -49,6 +49,7 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
     applicants_count: 0,
     applicants_internal: 0,
     applicants_external: 0,
+    hired_count: 0,
     applicants: [],
     version: 1,
     ...over,
@@ -113,6 +114,25 @@ describe('RequisitionsPage', () => {
     expect(within(table).getByRole('columnheader', { name: /position/i })).toBeInTheDocument();
   });
 
+  // FUT-769: the pipeline cell shows a Hired figure alongside the four stage buckets, and the
+  // tooltip spells it out — hired applicants are terminal, so the count comes from hired_count,
+  // not the active applicants array.
+  it('shows the hired figure in the pipeline cell and tooltip', async () => {
+    const { user, table } = await renderListView([
+      row({ applicants_count: 2, hired_count: 3, applicants: [] }),
+    ]);
+    // The inline spans concatenate without whitespace; the em dash sets off the Hired figure.
+    const pipelineCell = within(table)
+      .getAllByText((_, el) => el?.textContent === '2·0·0·0—3')
+      .at(-1);
+    expect(pipelineCell).toBeInTheDocument();
+
+    await user.hover(pipelineCell!);
+    expect(
+      await screen.findByText('New 2 · Screening 0 · Interview 0 · Offer 0 · Hired 3'),
+    ).toBeInTheDocument();
+  });
+
   // FUT-765 follow-up: the total tile is labelled "Total" (not "Total open" — it counts every
   // status, not just open) and reflects the active filters like the other three tiles, so the
   // number always matches the requisitions actually on screen.
@@ -147,6 +167,31 @@ describe('RequisitionsPage', () => {
     await user.click(await screen.findByRole('option', { name: 'Filled' }));
 
     await waitFor(() => expect(totalValue()).toHaveTextContent('1'));
+  });
+
+  // FUT-771: the board hides cancelled reqs by default, but its status filter still offers
+  // "Cancelled". Selecting it must refetch the board with includeCancelled and surface them —
+  // otherwise the filter matches an in-memory list that never contains a cancelled row.
+  it('surfaces cancelled requisitions on the board when the Cancelled filter is selected', async () => {
+    fetchOpenRequisitions.mockImplementation((opts?: { includeCancelled?: boolean }) =>
+      Promise.resolve(
+        board(
+          opts?.includeCancelled
+            ? [row({ id: 'c1', title: 'Abandoned Role', status: 'cancelled' })]
+            : [row({ id: 'r1', title: 'Open A', status: 'open' })],
+        ),
+      ),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    render(<RequisitionsPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Open A')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }));
+    await user.click(await screen.findByRole('option', { name: 'Cancelled' }));
+
+    await waitFor(() => expect(screen.getByText('Abandoned Role')).toBeInTheDocument());
+    expect(fetchOpenRequisitions).toHaveBeenCalledWith({ includeCancelled: true });
   });
 
   it('clicking "Sort by Position" reorders the rows', async () => {

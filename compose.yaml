@@ -204,6 +204,8 @@ services:
       # on-prem GPU box). dcgm-exporter publishes :9400 on the host, so reach it via
       # the host gateway: DCGM_TARGET=host.docker.internal:9400. Empty elsewhere.
       DCGM_TARGET: ${DCGM_TARGET:-}
+      # cAdvisor target — prod-only (see compose.prod.yaml); empty for dev/uat.
+      CADVISOR_TARGET: ${CADVISOR_TARGET:-}
     # Lets the agent reach host-published exporter ports (e.g. dcgm-exporter:9400,
     # which lives on the default bridge, not this compose network).
     extra_hosts:

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -274,6 +274,62 @@ describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
 
     expect(screen.getByText('Worker 25')).toBeInTheDocument();
     expect(screen.queryByText('Worker 00')).not.toBeInTheDocument();
+  });
+});
+
+describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  const workerAllocations = [
+    {
+      allocation_id: 'a1',
+      worker_id: 'w1',
+      worker_name: 'Jane Doe',
+      worker_title: 'Engineer',
+      account_name: 'Zeta Corp',
+      project_name: 'P1',
+      planned_pct: 50,
+      date_from: '2026-01-01',
+      date_to: '2026-06-01',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    },
+  ];
+
+  // The wizard reviews a person's ENTIRE book for conflict / over-allocation, so opening it must
+  // not inherit the list's project, account, search, OR active-period filters — any of those would
+  // hide the person's other allocations, which are exactly what the conflict check has to see.
+  it("scopes the wizard fetch to the worker's whole book, ignoring every page filter", async () => {
+    const user = userEvent.setup();
+    // Page is filtered by project + account + search AND a narrowed active-period window.
+    latestSearch = {
+      project: 'p1',
+      account: 'acc1',
+      q: 'jane',
+      from: '2026-05-01',
+      to: '2026-05-31',
+    };
+    fetchAllocationsMock.mockResolvedValue(workerAllocations);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: 'Reassign' }));
+
+    // The wizard fetch is the one scoped by worker_id; it must carry nothing else.
+    await waitFor(() => {
+      const wizardCalls = fetchAllocationsMock.mock.calls
+        .map((c) => c[0] as Record<string, unknown> | undefined)
+        .filter((p) => p?.worker_id != null);
+      expect(wizardCalls.at(-1)).toEqual({ worker_id: 'w1' });
+    });
   });
 });
 

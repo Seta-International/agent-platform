@@ -9,6 +9,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { closeRequisition, createCloseReason, fetchCloseReasons } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -17,12 +18,15 @@ import { on409 } from './utils.ts';
 export function CancelRequisitionDialog({
   requisitionId,
   version,
+  offerCount = 0,
   open,
   onOpenChange,
   onDone,
 }: {
   requisitionId: string;
   version: number;
+  /** Active candidates currently in the Offer stage — cancelling closes their offers (FUT-770). */
+  offerCount?: number;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
@@ -82,9 +86,28 @@ export function CancelRequisitionDialog({
                 placeholder="Why is this requisition being cancelled?"
                 rows={3}
               />
-              <p className="text-base text-secondary">
-                This closes the requisition for good — it can&apos;t be reopened afterwards.
-              </p>
+              {offerCount > 0 ? (
+                // Offer is a late, sensitive stage. When candidates are still in it, both
+                // consequences of cancelling belong together in one calm note — tinted in the same
+                // warning-muted amber the Offer stage badge uses, not a loud filled banner (FUT-770).
+                <div className="flex gap-2.5 rounded-lg bg-warning-muted p-3">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+                  <div className="space-y-0.5 text-sm">
+                    <p className="font-medium text-primary">
+                      {offerCount === 1
+                        ? '1 candidate in Offer will be cancelled'
+                        : `${offerCount} candidates in Offer will be cancelled`}
+                    </p>
+                    <p className="text-secondary">
+                      This requisition closes for good and can&apos;t be reopened.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-base text-secondary">
+                  This closes the requisition for good — it can&apos;t be reopened afterwards.
+                </p>
+              )}
             </div>
           </LayoutContent>
         }

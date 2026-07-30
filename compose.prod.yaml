@@ -21,3 +21,37 @@ services:
       - ./infra/cloudwatch-exporter/rds.yml:/config/config.yml:ro
     command: ["/config/config.yml", "9106"]
     networks: [seta-internal, seta-edge]
+
+  # Per-container cpu/mem/disk-io/network — prod-only (dev/uat share a box that
+  # also hosts the monitoring stack). Scraped by Alloy via CADVISOR_TARGET.
+  # v0.60.x floor, ghcr.io not gcr.io: this box uses the containerd snapshotter
+  # (docker info -> "overlayfs"), where pre-#3709 releases serve /metrics fine
+  # but emit zero container series. v0.49.1/v0.52.1 report nothing here.
+  # store_container_labels=false drops ~13 unqueried labels per series.
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.5
+    profiles: [obs-agent]
+    restart: unless-stopped
+    command:
+      - --docker_only=true
+      # 15s so ~30s cpu/io bursts survive the scrape+rate pipeline; Alloy scrapes
+      # this box at the same 15s (config.alloy), so no recompute is wasted.
+      - --housekeeping_interval=15s
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      # The socket file, not the whole /var/run dir — the dir mount hands over a
+      # dead socket and cadvisor then reports zero containers. Same as alloy.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Also required post-#3709: the docker handler reads rootfs from the
+      # containerd spec and fails registration outright without this.
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    # /dev/kmsg is cAdvisor's only OOM source; without it container_oom_events_total
+    # stays flat at zero through real kills. Needs both lines — devices: for the
+    # device-cgroup allow list (a volumes: bind-mount is denied), cap for the read.
+    devices:
+      - /dev/kmsg:/dev/kmsg:r
+    cap_add: [SYSLOG]
+    networks: [seta-internal]

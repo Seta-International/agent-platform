@@ -102,6 +102,9 @@ describe('cancelling a requisition closes its pipeline', () => {
         const poolNames = poolRows.map((r) => r.name);
         expect(poolNames).toContain('Ann Active');
         expect(poolNames).toContain('Bob Interviewing');
+        // FUT-772: the hired candidate is now an employee and must never surface in the
+        // talent pool, even though cancelling the requisition freed the others into it.
+        expect(poolNames).not.toContain('Hera Hired');
       } finally {
         resetHiringDb();
         resetCoreDb();

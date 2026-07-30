@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { createWorker, employmentPeriod, getWorkerIdForUser, peopleDb } from '@seta/people';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
 import {
   HIRING_APPLICATION_CREATED,
@@ -16,6 +16,7 @@ import { hiringDb } from '../db/client.ts';
 import { application, candidate, opening, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { assertApplicationRequisitionNotOnHold, recordCandidateEvent } from './candidates.ts';
+import { settleRequisitionAsClosed } from './requisition-lifecycle.ts';
 
 const REQ_STAGE_ORDER = ['sourcing', 'screening', 'interview', 'offer'] as const;
 type ReqStage = (typeof REQ_STAGE_ORDER)[number];
@@ -269,7 +270,10 @@ export async function transferApplication(input: {
     throw new HiringError('CONFLICT', 'version mismatch');
   if (cur.status !== 'active')
     throw new HiringError('CONFLICT', `cannot transfer a ${cur.status} application`);
-  await assertApplicationRequisitionNotOnHold(application_id, session);
+  // FUT-773: on-hold freezes progression *within* the source requisition (stage moves, rating,
+  // hire, reject) but must NOT block moving the candidate *out* to another role — that is exactly
+  // how a recruiter keeps a candidate progressing while the original role is paused. The
+  // target-is-open check below still prevents transfers *into* a held requisition.
 
   const [req] = await hiringDb()
     .select({ id: requisition.id, status: requisition.status })
@@ -312,25 +316,60 @@ export async function transferApplication(input: {
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      const [created] = await tx
-        .insert(application)
-        .values({
-          tenant_id: session.tenant_id,
-          requisition_id: target,
-          kind: 'external',
-          candidate_id: candidateId,
-          stage: 'new',
-          status: 'active',
-        })
-        .returning({ id: application.id });
-      if (!created) throw new Error('transfer target application insert returned no row');
-      toId = created.id;
+      // FUT-783: a candidate transferred A→B→A must not end up listed twice on A (once active,
+      // once lingering in Past Applicants). If the candidate already has a transferred
+      // application on the target requisition, restore that row to active instead of inserting a
+      // duplicate — a transfer toggles the same pair of rows back and forth between the two roles.
+      const [restorable] = await tx
+        .select({ id: application.id })
+        .from(application)
+        .where(
+          and(
+            eq(application.requisition_id, target),
+            eq(application.candidate_id, candidateId),
+            eq(application.status, 'transferred'),
+            tenantScoped(application.tenant_id, session),
+          ),
+        )
+        .orderBy(desc(application.updated_at))
+        .limit(1);
+
+      if (restorable) {
+        const [restored] = await tx
+          .update(application)
+          .set({
+            status: 'active',
+            stage: 'new',
+            superseded_by_application_id: null,
+            closed_at: null,
+            version: sql`${application.version} + 1`,
+            updated_at: new Date(),
+          })
+          .where(and(eq(application.id, restorable.id), eq(application.status, 'transferred')))
+          .returning({ id: application.id });
+        if (!restored) throw new HiringError('CONFLICT', 'application was modified concurrently');
+        toId = restored.id;
+      } else {
+        const [created] = await tx
+          .insert(application)
+          .values({
+            tenant_id: session.tenant_id,
+            requisition_id: target,
+            kind: 'external',
+            candidate_id: candidateId,
+            stage: 'new',
+            status: 'active',
+          })
+          .returning({ id: application.id });
+        if (!created) throw new Error('transfer target application insert returned no row');
+        toId = created.id;
+      }
 
       const updated = await tx
         .update(application)
         .set({
           status: 'transferred',
-          superseded_by_application_id: created.id,
+          superseded_by_application_id: toId,
           closed_at: new Date(),
           version: next,
           updated_at: new Date(),
@@ -352,7 +391,7 @@ export async function transferApplication(input: {
         application_id,
         kind: 'transferred',
         summary: `Transferred to requisition ${target}`,
-        detail: { to_application_id: created.id, target_requisition_id: target },
+        detail: { to_application_id: toId, target_requisition_id: target },
       });
       await emit({
         tenantId: session.tenant_id,
@@ -362,7 +401,7 @@ export async function transferApplication(input: {
         eventVersion: 1,
         payload: {
           application_id,
-          to_application_id: created.id,
+          to_application_id: toId,
           target_requisition_id: target,
           tenant_id: session.tenant_id,
         },
@@ -370,11 +409,11 @@ export async function transferApplication(input: {
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'hiring.application',
-        aggregateId: created.id,
+        aggregateId: toId,
         eventType: HIRING_APPLICATION_CREATED,
         eventVersion: 1,
         payload: {
-          application_id: created.id,
+          application_id: toId,
           candidate_id: candidateId,
           requisition_id: target,
           tenant_id: session.tenant_id,
@@ -571,6 +610,38 @@ export async function hireApplication(input: {
           from_stage: appRow.stage,
         },
       });
+
+      // FUT-769: this hire just filled an opening — if it was the requisition's last open one, the
+      // requisition is now fully staffed, so auto-close it as `filled`. Same settlement as pressing
+      // "Mark filled": flip status, close the remaining pipeline, free the other candidates, and
+      // emit the requisition-closed event. No separate close permission is required — auto-fill is a
+      // system consequence of an already-authorized hire. If other openings remain open, we leave
+      // the requisition open and hiring continues.
+      const remainingOpen = await tx
+        .select({ id: opening.id })
+        .from(opening)
+        .where(and(eq(opening.requisition_id, appRow.requisition_id), eq(opening.status, 'open')))
+        .limit(1);
+      if (remainingOpen.length === 0) {
+        const [reqVersionRow] = await tx
+          .select({ version: requisition.version })
+          .from(requisition)
+          .where(
+            and(
+              eq(requisition.id, appRow.requisition_id),
+              tenantScoped(requisition.tenant_id, session),
+            ),
+          )
+          .limit(1);
+        if (reqVersionRow) {
+          await settleRequisitionAsClosed(tx, {
+            session,
+            requisition_id: appRow.requisition_id,
+            currentVersion: reqVersionRow.version,
+            status: 'filled',
+          });
+        }
+      }
     },
   );
 

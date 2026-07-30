@@ -8,7 +8,7 @@
     "list": [
       {
         "type": "query",
-        "name": "env",
+        "name": "container",
         "skipUrlSync": false,
         "multi": true,
         "allowCustomValue": true,
@@ -16,13 +16,13 @@
         "auto": false,
         "auto_min": "10s",
         "auto_count": 30,
-        "label": "env",
+        "label": "container",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(node_uname_info, env)",
+          "query": "label_values(container_last_seen, name)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2
@@ -30,8 +30,8 @@
     ]
   },
   "annotations": {},
-  "title": "Host",
-  "uid": "host",
+  "title": "Container",
+  "uid": "container",
   "tags": [
     "generated",
     "seta",
@@ -48,7 +48,7 @@
       "collapsed": false,
       "id": 0,
       "panels": [],
-      "title": "Saturation now",
+      "title": "Now",
       "gridPos": {
         "x": 0,
         "y": 0,
@@ -57,48 +57,40 @@
       }
     },
     {
-      "type": "gauge",
+      "type": "stat",
       "transparent": false,
       "repeatDirection": "h",
       "options": {
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto",
-        "minVizWidth": 75,
+        "graphMode": "area",
+        "colorMode": "background",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "values": false
         },
-        "minVizHeight": 75,
+        "percentChangeColorMode": "standard",
         "orientation": "auto"
       },
-      "title": "CPU busy",
-      "description": "Non-idle CPU, busiest core group. Amber > 80%, red > 90%.",
+      "title": "Containers running",
+      "description": "Distinct containers cAdvisor currently sees (docker_only=true).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "unit": "none",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "yellow"
-              },
-              {
-                "value": 90,
-                "color": "red"
+                "color": "blue"
               }
             ]
           }
@@ -107,7 +99,7 @@
       },
       "targets": [
         {
-          "expr": "max(100 - avg by (env)(rate(node_cpu_seconds_total{env=~\"$env\",mode=\"idle\"}[5m])) * 100)",
+          "expr": "count(container_last_seen{env=\"prod\",name=~\"$container\",name!=\"\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -119,136 +111,6 @@
         "w": 12,
         "x": 0,
         "y": 1
-      }
-    },
-    {
-      "type": "gauge",
-      "transparent": false,
-      "repeatDirection": "h",
-      "options": {
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto",
-        "minVizWidth": 75,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "values": false
-        },
-        "minVizHeight": 75,
-        "orientation": "auto"
-      },
-      "title": "Memory used",
-      "description": "Used memory. Amber > 80%, red > 90%.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "yellow"
-              },
-              {
-                "value": 90,
-                "color": "red"
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "max((1 - node_memory_MemAvailable_bytes{env=~\"$env\"} / node_memory_MemTotal_bytes{env=~\"$env\"}) * 100)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 1
-      }
-    },
-    {
-      "type": "gauge",
-      "transparent": false,
-      "repeatDirection": "h",
-      "options": {
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto",
-        "minVizWidth": 75,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "values": false
-        },
-        "minVizHeight": 75,
-        "orientation": "auto"
-      },
-      "title": "Disk free (min mount)",
-      "description": "Tightest mount. Red < 5% (matches DiskCritical); yellow < 30% (matches DiskWillFillSoon's predictive window).",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "red"
-              },
-              {
-                "value": 5,
-                "color": "yellow"
-              },
-              {
-                "value": 30,
-                "color": "green"
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "min(node_filesystem_avail_bytes{env=~\"$env\",fstype!~\"tmpfs|overlay|ramfs\"} / node_filesystem_size_bytes * 100)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 10
       }
     },
     {
@@ -256,10 +118,10 @@
       "collapsed": false,
       "id": 0,
       "panels": [],
-      "title": "Trends",
+      "title": "CPU",
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 10,
         "h": 1,
         "w": 24
       }
@@ -290,27 +152,41 @@
         },
         "overrides": []
       },
-      "title": "CPU busy %",
-      "description": "Per env (instance is always node-exporter:9100, so env is the discriminator).",
+      "title": "CPU usage (% of 1 core) by container",
+      "description": "Share of one core — no CPU limits are set, so this is not a %-of-quota.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "targets": [
         {
-          "expr": "100 - avg by (env)(rate(node_cpu_seconds_total{env=~\"$env\",mode=\"idle\"}[5m])) * 100",
+          "expr": "sum by (name)(rate(container_cpu_usage_seconds_total{env=\"prod\",name=~\"$container\",name!=\"\"}[$__rate_interval])) * 100",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{env}}"
+          "legendFormat": "{{name}}",
+          "interval": "15s"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 11
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "id": 0,
+      "panels": [],
+      "title": "Memory",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "h": 1,
+        "w": 24
       }
     },
     {
@@ -335,96 +211,44 @@
             "fillOpacity": 10,
             "lineWidth": 1
           },
-          "unit": "percent"
+          "unit": "bytes"
         },
         "overrides": []
       },
-      "title": "Memory used %",
-      "description": "Per env.",
+      "title": "Memory working set by container",
+      "description": "Working set — excludes reclaimable page cache. No memory limits set, so no %-of-limit.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "targets": [
         {
-          "expr": "(1 - node_memory_MemAvailable_bytes{env=~\"$env\"} / node_memory_MemTotal_bytes{env=~\"$env\"}) * 100",
+          "expr": "container_memory_working_set_bytes{env=\"prod\",name=~\"$container\",name!=\"\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{env}}"
-        }
-      ],
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 20
-      }
-    },
-    {
-      "type": "timeseries",
-      "transparent": false,
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "asc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "fillOpacity": 10,
-            "lineWidth": 1,
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "transparent"
-              },
-              {
-                "value": 30,
-                "color": "red"
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "title": "Disk free % per mount",
-      "description": "Lines at 30% (DiskWillFillSoon) / 5% (DiskCritical).",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "expr": "node_filesystem_avail_bytes{env=~\"$env\",fstype!~\"tmpfs|overlay|ramfs\"} / node_filesystem_size_bytes * 100",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "legendFormat": "{{env}} {{mountpoint}}"
+          "legendFormat": "{{name}}"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 21
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "id": 0,
+      "panels": [],
+      "title": "Disk I/O",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "h": 1,
+        "w": 24
       }
     },
     {
@@ -453,100 +277,28 @@
         },
         "overrides": []
       },
-      "title": "Disk I/O",
-      "description": "Bytes/sec read & written per physical device (loop/ram/dm excluded).",
+      "title": "Disk read bytes/sec by container",
+      "description": "Block-device reads only — page-cache hits never show here, so heavy readers can read ~0.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "targets": [
         {
-          "expr": "rate(node_disk_read_bytes_total{env=~\"$env\",device!~\"loop.*|ram.*|dm-.*\"}[$__rate_interval])",
+          "expr": "sum by (name)(rate(container_fs_reads_bytes_total{env=\"prod\",name=~\"$container\",name!=\"\"}[$__rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{env}} read {{device}}"
-        },
-        {
-          "expr": "rate(node_disk_written_bytes_total{env=~\"$env\",device!~\"loop.*|ram.*|dm-.*\"}[$__rate_interval])",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "legendFormat": "{{env}} write {{device}}"
-        }
-      ],
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 29
-      }
-    },
-    {
-      "type": "timeseries",
-      "transparent": false,
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "asc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "fillOpacity": 10,
-            "lineWidth": 1
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "title": "Load average",
-      "description": "1/5/15m load.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "expr": "node_load1{env=~\"$env\"}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "legendFormat": "{{env}} 1m"
-        },
-        {
-          "expr": "node_load5{env=~\"$env\"}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "legendFormat": "{{env}} 5m"
-        },
-        {
-          "expr": "node_load15{env=~\"$env\"}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "legendFormat": "{{env}} 15m"
+          "legendFormat": "{{name}}",
+          "interval": "15s"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 31
       }
     },
     {
@@ -571,39 +323,256 @@
             "fillOpacity": 10,
             "lineWidth": 1
           },
-          "unit": "binbps"
+          "unit": "Bps"
         },
         "overrides": []
       },
-      "title": "Network throughput",
-      "description": "Bits/sec in & out (excl. lo).",
+      "title": "Disk write bytes/sec by container",
+      "description": "Writes to the container writable layer and its volumes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{env=~\"$env\",device!=\"lo\"}[$__rate_interval]) * 8",
+          "expr": "sum by (name)(rate(container_fs_writes_bytes_total{env=\"prod\",name=~\"$container\",name!=\"\"}[$__rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{env}} in {{device}}"
-        },
-        {
-          "expr": "rate(node_network_transmit_bytes_total{env=~\"$env\",device!=\"lo\"}[$__rate_interval]) * 8",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "legendFormat": "{{env}} out {{device}}"
+          "legendFormat": "{{name}}",
+          "interval": "15s"
         }
       ],
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 31
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "id": 0,
+      "panels": [],
+      "title": "Network I/O",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "h": 1,
+        "w": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "title": "Network receive bytes/sec by container",
+      "description": "Summed across all interfaces.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (name)(rate(container_network_receive_bytes_total{env=\"prod\",name=~\"$container\",name!=\"\"}[$__rate_interval]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{name}}",
+          "interval": "15s"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      }
+    },
+    {
+      "type": "timeseries",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "title": "Network transmit bytes/sec by container",
+      "description": "Summed across all interfaces.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (name)(rate(container_network_transmit_bytes_total{env=\"prod\",name=~\"$container\",name!=\"\"}[$__rate_interval]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{name}}",
+          "interval": "15s"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      }
+    },
+    {
+      "type": "row",
+      "collapsed": false,
+      "id": 0,
+      "panels": [],
+      "title": "Reliability",
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "h": 1,
+        "w": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "title": "OOM kill events by container",
+      "description": "Non-zero means the kernel OOM-killed a process in that container.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (name)(increase(container_oom_events_total{env=\"prod\",name=~\"$container\",name!=\"\"}[5m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      }
+    },
+    {
+      "type": "timeseries",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "title": "Container uptime",
+      "description": "cAdvisor has no restart counter — a sawtooth drop to ~0 is a restart/crash loop.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "time() - container_start_time_seconds{env=\"prod\",name=~\"$container\",name!=\"\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 51
       }
     }
   ]

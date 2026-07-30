@@ -45,6 +45,24 @@ const DETAIL_APPLIED: RequisitionDetail = {
   user_application_id: 'app-user-1',
 };
 
+// A fully-staffed requisition: still `open`, but every opening is filled. FUT-769 keeps Mark filled
+// live in this state (the recruiter's one-click close) while the other lifecycle actions stay frozen.
+const DETAIL_FULLY_STAFFED: RequisitionDetail = {
+  ...DETAIL_NOT_APPLIED,
+  openings: [
+    {
+      id: 'op-1',
+      requisition_id: 'r1',
+      seq: 1,
+      status: 'filled',
+      close_reason_id: null,
+      closed_at: null,
+      hired_application_id: 'app-hired-1',
+      version: 1,
+    },
+  ],
+};
+
 let currentDetail = DETAIL_NOT_APPLIED;
 
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
@@ -70,7 +88,7 @@ function wrap(qc: QueryClient) {
 }
 
 describe('RequisitionDetailView Apply button (FUT-650)', () => {
-  it('renders Apply button when user has not applied and triggers mutation on click', async () => {
+  it('renders Apply always disabled with a "Coming soon" tooltip and never applies', async () => {
     currentDetail = DETAIL_NOT_APPLIED;
     applyInternalRequisitionMock.mockClear();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -81,12 +99,15 @@ describe('RequisitionDetailView Apply button (FUT-650)', () => {
 
     const applyBtn = await screen.findByRole('button', { name: 'Apply' });
     expect(applyBtn).toBeInTheDocument();
-    expect(applyBtn).not.toBeDisabled();
+    expect(applyBtn).toBeDisabled();
 
+    // The disabled reason is reachable on hover/focus via the wrapping tooltip.
+    await userEvent.hover(applyBtn);
+    expect(await screen.findByText('Coming soon')).toBeInTheDocument();
+
+    // Applying is not wired up — the disabled control must never fire the mutation.
     await userEvent.click(applyBtn);
-
-    expect(applyInternalRequisitionMock).toHaveBeenCalledTimes(1);
-    expect(applyInternalRequisitionMock).toHaveBeenCalledWith('r1', undefined);
+    expect(applyInternalRequisitionMock).not.toHaveBeenCalled();
   });
 
   it('renders disabled Applied button when has_applied is true', async () => {
@@ -101,5 +122,23 @@ describe('RequisitionDetailView Apply button (FUT-650)', () => {
     const appliedBtn = await screen.findByRole('button', { name: 'Applied' });
     expect(appliedBtn).toBeInTheDocument();
     expect(appliedBtn).toBeDisabled();
+  });
+});
+
+describe('RequisitionDetailView fully-staffed actions (FUT-769)', () => {
+  it('keeps Mark filled enabled while other lifecycle actions stay frozen when fully staffed', async () => {
+    currentDetail = DETAIL_FULLY_STAFFED;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(<RequisitionDetailView requisitionId="r1" variant="page" />, {
+      wrapper: wrap(qc),
+    });
+
+    // Mark filled is the recruiter's one-click close for a fully-staffed req — it must stay live.
+    const markFilledBtn = await screen.findByRole('button', { name: 'Mark filled' });
+    expect(markFilledBtn).toBeEnabled();
+
+    // The other lifecycle actions remain frozen by isFullyStaffed.
+    expect(await screen.findByRole('button', { name: 'Pause' })).toBeDisabled();
   });
 });

@@ -448,18 +448,15 @@ export function RaMonitoringPage() {
   const [wizardTarget, setWizardTarget] = useState<ReassignWizardTarget | null>(null);
 
   // The Add-allocation wizard reviews a person's ENTIRE book for conflict / over-allocation, so
-  // it must not inherit the list's project, account, or search filters — those would hide the
-  // person's allocations on other projects, which are exactly what a conflict check has to see
-  // (the backend over-allocation math already counts the whole book, so a project-filtered popup
-  // disagreed with it). Fetch this person's allocations by worker id, scoped only to the
-  // active-period window, whenever the wizard is open.
+  // it must not inherit ANY of the list's filters — project, account, search, or the active-period
+  // window. Each would hide some of the person's allocations, which are exactly what a conflict
+  // check has to see: the backend over-allocation math counts the whole book, so a filtered popup
+  // (e.g. one narrowed to the page's date window, hiding a project that ends before it) disagreed
+  // with it (FUT-750). Fetch this person's full book by worker id alone whenever the wizard is
+  // open; the wizard itself narrows to future rows for the reassign UI.
   const wizardAllocParams = useMemo(
-    () => ({
-      worker_id: wizardTarget?.worker_id,
-      active_from: activeFrom || undefined,
-      active_to: activeTo || undefined,
-    }),
-    [wizardTarget?.worker_id, activeFrom, activeTo],
+    () => ({ worker_id: wizardTarget?.worker_id }),
+    [wizardTarget?.worker_id],
   );
   const { data: wizardAllocations } = useQuery({
     queryKey: pmKeys.allocations(wizardAllocParams),
@@ -549,7 +546,7 @@ export function RaMonitoringPage() {
           return (
             <div className="flex items-center gap-2">
               {r.worker_name ? (
-                <span className="font-medium text-primary">{r.worker_name}</span>
+                <span className="min-w-0 font-medium text-primary">{r.worker_name}</span>
               ) : r.worker_id ? (
                 <span className="text-secondary">Unknown</span>
               ) : (
@@ -558,14 +555,14 @@ export function RaMonitoringPage() {
               {r.status !== 'committed' ? (
                 <Badge
                   variant="neutral"
-                  className="font-normal capitalize text-secondary"
+                  className="shrink-0 whitespace-nowrap font-normal capitalize text-secondary"
                   label={r.status}
                 />
               ) : null}
               {r.worker_id && overWorkers.has(r.worker_id) ? (
                 <Badge
                   variant="warning"
-                  className="border-warning bg-warning-muted font-medium text-warning"
+                  className="shrink-0 whitespace-nowrap border-warning bg-warning-muted font-medium text-warning"
                   label="Over"
                 />
               ) : null}
