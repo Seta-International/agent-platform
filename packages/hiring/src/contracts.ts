@@ -31,7 +31,7 @@ export const openRequisitionInput = z
     start_date: z.string().optional(),
     note: z.string().optional(),
     default_interview_mode: interviewMode.optional(),
-    headcount: z.number().int().min(1).max(1000).default(1),
+    headcount: z.number().int().min(1).max(9).default(1),
     jd_sections: z.array(jdSectionInput).optional(),
     skills: z.array(skillInput).optional(),
   })

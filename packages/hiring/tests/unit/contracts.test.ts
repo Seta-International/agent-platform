@@ -19,12 +19,12 @@ describe('hiring contracts (HIR-2)', () => {
     expect(p.headcount).toBe(1);
     expect(p.skills?.[0]?.skill_name).toBe('Go');
   });
-  it('openRequisitionInput validates headcount bounds (1 <= headcount <= 1000)', () => {
+  it('openRequisitionInput validates headcount bounds (1 <= headcount <= 9)', () => {
     expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 0 }).success).toBe(false);
     expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: -5 }).success).toBe(false);
     expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 1.5 }).success).toBe(false);
-    expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 1001 }).success).toBe(false);
-    expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 1000 }).success).toBe(true);
+    expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 10 }).success).toBe(false);
+    expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 9 }).success).toBe(true);
     expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 1 }).success).toBe(true);
   });
   it('editRequisitionPatch rejects an unknown status value via stage enum', () => {

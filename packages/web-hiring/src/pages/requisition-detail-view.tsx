@@ -272,8 +272,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const headcountError =
     openCount < 1 || !Number.isInteger(openCount)
       ? 'Headcount must be a positive whole number.'
-      : openCount > 1000
-        ? 'Headcount cannot exceed 1,000.'
+      : openCount > 9
+        ? 'Headcount cannot exceed 9.'
         : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
   // FUT-559 error focus: mark each empty required field in red on submit and scroll to the
@@ -700,10 +700,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   />
                   <NumberInput
                     label="Headcount (openings)"
-                    min={1}
                     isIntegerOnly
                     value={openCount}
-                    onChange={(v) => setOpenCount(Math.max(1, v || 1))}
+                    onChange={(v) => setOpenCount(v ?? 1)}
                     status={
                       headcountError
                         ? { type: 'error', message: headcountError }
