@@ -101,19 +101,28 @@ describe('filterNavSections', () => {
     ]);
   });
 
-  it('drops sections whose items are all filtered out', () => {
-    const guarded: AppManifest['nav'] = [
+  it('PMO with only people.performance.read keeps Performance, drops directory items', () => {
+    const peopleNav: AppManifest['nav'] = [
       {
-        label: 'Restricted',
-        items: [{ id: 'x.secret', label: 'Secret', to: '/x', requires: ['core.audit.read'] }],
-      },
-      {
-        label: 'Public',
-        items: [{ id: 'x.home', label: 'Home', to: '/' }],
+        label: 'People',
+        items: [
+          {
+            id: 'people.employees',
+            label: 'Employees',
+            to: '/people/employees',
+            requires: ['people.worker.read'],
+          },
+          {
+            id: 'people.performance',
+            label: 'Performance',
+            to: '/people/performance',
+            requires: ['people.performance.read'],
+          },
+        ],
       },
     ];
-    const sections = filterNavSections(guarded, regularSession);
-    expect(sections.map((s) => s.label)).toEqual(['Public']);
+    const sections = filterNavSections(peopleNav, s(['people.performance.read']));
+    expect(sections.map((sec) => sec.items.map((i) => i.id))).toEqual([['people.performance']]);
   });
 });
 

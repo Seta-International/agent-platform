@@ -8,10 +8,17 @@ import {
   Text,
   VStack,
 } from '@seta/shared-ui';
-import { createFileRoute } from '@tanstack/react-router';
-import { PerformanceGate } from '../components/performance-gate.tsx';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { PerformanceGate } from '../../components/performance-gate.tsx';
+import { PerformanceShell } from '../../components/performance-shell.tsx';
+import { parsePerformanceSearch } from '../../state/performance-scope.ts';
 
-function PerformancePage() {
+export const Route = createFileRoute('/_authed/people/performance')({
+  validateSearch: (s: Record<string, unknown>) => parsePerformanceSearch(s),
+  component: PerformanceLayout,
+});
+
+function PerformanceLayout() {
   return (
     <Layout
       height="fill"
@@ -33,16 +40,17 @@ function PerformancePage() {
         </LayoutHeader>
       }
       content={
-        <LayoutContent padding={0}>
+        <LayoutContent padding={4}>
           <PerformanceGate>
             {(ctx) => (
-              // SCR-02 (Story 1.4 role router + Story 1.2 capacity switcher) mounts here.
-              <div className="p-6">
-                <Text color="secondary">
-                  Signed in with {ctx.capacities.length}{' '}
-                  {ctx.capacities.length === 1 ? 'capacity' : 'capacities'} for {ctx.as_of_month}.
-                </Text>
-              </div>
+              <PerformanceShell
+                role_slugs={ctx.role_slugs}
+                capacities={ctx.capacities}
+                default_capacity_index={ctx.default_capacity_index}
+                as_of_month={ctx.as_of_month}
+              >
+                <Outlet />
+              </PerformanceShell>
             )}
           </PerformanceGate>
         </LayoutContent>
@@ -50,7 +58,3 @@ function PerformancePage() {
     />
   );
 }
-
-export const Route = createFileRoute('/_authed/people/performance')({
-  component: PerformancePage,
-});

@@ -17,12 +17,18 @@ test.describe('performance entry (Story 1.1 / FUT-692)', () => {
     });
     const res = await ctx.get('/api/people/v1/performance/context');
     expect(res.ok()).toBe(true);
-    const context = (await res.json()) as { status: string };
+    const context = (await res.json()) as {
+      status: string;
+      capacities?: { kind: string; label: string }[];
+    };
     await ctx.dispose();
 
     await page.goto('/people/performance');
     if (context.status === 'ok') {
-      await expect(page.getByText(/Signed in with \d+ capacit/)).toBeVisible({ timeout: 8_000 });
+      // Story 1.2 shell: sidebar + switcher replace the S1.1 "Signed in with N" stub.
+      await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByTestId('performance-context-switcher')).toBeVisible();
+      await expect(page.getByTestId('performance-nav-dashboard')).toBeVisible();
     } else {
       await expect(page.getByText('No employee record found')).toBeVisible({ timeout: 8_000 });
     }
@@ -59,5 +65,98 @@ test.describe('performance entry (Story 1.1 / FUT-692)', () => {
     await expect(page.getByText(/contact HR/i)).toBeVisible();
     await expect(page.getByText('No access')).not.toBeVisible();
     await context.close();
+  });
+});
+
+test.describe('performance shell (Story 1.2 / FUT-693)', () => {
+  test('ok session shows shell; URL gains scope params from default capacity (AC4)', async ({
+    page,
+  }) => {
+    const ctx = await request.newContext({
+      baseURL: 'http://localhost:5173',
+      storageState: '.auth/admin.json',
+    });
+    const res = await ctx.get('/api/people/v1/performance/context');
+    expect(res.ok()).toBe(true);
+    const context = (await res.json()) as {
+      status: string;
+      capacities?: unknown[];
+      as_of_month?: string;
+    };
+    await ctx.dispose();
+
+    test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
+
+    await page.goto('/people/performance');
+    await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-cycle-badge-slot')).toBeAttached();
+
+    // Bare URL should be corrected to include month (+ capacity when present).
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('month'), { timeout: 8_000 })
+      .toBe(context.as_of_month ?? null);
+
+    if ((context.capacities?.length ?? 0) > 0) {
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get('kind'), { timeout: 8_000 })
+        .toBeTruthy();
+    }
+  });
+});
+
+test.describe('performance cycle badge (Story 1.3 / FUT-694)', () => {
+  test('badge echoes GET /cycle-status (AC3)', async ({ page }) => {
+    const ctx = await request.newContext({
+      baseURL: 'http://localhost:5173',
+      storageState: '.auth/admin.json',
+    });
+    const contextRes = await ctx.get('/api/people/v1/performance/context');
+    expect(contextRes.ok()).toBe(true);
+    const context = (await contextRes.json()) as { status: string; as_of_month?: string };
+    test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
+
+    const month =
+      context.as_of_month ??
+      (() => {
+        const vn = new Date(Date.now() + 7 * 3_600_000);
+        return `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}`;
+      })();
+    const statusRes = await ctx.get(
+      `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}`,
+    );
+    expect(statusRes.ok()).toBe(true);
+    const cycle = (await statusRes.json()) as { status: string };
+    await ctx.dispose();
+
+    const labels: Record<string, string> = {
+      open: 'Open (25th–end of month)',
+      makeup: 'Grace window (2nd–4th)',
+      locked: 'Locked',
+      override: 'Unlocked (Override)',
+    };
+
+    await page.goto('/people/performance');
+    await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('cycle-status-badge')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('cycle-status-badge')).toContainText(labels[cycle.status] ?? '');
+  });
+});
+
+test.describe('performance home tasks (Story 1.4 / FUT-695)', () => {
+  test('home shows role dashboard + tasks-for-this-month region', async ({ page }) => {
+    const ctx = await request.newContext({
+      baseURL: 'http://localhost:5173',
+      storageState: '.auth/admin.json',
+    });
+    const contextRes = await ctx.get('/api/people/v1/performance/context');
+    expect(contextRes.ok()).toBe(true);
+    const context = (await contextRes.json()) as { status: string; as_of_month?: string };
+    await ctx.dispose();
+    test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
+
+    await page.goto('/people/performance');
+    await expect(page.getByTestId('performance-home')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('tasks-for-this-month')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-home-kpis')).toBeVisible();
   });
 });

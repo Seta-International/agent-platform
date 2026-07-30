@@ -23,6 +23,12 @@ export {
   matchUsersToTopic,
   type UserMatch,
 } from './backend/domain/match-users-to-topic.ts';
+export {
+  classifyCycleStatus,
+  monthClockNow,
+  setMonthClock,
+  vnYearMonth,
+} from './backend/domain/month-clock.ts';
 export type {
   CompanyNode,
   CompanyNodeKind,
@@ -41,6 +47,8 @@ export {
 } from './backend/domain/person-skills.ts';
 export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
+export { readCycleStatus } from './backend/domain/read-cycle-status.ts';
+export { readMonthTasks } from './backend/domain/read-month-tasks.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
@@ -75,10 +83,27 @@ export {
 } from './backend/embeddings/vector-store.ts';
 export type {
   CreateWorkerInput,
+  CycleStatus,
+  CycleStatusQuery,
+  CycleStatusResponse,
   EditWorkerInput,
+  MonthTaskCard,
+  MonthTaskGroup,
+  MonthTasksQuery,
+  MonthTasksResponse,
   PerformanceCapacity,
   PerformanceContext,
   PerformanceContextInput,
   ProvisionWorkerInput,
 } from './contracts.ts';
-export { GENDER_VALUES, type GenderValue, genderValue } from './contracts.ts';
+export {
+  cycleStatusEnum,
+  cycleStatusQuery,
+  cycleStatusResponse,
+  GENDER_VALUES,
+  type GenderValue,
+  genderValue,
+  monthTaskCard,
+  monthTasksQuery,
+  monthTasksResponse,
+} from './contracts.ts';

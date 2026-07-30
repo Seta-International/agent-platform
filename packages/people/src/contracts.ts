@@ -64,10 +64,87 @@ export const performanceContextInput = z.object({
 });
 export type PerformanceContextInput = z.infer<typeof performanceContextInput>;
 
+const monthYm = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+
+export const cycleStatusQuery = z.object({
+  month: monthYm,
+});
+export type CycleStatusQuery = z.infer<typeof cycleStatusQuery>;
+
+export const cycleStatusEnum = z.enum(['open', 'makeup', 'locked', 'override']);
+export type CycleStatus = z.infer<typeof cycleStatusEnum>;
+
+export const cycleStatusResponse = z.object({
+  month: monthYm,
+  status: cycleStatusEnum,
+  /** UTC ISO of the transaction-start timestamp used for classification. */
+  evaluated_at: z.string().datetime(),
+});
+export type CycleStatusResponse = z.infer<typeof cycleStatusResponse>;
+
 export type PerformanceCapacity =
   | { kind: 'am'; account_id: string; label: string }
   | { kind: 'tl'; project_id: string; account_id: string; label: string }
   | { kind: 'member'; project_id: string; account_id: string; label: string };
+
+export const performanceCapacity = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('am'), account_id: z.string().uuid(), label: z.string() }),
+  z.object({
+    kind: z.literal('tl'),
+    project_id: z.string().uuid(),
+    account_id: z.string().uuid(),
+    label: z.string(),
+  }),
+  z.object({
+    kind: z.literal('member'),
+    project_id: z.string().uuid(),
+    account_id: z.string().uuid(),
+    label: z.string(),
+  }),
+]);
+
+export const monthTasksQuery = z.object({
+  month: monthYm,
+});
+export type MonthTasksQuery = z.infer<typeof monthTasksQuery>;
+
+/** Server-authored home to-do cards (FUT-695) — FE echoes only. */
+export const monthTaskCard = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('unscored'),
+    unscored: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+    interactive: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal('self_assessment'),
+    submitted: z.boolean(),
+    interactive: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal('morale'),
+    submitted: z.boolean(),
+    interactive: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal('cycle_locked'),
+  }),
+]);
+export type MonthTaskCard = z.infer<typeof monthTaskCard>;
+
+export const monthTaskGroup = z.object({
+  capacity: performanceCapacity,
+  label: z.string(),
+  cards: z.array(monthTaskCard),
+});
+export type MonthTaskGroup = z.infer<typeof monthTaskGroup>;
+
+export const monthTasksResponse = z.object({
+  month: monthYm,
+  cycle_status: cycleStatusEnum,
+  groups: z.array(monthTaskGroup),
+});
+export type MonthTasksResponse = z.infer<typeof monthTasksResponse>;
 
 /**
  * The Performance surface's entry context ("EmployeePort" read). Discriminated
