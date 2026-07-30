@@ -20,6 +20,7 @@ import {
   SegmentedControlItem,
   Selector,
   Skeleton,
+  SyncScrollbar,
   Table,
   type TableColumn,
   type TablePlugin,
@@ -28,6 +29,7 @@ import {
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
+  useTableScrollSync,
   useTableSortable,
   useTableSortableState,
   VStack,
@@ -118,6 +120,8 @@ export function RequisitionsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_REQ_COLUMN_KEYS);
+  const [tableScrollEl, setTableScrollEl] = useState<HTMLDivElement | null>(null);
+  const tableScrollSync = useTableScrollSync<Row>(setTableScrollEl);
 
   // Both views load the full lifecycle (incl. cancelled, FUT-878) so switching between Board
   // and List preserves the dataset and dashboard stats. List additionally loads account/project
@@ -619,47 +623,51 @@ export function RequisitionsPage() {
                     ))}
                   </div>
                 ) : (
-                  <Table
-                    data={pageRows}
-                    columns={columns}
-                    idKey="id"
-                    plugins={{
-                      pagination,
-                      sortable,
-                      columnSettings,
-                      uniformRowHeight,
-                      rowClick: {
-                        transformBodyRow: (props, item) => ({
-                          ...props,
-                          htmlProps: {
-                            ...props.htmlProps,
-                            style: { ...props.htmlProps.style, cursor: 'pointer' },
-                            onClick: () =>
-                              void navigate({
-                                to: '/hiring/requisitions',
-                                search: (prev: Record<string, unknown>) => ({
-                                  ...prev,
-                                  selectedRequisitionId: item.id,
+                  <div>
+                    <Table
+                      data={pageRows}
+                      columns={columns}
+                      idKey="id"
+                      plugins={{
+                        pagination,
+                        sortable,
+                        columnSettings,
+                        uniformRowHeight,
+                        tableScrollSync,
+                        rowClick: {
+                          transformBodyRow: (props, item) => ({
+                            ...props,
+                            htmlProps: {
+                              ...props.htmlProps,
+                              style: { ...props.htmlProps.style, cursor: 'pointer' },
+                              onClick: () =>
+                                void navigate({
+                                  to: '/hiring/requisitions',
+                                  search: (prev: Record<string, unknown>) => ({
+                                    ...prev,
+                                    selectedRequisitionId: item.id,
+                                  }),
                                 }),
-                              }),
-                          },
-                        }),
-                      },
-                    }}
-                    emptyState={
-                      <EmptyState
-                        icon={<Briefcase className="size-6" />}
-                        title={
-                          rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'
-                        }
-                        description={
-                          rows.length === 0
-                            ? 'Open a requisition to get started.'
-                            : 'Try different filters.'
-                        }
-                      />
-                    }
-                  />
+                            },
+                          }),
+                        },
+                      }}
+                      emptyState={
+                        <EmptyState
+                          icon={<Briefcase className="size-6" />}
+                          title={
+                            rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'
+                          }
+                          description={
+                            rows.length === 0
+                              ? 'Open a requisition to get started.'
+                              : 'Try different filters.'
+                          }
+                        />
+                      }
+                    />
+                    <SyncScrollbar scrollEl={tableScrollEl} />
+                  </div>
                 )}
               </div>
             ) : isLoading ? (

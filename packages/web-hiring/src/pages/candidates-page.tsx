@@ -22,6 +22,7 @@ import {
   SegmentedControlItem,
   Selector,
   Skeleton,
+  SyncScrollbar,
   Table,
   type TableColumn,
   type TablePlugin,
@@ -29,6 +30,7 @@ import {
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
+  useTableScrollSync,
   useTableSortable,
   useTableSortableState,
   useToast,
@@ -237,6 +239,9 @@ export function CandidatesPage() {
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_CANDIDATE_COLUMN_KEYS);
   const [optimisticStages, setOptimisticStages] = useState<Record<string, CandStage>>({});
   const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, CandStatus>>({});
+  const [boardScrollEl, setBoardScrollEl] = useState<HTMLDivElement | null>(null);
+  const [tableScrollEl, setTableScrollEl] = useState<HTMLDivElement | null>(null);
+  const tableScrollSync = useTableScrollSync<Row>(setTableScrollEl);
 
   // FUT-833: search-box matching runs server-side (`q`), keyed by query key so each debounced value
   // is its own cache entry; contact PII never rides the full list payload.
@@ -716,9 +721,7 @@ export function CandidatesPage() {
                     ))}
                   </div>
                 ) : (
-                  // Horizontal scroll: with every cell on one line the table can exceed the view;
-                  // its column minWidths set the scroll width, and this wrapper does the scrolling.
-                  <div className="overflow-x-auto">
+                  <div>
                     <Table
                       data={pageRows}
                       columns={columns}
@@ -729,6 +732,7 @@ export function CandidatesPage() {
                         sortable,
                         columnSettings,
                         uniformRowHeight,
+                        tableScrollSync,
                         rowClick: {
                           transformBodyRow: (props, item) => ({
                             ...props,
@@ -748,6 +752,7 @@ export function CandidatesPage() {
                         />
                       }
                     />
+                    <SyncScrollbar scrollEl={tableScrollEl} />
                   </div>
                 )}
               </div>
@@ -769,7 +774,7 @@ export function CandidatesPage() {
             ) : (
               <div className="-mx-6">
                 <DragDropContext onDragEnd={handleDragEnd}>
-                  <KanbanBoard>
+                  <KanbanBoard scrollRef={setBoardScrollEl} hideNativeScrollbar>
                     {BOARD_COLUMNS.map((col) => (
                       <Droppable
                         key={col.id}
@@ -831,6 +836,7 @@ export function CandidatesPage() {
                     ))}
                   </KanbanBoard>
                 </DragDropContext>
+                <SyncScrollbar scrollEl={boardScrollEl} />
               </div>
             )}
             <TalentPoolCard
