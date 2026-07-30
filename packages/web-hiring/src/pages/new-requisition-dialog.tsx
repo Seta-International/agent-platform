@@ -69,8 +69,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     !Number.isInteger(headcount) ||
     headcount < 1
       ? 'Headcount must be a positive whole number.'
-      : headcount > 1000
-        ? 'Headcount cannot exceed 1,000.'
+      : headcount > 9
+        ? 'Headcount cannot exceed 9.'
         : null;
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('internal');
@@ -352,7 +352,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                         headcountError &&
                         (submitAttempted ||
                           headcount === null ||
-                          (headcount !== null && (headcount < 1 || headcount > 1000)))
+                          (headcount !== null && (headcount < 1 || headcount > 9)))
                           ? { type: 'error', message: headcountError }
                           : undefined
                       }
