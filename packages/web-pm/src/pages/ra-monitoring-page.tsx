@@ -12,7 +12,6 @@ import {
 } from '../api/pm-client.ts';
 import { useWorkerSource } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import { rowCalendarEffort } from '../utils/common.ts';
 import {
   Badge,
   Banner,
@@ -54,7 +53,12 @@ import {
   useToast,
   VStack,
 } from './_ui-compat.tsx';
-import { type EffortWindow, overAllocatedWorkers, rollupKpis } from './ra-effort.ts';
+import {
+  clippedCalendarEffort,
+  type EffortWindow,
+  overAllocatedWorkers,
+  rollupKpis,
+} from './ra-effort.ts';
 import { firstInGroupIds, groupByPerson, SECONDARY_SORT_FIELDS } from './ra-grouping.ts';
 import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';
 import { ReassignWizardDialog, type ReassignWizardTarget } from './reassign-wizard.tsx';
@@ -622,7 +626,7 @@ export function RaMonitoringPage() {
         sortable: true,
         renderCell: (r) => (
           <span className="font-mono font-semibold tabular-nums text-primary">
-            {rowCalendarEffort(r).toFixed(2)}
+            {clippedCalendarEffort(r, win).toFixed(2)}
           </span>
         ),
       },
@@ -663,7 +667,7 @@ export function RaMonitoringPage() {
         },
       },
     ],
-    [firstInGroup, overWorkers, openReassignGroup],
+    [firstInGroup, overWorkers, openReassignGroup, win],
   );
 
   const scopeLabel = projectId

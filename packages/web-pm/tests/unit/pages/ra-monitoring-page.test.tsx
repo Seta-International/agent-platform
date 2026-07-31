@@ -331,6 +331,42 @@ describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () 
       expect(wizardCalls.at(-1)).toEqual({ worker_id: 'w1' });
     });
   });
+
+  it('renders grid Calendar Effort cell clipped to the active Date Range window', async () => {
+    // Allocation spans entire 2026 year (12 months = 12.00 MM unclipped)
+    const yearAllocation = [
+      {
+        allocation_id: 'a-year',
+        worker_id: 'w1',
+        worker_name: 'Phạm Tiến Mạnh',
+        worker_title: 'Senior Engineer',
+        project_id: 'p1',
+        project_name: 'Alpha Project',
+        account_id: 'acc1',
+        account_name: 'Alpha Inc',
+        planned_pct: 100,
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+    ];
+
+    // Filter by Date Range: 01 Aug 2026 to 31 Dec 2026 (5 months clipped = 5.00 MM)
+    latestSearch = {
+      from: '2026-08-01',
+      to: '2026-12-31',
+    };
+    fetchAllocationsMock.mockResolvedValue(yearAllocation);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    // Grid cell displays 5.00 MM (clipped to August-December window)
+    expect(screen.getByText('5.00')).toBeInTheDocument();
+  });
 });
 
 describe('RaMonitoringPage — breadcrumb trail (Astryx migration)', () => {
