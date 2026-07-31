@@ -149,6 +149,13 @@ export const allocationUpdatedPayload = z.object({
   account_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   planned_pct: z.number().nullable(),
+  // Full effective state of the allocation after the change, mirroring
+  // AllocationCreatedPayload, so read-model subscribers (e.g. people's worker
+  // allocation projection) can re-sync without re-reading the source table.
+  lead_worker_id: z.string().uuid().nullable(),
+  date_from: z.string().nullable(),
+  date_to: z.string().nullable(),
+  bucket: z.enum(['billable', 'internal', 'bench']).nullable(),
   fields: z.array(z.string()),
 });
 export type AllocationUpdatedPayload = z.infer<typeof allocationUpdatedPayload>;

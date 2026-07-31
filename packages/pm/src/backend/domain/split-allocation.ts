@@ -155,6 +155,10 @@ export async function splitAllocation(
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
           planned_pct: Number(current.planned_pct),
+          lead_worker_id: proj.pm_worker_id ?? null,
+          date_from: current.date_from,
+          date_to: new_end_date,
+          bucket: current.bucket,
           fields: ['date_to'],
         },
       });
