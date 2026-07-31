@@ -1,8 +1,11 @@
-{{/* MS Teams card for msteamsv2. Bold labels read as a fact table. Times render
-      in the container timezone (TZ=Asia/Ho_Chi_Minh -> UTC+7) via .Local. */}}
+{{/* MS Teams card for msteamsv2. Because group_by is [env, alertname], every alert
+      in a card already shares its status, alertname, env and severity — so the title
+      carries those once (severity as a colour dot) and the body repeats none of them,
+      listing only what differs per alert. Times render in the container timezone
+      (TZ=Asia/Ho_Chi_Minh -> UTC+7) via .Local. */}}
 
 {{ define "teams.title" -}}
-[{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}{{ with .CommonLabels.env }} · {{ . }}{{ end }}
+{{ if eq .Status "resolved" }}✅{{ else if eq .CommonLabels.severity "critical" }}🔴{{ else if eq .CommonLabels.severity "warning" }}🟡{{ else }}⚪{{ end }} [{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}{{ with .CommonLabels.env }} · {{ . }}{{ end }}
 {{- end }}
 
 {{ define "teams.text" -}}
@@ -11,14 +14,8 @@
 
 {{ .Annotations.description }}
 
-**alert:** {{ .Labels.alertname }}
-**status:** {{ $.Status }}
-**severity:** {{ .Labels.severity }}
-**env:** {{ .Labels.env }}
-{{ with .Labels.instance }}**instance:** {{ . }}
-{{ end }}**started:** {{ .StartsAt.Local.Format "2006-01-02 15:04:05 -07:00" }}
-{{ if and (eq $.Status "resolved") (not .EndsAt.IsZero) }}**resolved:** {{ .EndsAt.Local.Format "2006-01-02 15:04:05 -07:00" }}
-{{ end }}
+{{ with .Labels.instance }}{{ . }} · {{ end }}since {{ .StartsAt.Local.Format "2006-01-02 15:04:05 -07:00" }}{{ if and (eq $.Status "resolved") (not .EndsAt.IsZero) }}, resolved {{ .EndsAt.Local.Format "15:04:05" }}{{ end }}
+
 {{ end -}}
 [dashboards](https://grafana-future.seta-international.com/dashboards)
 {{- end }}
