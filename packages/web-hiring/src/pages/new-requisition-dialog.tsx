@@ -350,9 +350,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       }}
                       status={
                         headcountError &&
-                        (submitAttempted ||
-                          headcount === null ||
-                          (headcount !== null && (headcount < 1 || headcount > 9)))
+                        (submitAttempted || headcount === null || headcount < 1 || headcount > 9)
                           ? { type: 'error', message: headcountError }
                           : undefined
                       }
