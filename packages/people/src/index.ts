@@ -57,6 +57,11 @@ export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-
 export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
+export {
+  type DirectoryPerson,
+  type DirectorySyncOutcome,
+  syncDirectoryPeople,
+} from './backend/domain/sync-directory-people.ts';
 export { type UpdateOrgUnitInput, updateOrgUnit } from './backend/domain/update-org-unit.ts';
 export {
   getUtilizationByPerson,
