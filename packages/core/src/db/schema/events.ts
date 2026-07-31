@@ -25,6 +25,8 @@ export const coreEvents = core.table(
       tenant_id: string;
       ip?: string;
       user_agent?: string;
+      actor_kind?: 'user' | 'agent';
+      on_behalf_of?: string;
     } | null>(),
     before: jsonb('before'),
     after: jsonb('after'),

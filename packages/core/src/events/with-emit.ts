@@ -7,15 +7,19 @@ import { emitContext } from './context.ts';
  *  Re-running setTenantGuc would swap app.tenant_id mid-transaction and defeat RLS
  *  on every table the transaction touches, so the join is refused instead. */
 export class CrossTenantEmitContext extends Error {
-  constructor(
-    readonly outerTenantId: string,
-    readonly innerTenantId: string,
-  ) {
+  // Explicit fields rather than constructor parameter properties: the repo builds
+  // with `erasableSyntaxOnly`, which rejects the latter.
+  readonly outerTenantId: string;
+  readonly innerTenantId: string;
+
+  constructor(outerTenantId: string, innerTenantId: string) {
     super(
       `withEmit(): cannot join an emit context opened for tenant ${outerTenantId} ` +
         `with an actor from tenant ${innerTenantId}.`,
     );
     this.name = 'CrossTenantEmitContext';
+    this.outerTenantId = outerTenantId;
+    this.innerTenantId = innerTenantId;
   }
 }
 

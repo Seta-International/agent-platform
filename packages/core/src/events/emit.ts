@@ -47,6 +47,8 @@ export async function emitBatch<P>(events: DomainEventInput<P>[]): Promise<{ eve
           tenant_id: ctx.actor.tenantId,
           ip: ctx.actor.ip,
           user_agent: ctx.actor.userAgent,
+          actor_kind: ctx.actor.actorKind ?? 'user',
+          ...(ctx.actor.onBehalfOf !== undefined ? { on_behalf_of: ctx.actor.onBehalfOf } : {}),
         }
       : null,
   }));
