@@ -45,6 +45,7 @@ export async function updateAllocation(
       account_id: project.account_id,
       date_from: project.date_from,
       date_to: project.date_to,
+      pm_person_id: project.pm_person_id,
     })
     .from(project)
     .where(
@@ -123,7 +124,16 @@ export async function updateAllocation(
           worker_id: current.person_id ?? null,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
-          planned_pct: patch.planned_pct ?? null,
+          planned_pct:
+            patch.planned_pct !== undefined
+              ? patch.planned_pct
+              : current.planned_pct == null
+                ? null
+                : Number(current.planned_pct),
+          lead_worker_id: proj.pm_person_id ?? null,
+          date_from: patch.date_from !== undefined ? patch.date_from : current.date_from,
+          date_to: patch.date_to !== undefined ? patch.date_to : current.date_to,
+          bucket: patch.bucket !== undefined ? patch.bucket : current.bucket,
           fields,
         },
       });
