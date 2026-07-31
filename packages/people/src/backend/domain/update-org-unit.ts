@@ -4,9 +4,9 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, sql } from 'drizzle-orm';
 import { updateOrgUnitInput } from '../../contracts.ts';
 import { PEOPLE_ORG_UNIT_UPDATED } from '../../events.ts';
-import { peopleDb } from '../db/client.ts';
 import { orgUnit } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
+import { orgUnitWriteLock } from './org-unit-lock.ts';
 
 export interface UpdateOrgUnitInput {
   org_unit_id: string;
@@ -20,39 +20,52 @@ export async function updateOrgUnit(input: UpdateOrgUnitInput): Promise<{ versio
   const parsed = updateOrgUnitInput.parse(input);
   const { org_unit_id, patch } = parsed;
 
-  const [current] = await peopleDb()
-    .select()
-    .from(orgUnit)
-    .where(and(eq(orgUnit.id, org_unit_id), tenantScoped(orgUnit.tenant_id, session)))
-    .limit(1);
-  if (!current) throw new PeopleError('NOT_FOUND', 'org unit not found');
-
-  // A unit cannot become its own ancestor: reportsSubtreeSql (worker-scope.ts) walks parent_id
-  // via a recursive CTE, and a cycle there would recurse over org-unit membership forever.
   if (patch.parent_id !== undefined && patch.parent_id !== null) {
     if (patch.parent_id === org_unit_id) {
       throw new PeopleError('CONFLICT', 'org unit cannot be its own parent');
     }
-    const cycle = await peopleDb().execute(sql`
-      WITH RECURSIVE up AS (
-        SELECT id, parent_id FROM people.org_unit
-         WHERE id = ${patch.parent_id} AND tenant_id = ${session.tenant_id}
-        UNION ALL
-        SELECT o.id, o.parent_id FROM people.org_unit o
-          JOIN up ON o.id = up.parent_id
-         WHERE o.tenant_id = ${session.tenant_id}
-      )
-      SELECT 1 FROM up WHERE id = ${org_unit_id} LIMIT 1
-    `);
-    if (cycle.rows.length > 0) {
-      throw new PeopleError('CONFLICT', 'org unit parent change would create a cycle');
-    }
   }
 
-  const nextVersion = current.version + 1;
+  let nextVersion = 0;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
+      // Serialize org-unit structural writes per tenant: the cycle check below reads the tree
+      // and the update writes it, and only holding this lock across both makes that read+write
+      // atomic against a concurrent updateOrgUnit/deleteOrgUnit forming a cycle out from under us.
+      await tx.execute(orgUnitWriteLock(session.tenant_id));
+
+      const [current] = await tx
+        .select()
+        .from(orgUnit)
+        .where(and(eq(orgUnit.id, org_unit_id), tenantScoped(orgUnit.tenant_id, session)))
+        .limit(1);
+      if (!current) throw new PeopleError('NOT_FOUND', 'org unit not found');
+
+      // A unit cannot become its own ancestor: reportsSubtreeSql (worker-scope.ts) walks parent_id
+      // via a recursive CTE, and a cycle there would recurse over org-unit membership forever.
+      if (patch.parent_id !== undefined && patch.parent_id !== null) {
+        const cycle = await tx.execute(sql`
+          WITH RECURSIVE up AS (
+            SELECT id, parent_id, 0 AS depth FROM people.org_unit
+             WHERE id = ${patch.parent_id} AND tenant_id = ${session.tenant_id}
+            UNION
+            SELECT o.id, o.parent_id, up.depth + 1 FROM people.org_unit o
+              JOIN up ON o.id = up.parent_id
+             WHERE o.tenant_id = ${session.tenant_id}
+               -- UNION (not UNION ALL) dedupes revisited rows so a pre-existing cycle upstream
+               -- of the new parent terminates the walk instead of recursing forever; the depth
+               -- cap is a hard backstop against any tree this dedup logic hasn't accounted for.
+               AND up.depth < 1000
+          )
+          SELECT 1 FROM up WHERE id = ${org_unit_id} LIMIT 1
+        `);
+        if (cycle.rows.length > 0) {
+          throw new PeopleError('CONFLICT', 'org unit parent change would create a cycle');
+        }
+      }
+
+      nextVersion = current.version + 1;
       const updated = await tx
         .update(orgUnit)
         .set({
@@ -62,7 +75,13 @@ export async function updateOrgUnit(input: UpdateOrgUnitInput): Promise<{ versio
           version: nextVersion,
           updated_at: new Date(),
         })
-        .where(and(eq(orgUnit.id, org_unit_id), eq(orgUnit.version, current.version)))
+        .where(
+          and(
+            eq(orgUnit.id, org_unit_id),
+            eq(orgUnit.version, current.version),
+            tenantScoped(orgUnit.tenant_id, session),
+          ),
+        )
         .returning({ id: orgUnit.id });
       if (updated.length === 0) {
         throw new PeopleError('CONFLICT', 'version mismatch', {
