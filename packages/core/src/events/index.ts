@@ -8,4 +8,4 @@ export type {
 } from '@seta/shared-types';
 export { type EmitCtx, emitContext } from './context.ts';
 export { EmitContextRequired, emit, emitBatch } from './emit.ts';
-export { withEmit } from './with-emit.ts';
+export { CrossTenantEmitContext, withEmit } from './with-emit.ts';
