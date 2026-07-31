@@ -28,6 +28,9 @@ export type ResumeDecisionData = {
   overrideUserIds?: string[];
   alternateIndices?: number[];
   note?: string;
+  /** Read off the persisted card, never off the request body — the client must not
+   *  be able to choose the key that gates the write. */
+  idempotencyKey?: string;
 };
 
 /**
@@ -46,8 +49,14 @@ export function mapDecisionToResumeData(
   body: ResumeDecisionData,
 ): ResumeDecisionData {
   const note = body.note;
-  const withNote = (d: ResumeDecisionData): ResumeDecisionData =>
-    note !== undefined ? { ...d, note } : d;
+  const rawKey = (card?.primary?.argsPatch as { idempotencyKey?: unknown } | undefined)
+    ?.idempotencyKey;
+  const idempotencyKey = typeof rawKey === 'string' ? rawKey : undefined;
+  const withNote = (d: ResumeDecisionData): ResumeDecisionData => ({
+    ...d,
+    ...(note !== undefined ? { note } : {}),
+    ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
+  });
 
   if (body.decision === 'reject') {
     return withNote({ decision: 'reject' });

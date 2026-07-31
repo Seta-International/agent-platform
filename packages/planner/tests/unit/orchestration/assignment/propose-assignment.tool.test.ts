@@ -92,6 +92,7 @@ describe('proposeAssignment composite tool', () => {
       action: 'assign',
       assigneeUserIds: [U1],
       taskId: TASK_ID,
+      idempotencyKey: expect.any(String),
     });
   });
 
@@ -159,10 +160,28 @@ describe('proposeAssignment composite tool', () => {
       assigneeUserIds: [U1],
       tenantId: 't1',
       actorUserId: 'a1',
+      idempotencyKey: expect.any(String),
     });
     expect(suspend).not.toHaveBeenCalled();
     // Resume short-circuits: the recommend pipeline is NOT re-run.
     expect(suggest).not.toHaveBeenCalled();
+  });
+
+  it('resume approve: forwards the card-minted idempotencyKey to the assign port', async () => {
+    const { tool, assign } = build();
+    const key = 'key-from-card';
+    const { ctx } = resumeCtx({ decision: 'approve', overrideUserIds: [U1], idempotencyKey: key });
+    await tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, ctx);
+    expect(assign.assign).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: key }));
+  });
+
+  it('resume approve on a legacy approval with no key: mints one so the port contract holds', async () => {
+    const { tool, assign } = build();
+    const { ctx } = resumeCtx({ decision: 'approve', overrideUserIds: [U1] });
+    await tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, ctx);
+    expect(assign.assign).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
   });
 
   it('resume reject: does not assign and returns { assigned:false }', async () => {

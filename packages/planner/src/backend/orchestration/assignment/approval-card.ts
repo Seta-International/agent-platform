@@ -9,6 +9,10 @@ export interface BuildAssignApprovalCardOpts {
   recommendations: Recommendation[];
   tenantId: string;
   userId: string;
+  /** Minted once on the suspend pass and embedded in EVERY action's argsPatch, so
+   *  whichever action the user picks — and whichever path resumes, /chat/resume or
+   *  resumeRetry — the write is gated by the same key. */
+  idempotencyKey: string;
 }
 
 function candidateLabel(r: Recommendation): string {
@@ -26,7 +30,7 @@ function candidateLabel(r: Recommendation): string {
  * {action, assigneeUserIds, taskId} — the shape that decider reads.
  */
 export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): ApprovalCard {
-  const { taskId, title, recommendations, tenantId, userId } = opts;
+  const { taskId, title, recommendations, tenantId, userId, idempotencyKey } = opts;
   const [top, ...rest] = recommendations;
   if (!top) throw new Error('buildAssignApprovalCard: recommendations must be non-empty');
   return {
@@ -57,13 +61,13 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
     ],
     primary: {
       label: `Assign to ${candidateLabel(top)}`,
-      argsPatch: { action: 'assign', assigneeUserIds: [top.userId], taskId },
+      argsPatch: { action: 'assign', assigneeUserIds: [top.userId], taskId, idempotencyKey },
     },
     alternates: rest.map((r) => ({
       label: `Assign to ${candidateLabel(r)}`,
-      argsPatch: { action: 'assign', assigneeUserIds: [r.userId], taskId },
+      argsPatch: { action: 'assign', assigneeUserIds: [r.userId], taskId, idempotencyKey },
     })),
-    decline: { label: 'Leave unassigned' },
+    decline: { label: 'Leave unassigned', argsPatch: { action: 'decline', idempotencyKey } },
     meta: {
       tenantId,
       userId,
