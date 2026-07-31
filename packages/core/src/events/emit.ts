@@ -51,8 +51,14 @@ export async function emitBatch<P>(events: DomainEventInput<P>[]): Promise<{ eve
           ...(ctx.actor.onBehalfOf !== undefined ? { on_behalf_of: ctx.actor.onBehalfOf } : {}),
         }
       : null,
+    // `as never`: jsonb('before') carries no $type, so drizzle infers its insert type
+    // as `unknown` and refuses a plain assignment. Deliberately untyped — these columns
+    // hold arbitrary entity snapshots.
+    before: (ctx.before ?? null) as never,
+    after: (ctx.after ?? null) as never,
   }));
 
   await ctx.tx.insert(coreEvents).values(rows);
+  ctx.emittedEventIds?.push(...rows.map((r) => r.id));
   return rows.map((r) => ({ eventId: r.id }));
 }
