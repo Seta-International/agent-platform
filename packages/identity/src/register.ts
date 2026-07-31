@@ -40,7 +40,13 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       { table: 'identity.access_group', policy: { kind: 'permanent' } },
       { table: 'identity.access_group_membership', policy: { kind: 'permanent' } },
       { table: 'identity.access_group_role', policy: { kind: 'permanent' } },
-      { table: 'identity.org_unit_projection', policy: { kind: 'permanent' } },
+      // permanent while live, but tombstoned rows (deleted_at set, FUT-842) must not accumulate
+      // forever: NULL < now() - interval is NULL in SQL, so this ttl policy only ever matches
+      // and purges tombstones — live rows (deleted_at IS NULL) are never touched by it.
+      {
+        table: 'identity.org_unit_projection',
+        policy: { kind: 'ttl', column: 'deleted_at', olderThan: '90 days' },
+      },
       { table: 'identity.product_grant', policy: { kind: 'permanent' } },
       {
         table: 'identity.failed_login_attempts',
