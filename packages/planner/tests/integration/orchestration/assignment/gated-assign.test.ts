@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { queryAudit } from '@seta/core/backend';
 import { createUser } from '@seta/identity';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -82,6 +81,25 @@ async function assignedCount(pool: Pool, taskId: string): Promise<number> {
   return r.rows[0].n as number;
 }
 
+interface AuditRow {
+  actor: Record<string, unknown> | null;
+  before: unknown;
+  after: unknown;
+}
+
+/** Reads the audit row straight from the outbox. Deliberately raw SQL rather than
+ *  @seta/core/backend's queryAudit(): dependency-cruiser's only-server-imports-backend
+ *  rule forbids a module test from importing another module's backend entrypoint. */
+async function assignedEvents(pool: Pool, tenantId: string): Promise<AuditRow[]> {
+  const r = await pool.query<AuditRow>(
+    `SELECT actor, before, after FROM core.events
+      WHERE tenant_id = $1 AND event_type = 'planner.task.assigned'
+      ORDER BY occurred_at`,
+    [tenantId],
+  );
+  return r.rows;
+}
+
 async function keyRowCount(pool: Pool, tenantId: string, key: string): Promise<number> {
   const r = await pool.query(
     'SELECT count(*)::int AS n FROM core.mutation_idempotency WHERE tenant_id = $1 AND key = $2',
@@ -106,13 +124,7 @@ describe('gated assign (FUT-803 retrofit)', () => {
       await makeAssign().assign(args);
 
       expect(await assignedCount(pool, taskId)).toBe(1);
-      const { rows } = await queryAudit({
-        tenant_id: tenantId,
-        event_type: 'planner.task.assigned',
-        limit: 20,
-        offset: 0,
-      });
-      expect(rows).toHaveLength(1);
+      expect(await assignedEvents(pool, tenantId)).toHaveLength(1);
     }));
 
   it('the assign event is attributed to the agent on behalf of the confirming user, with a real diff', () =>
@@ -126,12 +138,7 @@ describe('gated assign (FUT-803 retrofit)', () => {
         idempotencyKey: randomUUID(),
       });
 
-      const { rows } = await queryAudit({
-        tenant_id: tenantId,
-        event_type: 'planner.task.assigned',
-        limit: 20,
-        offset: 0,
-      });
+      const rows = await assignedEvents(pool, tenantId);
       expect(rows[0]?.actor).toMatchObject({
         actor_kind: 'agent',
         on_behalf_of: adminUserId,
