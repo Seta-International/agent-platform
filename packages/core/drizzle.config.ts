@@ -8,6 +8,7 @@ export default defineConfig({
   schema: [
     './src/db/schema/_core-schema.ts',
     './src/db/schema/agent-eval.ts',
+    './src/db/schema/mutation-idempotency.ts',
     './src/db/schema/outgoing-emails.ts',
     './src/db/schema/rpc-idempotency.ts',
     './src/db/schema/session-scope.ts',
