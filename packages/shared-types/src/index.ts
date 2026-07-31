@@ -7,6 +7,11 @@ export interface ActorContext {
   tenantId: string;
   ip?: string;
   userAgent?: string;
+  /** Who physically performed the write. Defaults to 'user' when absent, so every
+   *  existing caller keeps its current audit shape. */
+  actorKind?: 'user' | 'agent';
+  /** For actorKind 'agent': the human user id the assistant is acting for. */
+  onBehalfOf?: string;
 }
 
 export interface DomainEvent<P = unknown> {
