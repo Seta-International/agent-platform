@@ -22,7 +22,7 @@ export function clippedCalendarEffort(
   const months = ym(to) - ym(from) + 1;
   if (months <= 0) return 0;
   const frac = (row.planned_pct ?? 0) / 100;
-  return Math.round(months * frac * 10) / 10;
+  return Math.round(months * frac * 100) / 100;
 }
 
 interface CapacityRow {
@@ -106,8 +106,8 @@ export function rollupKpis(
     if (r.bucket === 'billable') billable += e;
     if (r.worker_id) people.add(r.worker_id);
   }
-  total = Math.round(total * 10) / 10;
-  billable = Math.round(billable * 10) / 10;
+  total = Math.round(total * 100) / 100;
+  billable = Math.round(billable * 100) / 100;
   return {
     total_mm: total,
     billable_mm: billable,
