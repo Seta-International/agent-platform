@@ -317,6 +317,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.worker.read',
           'people.worker.create',
           'people.worker.update',
+          'people.org_unit.manage',
         ],
       },
     ],
@@ -327,9 +328,11 @@ export const INVENTORY: StatementSpec[] = [
       'people.worker': ['read', 'create', 'update', 'manage'],
       'people.self': ['read', 'manage'],
       'people.performance': ['read'],
+      'people.org_unit': ['manage'],
     },
     descriptions: {
       'people.performance.read': 'Enter the Performance surface and read own capacities',
+      'people.org_unit.manage': 'Rename, re-parent, and delete org units',
     },
     roles: [
       {
@@ -343,6 +346,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.self.read',
           'people.self.manage',
           'people.performance.read',
+          'people.org_unit.manage',
           'core.skill.read',
         ],
       },

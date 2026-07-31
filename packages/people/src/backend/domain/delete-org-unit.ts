@@ -36,7 +36,7 @@ export async function deleteOrgUnit(
   input: DeleteOrgUnitInput,
 ): Promise<{ deleted: boolean; reason?: 'has_members' | 'has_children' }> {
   const { session } = input;
-  requirePermission(session, 'people.worker.create');
+  requirePermission(session, 'people.org_unit.manage');
   const { org_unit_id } = deleteOrgUnitInput.parse(input);
 
   let result: { deleted: boolean; reason?: 'has_members' | 'has_children' } = { deleted: false };

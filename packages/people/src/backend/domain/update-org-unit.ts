@@ -16,7 +16,7 @@ export interface UpdateOrgUnitInput {
 
 export async function updateOrgUnit(input: UpdateOrgUnitInput): Promise<{ version: number }> {
   const { session } = input;
-  requirePermission(session, 'people.worker.create');
+  requirePermission(session, 'people.org_unit.manage');
   const parsed = updateOrgUnitInput.parse(input);
   const { org_unit_id, patch } = parsed;
 

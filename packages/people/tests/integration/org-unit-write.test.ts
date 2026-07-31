@@ -1,3 +1,4 @@
+import type { SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -16,6 +17,10 @@ const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
+
+function narrowSession(base: SessionScope, perms: string[]): SessionScope {
+  return { ...base, permissions: new Set(perms) };
+}
 
 describe('org unit write path', () => {
   it('renames a unit and bumps version', async () => {
@@ -404,6 +409,76 @@ describe('org unit write path', () => {
         expect(events).toHaveLength(1);
         expect(events[0]?.aggregate_id).toBe(org_unit_id);
         expect(events[0]?.payload).toMatchObject({ org_unit_id, tenant_id: t.tenant_id });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('refuses updateOrgUnit/deleteOrgUnit for a session holding only people.worker.create (FUT-842 split)', async () => {
+    // people.worker.create used to gate both — the split means a worker-create-only session
+    // (e.g. a hypothetical future role, or anyone probing the old slug) must be turned away.
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { org_unit_id } = await createOrgUnit({
+          name: 'Eng',
+          kind: 'function',
+          session: t.adminSession,
+        });
+
+        const workerCreateOnlySession = narrowSession(t.adminSession, ['people.worker.create']);
+
+        await expect(
+          updateOrgUnit({
+            org_unit_id,
+            patch: { name: 'Engineering' },
+            session: workerCreateOnlySession,
+          }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        await expect(
+          deleteOrgUnit({ org_unit_id, session: workerCreateOnlySession }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('allows updateOrgUnit/deleteOrgUnit for a session holding people.org_unit.manage', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { org_unit_id } = await createOrgUnit({
+          name: 'Eng',
+          kind: 'function',
+          session: t.adminSession,
+        });
+
+        const orgUnitManagerSession = narrowSession(t.adminSession, ['people.org_unit.manage']);
+
+        await expect(
+          updateOrgUnit({
+            org_unit_id,
+            patch: { name: 'Engineering' },
+            session: orgUnitManagerSession,
+          }),
+        ).resolves.toMatchObject({ version: 2 });
+
+        await expect(
+          deleteOrgUnit({ org_unit_id, session: orgUnitManagerSession }),
+        ).resolves.toEqual({ deleted: true });
       } finally {
         resetPeopleDb();
         resetCoreDb();
