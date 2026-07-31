@@ -69,3 +69,55 @@ describe('emit() attribution', () => {
     });
   });
 });
+
+describe('emit() before/after capture', () => {
+  it('writes EmitCtx before/after into the columns, readable through queryAudit()', async () => {
+    await withCoreTestDb(async () => {
+      resetCoreDb();
+      const tenantId = crypto.randomUUID();
+
+      await withEmit({ actor: { userId: crypto.randomUUID(), tenantId } }, async () => {
+        const ctx = emitContext.getStore();
+        if (!ctx) throw new Error('emit context missing');
+        ctx.before = { status: 'not_started' };
+        ctx.after = { status: 'in_progress' };
+        await emit({
+          tenantId,
+          aggregateType: 'test.entity',
+          aggregateId: crypto.randomUUID(),
+          eventType: 'test.entity.diffed',
+          eventVersion: 1,
+          payload: {},
+        });
+      });
+
+      const { rows } = await queryAudit({ tenant_id: tenantId, limit: 10, offset: 0 });
+      expect(rows[0]?.before).toEqual({ status: 'not_started' });
+      expect(rows[0]?.after).toEqual({ status: 'in_progress' });
+    });
+  });
+
+  it('records emitted event ids on the context when the collector is present', async () => {
+    await withCoreTestDb(async () => {
+      resetCoreDb();
+      const tenantId = crypto.randomUUID();
+      const collected: string[] = [];
+
+      await withEmit({ actor: { userId: crypto.randomUUID(), tenantId } }, async () => {
+        const ctx = emitContext.getStore();
+        if (!ctx) throw new Error('emit context missing');
+        ctx.emittedEventIds = collected;
+        await emit({
+          tenantId,
+          aggregateType: 'test.entity',
+          aggregateId: crypto.randomUUID(),
+          eventType: 'test.entity.collected',
+          eventVersion: 1,
+          payload: {},
+        });
+      });
+
+      expect(collected).toHaveLength(1);
+    });
+  });
+});
