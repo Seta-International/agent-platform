@@ -31,6 +31,7 @@ beforeEach(() => {
   fetchRequisitions
     .mockReset()
     .mockResolvedValue([{ id: 'r1', title: 'Backend Eng', status: 'open', openings_open: 3 }]);
+  parseCandidateCvDraft.mockReset();
 });
 
 const wrap =
@@ -374,5 +375,140 @@ describe('NewCandidateDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     expect(addCandidate).not.toHaveBeenCalled();
+  });
+
+  // FUT-633: upload CV A → parse resolves → user removes CV (X) → upload CV B
+  // All fields must show B's data, not a mix of A and B.
+  it('replaces all pre-filled data when a second CV is uploaded after removing the first one', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    // --- Upload CV A ---
+    parseCandidateCvDraft.mockResolvedValueOnce({
+      name: 'Alice A',
+      personal_email: 'alice@a.com',
+      phone: '+84111111111',
+      dob: '1990-01-01',
+      gender: 'female',
+      seniority: 'Senior',
+      note: 'note from A',
+      skills: [{ skill_id: 's1', skill_name: 'React' }],
+      skill_suggestions: ['GraphQL'],
+      cv_sha256: 'sha-a',
+      possible_duplicates: [
+        { candidate_id: 'dup1', name: 'Duplicate A', created_at: '2025-01-01', match: 'file' },
+      ],
+    });
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'cv-a.pdf', { type: 'application/pdf' }),
+    );
+    await vi.waitFor(() => {
+      expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('Alice A');
+    });
+
+    // --- Click Remove (X) to clear CV A ---
+    await userEvent.click(screen.getByLabelText(/remove cv/i));
+    // FileInput should re-appear (CV area hidden)
+    await vi.waitFor(() => {
+      expect(queryFileInput()).toBeInTheDocument();
+    });
+    // Fields must be blank after remove
+    expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('');
+
+    // --- Upload CV B ---
+    parseCandidateCvDraft.mockResolvedValueOnce({
+      name: 'Bob B',
+      personal_email: 'bob@b.com',
+      phone: '+84222222222',
+      dob: '1991-02-02',
+      gender: 'male',
+      seniority: 'Mid',
+      note: 'note from B',
+      skills: [{ skill_id: 's2', skill_name: 'Python' }],
+      skill_suggestions: ['Django'],
+      cv_sha256: 'sha-b',
+      possible_duplicates: [
+        { candidate_id: 'dup2', name: 'Duplicate B', created_at: '2025-01-01', match: 'email' },
+      ],
+    });
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'cv-b.pdf', { type: 'application/pdf' }),
+    );
+
+    // All fields must show B's data now
+    await vi.waitFor(() => {
+      expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('Bob B');
+      expect((screen.getByLabelText(/email/i) as HTMLInputElement).value).toBe('bob@b.com');
+      expect((screen.getByLabelText(/phone/i) as HTMLInputElement).value).toBe('+84222222222');
+      expect((screen.getByLabelText(/date of birth/i) as HTMLInputElement).value).toBe(
+        '1991-02-02',
+      );
+    });
+  });
+
+  // FUT-633: remove CV (X) then upload a different one — the removed CV's data must not persist.
+  it('clears all pre-filled data when CV is removed, then fills with new CV data on subsequent upload', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    // --- Upload CV A ---
+    parseCandidateCvDraft.mockResolvedValueOnce({
+      name: 'Alice A',
+      personal_email: 'alice@a.com',
+      phone: '+84111111111',
+      dob: '1990-01-01',
+      gender: 'female',
+      seniority: 'Senior',
+      note: 'note from A',
+      skills: [{ skill_id: 's1', skill_name: 'React' }],
+      skill_suggestions: ['GraphQL'],
+      cv_sha256: 'sha-a',
+      possible_duplicates: [],
+    });
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'cv-a.pdf', { type: 'application/pdf' }),
+    );
+    await vi.waitFor(() => {
+      expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('Alice A');
+    });
+
+    // --- Click X (remove CV A) ---
+    await userEvent.click(screen.getByRole('button', { name: /remove cv/i }));
+    await vi.waitFor(() => expect(screen.queryByText('cv-a.pdf')).not.toBeInTheDocument());
+    // Fields must be cleared after removing CV
+    expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('');
+
+    // --- Upload CV B ---
+    parseCandidateCvDraft.mockResolvedValueOnce({
+      name: 'Bob B',
+      personal_email: 'bob@b.com',
+      phone: '+84222222222',
+      dob: null,
+      gender: null,
+      seniority: null,
+      note: null,
+      skills: [],
+      skill_suggestions: [],
+      cv_sha256: 'sha-b',
+      possible_duplicates: [],
+    });
+
+    await userEvent.upload(
+      queryFileInput(),
+      new File(['dummy'], 'cv-b.pdf', { type: 'application/pdf' }),
+    );
+    await vi.waitFor(() => {
+      expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('Bob B');
+      expect((screen.getByLabelText(/email/i) as HTMLInputElement).value).toBe('bob@b.com');
+      expect((screen.getByLabelText(/phone/i) as HTMLInputElement).value).toBe('+84222222222');
+    });
   });
 });
