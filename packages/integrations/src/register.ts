@@ -57,6 +57,9 @@ export function registerIntegrationsContributions(
       { table: 'integrations.m365_resource_etags', policy: { kind: 'permanent' } },
       { table: 'integrations.m365_tenant_config', policy: { kind: 'permanent' } },
       { table: 'integrations.mail_transport_config', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_person_links', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_org_unit_links', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_directory_conflict', policy: { kind: 'permanent' } },
     ]);
   }
 
