@@ -53,9 +53,9 @@ export async function updateOrgUnit(input: UpdateOrgUnitInput): Promise<{ versio
             SELECT o.id, o.parent_id, up.depth + 1 FROM people.org_unit o
               JOIN up ON o.id = up.parent_id
              WHERE o.tenant_id = ${session.tenant_id}
-               -- UNION (not UNION ALL) dedupes revisited rows so a pre-existing cycle upstream
-               -- of the new parent terminates the walk instead of recursing forever; the depth
-               -- cap is a hard backstop against any tree this dedup logic hasn't accounted for.
+               -- Termination is guaranteed by this depth cap ALONE. UNION dedup does not help
+               -- here: depth is part of every row and strictly increases, so no two rows ever
+               -- compare equal and UNION behaves as UNION ALL. Do not loosen the cap.
                AND up.depth < 1000
           )
           SELECT 1 FROM up WHERE id = ${org_unit_id} LIMIT 1
