@@ -14,6 +14,7 @@ export {
 } from './backend/domain/allocation-grid.ts';
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
+export { type DeleteOrgUnitInput, deleteOrgUnit } from './backend/domain/delete-org-unit.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
 export { listDirectory } from './backend/domain/list-directory.ts';
@@ -56,6 +57,7 @@ export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-
 export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
+export { type UpdateOrgUnitInput, updateOrgUnit } from './backend/domain/update-org-unit.ts';
 export {
   getUtilizationByPerson,
   type UtilizationByPerson,

@@ -59,6 +59,22 @@ export const createOrgUnitInput = z.object({
 });
 export type CreateOrgUnitInput = z.infer<typeof createOrgUnitInput>;
 
+export const updateOrgUnitPatch = z.object({
+  name: z.string().min(1).optional(),
+  parent_id: z.string().uuid().nullable().optional(),
+  head_worker_id: z.string().uuid().nullable().optional(),
+});
+export type UpdateOrgUnitPatch = z.infer<typeof updateOrgUnitPatch>;
+
+export const updateOrgUnitInput = z.object({
+  org_unit_id: z.string().uuid(),
+  patch: updateOrgUnitPatch,
+});
+
+export const deleteOrgUnitInput = z.object({
+  org_unit_id: z.string().uuid(),
+});
+
 export const performanceContextInput = z.object({
   as_of_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), // YYYY-MM
 });
