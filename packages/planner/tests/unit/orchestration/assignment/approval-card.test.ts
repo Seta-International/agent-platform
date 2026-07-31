@@ -26,17 +26,28 @@ describe('buildAssignApprovalCard', () => {
       ],
       tenantId: 'tn1',
       userId: 'actor1',
+      idempotencyKey: 'key-1',
     });
     expect(card.intent).toBe('Assign "AWS migration"');
     expect(card.riskBadge).toBe('write');
     expect(card.primary).toEqual({
       label: 'Assign to Alice',
-      argsPatch: { action: 'assign', assigneeUserIds: ['u1'], taskId: 't-1' },
+      argsPatch: {
+        action: 'assign',
+        assigneeUserIds: ['u1'],
+        taskId: 't-1',
+        idempotencyKey: 'key-1',
+      },
     });
     expect(card.alternates).toEqual([
       {
         label: 'Assign to Bob',
-        argsPatch: { action: 'assign', assigneeUserIds: ['u2'], taskId: 't-1' },
+        argsPatch: {
+          action: 'assign',
+          assigneeUserIds: ['u2'],
+          taskId: 't-1',
+          idempotencyKey: 'key-1',
+        },
       },
     ]);
     expect(card.decline.label).toBe('Leave unassigned');
@@ -53,6 +64,7 @@ describe('buildAssignApprovalCard', () => {
       recommendations: [REC()],
       tenantId: 'tn1',
       userId: 'actor1',
+      idempotencyKey: 'key-1',
     });
     expect(card.intent).toBe('Assign "t-1"');
     expect(card.details).toEqual([
@@ -81,6 +93,7 @@ describe('buildAssignApprovalCard', () => {
       recommendations: [REC({ name: null })],
       tenantId: 'tn1',
       userId: 'actor1',
+      idempotencyKey: 'key-1',
     });
     expect(card.primary.label).toBe('Assign to u1');
     expect(card.details[0]).toMatchObject({ items: [{ label: 'u1' }] });
@@ -93,6 +106,7 @@ describe('buildAssignApprovalCard', () => {
       recommendations: [REC()],
       tenantId: 'tn1',
       userId: 'actor1',
+      idempotencyKey: 'key-1',
     });
     expect(() => ApprovalCardSchema.parse(card)).not.toThrow();
   });
@@ -105,6 +119,7 @@ describe('buildAssignApprovalCard', () => {
         recommendations: [],
         tenantId: 'tn1',
         userId: 'actor1',
+        idempotencyKey: 'key-1',
       }),
     ).toThrow();
   });

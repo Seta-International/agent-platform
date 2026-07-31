@@ -34,6 +34,9 @@ const ResumeSchema = z.object({
   overrideUserIds: z.array(z.string()).optional(),
   alternateIndices: z.array(z.number()).optional(),
   note: z.string().optional(),
+  /** Minted on the suspend pass, carried on the card's argsPatch. Optional so a
+   *  legacy approval decided before this shipped still resumes (ungated). */
+  idempotencyKey: z.string().optional(),
 });
 
 const SuspendSchema = z.object({ card: z.unknown() });
@@ -105,6 +108,10 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
           assigneeUserIds,
           tenantId: ctx.tenantId,
           actorUserId: ctx.actorUserId,
+          // Legacy approvals carry no key; mint a per-attempt one so the port's
+          // contract holds. That means no replay protection for them — exactly the
+          // pre-FUT-803 behaviour they were created under.
+          idempotencyKey: resume.idempotencyKey ?? crypto.randomUUID(),
         });
         return { assigned: true };
       }
@@ -164,6 +171,10 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         recommendations,
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
+        // Minted HERE, on the suspend pass, and persisted on the card: resume may run
+        // in a different process after a page reload, so the key can only travel via
+        // the persisted proposed_payload — the same boundary assigneeUserIds crosses.
+        idempotencyKey: crypto.randomUUID(),
       });
       if (typeof agent?.suspend !== 'function') {
         throw new Error('proposeAssignment: ctx.agent.suspend unavailable');

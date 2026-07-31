@@ -89,5 +89,8 @@ export interface AssignPort {
     assigneeUserIds: string[];
     tenantId: string;
     actorUserId: string;
+    /** Gates the write: a replay of the same key returns the prior result instead
+     *  of assigning again. Required — every governed write declares one. */
+    idempotencyKey: string;
   }): Promise<void>;
 }
