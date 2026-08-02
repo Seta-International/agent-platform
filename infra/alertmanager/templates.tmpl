@@ -1,11 +1,12 @@
 {{/* MS Teams card for msteamsv2. Because group_by is [env, alertname], every alert
       in a card already shares its status, alertname, env and severity — so the title
-      carries those once (severity as a colour dot) and the body repeats none of them,
-      listing only what differs per alert. Times render in the container timezone
-      (TZ=Asia/Ho_Chi_Minh -> UTC+7) via .Local. */}}
+      carries those once and the body repeats none of them, listing only what differs
+      per alert. Severity appears twice over, as a colour dot and as the word, so the
+      card still reads on clients that render no emoji. Times render in the container
+      timezone (TZ=Asia/Ho_Chi_Minh -> UTC+7) via .Local. */}}
 
 {{ define "teams.title" -}}
-{{ if eq .Status "resolved" }}✅{{ else if eq .CommonLabels.severity "critical" }}🔴{{ else if eq .CommonLabels.severity "warning" }}🟡{{ else }}⚪{{ end }} [{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}{{ with .CommonLabels.env }} · {{ . }}{{ end }}
+{{ if eq .Status "resolved" }}🟢{{ else if eq .CommonLabels.severity "critical" }}🔴{{ else if eq .CommonLabels.severity "warning" }}🟡{{ else }}⚪{{ end }} [{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}{{ end }}{{ with .CommonLabels.severity }} · {{ . | toUpper }}{{ end }}] {{ .CommonLabels.alertname }}{{ with .CommonLabels.env }} · {{ . }}{{ end }}
 {{- end }}
 
 {{ define "teams.text" -}}
