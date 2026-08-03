@@ -1,15 +1,19 @@
 import {
   createOrgUnit,
   deleteOrgUnit,
+  editWorker,
   getOrgStructure,
   listWorkers,
   syncDirectoryPeople,
+  terminateWorker,
   updateOrgUnit,
 } from '@seta/people';
+import type { PeopleOrgSurface } from './org-tree.ts';
+import type { PeopleResolutionSurface } from './resolve.ts';
 import type { PeopleDirectorySurface } from './sync.ts';
 
 /**
- * Adapts the real `@seta/people` module onto `PeopleDirectorySurface`.
+ * Adapts the real `@seta/people` module onto `PeopleOrgSurface`.
  *
  * The module is NOT structurally assignable to it, and both gaps are silent data bugs rather than
  * type-level pedantry:
@@ -27,11 +31,13 @@ import type { PeopleDirectorySurface } from './sync.ts';
  * `typecheck` time. It is the only check there is: `integrations` tests cannot execute this file,
  * because the `people` schema is not migrated into this package's testcontainer.
  *
- * RBAC is re-checked inside every one of these functions; hand it `buildSystemSession(tenantId)`,
- * whose `system.integrations.m365` role carries `people.worker.read`, `people.worker.create`,
- * `people.worker.update` and `people.org_unit.manage`.
+ * RBAC is re-checked inside every one of these functions. The sync hands them
+ * `buildSystemSession(tenantId)`, whose `system.integrations.m365` role carries
+ * `people.worker.read`, `people.worker.create`, `people.worker.update` and
+ * `people.org_unit.manage`; a conflict resolution hands them the acting admin's session instead
+ * (§9.2), so an admin without those permissions fails here as an ordinary FORBIDDEN.
  */
-export function createPeopleDirectorySurface(): PeopleDirectorySurface {
+function createPeopleOrgSurface(): PeopleOrgSurface {
   return {
     getOrgStructure: async (session) => {
       const { units } = await getOrgStructure(session);
@@ -57,6 +63,26 @@ export function createPeopleDirectorySurface(): PeopleDirectorySurface {
     },
     updateOrgUnit: (input) => updateOrgUnit(input),
     deleteOrgUnit: (input) => deleteOrgUnit(input),
+  };
+}
+
+/** The sync's surface: the org tree plus the single directory write door (§4.4). */
+export function createPeopleDirectorySurface(): PeopleDirectorySurface {
+  return {
+    ...createPeopleOrgSurface(),
     syncDirectoryPeople: (input) => syncDirectoryPeople(input),
+  };
+}
+
+/**
+ * The conflict-resolution surface: the org tree plus the two per-person doors §9.1's resolutions
+ * need. `editWorker` is safe for `org_unit_id` specifically — `field-rules.ts` deliberately leaves
+ * it out of `M365_OWNED_PERSON_FIELDS`, so `reassign` is not fighting the FUT-628 field lock.
+ */
+export function createPeopleResolutionSurface(): PeopleResolutionSurface {
+  return {
+    ...createPeopleOrgSurface(),
+    editWorker: (input) => editWorker(input),
+    terminateWorker: (input) => terminateWorker(input),
   };
 }

@@ -3,7 +3,11 @@ export { buildAuthProvider, buildDbCredsProvider, M365NotConfiguredError } from 
 export { buildGraphClient } from './client.ts';
 export type { DirectoryGraph, PhotoFetchResult } from './directory/graph.ts';
 export { createDirectoryGraph } from './directory/graph.ts';
-export { createPeopleDirectorySurface } from './directory/people-surface.ts';
+export type { PeopleOrgSurface } from './directory/org-tree.ts';
+export {
+  createPeopleDirectorySurface,
+  createPeopleResolutionSurface,
+} from './directory/people-surface.ts';
 export type {
   CloseConflictInput,
   ConflictRow,
@@ -17,6 +21,14 @@ export type {
   UpsertPersonLinkInput,
 } from './directory/repo.ts';
 export { createDirectoryRepo } from './directory/repo.ts';
+export type {
+  DirectoryResolutionAction,
+  PeopleResolutionSurface,
+  ResolveDirectoryConflictDeps,
+  ResolveDirectoryConflictInput,
+  ResolveDirectoryConflictResult,
+} from './directory/resolve.ts';
+export { DIRECTORY_RESOLUTION_ACTIONS, resolveDirectoryConflict } from './directory/resolve.ts';
 export type {
   DirectoryPhotoStorage,
   DirectoryPullCounters,

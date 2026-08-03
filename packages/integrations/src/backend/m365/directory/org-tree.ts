@@ -103,6 +103,18 @@ export function orgKey(division: string | null, department: string | null): stri
   return `${norm(division)}${SEP}${norm(department)}`;
 }
 
+/**
+ * Where a sync-created unit hangs: `Operation`, else the `executive` root. An unseeded tenant has
+ * neither — there is nowhere to put a department, and that is not a conflict a human can resolve,
+ * so both callers give up rather than inventing a root. Shared with `resolve.ts` so an admin's
+ * `create_distinct` lands exactly where the sync would have put it.
+ */
+export function findDefaultParent<T extends { id: string; kind: string }>(
+  units: ReadonlyArray<T>,
+): T | undefined {
+  return units.find((u) => u.kind === 'operation') ?? units.find((u) => u.kind === 'executive');
+}
+
 interface DesiredNode {
   key: string;
   name: string;
@@ -157,13 +169,11 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
   const { units } = await people.getOrgStructure(session);
   const unitById = new Map<string, MutableUnit>(units.map((u) => [u.id, { ...u }]));
 
-  // Default parent: `Operation`, else the `executive` root. An unseeded tenant has neither —
-  // there is nowhere to hang a department, and that is not a conflict a human can resolve.
   const spineByKind = new Map<string, MutableUnit>();
   for (const u of unitById.values()) {
     if (SPINE_KINDS.has(u.kind) && !spineByKind.has(u.kind)) spineByKind.set(u.kind, u);
   }
-  const defaultParent = spineByKind.get('operation') ?? spineByKind.get('executive');
+  const defaultParent = findDefaultParent(units);
   if (!defaultParent) return result;
 
   // First occurrence in `pairs` wins the display casing. The parent does NOT work that way — see
@@ -216,9 +226,18 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
   // exists to prevent, one step further in.
   if (divisions.size + departments.size === 0) return result;
 
+  const links = await repo.listOrgUnitLinks(tenantId);
+  const linkByKey = new Map<string, OrgUnitLinkRow>(links.map((l) => [l.entraKey, l]));
+  const idByKey = new Map<string, string>();
+
   const blocked = new Set<string>();
   for (const node of [...divisions.values(), ...departments.values()]) {
     if (!SPINE_KINDS.has(norm(node.name))) continue;
+    // A link row on a colliding key means an admin already resolved this one (`map_to_spine` or
+    // `create_distinct`, §9.1) and named the destination. Re-raising would refill the queue with
+    // a settled question every night. `ensureUnit` still refuses to rename, re-parent or delete a
+    // spine unit a link points at, so honouring the decision cannot mutate the spine.
+    if (linkByKey.has(node.key)) continue;
     blocked.add(node.key);
     const spineUnit = spineByKind.get(norm(node.name)) ?? null;
     await repo.raiseConflict({
@@ -235,10 +254,6 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
       },
     });
   }
-
-  const links = await repo.listOrgUnitLinks(tenantId);
-  const linkByKey = new Map<string, OrgUnitLinkRow>(links.map((l) => [l.entraKey, l]));
-  const idByKey = new Map<string, string>();
 
   /**
    * `parentStated` is false when the census gave no division for this node and `parentId` is
