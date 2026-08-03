@@ -116,6 +116,27 @@ export async function syncDirectoryPeople(input: {
 
   const results: DirectorySyncOutcome[] = [];
   const seenInBatch = new Set<string>();
+  // `byEmail` is a pre-transaction snapshot, so a person created earlier in THIS batch is not in
+  // it. Without this, a duplicated email whose first occurrence was a create reports a collision
+  // with an empty candidate list — nothing for the admin screen to act on.
+  const createdInBatch = new Map<string, { person_id: string; full_name: string }>();
+
+  const candidatesFor = (
+    email: string,
+    rows: MatchRow[],
+  ): NonNullable<DirectorySyncOutcome['collision_candidates']> => {
+    const created = createdInBatch.get(email);
+    return [
+      ...rows.map((c) => ({
+        person_id: c.id,
+        full_name: c.full_name ?? '',
+        directory_managed: c.directory_managed,
+      })),
+      ...(created
+        ? [{ person_id: created.person_id, full_name: created.full_name, directory_managed: true }]
+        : []),
+    ];
+  };
 
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
@@ -132,11 +153,7 @@ export async function syncDirectoryPeople(input: {
             entra_oid: incoming.entra_oid,
             person_id: null,
             outcome: 'collision',
-            collision_candidates: candidates.map((c) => ({
-              person_id: c.id,
-              full_name: c.full_name ?? '',
-              directory_managed: c.directory_managed,
-            })),
+            collision_candidates: candidatesFor(email, candidates),
           });
           continue;
         }
@@ -150,17 +167,20 @@ export async function syncDirectoryPeople(input: {
             entra_oid: incoming.entra_oid,
             person_id: null,
             outcome: 'collision',
-            collision_candidates: candidates.map((c) => ({
-              person_id: c.id,
-              full_name: c.full_name ?? '',
-              directory_managed: c.directory_managed,
-            })),
+            collision_candidates: candidatesFor(email, candidates),
           });
           continue;
         }
 
         if (candidates.length === 0) {
-          results.push(await createFromDirectory(tx, session, incoming, email));
+          const created = await createFromDirectory(tx, session, incoming, email);
+          if (created.person_id) {
+            createdInBatch.set(email, {
+              person_id: created.person_id,
+              full_name: incoming.full_name,
+            });
+          }
+          results.push(created);
           continue;
         }
 
@@ -263,7 +283,9 @@ async function createFromDirectory(
     full_name: incoming.full_name,
     employee_no: incoming.employee_no,
     work_email: email,
-    personal_email: incoming.personal_email ? normalizeEmail(incoming.personal_email) : null,
+    // `!= null` matches directory-diff's asserted-when-present check, so create and update agree.
+    personal_email:
+      incoming.personal_email != null ? normalizeEmail(incoming.personal_email) : null,
     start_date: startDate,
     employment_type: incoming.employment_type,
     phone: incoming.phone,
@@ -285,14 +307,23 @@ async function createFromDirectory(
       extras.ooo_until = incoming.ooo_until == null ? null : new Date(incoming.ooo_until);
     }
   }
-  await tx.update(person).set(extras).where(eq(person.id, worker_id));
+  await tx
+    .update(person)
+    .set(extras)
+    .where(and(eq(person.id, worker_id), eq(person.tenant_id, session.tenant_id)));
 
   const endDate = normalizeDate(incoming.leave_date);
   if (endDate != null) {
     await tx
       .update(employmentPeriod)
       .set({ end_date: endDate })
-      .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
+      .where(
+        and(
+          eq(employmentPeriod.person_id, worker_id),
+          eq(employmentPeriod.tenant_id, session.tenant_id),
+          isNull(employmentPeriod.end_date),
+        ),
+      );
   }
 
   return { entra_oid: incoming.entra_oid, person_id: worker_id, outcome: 'created' };

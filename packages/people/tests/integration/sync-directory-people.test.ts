@@ -1,3 +1,4 @@
+import type { SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -14,6 +15,10 @@ const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
+
+function narrowSession(base: SessionScope, perms: string[]): SessionScope {
+  return { ...base, permissions: new Set(perms) };
+}
 
 function dp(overrides: Partial<DirectoryPerson> = {}): DirectoryPerson {
   return {
@@ -376,6 +381,141 @@ describe('syncDirectoryPeople', () => {
         expect(p?.work_start).toBe('09:00:00');
         expect(p?.work_end).toBe('18:00:00');
         expect(p?.availability_status).toBe('busy');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('syncs a multi-person batch and hands a duplicated email real collision candidates', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        // Three distinct people plus a second row reusing the first's email. The duplicate has no
+        // pre-existing DB match, so its only candidate is the person created earlier in this very
+        // batch — the pre-transaction snapshot cannot know about it.
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({ work_email: 'one@x.vn', full_name: 'One' }),
+            dp({ work_email: 'two@x.vn', full_name: 'Two' }),
+            dp({ work_email: 'three@x.vn', full_name: 'Three' }),
+            dp({ work_email: 'one@x.vn', full_name: 'One Again' }),
+          ],
+          session: t.adminSession,
+        });
+
+        expect(results.map((r) => r.outcome)).toEqual([
+          'created',
+          'created',
+          'created',
+          'collision',
+        ]);
+
+        const dupe = results[3];
+        expect(dupe?.collision_candidates).toHaveLength(1);
+        expect(dupe?.collision_candidates?.[0]).toMatchObject({
+          person_id: results[0]?.person_id,
+          full_name: 'One',
+          directory_managed: true,
+        });
+
+        // The duplicate must not have produced a second row for that email.
+        const ones = await peopleDb()
+          .select()
+          .from(person)
+          .where(eq(person.work_email, 'one@x.vn'));
+        expect(ones).toHaveLength(1);
+        expect(ones[0]?.full_name).toBe('One');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('applies job_title and employment_type to the open employment period', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const first = await syncDirectoryPeople({
+          people: [
+            dp({
+              work_email: 'period@x.vn',
+              full_name: 'Period Person',
+              job_title: 'Engineer',
+              employment_type: 'full_time',
+            }),
+          ],
+          session: t.adminSession,
+        });
+        const personId = first.results[0]?.person_id as string;
+
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({
+              work_email: 'period@x.vn',
+              full_name: 'Period Person',
+              job_title: 'Staff Engineer',
+              employment_type: 'part_time',
+            }),
+          ],
+          session: t.adminSession,
+        });
+        expect(results[0]?.outcome).toBe('updated');
+
+        const periods = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(eq(employmentPeriod.person_id, personId));
+        expect(periods).toHaveLength(1);
+        expect(periods[0]?.job_title).toBe('Staff Engineer');
+        expect(periods[0]?.employment_type).toBe('part_time');
+        expect(periods[0]?.end_date).toBeNull();
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('refuses a session that lacks the required permissions', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const input = { people: [dp({ work_email: 'rbac@x.vn' })] };
+
+        await expect(
+          syncDirectoryPeople({ ...input, session: narrowSession(t.adminSession, []) }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        // worker.create alone is not enough — this function also updates.
+        await expect(
+          syncDirectoryPeople({
+            ...input,
+            session: narrowSession(t.adminSession, ['people.worker.create']),
+          }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        const rows = await peopleDb()
+          .select()
+          .from(person)
+          .where(eq(person.work_email, 'rbac@x.vn'));
+        expect(rows).toHaveLength(0);
       } finally {
         resetPeopleDb();
         resetCoreDb();
