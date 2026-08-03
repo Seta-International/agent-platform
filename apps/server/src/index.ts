@@ -191,6 +191,8 @@ const chatRouter = makeChatRouter({
   assignment: assignmentOrchestration.runStream,
   plannerQuery: plannerQueryOrchestration.runStream,
   weeklyPlanner: weeklyPlanOrchestration.runStream,
+  // A2: a change request gets a preview card and writes nothing until confirmed.
+  action: actionOrchestration.runStream,
 });
 
 // Build the agent engine up front so subscriberBuilders contributed by
