@@ -538,6 +538,117 @@ describe('directory org tree', () => {
     });
   });
 
+  // The `pairs.length === 0` guard exists to stop a failed or partial fetch from reaping the tree,
+  // but it counts ROWS, not named nodes — and `activeKeys` only fills for non-blank names. A page
+  // of real users who simply carry no department/division therefore sails past it with an empty
+  // `activeKeys`, and every sync-owned link looks stale. That is the exact fetch failure the guard
+  // was written for, arriving through the door it left open.
+  it('reaps nothing when a non-empty census names no departments or divisions at all', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      const session = buildSystemSession(TENANT);
+
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [
+          { division: null, department: 'Engineering' },
+          { division: null, department: 'Marketing' },
+        ],
+        session,
+        repo,
+        people,
+      });
+      expect(functionUnits(people)).toHaveLength(2);
+      const deletesBefore = people.calls.delete.length;
+
+      // A full census of real users who happen to carry no org data at all.
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [
+          { division: null, department: null },
+          { division: '', department: '   ' },
+          { division: null, department: null },
+        ],
+        session,
+        repo,
+        people,
+      });
+
+      expect(people.calls.delete.length).toBe(deletesBefore);
+      expect(
+        functionUnits(people)
+          .map((u) => u.name)
+          .sort(),
+      ).toEqual(['Engineering', 'Marketing']);
+      expect(await repo.listOrgUnitLinks(TENANT)).toHaveLength(2);
+    });
+  });
+
+  // Department identity is department-name-only, so its parent comes from whichever pair mentions
+  // it first. `employeeOrgData.division` is optional and routinely partly populated, so one member
+  // with a blank division would otherwise re-parent the whole department onto the default spine
+  // parent — and which way it lands would depend on nothing but Graph's page order.
+  it('parents a department by its stated division regardless of where the blank-division member sits', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const people = createFakePeople(spine());
+      const session = buildSystemSession(TENANT);
+
+      // Blank-division member FIRST — the losing order under first-occurrence-wins.
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [
+          { division: null, department: 'Engineering' },
+          { division: 'Product Group', department: 'Engineering' },
+        ],
+        session,
+        repo: createDirectoryRepo({ db }),
+        people,
+      });
+
+      const productGroup = functionUnits(people).find((u) => u.name === 'Product Group');
+      const engineering = functionUnits(people).find((u) => u.name === 'Engineering');
+      expect(productGroup).toBeDefined();
+      expect(engineering?.parent_id).toBe(productGroup?.id);
+    });
+  });
+
+  it('does not detach a department when a later run sees only its blank-division member', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      const session = buildSystemSession(TENANT);
+
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [{ division: 'Product Group', department: 'Engineering' }],
+        session,
+        repo,
+        people,
+      });
+      const productGroup = functionUnits(people).find((u) => u.name === 'Product Group');
+      const engineering = functionUnits(people).find((u) => u.name === 'Engineering');
+      expect(engineering?.parent_id).toBe(productGroup?.id);
+      const updatesBefore = people.calls.update.length;
+
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: false,
+        pairs: [{ division: null, department: 'Engineering' }],
+        session,
+        repo,
+        people,
+      });
+
+      expect(people.units.get(engineering!.id)?.parent_id).toBe(productGroup?.id);
+      expect(people.calls.update.slice(updatesBefore)).toEqual([]);
+    });
+  });
+
   it('raises unit_delete_blocked and keeps the unit when a vanished department still has members', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const repo = createDirectoryRepo({ db });
@@ -781,6 +892,59 @@ describe('directory org tree', () => {
           { org_unit_id: mkt, patch: { head_worker_id: MGR_A_PERSON } },
         ]);
         expect(await repo.listConflicts(TENANT, 'open')).toEqual([]);
+      });
+    });
+
+    // `if (!chosen) continue` only ever meant "don't SET a head" — never "don't KEEP one". Per
+    // §8.3 the person row survives an Entra removal, so a departed manager would otherwise stay
+    // everyone's derived manager forever, and `reportsSubtreeSql` is an RBAC predicate: they keep
+    // read scope over the whole subtree. Only units the census actually covers are cleared, so a
+    // unit missing from this run is left alone rather than stripped.
+    it('clears a head whose manager left the directory, and leaves uncovered units alone', async () => {
+      await withIntegrationsTestDb(async ({ db }) => {
+        const repo = createDirectoryRepo({ db });
+        const people = createFakePeople(spine());
+        const session = buildSystemSession(TENANT);
+        const map = await seedUnits(repo, people, ['Engineering', 'Marketing']);
+        const eng = map.get(orgKey(null, 'Engineering')) as string;
+        const mkt = map.get(orgKey(null, 'Marketing')) as string;
+
+        await repo.upsertPersonLink({
+          tenantId: TENANT,
+          personId: MGR_A_PERSON,
+          entraOid: MGR_A_OID,
+        });
+        await repo.upsertPersonLink({
+          tenantId: TENANT,
+          personId: MGR_B_PERSON,
+          entraOid: MGR_B_OID,
+        });
+
+        const members = [
+          { person_id: P1, org_unit_id: eng, manager_oid: MGR_A_OID },
+          { person_id: P2, org_unit_id: mkt, manager_oid: MGR_B_OID },
+        ];
+        await resolveHeads({ tenantId: TENANT, members, session, repo, people });
+        expect(people.units.get(eng)?.head_worker_id).toBe(MGR_A_PERSON);
+        expect(people.units.get(mkt)?.head_worker_id).toBe(MGR_B_PERSON);
+        people.calls.update.length = 0;
+
+        // Engineering's manager leaves Entra. Marketing is simply absent from this run's census.
+        await repo.markRemoved(TENANT, MGR_A_OID);
+        const result = await resolveHeads({
+          tenantId: TENANT,
+          members: [{ person_id: P1, org_unit_id: eng, manager_oid: MGR_A_OID }],
+          session,
+          repo,
+          people,
+        });
+
+        expect(people.units.get(eng)?.head_worker_id).toBeNull();
+        expect(people.units.get(mkt)?.head_worker_id).toBe(MGR_B_PERSON);
+        expect(people.calls.update).toEqual([
+          { org_unit_id: eng, patch: { head_worker_id: null } },
+        ]);
+        expect(result.headsSet).toBe(1);
       });
     });
   });

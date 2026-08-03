@@ -149,8 +149,8 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
   const defaultParent = spineByKind.get('operation') ?? spineByKind.get('executive');
   if (!defaultParent) return result;
 
-  // First occurrence in `pairs` wins for both the display casing and, for a department seen
-  // under two divisions, the parent — deterministic given a stable input order.
+  // First occurrence in `pairs` wins the display casing. The parent does NOT work that way — see
+  // the parentKey rule below.
   const divisions = new Map<string, DesiredNode>();
   const departments = new Map<string, DesiredNode>();
   const activeKeys = new Set<string>();
@@ -172,16 +172,32 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
     if (departmentName) {
       const departmentKey = orgKey(null, departmentName);
       activeKeys.add(departmentKey);
-      if (!departments.has(departmentKey)) {
+      const existing = departments.get(departmentKey);
+      if (!existing) {
         departments.set(departmentKey, {
           key: departmentKey,
           name: departmentName,
           kind: 'department',
           parentKey: divisionKey,
         });
+      } else if (
+        divisionKey !== null &&
+        (existing.parentKey === null || divisionKey < existing.parentKey)
+      ) {
+        // `employeeOrgData.division` is optional and routinely half-populated, so first-occurrence
+        // -wins would let one blank-division member decide the parent purely by page order. A
+        // stated division always beats a blank one, and between two stated ones the lexically
+        // smaller key wins so the result cannot depend on the order Graph paged the users.
+        existing.parentKey = divisionKey;
       }
     }
   }
+
+  // `pairs.length === 0` above counts ROWS; this counts named nodes. A page of real users who
+  // simply carry no department or division leaves `activeKeys` empty, and the reap below would
+  // then find every sync-owned link stale — the same failed-or-partial-fetch wipe that guard
+  // exists to prevent, one step further in.
+  if (divisions.size + departments.size === 0) return result;
 
   const blocked = new Set<string>();
   for (const node of [...divisions.values(), ...departments.values()]) {
@@ -207,7 +223,19 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
   const linkByKey = new Map<string, OrgUnitLinkRow>(links.map((l) => [l.entraKey, l]));
   const idByKey = new Map<string, string>();
 
-  async function ensureUnit(node: DesiredNode, parentId: string): Promise<string | null> {
+  /**
+   * `parentStated` is false when the census gave no division for this node and `parentId` is
+   * therefore just the default spine parent. That is "no information", NOT "belongs at the root":
+   * a new unit still needs somewhere to hang, but an existing one must keep the parent it has.
+   * Re-parenting on a guess emits `people.org_unit.updated` → `identity.org_unit_projection` →
+   * `expandOrgUnits`, which moves RBAC `scope_kind='org_unit'` grants and rewrites the recursive
+   * parent chain `reportsSubtreeSql` walks.
+   */
+  async function ensureUnit(
+    node: DesiredNode,
+    parentId: string,
+    parentStated: boolean,
+  ): Promise<string | null> {
     const link = linkByKey.get(node.key);
     const linked = link ? unitById.get(link.orgUnitId) : undefined;
 
@@ -218,7 +246,7 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
 
       const patch: { name?: string; parent_id?: string | null } = {};
       if (linked.name !== node.name) patch.name = node.name;
-      if (linked.parent_id !== parentId) patch.parent_id = parentId;
+      if (parentStated && linked.parent_id !== parentId) patch.parent_id = parentId;
       if (Object.keys(patch).length > 0) {
         await people.updateOrgUnit({ org_unit_id: linked.id, patch, session });
         if (patch.name !== undefined) linked.name = patch.name;
@@ -263,14 +291,17 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
 
   for (const node of divisions.values()) {
     if (blocked.has(node.key)) continue;
-    const id = await ensureUnit(node, defaultParent.id);
+    // Entra says nothing about where a division sits, so the default parent is only ever a
+    // landing spot for a new one — never a correction to an existing one.
+    const id = await ensureUnit(node, defaultParent.id, false);
     if (id) idByKey.set(node.key, id);
   }
   for (const node of departments.values()) {
     if (blocked.has(node.key)) continue;
     // A department whose division collided with the spine still needs a home: the default parent.
-    const parentId = (node.parentKey ? idByKey.get(node.parentKey) : null) ?? defaultParent.id;
-    const id = await ensureUnit(node, parentId);
+    const statedParentId = node.parentKey ? idByKey.get(node.parentKey) : null;
+    const parentId = statedParentId ?? defaultParent.id;
+    const id = await ensureUnit(node, parentId, statedParentId != null);
     if (id) idByKey.set(node.key, id);
   }
 
@@ -371,10 +402,14 @@ export async function resolveHeads(
   const { units } = await people.getOrgStructure(session);
   const unitById = new Map(units.map((u) => [u.id, u]));
 
+  // Every sync-owned unit this census actually says something about. A unit absent from `members`
+  // is one this run has no opinion on, and must be left exactly as it is.
+  const coveredUnitIds = new Set<string>();
   const votesByUnit = new Map<string, Map<string, number>>();
   for (const member of members) {
-    if (!member.manager_oid) continue;
     if (!ownedUnitIds.has(member.org_unit_id)) continue;
+    coveredUnitIds.add(member.org_unit_id);
+    if (!member.manager_oid) continue;
     let votes = votesByUnit.get(member.org_unit_id);
     if (!votes) {
       votes = new Map<string, number>();
@@ -396,6 +431,7 @@ export async function resolveHeads(
     return personId;
   }
 
+  const headedUnitIds = new Set<string>();
   for (const [unitId, votes] of votesByUnit) {
     const unit = unitById.get(unitId);
     if (!unit) continue;
@@ -437,12 +473,27 @@ export async function resolveHeads(
       });
     }
 
+    headedUnitIds.add(unitId);
     if (unit.head_worker_id === chosen.person_id) continue;
     await people.updateOrgUnit({
       org_unit_id: unitId,
       patch: { head_worker_id: chosen.person_id },
       session,
     });
+    headsSet += 1;
+  }
+
+  // A head the census no longer supports — the manager left Entra, or every report lost their
+  // `manager_oid`. `if (!chosen) continue` above only declines to SET a head; without this it
+  // would also silently KEEP a stale one. Per §8.3 the person row survives an Entra removal, so a
+  // departed manager would otherwise stay the derived manager of their whole former department
+  // indefinitely, and `reportsSubtreeSql` is an RBAC predicate — they would keep read scope over
+  // that subtree too. Scoped to covered units so an unmentioned unit is never stripped.
+  for (const unitId of coveredUnitIds) {
+    if (headedUnitIds.has(unitId)) continue;
+    const unit = unitById.get(unitId);
+    if (!unit || unit.head_worker_id === null) continue;
+    await people.updateOrgUnit({ org_unit_id: unitId, patch: { head_worker_id: null }, session });
     headsSet += 1;
   }
 
