@@ -155,26 +155,32 @@ const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
 // The assignment orchestrator's DB-bound ports/repo/store are real adapters
 // here; tests/helpers/compose.ts's testComposeDeps() wires fakes instead, so
 // the eval-coverage and registry-integrity gates see this specialist too.
-const { plannerQueryOrchestration, weeklyPlanOrchestration, assignmentOrchestration } =
-  composeRegistries({
-    resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-    embeddingProvider: resolveEmbeddingProvider(),
-    databaseUrl: env.DATABASE_URL,
-    assignmentPorts: {
-      taskReader: makeTaskReader(),
-      taskSearch: makeTaskSearch(),
-      skillSearch: makeSkillSearch({
-        provider: identityEmbeddingProvider,
-        pgVector: getPeopleVectorStore(env.DATABASE_URL),
-      }),
-      availability: makeAvailability(),
-      userProfileLookup: makeUserProfileLookup(),
-      assign: makeAssign(),
-      taskAssignees: makeTaskAssignees(),
-    },
-    assignmentRepo: new AgentRunStateRepository(),
-    mastraStorage,
-  });
+const {
+  plannerQueryOrchestration,
+  weeklyPlanOrchestration,
+  assignmentOrchestration,
+  actionOrchestration,
+} = composeRegistries({
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  embeddingProvider: resolveEmbeddingProvider(),
+  databaseUrl: env.DATABASE_URL,
+  assignmentPorts: {
+    taskReader: makeTaskReader(),
+    taskSearch: makeTaskSearch(),
+    skillSearch: makeSkillSearch({
+      provider: identityEmbeddingProvider,
+      pgVector: getPeopleVectorStore(env.DATABASE_URL),
+    }),
+    availability: makeAvailability(),
+    userProfileLookup: makeUserProfileLookup(),
+    assign: makeAssign(),
+    taskAssignees: makeTaskAssignees(),
+  },
+  assignmentRepo: new AgentRunStateRepository(),
+  mastraStorage,
+});
+// Consumed by FUT-815 (resume dispatch) and FUT-814 (routing).
+void actionOrchestration;
 
 // Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;
 // tier-2 assignment vs planner_qna) and dispatch to the matching runtime. Composed
