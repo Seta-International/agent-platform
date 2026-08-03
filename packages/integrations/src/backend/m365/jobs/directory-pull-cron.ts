@@ -10,7 +10,7 @@ export interface RunDirectoryPullCronDeps {
   addJob: (
     identifier: string,
     payload: { tenant_id: string; full: boolean },
-    spec?: { jobKey?: string },
+    spec?: { jobKey?: string; jobKeyMode?: 'replace' | 'preserve_run_at' | 'unsafe_dedupe' },
   ) => Promise<void>;
 }
 
@@ -23,10 +23,16 @@ export interface RunDirectoryPullCronResult {
  * (design §10).
  *
  * Every enqueue carries the per-tenant `jobKey`, so a tenant whose previous pull is still queued
- * gets its job replaced rather than doubled — two concurrent pulls of one directory would race
- * each other through the same `people` write door. The key is shared with the admin sync route on
- * purpose: an admin-triggered `full: true` supersedes a queued nightly run, which is the safe
- * direction (a full run is a superset of an incremental one).
+ * gets collapsed rather than doubled — two concurrent pulls of one directory would race each other
+ * through the same `people` write door. The key is shared with the admin sync route on purpose,
+ * but the collapse is only safe in ONE direction, so the two sides use different modes:
+ *
+ * - The admin route enqueues `full: true` under graphile-worker's default `'replace'`, so an
+ *   admin supersedes a queued nightly run. A full run is a superset of an incremental one.
+ * - This cron enqueues under `'unsafe_dedupe'`, so it leaves an existing queued job alone. Under
+ *   the default it would overwrite a waiting admin `full: true` with its own `full: false`, and
+ *   the reset-the-cursor request would disappear with no error raised anywhere. `full` also
+ *   decides whether org units are reaped, so the two payloads are not interchangeable.
  *
  * The tick is deliberately not jittered. Each tenant pulls its own Entra tenant through its own
  * token bucket, so spreading them buys nothing, and a deterministic `runAt` keeps the jobKey
@@ -41,7 +47,7 @@ export async function runDirectoryPullCron(
     await deps.addJob(
       'm365.directory.pull',
       { tenant_id: tenantId, full: false },
-      { jobKey: directoryPullJobKey(tenantId) },
+      { jobKey: directoryPullJobKey(tenantId), jobKeyMode: 'unsafe_dedupe' },
     );
   }
 

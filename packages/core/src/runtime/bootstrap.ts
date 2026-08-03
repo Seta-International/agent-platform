@@ -186,6 +186,9 @@ function enqueueOnlyWorkerHandle(pool: Pool): WorkerHandle {
       const maxAttempts = spec?.maxAttempts ?? null;
       const queueName = spec?.queueName ?? null;
       const runAt = spec?.runAt ?? null;
+      // `add_job` defaults this to 'replace'; passing it through is what lets a caller say
+      // "don't clobber a job that is already queued under this key".
+      const jobKeyMode = spec?.jobKeyMode ?? 'replace';
       await pool.query(
         `SELECT graphile_worker.add_job(
            identifier => $1,
@@ -193,9 +196,18 @@ function enqueueOnlyWorkerHandle(pool: Pool): WorkerHandle {
            queue_name => $3,
            run_at => $4,
            max_attempts => $5,
-           job_key => $6
+           job_key => $6,
+           job_key_mode => $7
          )`,
-        [identifier, JSON.stringify(payload ?? {}), queueName, runAt, maxAttempts, jobKey],
+        [
+          identifier,
+          JSON.stringify(payload ?? {}),
+          queueName,
+          runAt,
+          maxAttempts,
+          jobKey,
+          jobKeyMode,
+        ],
       );
     },
   };
