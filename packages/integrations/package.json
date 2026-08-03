@@ -43,6 +43,7 @@
     "@seta/shared-db": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-storage": "workspace:*",
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.31",
