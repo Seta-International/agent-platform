@@ -139,7 +139,7 @@ describe('createDirectoryGraph', () => {
   });
 
   describe('photo', () => {
-    it('returns null on 404 (no photo) without error', async () => {
+    it('returns { kind: "none" } on 404 (no photo) without error', async () => {
       const { client } = makeStubClient({
         '/users/OID-1/photo': () => {
           throw graphError(404, 'Not Found');
@@ -147,10 +147,10 @@ describe('createDirectoryGraph', () => {
       });
 
       const graph = createDirectoryGraph(client);
-      await expect(graph.photo('OID-1', null)).resolves.toBeNull();
+      await expect(graph.photo('OID-1', null)).resolves.toEqual({ kind: 'none' });
     });
 
-    it('returns null without fetching bytes when the known etag matches', async () => {
+    it('returns { kind: "unchanged" } without fetching bytes when the known etag matches', async () => {
       const { client, calls } = makeStubClient({
         '/users/OID-1/photo': () => ({
           '@odata.mediaEtag': 'W/"etag-abc"',
@@ -164,11 +164,11 @@ describe('createDirectoryGraph', () => {
       const graph = createDirectoryGraph(client);
       const result = await graph.photo('OID-1', 'W/"etag-abc"');
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ kind: 'unchanged' });
       expect(calls).toEqual(['/users/OID-1/photo']);
     });
 
-    it('fetches bytes when the known etag differs (or is absent)', async () => {
+    it('fetches bytes when the known etag differs (or is absent), returning { kind: "fetched" }', async () => {
       const bytes = new Uint8Array([1, 2, 3, 4]).buffer;
       const { client } = makeStubClient({
         '/users/OID-1/photo': () => ({
@@ -181,10 +181,22 @@ describe('createDirectoryGraph', () => {
       const graph = createDirectoryGraph(client);
       const result = await graph.photo('OID-1', 'W/"etag-old"');
 
-      expect(result).not.toBeNull();
-      expect(result?.etag).toBe('W/"etag-new"');
-      expect(result?.contentType).toBe('image/png');
-      expect(Array.from(result?.bytes ?? [])).toEqual([1, 2, 3, 4]);
+      expect(result.kind).toBe('fetched');
+      if (result.kind !== 'fetched') throw new Error('unreachable');
+      expect(result.etag).toBe('W/"etag-new"');
+      expect(result.contentType).toBe('image/png');
+      expect(Array.from(result.bytes)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('propagates a real transport failure (500) rather than swallowing it', async () => {
+      const { client } = makeStubClient({
+        '/users/OID-1/photo': () => {
+          throw graphError(500, 'Internal Server Error');
+        },
+      });
+
+      const graph = createDirectoryGraph(client);
+      await expect(graph.photo('OID-1', null)).rejects.toThrow('Internal Server Error');
     });
   });
 

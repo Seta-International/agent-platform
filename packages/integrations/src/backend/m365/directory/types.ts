@@ -45,9 +45,33 @@ export interface MailboxSettings {
   automaticRepliesSetting: MailboxAutomaticRepliesSetting | null;
 }
 
+/**
+ * The photo pipeline's resolved outcome, as handed to `mapGraphUser` (FUT-842). The orchestrator
+ * (Task 13, not yet written) turns `DirectoryGraph.photo()`'s `fetched` case into `stored` once
+ * the bytes are uploaded via `putObject` and a key exists; `unchanged`/`none` pass straight
+ * through from `photo()`. See `graph.ts`'s `PhotoFetchResult` doc comment for why `unchanged` and
+ * `none` must never collapse into the same value.
+ */
+export type PhotoOutcome =
+  | { kind: 'unchanged' }
+  | { kind: 'none' }
+  | { kind: 'stored'; key: string; etag: string | null };
+
 export interface MapGraphUserExtras {
   /** `null` = mailboxSettings was unavailable for this user (see `MailboxSettings` doc). */
   mailbox: MailboxSettings | null;
-  /** S3 key already uploaded by the caller, or `null` when no photo / unchanged (§5.2, §7.2). */
-  photoKey: string | null;
+  /**
+   * CONTRACT binding on the caller (Task 13, the orchestrator, not yet written):
+   * `photo_storage_key` is an *asserted* field in `directory-diff.ts` — any `null` `mapGraphUser`
+   * produces here ERASES the person's stored photo. `result` is `DirectoryGraph.photo()`'s
+   * resolved outcome (as turned into `stored` by the caller once uploaded, see `PhotoOutcome`).
+   * `currentKey` is the person's `photo_storage_key` AS IT STANDS TODAY — the caller reads it
+   * from `m365_person_links` / the person row BEFORE calling this function. `mapGraphUser` maps:
+   *   - `unchanged` -> `currentKey`, passed straight through — NEVER `null`. Mapping `unchanged`
+   *     to `null` would erase every unchanged photo in the company on the very next sync, which
+   *     is strictly worse than the bug this contract fixes.
+   *   - `none`      -> `null` (the photo was genuinely removed from Entra — erase it).
+   *   - `stored`    -> the new key.
+   */
+  photo: { result: PhotoOutcome; currentKey: string | null };
 }

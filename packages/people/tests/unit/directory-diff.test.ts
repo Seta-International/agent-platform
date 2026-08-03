@@ -93,13 +93,51 @@ describe('planDirectoryUpdate', () => {
 
   it('never erases an asserted-when-present field that Entra simply omits', () => {
     const plan = planDirectoryUpdate(
-      incoming({ phone: null, photo_storage_key: null, org_unit_id: null }),
-      current({ phone: '123', photo_storage_key: 'k/1.jpg', org_unit_id: 'ou-1' }),
+      incoming({ phone: null, org_unit_id: null }),
+      current({ phone: '123', org_unit_id: 'ou-1' }),
       noPeriod,
     );
     expect(plan.person).not.toHaveProperty('phone');
-    expect(plan.person).not.toHaveProperty('photo_storage_key');
     expect(plan.person).not.toHaveProperty('org_unit_id');
+  });
+
+  // FUT-842: photo_storage_key moved from "asserted when present" to "asserted" — see the
+  // policy comment above planDirectoryUpdate. graph.ts's photo() can no longer collapse "no
+  // photo" and "unchanged" into the same `null`, so a `null` reaching here is unambiguous: the
+  // caller (mapGraphUser, see its MapGraphUserExtras.photo doc comment in @seta/integrations)
+  // resolved Graph's outcome BEFORE calling this function and is asserting a real erase.
+  describe('photo_storage_key is asserted, not asserted-when-present', () => {
+    it(
+      'an unchanged photo (incoming carries the SAME key the caller read back) is not rewritten — ' +
+        'the anti-regression case for a company-wide wipe: this must fail if a caller ever maps ' +
+        'an unchanged photo to `null` instead of passing the current key through',
+      () => {
+        const plan = planDirectoryUpdate(
+          incoming({ photo_storage_key: 'photos/oid-1.jpg' }),
+          current({ photo_storage_key: 'photos/oid-1.jpg' }),
+          noPeriod,
+        );
+        expect(plan.person).not.toHaveProperty('photo_storage_key');
+      },
+    );
+
+    it('a genuinely deleted Entra photo (incoming null) erases the stored key', () => {
+      const plan = planDirectoryUpdate(
+        incoming({ photo_storage_key: null }),
+        current({ photo_storage_key: 'photos/oid-1.jpg' }),
+        noPeriod,
+      );
+      expect(plan.person).toHaveProperty('photo_storage_key', null);
+    });
+
+    it('a new photo key overwrites the previously stored one', () => {
+      const plan = planDirectoryUpdate(
+        incoming({ photo_storage_key: 'photos/oid-2.jpg' }),
+        current({ photo_storage_key: 'photos/oid-1.jpg' }),
+        noPeriod,
+      );
+      expect(plan.person.photo_storage_key).toBe('photos/oid-2.jpg');
+    });
   });
 
   it('sets ooo and the ooo_until instant when auto replies are on', () => {

@@ -91,11 +91,17 @@ function sameInstant(current: Date | null, incoming: string | null): boolean {
  * An empty plan is what makes a replayed sync report `unchanged` instead of churning rows.
  *
  * Two write policies, deliberately different:
- * - *Asserted*: M365 owns the field (`edit-worker` refuses manual edits to it), so Entra's
- *   value wins outright — including `null`, which erases.
+ * - *Asserted*: M365 owns the field, so Entra's value wins outright — including `null`, which
+ *   erases. `full_name`/`work_email`/`employee_no` are locked against manual edits too
+ *   (`edit-worker` refuses them, see `field-rules.ts`). `photo_storage_key` joins this group
+ *   (FUT-842) without that lock — there is no manual photo-edit path to guard against — but the
+ *   same "null wins" rule: a `null` reaching here always means the photo was genuinely removed
+ *   from Entra. That is only true because the CALLER resolves Graph's "unchanged" vs "no photo"
+ *   facts before calling this function — see `mapGraphUser`'s `MapGraphUserExtras.photo` doc
+ *   comment in `@seta/integrations`. An unchanged photo must arrive here as its current key,
+ *   never `null`, or every unchanged photo in the company erases on the next sync.
  * - *Asserted when present*: Entra may simply not carry the field. A missing value means
- *   "nothing to say", never "delete what the admin or the employee curated". `photo_storage_key`
- *   is in this group because the photo pipeline skips unchanged media (ETag) and hands us `null`.
+ *   "nothing to say", never "delete what the admin or the employee curated".
  */
 export function planDirectoryUpdate(
   incoming: DirectoryPerson,
@@ -111,14 +117,14 @@ export function planDirectoryUpdate(
   put('full_name', current.full_name, incoming.full_name);
   put('work_email', current.work_email, normalizeEmail(incoming.work_email));
   put('employee_no', current.employee_no, incoming.employee_no);
+  // Asserted (FUT-842) — moved out of "asserted when present"; see the policy comment above.
+  put('photo_storage_key', current.photo_storage_key, incoming.photo_storage_key);
 
   // Asserted when present.
   if (incoming.personal_email != null)
     put('personal_email', current.personal_email, normalizeEmail(incoming.personal_email));
   if (incoming.phone != null) put('phone', current.phone, incoming.phone);
   if (incoming.org_unit_id != null) put('org_unit_id', current.org_unit_id, incoming.org_unit_id);
-  if (incoming.photo_storage_key != null)
-    put('photo_storage_key', current.photo_storage_key, incoming.photo_storage_key);
   if (incoming.hire_date != null)
     put('original_hire_date', current.original_hire_date, normalizeDate(incoming.hire_date));
 

@@ -11,7 +11,8 @@ const baseUser: GraphDirectoryUser = {
   mail: 'jane.doe@seta-international.vn',
 };
 
-const noMailbox = { mailbox: null, photoKey: null };
+const noPhoto = { result: { kind: 'none' } as const, currentKey: null };
+const noMailbox = { mailbox: null, photo: noPhoto };
 
 // One assertion per row of design §5.1 ("Fills an existing column").
 describe('mapGraphUser — §5.1 fills an existing column', () => {
@@ -90,7 +91,7 @@ describe('mapGraphUser — §5.1 fills an existing column', () => {
       workingHours: null,
       automaticRepliesSetting: null,
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.timezone).toBe('SE Asia Standard Time');
   });
 
@@ -100,7 +101,7 @@ describe('mapGraphUser — §5.1 fills an existing column', () => {
       workingHours: { startTime: '09:00:00', endTime: '18:00:00' },
       automaticRepliesSetting: null,
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.work_start).toBe('09:00:00');
   });
 
@@ -110,7 +111,7 @@ describe('mapGraphUser — §5.1 fills an existing column', () => {
       workingHours: { startTime: '09:00:00', endTime: '18:00:00' },
       automaticRepliesSetting: null,
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.work_end).toBe('18:00:00');
   });
 
@@ -123,7 +124,7 @@ describe('mapGraphUser — §5.1 fills an existing column', () => {
         scheduledEndDateTime: { dateTime: '2026-08-10T00:00:00Z' },
       },
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.ooo_until).toBe('2026-08-10T00:00:00Z');
   });
 
@@ -133,19 +134,48 @@ describe('mapGraphUser — §5.1 fills an existing column', () => {
       workingHours: null,
       automaticRepliesSetting: { status: 'alwaysEnabled', scheduledEndDateTime: null },
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.auto_replies_enabled).toBe(true);
   });
 });
 
 describe('mapGraphUser — §5.2 fills a new column', () => {
-  it('extras.photoKey -> photo_storage_key', () => {
-    const result = mapGraphUser(baseUser, { mailbox: null, photoKey: 'photos/oid-1.jpg' });
+  it('extras.photo { kind: "stored" } -> photo_storage_key is the new key', () => {
+    const result = mapGraphUser(baseUser, {
+      mailbox: null,
+      photo: {
+        result: { kind: 'stored', key: 'photos/oid-1.jpg', etag: 'W/"e1"' },
+        currentKey: null,
+      },
+    });
     expect(result.photo_storage_key).toBe('photos/oid-1.jpg');
   });
 
-  it('extras.photoKey null -> photo_storage_key null', () => {
-    const result = mapGraphUser(baseUser, { mailbox: null, photoKey: null });
+  it('extras.photo { kind: "none" } -> photo_storage_key null, even with a previously stored key (the photo was genuinely removed from Entra)', () => {
+    const result = mapGraphUser(baseUser, {
+      mailbox: null,
+      photo: { result: { kind: 'none' }, currentKey: 'photos/old.jpg' },
+    });
+    expect(result.photo_storage_key).toBeNull();
+  });
+
+  // FUT-842 anti-regression: photo_storage_key is now an ASSERTED field in directory-diff.ts, so
+  // any `null` this mapper produces erases the stored photo. If this mapped `unchanged` to
+  // `null` instead of passing `currentKey` through, the first nightly sync after the fix would
+  // wipe every unchanged photo in the company — strictly worse than the bug being fixed.
+  it('extras.photo { kind: "unchanged" } -> photo_storage_key is the CURRENT key, never null', () => {
+    const result = mapGraphUser(baseUser, {
+      mailbox: null,
+      photo: { result: { kind: 'unchanged' }, currentKey: 'photos/oid-1.jpg' },
+    });
+    expect(result.photo_storage_key).toBe('photos/oid-1.jpg');
+  });
+
+  it('extras.photo { kind: "unchanged" } with no prior key -> photo_storage_key stays null', () => {
+    const result = mapGraphUser(baseUser, {
+      mailbox: null,
+      photo: { result: { kind: 'unchanged' }, currentKey: null },
+    });
     expect(result.photo_storage_key).toBeNull();
   });
 });
@@ -191,7 +221,7 @@ describe('mapGraphUser — required cases beyond §5.1', () => {
   });
 
   it('extras.mailbox null -> auto_replies_enabled null AND the four mailbox-sourced fields null', () => {
-    const result = mapGraphUser(baseUser, { mailbox: null, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox: null, photo: noPhoto });
     expect(result.auto_replies_enabled).toBeNull();
     expect(result.timezone).toBeNull();
     expect(result.work_start).toBeNull();
@@ -208,7 +238,7 @@ describe('mapGraphUser — required cases beyond §5.1', () => {
         scheduledEndDateTime: { dateTime: '2026-09-01T00:00:00Z' },
       },
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.auto_replies_enabled).toBe(true);
   });
 
@@ -218,11 +248,11 @@ describe('mapGraphUser — required cases beyond §5.1', () => {
       workingHours: null,
       automaticRepliesSetting: { status: 'disabled', scheduledEndDateTime: null },
     };
-    const result = mapGraphUser(baseUser, { mailbox, photoKey: null });
+    const result = mapGraphUser(baseUser, { mailbox, photo: noPhoto });
     expect(result.auto_replies_enabled).toBe(false);
   });
 
   it('never throws on a fully bare Graph user — Graph omits fields rather than nulling them', () => {
-    expect(() => mapGraphUser({ id: 'bare-oid' }, { mailbox: null, photoKey: null })).not.toThrow();
+    expect(() => mapGraphUser({ id: 'bare-oid' }, { mailbox: null, photo: noPhoto })).not.toThrow();
   });
 });

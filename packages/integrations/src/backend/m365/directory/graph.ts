@@ -47,6 +47,20 @@ interface GraphOrganizationPage {
   value: Array<{ verifiedDomains?: Array<{ name?: string }> }>;
 }
 
+/**
+ * Outcome of resolving one user's photo against Graph (FUT-842). `unchanged` and `none` both
+ * carry no bytes but are NOT the same fact — `unchanged` means `knownEtag` still matches
+ * `@odata.mediaEtag` (nothing to refetch); `none` means the user genuinely has no photo (Graph
+ * 404), including a photo that existed at last sync and was since deleted. Collapsing the two
+ * into a single `null` was the FUT-842 photo-erasure defect: a deleted photo was indistinguishable
+ * from an unchanged one, so the stored key was never cleared. Callers must keep them distinct all
+ * the way through `mapGraphUser` — see `MapGraphUserExtras.photo`'s doc comment in `types.ts`.
+ */
+export type PhotoFetchResult =
+  | { kind: 'unchanged' }
+  | { kind: 'none' }
+  | { kind: 'fetched'; bytes: Uint8Array; contentType: string; etag: string };
+
 function statusCodeOf(err: unknown): number | undefined {
   return typeof err === 'object' && err !== null && 'statusCode' in err
     ? (err as { statusCode?: number }).statusCode
@@ -71,11 +85,8 @@ export interface DirectoryGraph {
   ): Promise<{ users: GraphDirectoryUser[]; removed: string[]; deltaLink: string }>;
   /** `null` when Graph refused/lacks the mailbox settings for this user (403/404) — see `types.ts`. */
   mailboxSettings(oid: string): Promise<MailboxSettings | null>;
-  /** `null` when the user has no photo (404) or `knownEtag` still matches (unchanged, not re-fetched). */
-  photo(
-    oid: string,
-    knownEtag: string | null,
-  ): Promise<{ bytes: Uint8Array; contentType: string; etag: string } | null>;
+  /** See `PhotoFetchResult`'s doc comment — `unchanged` and `none` are deliberately distinct. */
+  photo(oid: string, knownEtag: string | null): Promise<PhotoFetchResult>;
 }
 
 export function createDirectoryGraph(client: Client): DirectoryGraph {
@@ -138,12 +149,12 @@ export function createDirectoryGraph(client: Client): DirectoryGraph {
         meta = (await client.api(`/users/${oid}/photo`).get()) as GraphPhotoMetadata;
       } catch (err) {
         // A user with no photo returns 404 — that is normal, not an error.
-        if (statusCodeOf(err) === 404) return null;
+        if (statusCodeOf(err) === 404) return { kind: 'none' };
         throw err;
       }
 
       const etag = meta['@odata.mediaEtag'];
-      if (knownEtag != null && knownEtag === etag) return null;
+      if (knownEtag != null && knownEtag === etag) return { kind: 'unchanged' };
 
       const buffer = (await client
         .api(`/users/${oid}/photo/$value`)
@@ -151,6 +162,7 @@ export function createDirectoryGraph(client: Client): DirectoryGraph {
         .get()) as ArrayBuffer;
 
       return {
+        kind: 'fetched',
         bytes: new Uint8Array(buffer),
         contentType: meta.contentType ?? 'application/octet-stream',
         etag,
