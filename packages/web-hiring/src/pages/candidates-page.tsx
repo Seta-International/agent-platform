@@ -49,9 +49,10 @@ import {
   Users,
 } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type CandidateListItem,
+  type CandStage,
   fetchCandidates,
   fetchRejectedCandidates,
   moveApplicationStage,
@@ -216,6 +217,7 @@ export function CandidatesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_CANDIDATE_COLUMN_KEYS);
+  const [optimisticStages, setOptimisticStages] = useState<Record<string, CandStage>>({});
 
   const { data, isLoading, error } = useQuery({
     queryKey: hiringKeys.candidates(),
@@ -228,9 +230,19 @@ export function CandidatesPage() {
     queryFn: fetchRejectedCandidates,
   });
 
+  const candidatesWithOptimistic = useMemo(() => {
+    if (!data) return [];
+    if (Object.keys(optimisticStages).length === 0) return data;
+    return data.map((c) => {
+      const override = optimisticStages[c.application_id];
+      return override ? { ...c, stage: override } : c;
+    });
+  }, [data, optimisticStages]);
+
   const rows = useMemo(
-    () => filterCandidates(data ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
-    [data, q, reqFilter, seniorityFilter, sourceFilter],
+    () =>
+      filterCandidates(candidatesWithOptimistic, { q, reqFilter, seniorityFilter, sourceFilter }),
+    [candidatesWithOptimistic, q, reqFilter, seniorityFilter, sourceFilter],
   );
   const rejectedRows = useMemo(
     () => filterCandidates(rejectedData ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
@@ -296,19 +308,95 @@ export function CandidatesPage() {
       expected_version: number;
     }) =>
       moveApplicationStage(m.application_id, { expected_version: m.expected_version, to: m.to }),
+    onMutate: (m) => {
+      // Snapshot previous candidates synchronously
+      const previousCandidates = queryClient.getQueryData<CandidateListItem[]>(
+        hiringKeys.candidates(),
+      );
+
+      // Optimistically update query cache SYNCHRONOUSLY before any async calls so React renders the new stage immediately
+      if (previousCandidates) {
+        queryClient.setQueryData<CandidateListItem[]>(hiringKeys.candidates(), (old) => {
+          if (!old) return old;
+          return old.map((c) =>
+            c.application_id === m.application_id
+              ? { ...c, stage: m.to, version: c.version + 1 }
+              : c,
+          );
+        });
+      }
+
+      // Fire-and-forget query cancellation in the background without delaying setQueryData
+      void queryClient.cancelQueries({ queryKey: hiringKeys.candidates() });
+      void queryClient.cancelQueries({ queryKey: hiringKeys.candidateStageCounts() });
+
+      return { previousCandidates };
+    },
+    onError: (e: Error, _m, context) => {
+      if (context?.previousCandidates) {
+        queryClient.setQueryData(hiringKeys.candidates(), context.previousCandidates);
+      }
+      on409(toast, e, queryClient, hiringKeys.candidates());
+    },
     onSuccess: () => {
       toast({ body: 'Stage updated' });
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
     },
-    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
-  const handleDragEnd = onBoardDragEnd(rows, (m) => stageMove.mutate(m));
+
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      const move = resolveStageDrop({
+        draggableId: result.draggableId,
+        source: result.source.droppableId,
+        destination: result.destination?.droppableId ?? null,
+        items: rows,
+      });
+      if (!move) return;
+
+      // 1. Synchronously update local React state so React updates DOM immediately in this frame!
+      setOptimisticStages((prev) => ({
+        ...prev,
+        [move.application_id]: move.to,
+      }));
+
+      // 2. Update Query Cache optimistically
+      queryClient.setQueryData<CandidateListItem[]>(hiringKeys.candidates(), (old) => {
+        if (!old) return old;
+        return old.map((c) =>
+          c.application_id === move.application_id
+            ? { ...c, stage: move.to, version: c.version + 1 }
+            : c,
+        );
+      });
+
+      stageMove.mutate(move, {
+        onError: () => {
+          setOptimisticStages((prev) => {
+            const next = { ...prev };
+            delete next[move.application_id];
+            return next;
+          });
+        },
+        onSettled: () => {
+          setOptimisticStages((prev) => {
+            const next = { ...prev };
+            delete next[move.application_id];
+            return next;
+          });
+        },
+      });
+    },
+    [rows, queryClient, stageMove],
+  );
 
   // Rejected rows come from a separate query; merge them in only for the board's column buckets.
   // The active-pipeline `rows` still drives drag/list/export/filter options untouched. Every stat
   // tile then reads straight from `groups`, so each number matches the column beneath it.
-  const groups = boardColumns([...rows, ...rejectedRows]);
+  const groups = useMemo(() => boardColumns([...rows, ...rejectedRows]), [rows, rejectedRows]);
 
   const columns = useMemo<TableColumn<Row>[]>(
     () => [
