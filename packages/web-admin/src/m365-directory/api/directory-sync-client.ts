@@ -133,3 +133,25 @@ export async function getDirectorySyncStatus(): Promise<DirectorySyncStatus> {
   const res = await fetch(`${BASE}/status`, { credentials: 'include' });
   return (await jsonOrThrow(res)) as DirectorySyncStatus;
 }
+
+export interface OrgUnitOption {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  kind: string;
+  members: Array<{ person_id: string; full_name: string }>;
+}
+
+/**
+ * The org tree, from `@seta/people` rather than this module — `reassign` needs a
+ * `target_org_unit_id` and the conflict's `detail` carries only the unit being deleted. It also
+ * names the person behind a `user_removed` subject, whose `detail` carries an id and no name.
+ *
+ * Gated on `people.worker.read`, which an M365 admin is not guaranteed to hold, so every caller
+ * treats a failure as "no names, no picker" rather than as a broken page.
+ */
+export async function listOrgUnits(): Promise<OrgUnitOption[]> {
+  const res = await fetch('/api/people/v1/org/structure', { credentials: 'include' });
+  const body = (await jsonOrThrow(res)) as { units?: OrgUnitOption[] };
+  return body.units ?? [];
+}

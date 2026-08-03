@@ -6,6 +6,8 @@ import {
   type DirectorySyncStatus,
   getDirectorySyncStatus,
   listDirectoryConflicts,
+  listOrgUnits,
+  type OrgUnitOption,
   type ResolveConflictInput,
   type ResolveConflictResult,
   resolveDirectoryConflict,
@@ -58,6 +60,42 @@ export function useResolveDirectoryConflict() {
       void qc.invalidateQueries({ queryKey: directoryStatusQueryKey });
     },
   });
+}
+
+export const orgUnitsQueryKey = ['admin', 'm365-directory', 'org-units'] as const;
+
+export interface OrgUnitsResult {
+  units: OrgUnitOption[];
+  error: Error | null;
+  nameFor: (personId: string) => string | null;
+}
+
+/**
+ * The org tree, fetched only when the queue actually needs it — a `reassign` target picker or a
+ * name for a `user_removed` subject. It costs a second permission (`people.worker.read`), so a
+ * queue that needs neither never asks for it, and a refusal degrades to bare ids rather than an
+ * error banner over a page that is otherwise fine.
+ */
+export function useOrgUnits(enabled: boolean): OrgUnitsResult {
+  const query = useQuery<OrgUnitOption[]>({
+    queryKey: orgUnitsQueryKey,
+    queryFn: () => listOrgUnits(),
+    enabled,
+  });
+
+  const units = query.data ?? [];
+  const nameFor = useCallback(
+    (personId: string) => {
+      for (const unit of units) {
+        const member = unit.members?.find((m) => m.person_id === personId);
+        if (member?.full_name) return member.full_name;
+      }
+      return null;
+    },
+    [units],
+  );
+
+  return { units, error: (query.error as Error | null) ?? null, nameFor };
 }
 
 export interface DirectorySyncController {
