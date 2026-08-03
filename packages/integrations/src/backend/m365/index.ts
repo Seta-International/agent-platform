@@ -1,6 +1,18 @@
 export type { CredsProvider, M365Creds } from './auth.ts';
 export { buildAuthProvider, buildDbCredsProvider, M365NotConfiguredError } from './auth.ts';
 export { buildGraphClient } from './client.ts';
+export type {
+  CloseConflictInput,
+  ConflictRow,
+  CreateDirectoryRepoDeps,
+  DirectoryRepo,
+  OrgUnitLinkRow,
+  PersonLinkRow,
+  RaiseConflictInput,
+  UpsertOrgUnitLinkInput,
+  UpsertPersonLinkInput,
+} from './directory/repo.ts';
+export { createDirectoryRepo } from './directory/repo.ts';
 export type { RunPlanAutoMirrorDeps, RunPlanAutoMirrorInput } from './jobs/plan-auto-mirror.ts';
 export { runPlanAutoMirror } from './jobs/plan-auto-mirror.ts';
 export type {

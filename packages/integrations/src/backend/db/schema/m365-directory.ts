@@ -84,6 +84,11 @@ export const m365DirectoryConflict = integrations.table(
   },
   (t) => [
     // One open row per (kind, subject). Re-raising bumps last_seen_at instead of inserting.
+    // Actual DB index is NULLS NOT DISTINCT (subject_id/entra_oid are nullable and both are
+    // legitimately NULL in real conflicts) — drizzle-orm@0.45.2's uniqueIndex() builder can't
+    // express that, so it's applied by the hand-written
+    // drizzle/migrations/0004_m365_directory_conflict_nulls_not_distinct.sql. This declaration
+    // is intentionally missing that clause; don't let a future db:generate "fix" it away.
     uniqueIndex('m365_directory_conflict_uniq_open')
       .on(t.tenantId, t.kind, t.subjectType, t.subjectId, t.entraOid)
       .where(sql`status = 'open'`),
