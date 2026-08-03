@@ -24,10 +24,10 @@ function repliesEnabled(status: string | null | undefined): boolean {
  * - `manager` → `org_unit.head_worker_id` (§3.1) is a per-unit modal aggregate across many
  *   users, not a per-person field, and has no home on `DirectoryPerson` at all.
  *
- * A third row, `accountEnabled` + leave date → `employment_period.lifecycle_stage` (derived),
- * is only half-satisfiable: `account_enabled` passes straight through, but `DirectoryPerson`
- * has no `lifecycle_stage` field and nothing downstream derives/writes it today — see
- * task-10-report.md.
+ * A third row, `accountEnabled` + leave date → `employment_period.lifecycle_stage`, is derived
+ * rather than mapped: this passes `account_enabled` straight through and `syncDirectoryPeople`
+ * turns it into `lifecycle_stage = 'active'` on the create path only. Deliberately narrow —
+ * §8.3 keeps offboarding a human decision, so a later `accountEnabled: false` never demotes.
  */
 export function mapGraphUser(u: GraphDirectoryUser, extras: MapGraphUserExtras): DirectoryPerson {
   const mailbox = extras.mailbox;
