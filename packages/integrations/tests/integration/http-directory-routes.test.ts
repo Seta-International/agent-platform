@@ -84,15 +84,21 @@ function appFor(scope: SessionScope, db: Parameters<typeof createDirectoryRepo>[
 
 async function seedConflict(
   db: Parameters<typeof createDirectoryRepo>[0]['db'],
-  over: { tenantId?: string; status?: 'open' | 'resolved' } = {},
+  over: {
+    tenantId?: string;
+    status?: 'open' | 'resolved';
+    kind?: 'manager_ambiguous' | 'email_collision';
+    subjectType?: 'org_unit' | 'person';
+    subjectId?: string | null;
+  } = {},
 ): Promise<string> {
   const [row] = await db
     .insert(m365DirectoryConflict)
     .values({
       tenantId: over.tenantId ?? TENANT,
-      kind: 'manager_ambiguous',
-      subjectType: 'org_unit',
-      subjectId: UNIT,
+      kind: over.kind ?? 'manager_ambiguous',
+      subjectType: over.subjectType ?? 'org_unit',
+      subjectId: over.subjectId === undefined ? UNIT : over.subjectId,
       detail: { candidates: [{ person_id: ADMIN, full_name: 'A', report_count: 2 }] },
       status: over.status ?? 'open',
     })
@@ -159,6 +165,33 @@ describe('m365 directory routes (design §9.2)', () => {
         subject_id: UNIT,
         status: 'open',
       });
+    });
+  });
+
+  // The screen must not carry its own copy of the §9.1 action table. That table already drifted
+  // once — the spec listed `create_new` for `email_collision` long after the code stopped offering
+  // it — and a hardcoded button would render fine and then 400 on click. Serving the actions makes
+  // `ACTIONS_BY_KIND` the single source and the button set unfalsifiable.
+  it('GET /conflicts serves the actions each conflict actually accepts', async () => {
+    await withIntegrationsTestDb(async ({ db, pool }) => {
+      resetCoreDb();
+      await seedTenantConfig(db, pool);
+      await seedConflict(db);
+      await seedConflict(db, { kind: 'email_collision', subjectType: 'person', subjectId: null });
+
+      const res = await appFor(
+        session({ user_id: VIEWER, roles: ['integrations.viewer'] }),
+        db,
+      ).app.request('/api/integrations/m365/directory/conflicts?status=open');
+      const body = (await res.json()) as {
+        conflicts: Array<{ kind: string; actions: string[] }>;
+      };
+      const byKind = new Map(body.conflicts.map((row) => [row.kind, row.actions]));
+
+      expect(byKind.get('manager_ambiguous')).toEqual(['choose_head', 'ignore']);
+      // Exactly the drift case: `create_new` is in §9.1's table and must NOT be offered.
+      expect(byKind.get('email_collision')).toEqual(['link', 'ignore']);
+      expect(byKind.get('email_collision')).not.toContain('create_new');
     });
   });
 

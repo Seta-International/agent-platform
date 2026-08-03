@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { DIRECTORY_CONFLICT_STATUS } from '../db/schema/index.ts';
 import type { ConflictRow, DirectoryRepo } from '../m365/directory/repo.ts';
 import type { PeopleResolutionSurface } from '../m365/directory/resolve.ts';
-import { resolveDirectoryConflict } from '../m365/directory/resolve.ts';
+import { ACTIONS_BY_KIND, resolveDirectoryConflict } from '../m365/directory/resolve.ts';
 import { type DirectoryRunReader, getDirectoryStatus } from '../m365/directory/status.ts';
 import { directoryPullJobKey } from '../m365/jobs/directory-pull-cron.ts';
 import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
@@ -25,10 +25,17 @@ const resolveSchema = z.object({
 const syncSchema = z.object({ full: z.boolean().optional() });
 
 /** Snake_case wire shape; `detail` is passed through verbatim — §9.1 defines it per kind. */
+/**
+ * `actions` is served rather than left for the client to infer. §9.1's table is documentation and
+ * has already drifted from the code once (it still lists `create_new` for `email_collision`, which
+ * `resolveDirectoryConflict` rejects), so a screen carrying its own copy would render a button that
+ * 400s on click. `ACTIONS_BY_KIND` is the single source for both the offer and the enforcement.
+ */
 function serializeConflict(row: ConflictRow): Record<string, unknown> {
   return {
     id: row.id,
     kind: row.kind,
+    actions: [...(ACTIONS_BY_KIND[row.kind] ?? [])],
     subject_type: row.subjectType,
     subject_id: row.subjectId,
     entra_oid: row.entraOid,

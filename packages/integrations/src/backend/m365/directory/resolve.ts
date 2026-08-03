@@ -45,7 +45,10 @@ export type DirectoryResolutionAction = (typeof DIRECTORY_RESOLUTION_ACTIONS)[nu
  * person can hold the colliding address. `ignore` stays the escape hatch for a genuine
  * two-humans-one-address case, which is a data problem in Entra.
  */
-const ACTIONS_BY_KIND: Record<DirectoryConflictKind, ReadonlySet<DirectoryResolutionAction>> = {
+export const ACTIONS_BY_KIND: Record<
+  DirectoryConflictKind,
+  ReadonlySet<DirectoryResolutionAction>
+> = {
   manager_ambiguous: new Set(['choose_head', 'ignore']),
   email_collision: new Set(['link', 'ignore']),
   unit_delete_blocked: new Set(['reassign', 'keep', 'ignore']),
