@@ -338,6 +338,13 @@ describe('runDirectoryPull', () => {
         expect(conflicts[0]?.subjectType).toBe('person');
         expect(conflicts[0]?.subjectId).toBe(personId);
         expect(conflicts[0]?.entraOid).toBe(ALICE);
+        // `user_removed` offers `offboard`, which ends someone's employment. The admin screen must
+        // be able to name the person from the conflict alone: an M365 admin does not necessarily
+        // hold `people.worker.read`, so making the screen look the name up would degrade the one
+        // decision with real consequences into a bare uuid.
+        expect(conflicts[0]?.detail).toMatchObject({
+          full_name: `Person ${(personId as string).slice(0, 8)}`,
+        });
 
         // Replaying the removal is a no-op: the link is already removed.
         expect((await h.repo.listPersonLinks(TENANT)).length).toBe(1);

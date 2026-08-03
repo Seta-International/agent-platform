@@ -120,8 +120,16 @@ export function conflictSubject(
     case 'spine_collision':
       return str(d, 'entra_name') ?? 'Unnamed department';
     case 'user_removed': {
+      // `detail.full_name` is resolved by the sync when it raises the conflict, so the row names
+      // the person without this screen needing `people.worker.read` — which an M365 admin may not
+      // hold. `nameFor` stays as a fallback for rows raised before that was added.
       const personId = str(d, 'person_id') ?? conflict.subject_id;
-      return (personId && nameFor(personId)) ?? str(d, 'department') ?? 'Removed person';
+      return (
+        str(d, 'full_name') ??
+        (personId && nameFor(personId)) ??
+        str(d, 'department') ??
+        'Removed person'
+      );
     }
   }
 }

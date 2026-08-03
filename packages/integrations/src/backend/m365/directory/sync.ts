@@ -410,6 +410,7 @@ async function pullOnce(args: {
   // Step 12, hoisted ahead of the heads: a member who left the directory must stop voting for one.
   // The person row itself is never touched — offboarding stays a human decision (design §8.3).
   const removedForEvent: Array<{ entraOid: string; personId: string }> = [];
+  const removals: Array<{ oid: string; link: NonNullable<ReturnType<typeof linkByOid.get>> }> = [];
   for (const oid of removed) {
     const link = linkByOid.get(oid);
     // `findPersonLinkByOid`/`listPersonLinks` return soft-removed rows on purpose (a reappearing
@@ -418,6 +419,22 @@ async function pullOnce(args: {
     await repo.markRemoved(tenantId, oid);
     counters.usersRemoved += 1;
     removedForEvent.push({ entraOid: oid, personId: link.personId });
+    removals.push({ oid, link });
+  }
+
+  // `user_removed` is the one conflict whose action (`offboard`) ends someone's employment, so the
+  // row has to name them. Resolving it here rather than on the screen is deliberate: an M365 admin
+  // does not necessarily hold `people.worker.read`, and a screen that had to look the name up would
+  // fall back to a bare uuid for exactly the decision that most needs a human to recognise who it
+  // is about. One batched call, not one per removal.
+  const removedNames = removals.length
+    ? await deps.people.listWorkerNames({
+        person_ids: removals.map((r) => r.link.personId),
+        session,
+      })
+    : new Map<string, string>();
+
+  for (const { oid, link } of removals) {
     await repo.raiseConflict({
       tenantId,
       kind: 'user_removed',
@@ -427,6 +444,7 @@ async function pullOnce(args: {
       detail: {
         person_id: link.personId,
         entra_oid: oid,
+        full_name: removedNames.get(link.personId) ?? null,
         department: link.department,
         division: link.division,
       },
