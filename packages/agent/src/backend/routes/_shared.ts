@@ -58,21 +58,19 @@ export type AgentRouteDeps = {
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /**
-   * Resumes a suspended native-suspend agentic chat-HITL run. Injected by the
-   * composition root (apps/server) as the staffing runtime's `runResume`. The
-   * structural type avoids an `agent → staffing` import (depcruise-forbidden);
-   * staffing's concrete `runResume` is structurally assignable.
+   * Resumes the suspended agentic run named by `ctx.workflowId`. Payload-agnostic
+   * on purpose: apps/server is the only layer that knows more than one runtime
+   * exists, and the agent package may not import a feature module
+   * (depcruise-forbidden). Both runtimes' concrete `runResume` are structurally
+   * assignable.
    */
   resumeOrchestration?: (
-    resume: {
-      decision: 'approve' | 'reject' | 'modify';
-      overrideUserIds?: string[];
-      alternateIndices?: number[];
-      note?: string;
-    },
+    resume: Record<string, unknown>,
     ctx: import('@seta/shared-orchestration').RunCtx & {
       mastraRunId: string;
       toolCallId?: string;
+      /** The card's workflow_id — the dispatcher branches on this. */
+      workflowId: string;
     },
   ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /** Injected by apps/server from @seta/knowledge (the agent package may not
