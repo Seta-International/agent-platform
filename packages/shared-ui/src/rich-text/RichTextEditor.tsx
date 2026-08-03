@@ -2,6 +2,7 @@ import { Link } from '@tiptap/extension-link';
 import { Underline } from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
+import { useEffect } from 'react';
 import { RichTextToolbar } from './RichTextToolbar';
 
 interface Props {
@@ -39,6 +40,25 @@ export function RichTextEditor({ value, onChange, onSave, onCancel, className }:
       },
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const currentHtml = editor.getHTML();
+    if (value !== currentHtml) {
+      const isValueEmpty = !value || value.replace(/<[^>]+>/g, '').trim().length === 0;
+      const isCurrentEmpty =
+        !currentHtml || currentHtml.replace(/<[^>]+>/g, '').trim().length === 0;
+
+      if (isValueEmpty && isCurrentEmpty) {
+        if (currentHtml !== '<p></p>') {
+          editor.commands.setContent(value || '');
+        }
+        return;
+      }
+
+      editor.commands.setContent(value || '');
+    }
+  }, [editor, value]);
 
   if (!editor) return null;
 
