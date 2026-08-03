@@ -7,7 +7,12 @@ import type {
   DirectoryConflictStatus,
   OrgUnitLinkKind,
 } from '../../db/schema/index.ts';
-import { m365DirectoryConflict, m365OrgUnitLinks, m365PersonLinks } from '../../db/schema/index.ts';
+import {
+  m365DirectoryConflict,
+  m365OrgUnitLinks,
+  m365PersonLinks,
+  m365TenantConfig,
+} from '../../db/schema/index.ts';
 
 export type PersonLinkRow = typeof m365PersonLinks.$inferSelect;
 export type OrgUnitLinkRow = typeof m365OrgUnitLinks.$inferSelect;
@@ -47,6 +52,14 @@ export interface CloseConflictInput {
   resolvedBy: string;
 }
 
+/** The directory-sync cursor and last-run outcome, as held on `m365_tenant_config`. */
+export interface DirectoryStateRow {
+  deltaLink: string | null;
+  syncedAt: Date | null;
+  lastStatus: string | null;
+  lastError: string | null;
+}
+
 export interface CreateDirectoryRepoDeps {
   db: NodePgDatabase<typeof schema>;
 }
@@ -60,6 +73,17 @@ export interface DirectoryRepo {
   listOrgUnitLinks(tenantId: string): Promise<OrgUnitLinkRow[]>;
   upsertOrgUnitLink(input: UpsertOrgUnitLinkInput): Promise<void>;
   deleteOrgUnitLink(tenantId: string, orgUnitId: string): Promise<void>;
+
+  /** `null` when the tenant has no `m365_tenant_config` row at all. */
+  getDirectoryState(tenantId: string): Promise<DirectoryStateRow | null>;
+  /** Advances the cursor. Called only after a run has completed in full (design §8, step 13). */
+  recordDirectorySuccess(input: { tenantId: string; deltaLink: string }): Promise<void>;
+  /**
+   * Records a failed run WITHOUT touching `directory_delta_link`, so the next run re-reads the
+   * window that failed instead of skipping it. Deliberately a standalone statement: written from
+   * a `catch`, it must commit even though whatever was in flight did not.
+   */
+  recordDirectoryFailure(input: { tenantId: string; error: string }): Promise<void>;
 
   raiseConflict(input: RaiseConflictInput): Promise<void>;
   listConflicts(tenantId: string, status: DirectoryConflictStatus): Promise<ConflictRow[]>;
@@ -148,6 +172,39 @@ export function createDirectoryRepo(deps: CreateDirectoryRepoDeps): DirectoryRep
         .where(
           and(eq(m365OrgUnitLinks.tenantId, tenantId), eq(m365OrgUnitLinks.orgUnitId, orgUnitId)),
         );
+    },
+
+    async getDirectoryState(tenantId) {
+      const [row] = await db
+        .select({
+          deltaLink: m365TenantConfig.directoryDeltaLink,
+          syncedAt: m365TenantConfig.directorySyncedAt,
+          lastStatus: m365TenantConfig.directoryLastStatus,
+          lastError: m365TenantConfig.directoryLastError,
+        })
+        .from(m365TenantConfig)
+        .where(eq(m365TenantConfig.tenantId, tenantId))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async recordDirectorySuccess(input) {
+      await db
+        .update(m365TenantConfig)
+        .set({
+          directoryDeltaLink: input.deltaLink,
+          directorySyncedAt: sql`now()`,
+          directoryLastStatus: 'ok',
+          directoryLastError: null,
+        })
+        .where(eq(m365TenantConfig.tenantId, input.tenantId));
+    },
+
+    async recordDirectoryFailure(input) {
+      await db
+        .update(m365TenantConfig)
+        .set({ directoryLastStatus: 'error', directoryLastError: input.error })
+        .where(eq(m365TenantConfig.tenantId, input.tenantId));
     },
 
     async raiseConflict(input) {

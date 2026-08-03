@@ -1,11 +1,15 @@
 export type { CredsProvider, M365Creds } from './auth.ts';
 export { buildAuthProvider, buildDbCredsProvider, M365NotConfiguredError } from './auth.ts';
 export { buildGraphClient } from './client.ts';
+export type { DirectoryGraph, PhotoFetchResult } from './directory/graph.ts';
+export { createDirectoryGraph } from './directory/graph.ts';
+export { createPeopleDirectorySurface } from './directory/people-surface.ts';
 export type {
   CloseConflictInput,
   ConflictRow,
   CreateDirectoryRepoDeps,
   DirectoryRepo,
+  DirectoryStateRow,
   OrgUnitLinkRow,
   PersonLinkRow,
   RaiseConflictInput,
@@ -13,6 +17,15 @@ export type {
   UpsertPersonLinkInput,
 } from './directory/repo.ts';
 export { createDirectoryRepo } from './directory/repo.ts';
+export type {
+  DirectoryPhotoStorage,
+  DirectoryPullCounters,
+  DirectoryPullResult,
+  PeopleDirectorySurface,
+  RunDirectoryPullDeps,
+  RunDirectoryPullInput,
+} from './directory/sync.ts';
+export { DirectoryPhotoInvariantError, runDirectoryPull } from './directory/sync.ts';
 export type { RunPlanAutoMirrorDeps, RunPlanAutoMirrorInput } from './jobs/plan-auto-mirror.ts';
 export { runPlanAutoMirror } from './jobs/plan-auto-mirror.ts';
 export type {
