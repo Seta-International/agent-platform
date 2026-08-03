@@ -5,40 +5,21 @@ import {
   type KpiReferenceMetric,
 } from '@seta/pm/contracts';
 import { useState } from 'react';
-import type { BandCondition, KpiCategory, KpiNormDoc, KpiNormMetricRow } from '../api/pm-client.ts';
+import type { KpiCategory, KpiNormDoc, KpiNormMetricRow } from '../api/pm-client.ts';
 import { Badge, EmptyState, Input, Skeleton } from './_ui-compat.tsx';
 import {
   formatBandTriple,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
   KPI_OHS_WEIGHTS,
+  metricUnit,
 } from './kpi-shared.tsx';
 
-// Direction is not a stored column — it is implied by which side of the scale Green sits on,
-// so deriving it from the green band can never disagree with the thresholds shown next to it.
-type Direction = 'higher' | 'lower' | 'range';
-function greenDirection(band: BandCondition): Direction {
-  switch (band.op) {
-    case 'gte':
-    case 'gt':
-      return 'higher';
-    case 'lte':
-    case 'lt':
-      return 'lower';
-    default:
-      // between/eq and composite bands: Green is a window, not an endpoint.
-      return 'range';
-  }
-}
-const DIRECTION_LABEL: Record<Direction, string> = {
-  higher: '↑ Higher is better',
-  lower: '↓ Lower is better',
-  range: '↔ Target range',
-};
+const ROW_GRID = 'grid-cols-[3fr_2fr_2fr_2fr_4fr]';
 
-// The Core/Extended band header above each block already states the tier, so rows don't
-// repeat it as a badge — only the per-metric facts (Live column, Applied) earn a chip.
-function MetricRow({ metric, applied }: { metric: KpiNormMetricRow; applied: boolean }) {
+const SECTION_HEADING = 'sticky top-0 z-10 flex items-baseline gap-2 bg-card py-2';
+
+function MetricRow({ metric }: { metric: KpiNormMetricRow }) {
   const bands = formatBandTriple(
     metric.name,
     metric.component_count,
@@ -46,48 +27,38 @@ function MetricRow({ metric, applied }: { metric: KpiNormMetricRow; applied: boo
     metric.yellow_band,
     metric.red_band,
   );
+  const unit = metricUnit(metric.name, metric.component_count, metric.component_1_label);
   return (
-    <div className="grid grid-cols-12 gap-3 border-b border-border py-3 text-sm last:border-0">
-      <div className="col-span-4">
+    <div
+      className={`grid ${ROW_GRID} min-h-16 gap-3 border-b border-border py-3 text-sm last:border-0`}
+    >
+      <div>
         <div className="flex items-center gap-2 font-medium text-primary">
           {metric.name}
-          {metric.is_live_capable ? (
-            <Badge variant="outline" className="font-normal">
-              Live column
-            </Badge>
-          ) : null}
-          {applied ? (
-            <Badge variant="success" className="font-normal">
-              Applied
-            </Badge>
-          ) : null}
+          <Badge variant="outline" className="font-normal">
+            {unit}
+          </Badge>
         </div>
-        <div className="text-xs text-secondary">
-          {metric.formula_label}
-          <span className="whitespace-nowrap">
-            {' · '}
-            {DIRECTION_LABEL[greenDirection(metric.green_band)]}
-          </span>
-        </div>
+        <div className="text-xs text-secondary">{metric.formula_label}</div>
       </div>
-      <div className="col-span-2 text-success">{bands.green}</div>
-      <div className="col-span-2 text-warning">{bands.yellow}</div>
-      <div className="col-span-2 text-error">{bands.red}</div>
-      <div className="col-span-2 text-xs text-secondary">{metric.insight}</div>
+      <div className="tabular-nums text-success">{bands.green}</div>
+      <div className="tabular-nums text-warning">{bands.yellow}</div>
+      <div className="tabular-nums text-error">{bands.red}</div>
+      <div className="text-xs text-secondary">{metric.insight}</div>
     </div>
   );
 }
 
-// Labels the three threshold columns once per card — without it a first-time reader has to
-// infer Green/Amber/Red purely from the text colours below.
 function BandColumnHeader() {
   return (
-    <div className="grid grid-cols-12 gap-3 border-b border-border px-3 py-1.5 text-xs uppercase tracking-wide">
-      <div className="col-span-4" />
-      <div className="col-span-2 text-success">Green</div>
-      <div className="col-span-2 text-warning">Amber</div>
-      <div className="col-span-2 text-error">Red</div>
-      <div className="col-span-2 text-secondary">Insight</div>
+    <div
+      className={`grid ${ROW_GRID} gap-3 border-b border-border px-3 py-1.5 text-xs uppercase tracking-wide`}
+    >
+      <div>Metric</div>
+      <div className="text-success">Green</div>
+      <div className="text-warning">Amber</div>
+      <div className="text-error">Red</div>
+      <div className="text-secondary">Insight</div>
     </div>
   );
 }
@@ -95,66 +66,69 @@ function BandColumnHeader() {
 function CategorySection({
   category,
   metrics,
-  appliedIds,
 }: {
   category: KpiCategory;
   metrics: KpiNormMetricRow[];
-  appliedIds: Set<string>;
 }) {
   const core = metrics.filter((m) => m.tier === 'core');
   const extended = metrics.filter((m) => m.tier === 'extended');
   return (
     <section className="space-y-2">
-      <div className="flex items-baseline gap-2">
+      <div className={SECTION_HEADING}>
         <h3 className="text-base font-semibold text-primary">{KPI_CATEGORY_LABELS[category]}</h3>
         <span className="text-xs text-secondary">
+          {metrics.length} metric{metrics.length === 1 ? '' : 's'} ·{' '}
           {Math.round(KPI_OHS_WEIGHTS[category] * 100)}% of OHS
         </span>
       </div>
-      <div className="rounded-md border border-border">
-        <BandColumnHeader />
-        {core.length > 0 ? (
-          <>
-            <div className="border-b border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
-              Core — mandatory, measured monthly · feeds OHS
-            </div>
-            <div className="px-3">
-              {core.map((m) => (
-                <MetricRow key={m.metric_id} metric={m} applied={appliedIds.has(m.metric_id)} />
-              ))}
-            </div>
-          </>
-        ) : null}
-        {extended.length > 0 ? (
-          <>
-            <div className="border-y border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
-              Extended — contextual · not part of OHS
-            </div>
-            <div className="px-3">
-              {extended.map((m) => (
-                <MetricRow key={m.metric_id} metric={m} applied={appliedIds.has(m.metric_id)} />
-              ))}
-            </div>
-          </>
-        ) : null}
-      </div>
+      {metrics.length === 0 ? (
+        <EmptyState title="No metrics in this area yet." />
+      ) : (
+        <div className="rounded-md border border-border">
+          <BandColumnHeader />
+          {core.length > 0 ? (
+            <>
+              <div className="border-b border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
+                Core — mandatory, measured monthly · feeds OHS
+              </div>
+              <div className="px-3">
+                {core.map((m) => (
+                  <MetricRow key={m.metric_id} metric={m} />
+                ))}
+              </div>
+            </>
+          ) : null}
+          {extended.length > 0 ? (
+            <>
+              <div className="border-y border-border bg-surface px-3 py-1.5 text-xs uppercase tracking-wide text-secondary">
+                Extended — contextual · not part of OHS
+              </div>
+              <div className="px-3">
+                {extended.map((m) => (
+                  <MetricRow key={m.metric_id} metric={m} />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
 
-// Reference rows (Methodology lens, Executive): prose thresholds, so no direction arrow and no
-// Live/Applied chips — those only make sense for measurable norm metrics.
 function ReferenceRow({ metric }: { metric: KpiReferenceMetric }) {
   return (
-    <div className="grid grid-cols-12 gap-3 border-b border-border py-3 text-sm last:border-0">
-      <div className="col-span-4">
+    <div
+      className={`grid ${ROW_GRID} min-h-16 gap-3 border-b border-border py-3 text-sm last:border-0`}
+    >
+      <div>
         <div className="font-medium text-primary">{metric.name}</div>
         <div className="text-xs text-secondary">{metric.formula_label}</div>
       </div>
-      <div className="col-span-2 text-success">{metric.green_label}</div>
-      <div className="col-span-2 text-warning">{metric.yellow_label}</div>
-      <div className="col-span-2 text-error">{metric.red_label}</div>
-      <div className="col-span-2 text-xs text-secondary">{metric.insight}</div>
+      <div className="text-success">{metric.green_label}</div>
+      <div className="text-warning">{metric.yellow_label}</div>
+      <div className="text-error">{metric.red_label}</div>
+      <div className="text-xs text-secondary">{metric.insight}</div>
     </div>
   );
 }
@@ -176,7 +150,7 @@ function MethodologyLensSection({ q }: { q: string }) {
   if (groups.length === 0) return null;
   return (
     <section className="space-y-2">
-      <div className="flex items-baseline gap-2">
+      <div className={SECTION_HEADING}>
         <h3 className="text-base font-semibold text-primary">Methodology lens</h3>
         <span className="text-xs text-secondary">
           supplementary lens per methodology — does not replace Core
@@ -209,7 +183,7 @@ function ExecutiveSection({ q }: { q: string }) {
   if (metrics.length === 0) return null;
   return (
     <section className="space-y-2">
-      <div className="flex items-baseline gap-2">
+      <div className={SECTION_HEADING}>
         <h3 className="text-base font-semibold text-primary">Executive — Engineering Health</h3>
         <span className="text-xs text-secondary">quarterly · EQI / TDI → Executive Matrix 2×2</span>
       </div>
@@ -232,15 +206,7 @@ function ExecutiveSection({ q }: { q: string }) {
   );
 }
 
-export function KpiNormTab({
-  norm,
-  appliedIds,
-  isLoading,
-}: {
-  norm: KpiNormDoc | null;
-  appliedIds: Set<string>;
-  isLoading: boolean;
-}) {
+export function KpiNormTab({ norm, isLoading }: { norm: KpiNormDoc | null; isLoading: boolean }) {
   const [query, setQuery] = useState('');
   if (isLoading) {
     return (
@@ -266,35 +232,30 @@ export function KpiNormTab({
     KPI_EXECUTIVE_METRICS.some((m) => referenceMatches(m, q));
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="max-w-7xl space-y-6 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <Input
+          value={query}
+          onChange={setQuery}
+          placeholder="Search metrics…"
+          className="max-w-xs flex-1"
+        />
         <p className="text-xs text-secondary">
           {norm.code} · {norm.revision} · Owner PMO
           {norm.effective_date ? ` · Effective ${norm.effective_date}` : ''}
         </p>
-        <Input
-          value={query}
-          onChange={setQuery}
-          placeholder="Search metrics by name or formula…"
-          className="w-72"
-        />
       </div>
       {matches.length === 0 && !hasReferenceMatches ? (
         <EmptyState title={`No metrics match "${query.trim()}"`} />
       ) : (
         <>
-          {KPI_CATEGORIES.map((cat) => {
-            const inCategory = matches.filter((m) => m.category === cat);
-            if (inCategory.length === 0) return null;
-            return (
-              <CategorySection
-                key={cat}
-                category={cat}
-                metrics={inCategory}
-                appliedIds={appliedIds}
-              />
-            );
-          })}
+          {KPI_CATEGORIES.map((cat) => (
+            <CategorySection
+              key={cat}
+              category={cat}
+              metrics={matches.filter((m) => m.category === cat)}
+            />
+          ))}
           <MethodologyLensSection q={q} />
           <ExecutiveSection q={q} />
         </>

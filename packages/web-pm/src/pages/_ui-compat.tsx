@@ -197,6 +197,7 @@ export function Checkbox({
         onChange?.(e.target.checked);
       }}
       className={`size-4 rounded border-border ${className ?? ''}`}
+      style={{ accentColor: 'var(--color-primary)' }}
     />
   );
   return label ? (
@@ -423,8 +424,12 @@ export function TabsContent({
 }
 
 // ---- Passthrough / trivial shims -------------------------------------------------
-export function ScrollArea({ children, className }: Div) {
-  return <div className={`overflow-auto ${className ?? ''}`}>{children}</div>;
+export function ScrollArea({ children, className, ref }: Div) {
+  return (
+    <div ref={ref} className={`overflow-auto ${className ?? ''}`}>
+      {children}
+    </div>
+  );
 }
 export function AvatarFallback({ children, className }: Div) {
   return (
@@ -434,16 +439,6 @@ export function AvatarFallback({ children, className }: Div) {
       {children}
     </span>
   );
-}
-export function DisabledActionTooltip({
-  children,
-}: {
-  disabled?: boolean;
-  reason?: ReactNode;
-  className?: string;
-  children?: ReactNode;
-}) {
-  return <>{children}</>;
 }
 
 // Input / Textarea: NOT shimmed — most web-pm files already use the new Astryx value-based

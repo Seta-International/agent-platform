@@ -289,6 +289,99 @@ export function computeMetricValue(
   return component_1_value / component_2_value;
 }
 
+export const KPI_VALUE_MAX_INTEGER_DIGITS = 11;
+export const KPI_VALUE_MAX_DECIMALS = 4;
+
+export interface KpiEntryRules {
+  component_count: 1 | 2;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
+  component_2_label?: string | null;
+}
+
+export interface KpiEntryIssues {
+  component_1: string | null;
+  component_2: string | null;
+}
+
+function storageIssue(value: number): string | null {
+  if (!Number.isFinite(value)) return 'Enter a number';
+  if (Math.abs(value) >= 10 ** KPI_VALUE_MAX_INTEGER_DIGITS) {
+    return `Max ${KPI_VALUE_MAX_INTEGER_DIGITS} digits`;
+  }
+  if (Number(value.toFixed(KPI_VALUE_MAX_DECIMALS)) !== value) {
+    return `Max ${KPI_VALUE_MAX_DECIMALS} decimals`;
+  }
+  return null;
+}
+
+function componentIssue(
+  value: number,
+  opts: { integer: boolean; min: number | null; max: number | null },
+): string | null {
+  const storage = storageIssue(value);
+  if (storage) return storage;
+  if (opts.integer && !Number.isInteger(value)) return 'Whole number only';
+  if (opts.min !== null && value < opts.min) {
+    return opts.min === 0 ? "Can't be negative" : `Enter ${opts.min} to ${opts.max ?? '…'}`;
+  }
+  if (opts.max !== null && value > opts.max) return `Enter ${opts.min ?? '…'} to ${opts.max}`;
+  return null;
+}
+
+export function kpiComponentIssue(
+  rules: KpiEntryRules,
+  slot: 1 | 2,
+  value: number | null,
+): string | null {
+  if (value === null) return null;
+  if (slot === 2) {
+    if (rules.component_count === 1) return null;
+    if (value === 0) return "Can't be 0";
+    return componentIssue(value, { integer: rules.component_2_integer, min: 0, max: null });
+  }
+  return componentIssue(value, {
+    integer: rules.component_1_integer,
+    min: rules.component_1_min,
+    max: rules.component_1_max,
+  });
+}
+
+export function validateKpiEntry(
+  rules: KpiEntryRules,
+  component_1_value: number | null,
+  component_2_value: number | null,
+): KpiEntryIssues {
+  const issues: KpiEntryIssues = {
+    component_1: kpiComponentIssue(rules, 1, component_1_value),
+    component_2: kpiComponentIssue(rules, 2, component_2_value),
+  };
+  if (rules.component_count === 1) return issues;
+
+  if (component_1_value !== null && component_2_value === null) issues.component_2 ??= 'Required';
+  if (component_2_value !== null && component_1_value === null) issues.component_1 ??= 'Required';
+
+  if (
+    rules.is_share &&
+    issues.component_1 === null &&
+    issues.component_2 === null &&
+    component_1_value !== null &&
+    component_2_value !== null &&
+    component_1_value > component_2_value
+  ) {
+    issues.component_1 = `Can't exceed ${rules.component_2_label ?? 'the total'}`;
+  }
+
+  return issues;
+}
+
+export function hasKpiEntryIssue(issues: KpiEntryIssues): boolean {
+  return issues.component_1 !== null || issues.component_2 !== null;
+}
+
 export function evaluateBand(cond: BandCondition, value: number): boolean {
   switch (cond.op) {
     case 'lte':

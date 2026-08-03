@@ -1,5 +1,5 @@
 import type { BandCondition, KpiCategory, RagStatus } from '../api/pm-client.ts';
-import { Badge, cn } from './_ui-compat.tsx';
+import { Badge, cn, StatusDot, type StatusDotVariant } from './_ui-compat.tsx';
 
 export const KPI_CATEGORY_LABELS: Record<KpiCategory, string> = {
   quality: 'Q — Quality',
@@ -101,11 +101,25 @@ export function formatBandTriple(
   };
 }
 
+export function metricUnit(
+  metricName: string,
+  component_count: 1 | 2,
+  component_1_label: string,
+): string {
+  if (component_count === 2) return isPercentMetric(metricName, 2) ? '%' : 'Ratio';
+  const label = component_1_label.toLowerCase();
+  if (label.includes('score')) return 'Score';
+  if (label.includes('hour')) return 'Hours';
+  if (label.includes('week')) return 'Weeks';
+  if (label.includes('day')) return 'Days';
+  return 'Count';
+}
+
 /** Short column headers for KPI Explorer's per-metric columns, matching the source mockup's
  * abbreviations (e.g. "Defect Leakage" → "LEAKAGE"). Display-only; falls back to the full metric
  * name for any metric not in this list (Extended metrics aren't shown in the mockup's Explorer
  * columns, only the always-applied Core ones needed this treatment). */
-const SHORT_METRIC_LABEL: Record<string, string> = {
+export const SHORT_METRIC_LABELS: Record<string, string> = {
   'Defect Leakage': 'Leakage',
   'Internal Defect Density': 'Density',
   'Reopened Defect Rate': 'Reopened',
@@ -114,12 +128,12 @@ const SHORT_METRIC_LABEL: Record<string, string> = {
   'Effort Consumption': 'Effort',
   Margin: 'Margin',
   'Billable Rate': 'Billable',
-  'Utilization Rate': 'Util.',
+  'Utilization Rate': 'Util',
   'Busy Rate': 'Busy',
   'eNPS / CSS': 'CSAT',
   'On-time Delivery': 'On-time',
   'Completed Effectiveness (CE)': 'CE',
-  'Release Predictability': 'Predict.',
+  'Release Predictability': 'Predict',
   'Schedule Performance Index (SPI)': 'SPI',
   'Forecast Accuracy': 'Forecast',
   'PCV (Process Compliance)': 'PCV',
@@ -129,46 +143,42 @@ const SHORT_METRIC_LABEL: Record<string, string> = {
 };
 
 export function shortMetricLabel(name: string): string {
-  return SHORT_METRIC_LABEL[name] ?? name;
+  return SHORT_METRIC_LABELS[name] ?? (name.split(' — ')[0] || name);
 }
 
-const RAG_TEXT_CLASS: Record<RagStatus, string> = {
-  green: 'text-success',
-  yellow: 'text-warning',
-  red: 'text-error',
+const RAG_MARK: Record<
+  RagStatus,
+  { text: string; weight: string; dot: StatusDotVariant | null; label: string }
+> = {
+  green: { text: 'text-success', weight: 'font-normal', dot: null, label: 'Green' },
+  yellow: { text: 'text-warning', weight: 'font-medium', dot: 'warning', label: 'Amber' },
+  red: { text: 'text-error', weight: 'font-semibold', dot: 'error', label: 'Red' },
 };
 
-/** A per-metric Explorer cell: the formatted value colored by its RAG status, or a plain "·"
- * when the metric has no value for that project/week — matches the mockup's inline colored
- * numbers (not a Badge pill, which is reserved for the overall Health column). */
 export function metricValueText(
-  cell: { value: number | null; status: RagStatus | null },
+  cell: { value: number | null; status: RagStatus | null; band: BandCondition | null },
   metricName: string,
   component_count: 1 | 2,
 ) {
   if (cell.value === null || cell.status === null) {
-    return <span className="text-secondary">·</span>;
+    return (
+      <span className="text-secondary" title="No figures entered for this week">
+        ·
+      </span>
+    );
   }
+  const band = cell.band ? formatBand(metricName, component_count, cell.band) : null;
+  const mark = RAG_MARK[cell.status];
   return (
-    <span className={cn('font-medium', RAG_TEXT_CLASS[cell.status])}>
+    <span
+      className={cn('inline-flex items-center justify-end gap-1.5', mark.text, mark.weight)}
+      title={
+        band ? `${metricName}: ${mark.label} — matched ${band}` : `${metricName}: ${mark.label}`
+      }
+    >
+      {mark.dot ? <StatusDot variant={mark.dot} label={mark.label} /> : null}
       {formatMetricValue(cell.value, metricName, component_count)}
     </span>
-  );
-}
-
-/** KPI Explorer's "Record" column. The mockup shows a static "Live · auto" pill on every row —
- * but that's a demo artifact (see functional-analysis.md §5: "Live · auto" data-source wiring is
- * explicitly deferred, not implemented yet). Since every record in this build is entered through
- * Manual KPI input, showing the honest state here: "Manual · saved" once a record exists for
- * that project/week, or "—" before anything has been entered. */
-export function recordStatusBadge(hasRecord: boolean) {
-  if (!hasRecord) {
-    return <span className="text-secondary">—</span>;
-  }
-  return (
-    <Badge variant="outline" className="whitespace-nowrap font-normal">
-      Manual · saved
-    </Badge>
   );
 }
 
@@ -197,6 +207,9 @@ export {
   computeEntryStatus,
   computeMetricValue,
   computeOverallHealth,
+  hasKpiEntryIssue,
+  kpiComponentIssue,
+  validateKpiEntry,
 } from '@seta/pm/contracts';
 
 /** ISO 8601 week (Monday-start, week 1 = week containing the year's first Thursday). */
@@ -217,8 +230,8 @@ export function isoWeekLabel(
   current: { iso_year: number; iso_week: number },
 ): string {
   const isCurrent = iso_year === current.iso_year && iso_week === current.iso_week;
-  const base = `${iso_year}-W-${String(iso_week).padStart(2, '0')}`;
-  return isCurrent ? `${base} · current` : base;
+  const base = `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
+  return isCurrent ? `${base} (current)` : base;
 }
 
 /** Client-side mirror of the server's Epic 3 week gate: weekly data (KPI records, reports,
@@ -237,16 +250,15 @@ export function isReportingWeekOpen(
   return Date.now() < fridayDeadline;
 }
 
-/** Last 3 ISO weeks (current + 2 prior) — the mockup hard-limits the week picker to this range
- * (functional-analysis.md §7 câu #8). Anchors on the server-authoritative current week
- * (Asia/Ho_Chi_Minh) when provided; the browser clock is only the pre-fetch fallback. */
+export const RECENT_WEEK_COUNT = 8;
+
 export function recentIsoWeeks(
   anchor?: { iso_year: number; iso_week: number } | null,
 ): { iso_year: number; iso_week: number; label: string }[] {
   const now = anchor ?? isoWeekOf(new Date());
   const weeks: { iso_year: number; iso_week: number }[] = [now];
   let { iso_year, iso_week } = now;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < RECENT_WEEK_COUNT - 1; i++) {
     if (iso_week > 1) {
       iso_week -= 1;
     } else {
