@@ -33,6 +33,7 @@ const mockRows = [
     manager_name: null,
     accounts: [],
     skills: [],
+    photo_url: '/api/people/v1/workers/w1/photo',
   },
   {
     worker_id: 'w2',
@@ -48,6 +49,7 @@ const mockRows = [
     manager_name: null,
     accounts: [],
     skills: [],
+    photo_url: null,
   },
 ];
 
@@ -68,6 +70,19 @@ describe('PeoplePage (Astryx Table migration)', () => {
     const table = await screen.findByRole('table');
     expect(within(table).getByText('Ada Lovelace')).toBeInTheDocument();
     expect(within(table).getByText('Grace Hopper')).toBeInTheDocument();
+  });
+
+  it('renders the M365 photo in the Employee cell, and initials for a person without one', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const ada = within(table).getByRole('img', { name: 'Ada Lovelace' });
+    expect(ada.querySelector('img')).toHaveAttribute('src', '/api/people/v1/workers/w1/photo');
+
+    const grace = within(table).getByRole('img', { name: 'Grace Hopper' });
+    expect(grace.querySelector('img')).toBeNull();
+    expect(grace).toHaveTextContent('GH');
   });
 
   it('clicking a sort header rewrites the sort query param (server-mode mapper)', async () => {

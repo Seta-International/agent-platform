@@ -94,7 +94,7 @@ export function PeopleCardGrid({
           >
             {/* Header: avatar + name + title */}
             <div className="flex items-start gap-3 min-w-0">
-              <Avatar name={row.full_name} size={36} />
+              <Avatar name={row.full_name} src={row.photo_url ?? undefined} size={36} />
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm truncate">{row.full_name}</div>
                 {row.job_title && (

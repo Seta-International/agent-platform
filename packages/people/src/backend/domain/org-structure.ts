@@ -12,6 +12,14 @@ import {
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
+import { personPhotoUrl } from './photo.ts';
+
+/** Person identity as every org-chart node renders it: name for the label, photo for the avatar. */
+export interface OrgPersonRef {
+  person_id: string;
+  full_name: string;
+  photo_url: string | null;
+}
 
 export interface OrgUnitNode {
   id: string;
@@ -19,8 +27,8 @@ export interface OrgUnitNode {
   name: string;
   kind: string;
   sort: number;
-  head: { person_id: string; full_name: string } | null;
-  members: Array<{ person_id: string; full_name: string; job_title: string | null }>;
+  head: OrgPersonRef | null;
+  members: Array<OrgPersonRef & { job_title: string | null }>;
 }
 
 export async function getOrgStructure(session: SessionScope): Promise<{ units: OrgUnitNode[] }> {
@@ -38,6 +46,7 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
       full_name: sql<string>`coalesce(${person.full_name}, '')`,
       job_title: employmentPeriod.job_title,
       org_unit_id: person.org_unit_id,
+      photo_storage_key: person.photo_storage_key,
     })
     .from(person)
     .leftJoin(
@@ -46,15 +55,18 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
     )
     .where(and(tenantScoped(person.tenant_id, session), isNull(person.deleted_at)));
 
-  const nameByPerson = new Map(rows.map((r) => [r.person_id, r.full_name]));
-  const membersByUnit = new Map<
-    string,
-    Array<{ person_id: string; full_name: string; job_title: string | null }>
-  >();
+  const refByPerson = new Map<string, OrgPersonRef>();
+  const membersByUnit = new Map<string, Array<OrgPersonRef & { job_title: string | null }>>();
   for (const r of rows) {
+    const ref: OrgPersonRef = {
+      person_id: r.person_id,
+      full_name: r.full_name,
+      photo_url: personPhotoUrl(r.person_id, r.photo_storage_key),
+    };
+    refByPerson.set(r.person_id, ref);
     if (!r.org_unit_id) continue;
     const arr = membersByUnit.get(r.org_unit_id) ?? [];
-    arr.push({ person_id: r.person_id, full_name: r.full_name, job_title: r.job_title });
+    arr.push({ ...ref, job_title: r.job_title });
     membersByUnit.set(r.org_unit_id, arr);
   }
 
@@ -65,10 +77,7 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
       name: u.name,
       kind: u.kind,
       sort: u.sort,
-      head:
-        u.head_worker_id && nameByPerson.has(u.head_worker_id)
-          ? { person_id: u.head_worker_id, full_name: nameByPerson.get(u.head_worker_id) ?? '' }
-          : null,
+      head: (u.head_worker_id && refByPerson.get(u.head_worker_id)) || null,
       members: membersByUnit.get(u.id) ?? [],
     })),
   };
@@ -77,11 +86,11 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
 export interface DeliveryAccount {
   account_id: string;
   name: string;
-  am: { person_id: string; full_name: string } | null;
+  am: OrgPersonRef | null;
   projects: Array<{
     project_id: string;
     name: string;
-    members: Array<{ person_id: string; full_name: string; is_lead: boolean }>;
+    members: Array<OrgPersonRef & { is_lead: boolean }>;
   }>;
 }
 
@@ -92,10 +101,25 @@ export async function getOrgDelivery(
   const tenantId = session.tenant_id;
 
   const workers = await peopleDb()
-    .select({ person_id: person.id, full_name: person.full_name })
+    .select({
+      person_id: person.id,
+      full_name: person.full_name,
+      photo_storage_key: person.photo_storage_key,
+    })
     .from(person)
     .where(and(tenantScoped(person.tenant_id, session), isNull(person.deleted_at)));
-  const nameByPerson = new Map(workers.map((w) => [w.person_id, w.full_name]));
+  const refByPerson = new Map<string, OrgPersonRef>(
+    workers.map((w) => [
+      w.person_id,
+      {
+        person_id: w.person_id,
+        full_name: w.full_name ?? '',
+        photo_url: personPhotoUrl(w.person_id, w.photo_storage_key),
+      },
+    ]),
+  );
+  const refFor = (person_id: string): OrgPersonRef =>
+    refByPerson.get(person_id) ?? { person_id, full_name: '', photo_url: null };
 
   const accounts = await peopleDb()
     .select({ account_id: accountProjection.account_id, name: accountProjection.name })
@@ -138,8 +162,7 @@ export async function getOrgDelivery(
       members: (allocByProject.get(p.project_id) ?? [])
         .filter((a) => a.person_id)
         .map((a) => ({
-          person_id: a.person_id ?? '',
-          full_name: nameByPerson.get(a.person_id ?? '') ?? '',
+          ...refFor(a.person_id ?? ''),
           is_lead: a.lead_person_id === a.person_id,
         })),
     }));
@@ -147,7 +170,7 @@ export async function getOrgDelivery(
     out.push({
       account_id: acc.account_id,
       name: acc.name,
-      am: amId ? { person_id: amId, full_name: nameByPerson.get(amId) ?? '' } : null,
+      am: amId ? refFor(amId) : null,
       projects: accProjects,
     });
   }
@@ -172,6 +195,8 @@ export interface CompanyNode {
   count?: number;
   person_id?: string;
   account_id?: string;
+  /** Only ever set on `am` nodes — the other kinds render a type glyph, not an avatar. */
+  photo_url?: string | null;
 }
 
 const UNIT_KINDS = new Set<CompanyNodeKind>([
@@ -230,6 +255,7 @@ export async function getOrgCompany(session: SessionScope): Promise<{ nodes: Com
             label: acc.am.full_name,
             sublabel: 'Account Manager',
             person_id: acc.am.person_id,
+            photo_url: acc.am.photo_url,
           });
         }
         parentId = amNodeId;

@@ -367,7 +367,11 @@ export function WorkerProfilePage() {
                   header={
                     <LayoutHeader hasDivider>
                       <div className="flex items-center gap-4">
-                        <Avatar name={worker.full_name} size={60} />
+                        <Avatar
+                          name={worker.full_name}
+                          src={worker.photo_url ?? undefined}
+                          size={60}
+                        />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-2xl font-semibold truncate">

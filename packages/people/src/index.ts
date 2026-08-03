@@ -34,6 +34,7 @@ export type {
   CompanyNode,
   CompanyNodeKind,
   DeliveryAccount,
+  OrgPersonRef,
   OrgUnitNode,
 } from './backend/domain/org-structure.ts';
 export { getOrgCompany, getOrgDelivery, getOrgStructure } from './backend/domain/org-structure.ts';
@@ -46,6 +47,13 @@ export {
   setMySkills,
   setPersonSkillLevel,
 } from './backend/domain/person-skills.ts';
+export {
+  PHOTO_REDIRECT_CACHE_SECONDS,
+  PHOTO_URL_TTL_SECONDS,
+  type PhotoPresignDeps,
+  personPhotoUrl,
+  workerPhotoDownloadUrl,
+} from './backend/domain/photo.ts';
 export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { readCycleStatus } from './backend/domain/read-cycle-status.ts';

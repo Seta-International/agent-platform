@@ -16,6 +16,8 @@ export interface OrgGraphNodeData extends Record<string, unknown> {
   subtitle?: string;
   tone: 'surface' | 'solid' | 'primary';
   avatarShape: 'circle' | 'square';
+  /** Person photo for the avatar slot. Undefined → Avatar renders name initials at the same size. */
+  avatarSrc?: string;
   entity: OrgNodeEntity;
   count?: number;
   personId?: string;
