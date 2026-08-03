@@ -14,6 +14,16 @@ interface Props {
   placeholder?: string;
 }
 
+function isHtmlEmpty(html: string | null | undefined): boolean {
+  if (!html?.trim()) return true;
+  if (html === '<p></p>') return true;
+  if (typeof DOMParser !== 'undefined') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return (doc.body.textContent ?? '').trim().length === 0;
+  }
+  return false;
+}
+
 export function RichTextEditor({ value, onChange, onSave, onCancel, className }: Props) {
   const editor = useEditor({
     extensions: [StarterKit, Underline, Link.configure({ openOnClick: false })],
@@ -45,9 +55,8 @@ export function RichTextEditor({ value, onChange, onSave, onCancel, className }:
     if (!editor) return;
     const currentHtml = editor.getHTML();
     if (value !== currentHtml) {
-      const isValueEmpty = !value || value.replace(/<[^>]+>/g, '').trim().length === 0;
-      const isCurrentEmpty =
-        !currentHtml || currentHtml.replace(/<[^>]+>/g, '').trim().length === 0;
+      const isValueEmpty = isHtmlEmpty(value);
+      const isCurrentEmpty = editor.isEmpty || isHtmlEmpty(currentHtml);
 
       if (isValueEmpty && isCurrentEmpty) {
         if (currentHtml !== '<p></p>') {
