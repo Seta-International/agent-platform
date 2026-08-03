@@ -191,6 +191,7 @@ function countingOrgSurface(
 ): PeopleOrgSurface {
   return {
     getOrgStructure: (session) => people.getOrgStructure(session),
+    listWorkerNames: (input) => people.listWorkerNames(input),
     async createOrgUnit(input) {
       counters.orgUnitsCreated += 1;
       return people.createOrgUnit(input);

@@ -2,6 +2,7 @@ import {
   createOrgUnit,
   deleteOrgUnit,
   getOrgStructure,
+  listWorkers,
   syncDirectoryPeople,
   updateOrgUnit,
 } from '@seta/people';
@@ -16,7 +17,11 @@ import type { PeopleDirectorySurface } from './sync.ts';
  *   the sync creates gets `undefined` for its id and the `m365_org_unit_links` write fails.
  * - `getOrgStructure` returns a resolved `head: { person_id, full_name } | null`, the surface
  *   wants the raw `head_worker_id` — unadapted, `resolveHeads` sees every head as `undefined`,
- *   never equal to its chosen candidate, and rewrites every unit head on every run.
+ *   never equal to its chosen candidate, and rewrites every unit head on every run. Its `members`
+ *   are records; the surface wants ids, which is all `unit_delete_blocked`'s counts need.
+ * - `listWorkers` answers paginated rows; the surface wants a `person_id -> full_name` lookup.
+ *   The `ids` path is unpaginated, but ONLY when the array is non-empty — an empty `ids` falls
+ *   through to the default page and would hand back 20 arbitrary workers, so it short-circuits.
  *
  * The return-type annotation below is what proves the shape against the real exports at
  * `typecheck` time. It is the only check there is: `integrations` tests cannot execute this file,
@@ -37,8 +42,14 @@ export function createPeopleDirectorySurface(): PeopleDirectorySurface {
           name: u.name,
           kind: u.kind,
           head_worker_id: u.head?.person_id ?? null,
+          member_ids: u.members.map((m) => m.person_id),
         })),
       };
+    },
+    listWorkerNames: async ({ person_ids, session }) => {
+      if (person_ids.length === 0) return new Map<string, string>();
+      const { rows } = await listWorkers(session, { ids: [...person_ids] });
+      return new Map(rows.map((r) => [r.worker_id, r.full_name]));
     },
     createOrgUnit: async (input) => {
       const { org_unit_id } = await createOrgUnit(input);

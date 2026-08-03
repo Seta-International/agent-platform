@@ -10,11 +10,12 @@ import type { DirectoryRepo, OrgUnitLinkRow } from './repo.ts';
  * hard dependency and lets tests drive it without a real RBAC session.
  *
  * NOTE for the wiring layer: the real module is *not* structurally assignable to this interface.
- * `createOrgUnit` returns `{ org_unit_id }`, and `getOrgStructure` returns a resolved
- * `head: { person_id, full_name } | null` rather than the raw `head_worker_id`. A thin adapter
- * (`u.head?.person_id ?? null`, `{ id: org_unit_id }`) closes both gaps.
+ * `createOrgUnit` returns `{ org_unit_id }`, `getOrgStructure` returns a resolved
+ * `head: { person_id, full_name } | null` rather than the raw `head_worker_id` and a `members`
+ * array of records rather than bare ids, and `listWorkers` answers rows rather than a lookup. A
+ * thin adapter (`directory/people-surface.ts`) closes every gap.
  *
- * The session handed in must carry `people.worker.read` (getOrgStructure),
+ * The session handed in must carry `people.worker.read` (getOrgStructure, listWorkerNames),
  * `people.worker.create` (createOrgUnit) and `people.org_unit.manage` (update/delete) —
  * `buildSystemSession`'s `system.integrations.m365` role holds all three.
  */
@@ -26,8 +27,23 @@ export interface PeopleOrgSurface {
       name: string;
       kind: string;
       head_worker_id: string | null;
+      /**
+       * The unit's current members. Ids only — `integrations` has no business holding people's
+       * names beyond the one conflict payload that needs them, and the count is what §9.1's
+       * `unit_delete_blocked` detail is actually asking for.
+       */
+      member_ids: string[];
     }>;
   }>;
+  /**
+   * `person_id -> full_name` for the ids asked about; ids the session cannot see are simply
+   * absent from the map. §9.1 requires `full_name` on every `manager_ambiguous` candidate, and
+   * `getOrgStructure` cannot answer it for a manager who sits in no unit at all.
+   */
+  listWorkerNames(input: {
+    person_ids: ReadonlyArray<string>;
+    session: SessionScope;
+  }): Promise<Map<string, string>>;
   createOrgUnit(input: {
     name: string;
     kind: 'function';
@@ -101,6 +117,7 @@ interface MutableUnit {
   name: string;
   kind: string;
   head_worker_id: string | null;
+  member_ids: string[];
 }
 
 export interface ResolveOrgUnitsInput {
@@ -285,6 +302,7 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
       name: node.name,
       kind: 'function',
       head_worker_id: null,
+      member_ids: [],
     });
     return created.id;
   }
@@ -340,6 +358,16 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
     }
     // `deleteOrgUnit` reports refusal, it does not throw. Keep the unit and the link, and let a
     // human decide where the members go.
+    //
+    // §9.1 mandates both counts, and `reassign` — the resolution offered — is exactly the
+    // decision that needs them. They come off the same `getOrgStructure` snapshot `deleteOrgUnit`
+    // just judged, and children are counted over the live snapshot: units reaped earlier in this
+    // very loop are already gone from `unitById`, so a subtree dropped in one run reports the
+    // children it still has, not the ones it started with.
+    let childCount = 0;
+    for (const candidate of unitById.values()) {
+      if (candidate.parent_id === link.orgUnitId) childCount += 1;
+    }
     await repo.raiseConflict({
       tenantId,
       kind: 'unit_delete_blocked',
@@ -350,6 +378,8 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
         reason: outcome.reason ?? null,
         entra_key: link.entraKey,
         unit_name: unit.name,
+        member_count: unit.member_ids.length,
+        child_count: childCount,
       },
     });
   }
@@ -377,12 +407,28 @@ interface HeadCandidate {
   report_count: number;
 }
 
+/** A unit whose ambiguity is settled but whose `full_name`s are not yet looked up. */
+interface PendingAmbiguity {
+  unitId: string;
+  unitName: string;
+  chosen: HeadCandidate & { person_id: string };
+  candidates: HeadCandidate[];
+}
+
 /**
  * Derives each sync-owned unit's `head_worker_id` from the modal Entra manager of its members.
  *
  * `head_worker_id` plus the `parent_id` chain is the *only* representation of reporting in this
  * repo (F-ORG-3) — there is no `person.manager_id` and there must never be one, so an Entra
  * manager pointer only ever lands here.
+ *
+ * An admin's `choose_head` resolution outranks the modal vote for as long as the person they
+ * picked is still a resolvable candidate for that unit (§9.1/§9.2, review finding I1). Without
+ * that the decision was overwritten on the very next run — and since the dedupe index is partial
+ * on `status = 'open'`, the resolved row suppressed nothing and a fresh conflict row was inserted
+ * every night. The candidacy test is what keeps the pin honest in the other direction: a pin whose
+ * person left Entra, or whose reports all moved away, lapses back to normal modal resolution
+ * instead of freezing a dead decision into an RBAC predicate.
  *
  * `headsSet` counts units whose head actually changed; a run that agrees with the tree writes
  * nothing and reports 0. `ambiguous` counts units that raised `manager_ambiguous`.
@@ -431,7 +477,12 @@ export async function resolveHeads(
     return personId;
   }
 
+  // One lookup for the whole run, and only when there is something to decide.
+  const pinnedHeads =
+    votesByUnit.size > 0 ? await repo.listHeadChoices(tenantId) : new Map<string, string>();
+
   const headedUnitIds = new Set<string>();
+  const pendingAmbiguities: PendingAmbiguity[] = [];
   for (const [unitId, votes] of votesByUnit) {
     const unit = unitById.get(unitId);
     if (!unit) continue;
@@ -454,23 +505,22 @@ export async function resolveHeads(
     const resolvable = candidates.filter(
       (c): c is HeadCandidate & { person_id: string } => c.person_id !== null,
     );
-    const chosen = resolvable[0];
+
+    // The admin's pick wins, but only while they are still one of this unit's live candidates.
+    // Anything else — they left Entra, or nobody reports to them any more — is the pin lapsing,
+    // and modal resolution (plus a legitimately re-raised conflict) takes over again.
+    const pinnedPersonId = pinnedHeads.get(unitId);
+    const pinned = pinnedPersonId
+      ? resolvable.find((c) => c.person_id === pinnedPersonId)
+      : undefined;
+    const chosen = pinned ?? resolvable[0];
     if (!chosen) continue;
 
-    if (resolvable.length > 1) {
+    // A pinned unit has nothing left to decide, so re-queueing it would just refill the admin's
+    // queue with the question they already answered.
+    if (!pinned && resolvable.length > 1) {
       ambiguous += 1;
-      await repo.raiseConflict({
-        tenantId,
-        kind: 'manager_ambiguous',
-        subjectType: 'org_unit',
-        subjectId: unitId,
-        entraOid: null,
-        detail: {
-          unit_name: unit.name,
-          chosen: { manager_oid: chosen.manager_oid, person_id: chosen.person_id },
-          candidates,
-        },
-      });
+      pendingAmbiguities.push({ unitId, unitName: unit.name, chosen, candidates });
     }
 
     headedUnitIds.add(unitId);
@@ -481,6 +531,42 @@ export async function resolveHeads(
       session,
     });
     headsSet += 1;
+  }
+
+  // Raised after the vote loop so every candidate across every ambiguous unit costs ONE name
+  // lookup, not one per candidate — a first sync of a large tenant is otherwise a fan-out of
+  // single-row reads. A name the session cannot see stays null rather than dropping the
+  // candidate: an admin can still act on the report count and the oid.
+  if (pendingAmbiguities.length > 0) {
+    const personIds = new Set<string>();
+    for (const pending of pendingAmbiguities) {
+      for (const candidate of pending.candidates) {
+        if (candidate.person_id) personIds.add(candidate.person_id);
+      }
+    }
+    const nameById = await people.listWorkerNames({ person_ids: [...personIds], session });
+    const named = (candidate: HeadCandidate) => ({
+      ...candidate,
+      full_name: candidate.person_id ? (nameById.get(candidate.person_id) ?? null) : null,
+    });
+    for (const pending of pendingAmbiguities) {
+      await repo.raiseConflict({
+        tenantId,
+        kind: 'manager_ambiguous',
+        subjectType: 'org_unit',
+        subjectId: pending.unitId,
+        entraOid: null,
+        detail: {
+          unit_name: pending.unitName,
+          chosen: {
+            manager_oid: pending.chosen.manager_oid,
+            person_id: pending.chosen.person_id,
+            full_name: nameById.get(pending.chosen.person_id) ?? null,
+          },
+          candidates: pending.candidates.map(named),
+        },
+      });
+    }
   }
 
   // A head the census no longer supports — the manager left Entra, or every report lost their

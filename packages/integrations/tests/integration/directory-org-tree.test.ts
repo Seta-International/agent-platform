@@ -28,12 +28,15 @@ interface FakeCalls {
     patch: { name?: string; parent_id?: string | null; head_worker_id?: string | null };
   }>;
   delete: string[];
+  names: string[][];
 }
 
 interface FakePeople extends PeopleOrgSurface {
   units: Map<string, FakeUnit>;
   /** unit id -> person ids, so deleteOrgUnit can answer `has_members` the way the real one does. */
   members: Map<string, string[]>;
+  /** person id -> full name, as `listWorkers({ ids })` would answer. */
+  names: Map<string, string>;
   calls: FakeCalls;
   snapshot(id: string): FakeUnit | undefined;
 }
@@ -47,11 +50,13 @@ interface FakePeople extends PeopleOrgSurface {
 function createFakePeople(seed: FakeUnit[]): FakePeople {
   const units = new Map<string, FakeUnit>(seed.map((u) => [u.id, { ...u }]));
   const members = new Map<string, string[]>();
-  const calls: FakeCalls = { getOrgStructure: 0, create: [], update: [], delete: [] };
+  const names = new Map<string, string>();
+  const calls: FakeCalls = { getOrgStructure: 0, create: [], update: [], delete: [], names: [] };
 
   return {
     units,
     members,
+    names,
     calls,
     snapshot(id) {
       const u = units.get(id);
@@ -60,8 +65,20 @@ function createFakePeople(seed: FakeUnit[]): FakePeople {
     async getOrgStructure() {
       calls.getOrgStructure += 1;
       return {
-        units: [...units.values()].map((u) => ({ ...u })),
+        units: [...units.values()].map((u) => ({
+          ...u,
+          member_ids: [...(members.get(u.id) ?? [])],
+        })),
       };
+    },
+    async listWorkerNames(input) {
+      calls.names.push([...input.person_ids]);
+      // Mirrors `listWorkers({ ids })`: ids it cannot see simply do not come back.
+      return new Map(
+        input.person_ids
+          .filter((id) => names.has(id))
+          .map((id) => [id, names.get(id) as string] as const),
+      );
     },
     async createOrgUnit(input) {
       calls.create.push({ name: input.name, kind: input.kind, parent_id: input.parent_id });
@@ -667,7 +684,10 @@ describe('directory org tree', () => {
         people,
       });
       const engineering = functionUnits(people).find((u) => u.name === 'Engineering');
-      people.members.set(engineering!.id, ['22222222-2222-4222-8222-222222222222']);
+      people.members.set(engineering!.id, [
+        '22222222-2222-4222-8222-222222222222',
+        '22222222-2222-4222-8222-222222222223',
+      ]);
 
       await resolveOrgUnits({
         tenantId: TENANT,
@@ -689,11 +709,59 @@ describe('directory org tree', () => {
       expect(conflicts[0]?.subjectType).toBe('org_unit');
       expect(conflicts[0]?.subjectId).toBe(engineering!.id);
       expect(conflicts[0]?.entraOid).toBeNull();
+      // §9.1: the detail must carry member and child counts. `reassign` is the resolution
+      // offered, and "how many people am I moving?" is the decision the admin is making.
       expect(conflicts[0]?.detail).toEqual({
         reason: 'has_members',
         entra_key: orgKey(null, 'Engineering'),
         unit_name: 'Engineering',
+        member_count: 2,
+        child_count: 0,
       });
+    });
+  });
+
+  it('counts children on the unit_delete_blocked raised for a division that still has one', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      const session = buildSystemSession(TENANT);
+
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [{ division: 'Product Group', department: 'Engineering' }],
+        session,
+        repo,
+        people,
+      });
+      const productGroup = functionUnits(people).find((u) => u.name === 'Product Group');
+      const engineering = functionUnits(people).find((u) => u.name === 'Engineering');
+      expect(productGroup).toBeDefined();
+
+      // Entra dropped the division but kept the department, so the division is reaped while its
+      // child still hangs off it — `has_children`, with nothing said about members.
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [{ division: null, department: 'Engineering' }],
+        session,
+        repo,
+        people,
+      });
+
+      expect(people.units.has(productGroup!.id)).toBe(true);
+      const conflicts = await repo.listConflicts(TENANT, 'open');
+      expect(conflicts.length).toBe(1);
+      expect(conflicts[0]?.subjectId).toBe(productGroup!.id);
+      expect(conflicts[0]?.detail).toEqual({
+        reason: 'has_children',
+        entra_key: orgKey('Product Group', null),
+        unit_name: 'Product Group',
+        member_count: 0,
+        child_count: 1,
+      });
+      expect(engineering).toBeDefined();
     });
   });
 
@@ -805,6 +873,9 @@ describe('directory org tree', () => {
           personId: MGR_B_PERSON,
           entraOid: MGR_B_OID,
         });
+        // §9.1: each candidate carries `full_name`. B's name is deliberately unknown to the
+        // people surface, so the payload has to survive that rather than drop the candidate.
+        people.names.set(MGR_A_PERSON, 'Ada Lovelace');
 
         const result = await resolveHeads({
           tenantId: TENANT,
@@ -827,15 +898,156 @@ describe('directory org tree', () => {
         expect(conflicts[0]?.subjectType).toBe('org_unit');
         expect(conflicts[0]?.subjectId).toBe(eng);
         expect(conflicts[0]?.entraOid).toBeNull();
-        // Every candidate, with its report count — that is the whole point of the queue entry.
+        // Every candidate, with its report count and name — that is the whole point of the queue
+        // entry: Task 17 renders these as buttons, and a bare UUID is not a choice a human can make.
         expect(conflicts[0]?.detail).toEqual({
           unit_name: 'Engineering',
-          chosen: { manager_oid: MGR_A_OID, person_id: MGR_A_PERSON },
+          chosen: { manager_oid: MGR_A_OID, person_id: MGR_A_PERSON, full_name: 'Ada Lovelace' },
           candidates: [
-            { manager_oid: MGR_A_OID, person_id: MGR_A_PERSON, report_count: 2 },
-            { manager_oid: MGR_B_OID, person_id: MGR_B_PERSON, report_count: 1 },
+            {
+              manager_oid: MGR_A_OID,
+              person_id: MGR_A_PERSON,
+              report_count: 2,
+              full_name: 'Ada Lovelace',
+            },
+            { manager_oid: MGR_B_OID, person_id: MGR_B_PERSON, report_count: 1, full_name: null },
           ],
         });
+        // One batched lookup for the whole run, not one per candidate.
+        expect(people.calls.names.length).toBe(1);
+        expect([...(people.calls.names[0] as string[])].sort()).toEqual(
+          [MGR_A_PERSON, MGR_B_PERSON].sort(),
+        );
+      });
+    });
+
+    // I1. `resolveHeads` used to write the modal head unconditionally, so the admin's decision was
+    // overwritten on the very next run — and because the dedupe index is partial on
+    // `status = 'open'`, the resolved row suppressed nothing and a brand-new conflict was inserted
+    // every night. The pin holds only while the chosen person is still a resolvable candidate.
+    it('honours a resolved choose_head instead of re-writing the modal head', async () => {
+      await withIntegrationsTestDb(async ({ db }) => {
+        const repo = createDirectoryRepo({ db });
+        const people = createFakePeople(spine());
+        const session = buildSystemSession(TENANT);
+        const map = await seedUnits(repo, people, ['Engineering']);
+        const eng = map.get(orgKey(null, 'Engineering')) as string;
+
+        for (const [personId, oid] of [
+          [MGR_A_PERSON, MGR_A_OID],
+          [MGR_B_PERSON, MGR_B_OID],
+        ] as const) {
+          await repo.upsertPersonLink({ tenantId: TENANT, personId, entraOid: oid });
+        }
+        const members = [
+          { person_id: P1, org_unit_id: eng, manager_oid: MGR_A_OID },
+          { person_id: P2, org_unit_id: eng, manager_oid: MGR_A_OID },
+          { person_id: P3, org_unit_id: eng, manager_oid: MGR_B_OID },
+        ];
+
+        // Run 1: the modal manager A wins and the ambiguity is queued.
+        await resolveHeads({ tenantId: TENANT, members, session, repo, people });
+        expect(people.units.get(eng)?.head_worker_id).toBe(MGR_A_PERSON);
+        const [raised] = await repo.listConflicts(TENANT, 'open');
+        expect(raised).toBeDefined();
+
+        // The admin picks the minority candidate B.
+        await repo.closeConflict({
+          tenantId: TENANT,
+          id: raised!.id,
+          status: 'resolved',
+          resolution: { action: 'choose_head', person_id: MGR_B_PERSON },
+          resolvedBy: '99999999-9999-4999-8999-999999999999',
+        });
+        await people.updateOrgUnit({
+          org_unit_id: eng,
+          patch: { head_worker_id: MGR_B_PERSON },
+          session,
+        });
+        people.calls.update.length = 0;
+
+        // Run 2: identical census. B stays, nothing is written, and no fresh row is queued.
+        const again = await resolveHeads({ tenantId: TENANT, members, session, repo, people });
+        expect(people.units.get(eng)?.head_worker_id).toBe(MGR_B_PERSON);
+        expect(people.calls.update).toEqual([]);
+        expect(again).toEqual({ headsSet: 0, ambiguous: 0 });
+        expect(await repo.listConflicts(TENANT, 'open')).toEqual([]);
+      });
+    });
+
+    // The other half of I1: a pin that outlived its person would be just as wrong as one that is
+    // reverted nightly — the unit would keep a head Entra no longer supports, and
+    // `reportsSubtreeSql` is an RBAC predicate. Both ways of ceasing to be a candidate are pinned.
+    it('lapses the choose_head pin once the chosen person stops being a candidate', async () => {
+      await withIntegrationsTestDb(async ({ db }) => {
+        const repo = createDirectoryRepo({ db });
+        const people = createFakePeople(spine());
+        const session = buildSystemSession(TENANT);
+        const map = await seedUnits(repo, people, ['Engineering', 'Marketing']);
+        const eng = map.get(orgKey(null, 'Engineering')) as string;
+        const mkt = map.get(orgKey(null, 'Marketing')) as string;
+
+        for (const [personId, oid] of [
+          [MGR_A_PERSON, MGR_A_OID],
+          [MGR_B_PERSON, MGR_B_OID],
+        ] as const) {
+          await repo.upsertPersonLink({ tenantId: TENANT, personId, entraOid: oid });
+        }
+        const engMembers = [
+          { person_id: P1, org_unit_id: eng, manager_oid: MGR_A_OID },
+          { person_id: P2, org_unit_id: eng, manager_oid: MGR_A_OID },
+          { person_id: P3, org_unit_id: eng, manager_oid: MGR_B_OID },
+        ];
+        const mktMembers = [
+          { person_id: P1, org_unit_id: mkt, manager_oid: MGR_A_OID },
+          { person_id: P2, org_unit_id: mkt, manager_oid: MGR_A_OID },
+          { person_id: P3, org_unit_id: mkt, manager_oid: MGR_B_OID },
+        ];
+
+        await resolveHeads({
+          tenantId: TENANT,
+          members: [...engMembers, ...mktMembers],
+          session,
+          repo,
+          people,
+        });
+        for (const conflict of await repo.listConflicts(TENANT, 'open')) {
+          await repo.closeConflict({
+            tenantId: TENANT,
+            id: conflict.id,
+            status: 'resolved',
+            resolution: { action: 'choose_head', person_id: MGR_B_PERSON },
+            resolvedBy: '99999999-9999-4999-8999-999999999999',
+          });
+          await people.updateOrgUnit({
+            org_unit_id: conflict.subjectId as string,
+            patch: { head_worker_id: MGR_B_PERSON },
+            session,
+          });
+        }
+        people.calls.update.length = 0;
+
+        // (a) B leaves Entra: the pin cannot keep a departed manager as the head.
+        await repo.markRemoved(TENANT, MGR_B_OID);
+        // (b) In Marketing B stays in Entra but nobody reports to them any more.
+        const result = await resolveHeads({
+          tenantId: TENANT,
+          members: [...engMembers, ...mktMembers.map((m) => ({ ...m, manager_oid: MGR_A_OID }))],
+          session,
+          repo,
+          people,
+        });
+
+        expect(people.units.get(eng)?.head_worker_id).toBe(MGR_A_PERSON);
+        expect(people.units.get(mkt)?.head_worker_id).toBe(MGR_A_PERSON);
+        expect(result.headsSet).toBe(2);
+        // Engineering is ambiguous again on the underlying data (A plus the unlinked B is now a
+        // single resolvable candidate, so it is not) — Marketing likewise. Neither may silently
+        // keep B.
+        expect(people.calls.update).toEqual([
+          { org_unit_id: eng, patch: { head_worker_id: MGR_A_PERSON } },
+          { org_unit_id: mkt, patch: { head_worker_id: MGR_A_PERSON } },
+        ]);
       });
     });
 

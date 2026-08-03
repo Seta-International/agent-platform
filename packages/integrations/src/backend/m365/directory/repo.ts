@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type * as schema from '../../db/schema/index.ts';
 import type {
@@ -89,6 +89,12 @@ export interface DirectoryRepo {
   listConflicts(tenantId: string, status: DirectoryConflictStatus): Promise<ConflictRow[]>;
   getConflict(tenantId: string, id: string): Promise<ConflictRow | null>;
   closeConflict(input: CloseConflictInput): Promise<void>;
+  /**
+   * `org_unit_id -> person_id` for the most recent `choose_head` resolution of each unit — the
+   * pin `resolveHeads` honours (design §9.2). Reads resolved rows, which the partial
+   * `status = 'open'` dedupe index deliberately does not cover, and returns the newest per unit.
+   */
+  listHeadChoices(tenantId: string): Promise<Map<string, string>>;
 }
 
 export function createDirectoryRepo(deps: CreateDirectoryRepoDeps): DirectoryRepo {
@@ -253,6 +259,34 @@ export function createDirectoryRepo(deps: CreateDirectoryRepoDeps): DirectoryRep
         .where(and(eq(m365DirectoryConflict.tenantId, tenantId), eq(m365DirectoryConflict.id, id)))
         .limit(1);
       return row ?? null;
+    },
+
+    async listHeadChoices(tenantId) {
+      const rows = await db
+        .select({
+          subjectId: m365DirectoryConflict.subjectId,
+          personId: sql<string | null>`${m365DirectoryConflict.resolution}->>'person_id'`,
+        })
+        .from(m365DirectoryConflict)
+        .where(
+          and(
+            eq(m365DirectoryConflict.tenantId, tenantId),
+            eq(m365DirectoryConflict.kind, 'manager_ambiguous'),
+            eq(m365DirectoryConflict.subjectType, 'org_unit'),
+            eq(m365DirectoryConflict.status, 'resolved'),
+            isNotNull(m365DirectoryConflict.subjectId),
+            sql`${m365DirectoryConflict.resolution}->>'action' = 'choose_head'`,
+          ),
+        )
+        // Newest first, so the first row seen per unit is the decision that still stands.
+        .orderBy(desc(m365DirectoryConflict.resolvedAt));
+
+      const byUnit = new Map<string, string>();
+      for (const row of rows) {
+        if (!row.subjectId || !row.personId) continue;
+        if (!byUnit.has(row.subjectId)) byUnit.set(row.subjectId, row.personId);
+      }
+      return byUnit;
     },
 
     async closeConflict(input) {

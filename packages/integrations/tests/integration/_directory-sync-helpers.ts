@@ -69,6 +69,8 @@ export interface FakeCalls {
     patch: { name?: string; parent_id?: string | null; head_worker_id?: string | null };
   }>;
   delete: string[];
+  /** Every `person_ids` batch handed to `listWorkerNames`, in call order. */
+  names: string[][];
   /** Every `DirectoryPerson[]` batch handed to `syncDirectoryPeople`, in call order. */
   sync: DirectoryPerson[][];
 }
@@ -95,12 +97,28 @@ export function createFakePeople(seed: FakeUnit[]): FakePeople {
   const members = new Map<string, string[]>();
   const collisions = new Set<string>();
   const seen = new Map<string, { person_id: string; dto: string }>();
-  const calls: FakeCalls = { getOrgStructure: 0, create: [], update: [], delete: [], sync: [] };
+  const calls: FakeCalls = {
+    getOrgStructure: 0,
+    create: [],
+    update: [],
+    delete: [],
+    names: [],
+    sync: [],
+  };
 
   const orgSurface: PeopleOrgSurface = {
     async getOrgStructure() {
       calls.getOrgStructure += 1;
-      return { units: [...units.values()].map((u) => ({ ...u })) };
+      return {
+        units: [...units.values()].map((u) => ({
+          ...u,
+          member_ids: [...(members.get(u.id) ?? [])],
+        })),
+      };
+    },
+    async listWorkerNames({ person_ids }) {
+      calls.names.push([...person_ids]);
+      return new Map(person_ids.map((id) => [id, `Person ${id.slice(0, 8)}`] as const));
     },
     async createOrgUnit(input) {
       calls.create.push({ name: input.name, kind: input.kind, parent_id: input.parent_id });
