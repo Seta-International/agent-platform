@@ -106,11 +106,16 @@ interface MutableUnit {
 export interface ResolveOrgUnitsInput {
   tenantId: string;
   /**
-   * CONTRACT: the *complete* current division/department census for the tenant, not a delta
-   * slice. Anything absent from it is treated as dropped from Entra and reaped, so handing in a
-   * partial page would delete every department the page happened not to mention.
+   * When `reap` is true this MUST be the complete current division/department census for the
+   * tenant. When false it may be any subset — a delta page mentions only changed users.
    */
   pairs: ReadonlyArray<DirectoryOrgPair>;
+  /**
+   * Delete sync-owned units whose `entra_key` is absent from `pairs`. Required, not optional, and
+   * deliberately so: a delta run carries only changed users, so reaping against one would delete
+   * every department that page happened not to mention. Pass true only on a full census run.
+   */
+  reap: boolean;
   session: SessionScope;
   repo: DirectoryRepo;
   people: PeopleOrgSurface;
@@ -279,6 +284,9 @@ export async function resolveOrgUnits(input: ResolveOrgUnitsInput): Promise<Map<
         : undefined;
     if (target) result.set(orgKey(pair.division, pair.department), target);
   }
+
+  // Only a full census can tell "dropped from Entra" apart from "not in this delta page".
+  if (!input.reap) return result;
 
   // Reap departments before divisions: a division deleted first would still have its child and
   // report `has_children`, turning one dropped subtree into a spurious conflict.

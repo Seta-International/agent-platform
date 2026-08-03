@@ -150,6 +150,7 @@ describe('directory org tree', () => {
 
       const map = await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'Engineering' }],
         session,
         repo,
@@ -181,6 +182,7 @@ describe('directory org tree', () => {
 
       const map = await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: 'Product Group', department: 'Engineering' }],
         session,
         repo,
@@ -215,7 +217,14 @@ describe('directory org tree', () => {
         { division: null, department: 'Marketing' },
       ];
 
-      const first = await resolveOrgUnits({ tenantId: TENANT, pairs, session, repo, people });
+      const first = await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs,
+        session,
+        repo,
+        people,
+      });
       expect(people.calls.create.length).toBe(3); // Product Group, Engineering, Marketing
       const afterFirst = functionUnits(people).map((u) => ({ ...u }));
 
@@ -223,7 +232,14 @@ describe('directory org tree', () => {
       people.calls.update.length = 0;
       people.calls.delete.length = 0;
 
-      const second = await resolveOrgUnits({ tenantId: TENANT, pairs, session, repo, people });
+      const second = await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs,
+        session,
+        repo,
+        people,
+      });
 
       // Call counts on the injected surface, not merely "no error": a second create or a
       // no-op rename would both still resolve to the same tree.
@@ -245,6 +261,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'Engineering' }],
         session,
         repo,
@@ -261,6 +278,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'Engineering' }],
         session,
         repo,
@@ -279,6 +297,7 @@ describe('directory org tree', () => {
       people.calls.update.length = 0;
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'ENGINEERING' }],
         session,
         repo,
@@ -302,6 +321,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: 'Product Group', department: 'Engineering' }],
         session,
         repo,
@@ -314,6 +334,7 @@ describe('directory org tree', () => {
       people.calls.update.length = 0;
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [
           { division: 'Product Group', department: null },
           { division: 'Platform Group', department: 'Engineering' },
@@ -343,6 +364,7 @@ describe('directory org tree', () => {
 
       const map = await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [
           { division: null, department: 'Delivery' },
           { division: null, department: 'executive' },
@@ -402,6 +424,7 @@ describe('directory org tree', () => {
       // not adopted — sync ownership is the link row, never a name match (design §4.2).
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [
           { division: null, department: 'Engineering' },
           { division: null, department: 'Marketing' },
@@ -415,6 +438,7 @@ describe('directory org tree', () => {
       // Run 2: Engineering vanished from Entra. Only the *linked* unit may be reaped.
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'Marketing' }],
         session,
         repo,
@@ -440,6 +464,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [
           { division: null, department: 'Engineering' },
           { division: null, department: 'Marketing' },
@@ -453,6 +478,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'Marketing' }],
         session,
         repo,
@@ -468,6 +494,50 @@ describe('directory org tree', () => {
     });
   });
 
+  // A delta page carries only CHANGED users, so a department is routinely absent from it while
+  // still existing in Entra. Reaping against one would delete nearly the whole tree on the first
+  // incremental run — this pins that `reap: false` cannot delete anything.
+  it('reaps nothing when reap is false, even though the department is absent from the input', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      const session = buildSystemSession(TENANT);
+
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: true,
+        pairs: [
+          { division: null, department: 'Engineering' },
+          { division: null, department: 'Marketing' },
+        ],
+        session,
+        repo,
+        people,
+      });
+      const engineering = functionUnits(people).find((u) => u.name === 'Engineering');
+      expect(engineering).toBeDefined();
+      const deletesBefore = people.calls.delete.length;
+
+      // Marketing-only page, as an incremental run would produce.
+      await resolveOrgUnits({
+        tenantId: TENANT,
+        reap: false,
+        pairs: [{ division: null, department: 'Marketing' }],
+        session,
+        repo,
+        people,
+      });
+
+      expect(people.calls.delete.length).toBe(deletesBefore);
+      expect(people.units.has(engineering!.id)).toBe(true);
+      const links = await repo.listOrgUnitLinks(TENANT);
+      expect(links.map((l) => l.entraKey).sort()).toEqual(
+        [orgKey(null, 'Engineering'), orgKey(null, 'Marketing')].sort(),
+      );
+      expect(await repo.listConflicts(TENANT, 'open')).toEqual([]);
+    });
+  });
+
   it('raises unit_delete_blocked and keeps the unit when a vanished department still has members', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const repo = createDirectoryRepo({ db });
@@ -476,6 +546,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [
           { division: null, department: 'Engineering' },
           { division: null, department: 'Marketing' },
@@ -489,6 +560,7 @@ describe('directory org tree', () => {
 
       await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: [{ division: null, department: 'Marketing' }],
         session,
         repo,
@@ -531,6 +603,7 @@ describe('directory org tree', () => {
     ): Promise<Map<string, string>> {
       const map = await resolveOrgUnits({
         tenantId: TENANT,
+        reap: true,
         pairs: departments.map((d) => ({ division: null, department: d })),
         session: buildSystemSession(TENANT),
         repo,
