@@ -30,6 +30,14 @@ export type {
 } from './directory/resolve.ts';
 export { DIRECTORY_RESOLUTION_ACTIONS, resolveDirectoryConflict } from './directory/resolve.ts';
 export type {
+  DirectoryCounterKey,
+  DirectoryRunReader,
+  DirectoryRunSummary,
+  DirectoryStatus,
+  DirectoryStatusDeps,
+} from './directory/status.ts';
+export { createDirectoryRunReader, getDirectoryStatus } from './directory/status.ts';
+export type {
   DirectoryPhotoStorage,
   DirectoryPullCounters,
   DirectoryPullResult,
@@ -38,6 +46,12 @@ export type {
   RunDirectoryPullInput,
 } from './directory/sync.ts';
 export { DirectoryPhotoInvariantError, runDirectoryPull } from './directory/sync.ts';
+export { listDirectoryTenantIds } from './directory/tenants.ts';
+export type {
+  RunDirectoryPullCronDeps,
+  RunDirectoryPullCronResult,
+} from './jobs/directory-pull-cron.ts';
+export { directoryPullJobKey, runDirectoryPullCron } from './jobs/directory-pull-cron.ts';
 export type { RunPlanAutoMirrorDeps, RunPlanAutoMirrorInput } from './jobs/plan-auto-mirror.ts';
 export { runPlanAutoMirror } from './jobs/plan-auto-mirror.ts';
 export type {
