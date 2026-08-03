@@ -440,6 +440,83 @@ describe('syncDirectoryPeople', () => {
     });
   });
 
+  it('creates an enabled person as active, and never re-asserts the stage on update', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const first = await syncDirectoryPeople({
+          people: [dp({ work_email: 'stage@x.vn', full_name: 'Stage One', account_enabled: true })],
+          session: t.adminSession,
+        });
+        const personId = first.results[0]?.person_id as string;
+
+        const [created] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(eq(employmentPeriod.person_id, personId));
+        expect(created?.lifecycle_stage).toBe('active');
+
+        // A human moves them to probation; the next sync must leave that alone.
+        await peopleDb()
+          .update(employmentPeriod)
+          .set({ lifecycle_stage: 'probation' })
+          .where(eq(employmentPeriod.person_id, personId));
+
+        await syncDirectoryPeople({
+          people: [
+            dp({
+              work_email: 'stage@x.vn',
+              full_name: 'Stage One Renamed',
+              account_enabled: true,
+            }),
+          ],
+          session: t.adminSession,
+        });
+
+        const [after] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(eq(employmentPeriod.person_id, personId));
+        expect(after?.lifecycle_stage).toBe('probation');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('leaves a disabled Entra account at preboarding', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({ work_email: 'disabled@x.vn', full_name: 'Disabled', account_enabled: false }),
+          ],
+          session: t.adminSession,
+        });
+
+        const [p] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(eq(employmentPeriod.person_id, results[0]?.person_id as string));
+        expect(p?.lifecycle_stage).toBe('preboarding');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('applies job_title and employment_type to the open employment period', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

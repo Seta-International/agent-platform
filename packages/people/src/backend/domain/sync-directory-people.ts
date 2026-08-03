@@ -312,11 +312,19 @@ async function createFromDirectory(
     .set(extras)
     .where(and(eq(person.id, worker_id), eq(person.tenant_id, session.tenant_id)));
 
+  // `insertWorkerAggregate` defaults every new period to 'preboarding', which is right for a
+  // hand-created hire but wrong for a directory sync: someone already enabled in Entra is a
+  // working employee, and read-workers filters on this column. Create path ONLY — the update
+  // path never writes it, so human transitions (probation, on_leave, offboarding) survive.
+  const periodPatch: Record<string, unknown> = {};
+  if (incoming.account_enabled) periodPatch.lifecycle_stage = 'active';
   const endDate = normalizeDate(incoming.leave_date);
-  if (endDate != null) {
+  if (endDate != null) periodPatch.end_date = endDate;
+
+  if (Object.keys(periodPatch).length > 0) {
     await tx
       .update(employmentPeriod)
-      .set({ end_date: endDate })
+      .set(periodPatch)
       .where(
         and(
           eq(employmentPeriod.person_id, worker_id),
