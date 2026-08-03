@@ -648,3 +648,219 @@ describe('syncDirectoryPeople', () => {
     });
   });
 });
+
+describe('syncDirectoryPeople — linked_person_id', () => {
+  it('follows an Entra email change on the bound person instead of duplicating it', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const oid = crypto.randomUUID();
+
+        const first = await syncDirectoryPeople({
+          people: [dp({ entra_oid: oid, work_email: 'before@x.vn', full_name: 'Renamed Mailbox' })],
+          session: t.adminSession,
+        });
+        expect(first.results[0]?.outcome).toBe('created');
+        const personId = first.results[0]?.person_id as string;
+
+        // Entra changed the address. The link row already binds this oid to `personId`, so the
+        // caller answers "which person is this?" and the email is just an attribute to update.
+        const second = await syncDirectoryPeople({
+          people: [
+            dp({
+              entra_oid: oid,
+              work_email: 'after@x.vn',
+              full_name: 'Renamed Mailbox',
+              linked_person_id: personId,
+            }),
+          ],
+          session: t.adminSession,
+        });
+        expect(second.results[0]?.outcome).toBe('updated');
+        expect(second.results[0]?.person_id).toBe(personId);
+
+        const rows = await peopleDb()
+          .select()
+          .from(person)
+          .where(eq(person.tenant_id, t.tenant_id));
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.id).toBe(personId);
+        expect(rows[0]?.work_email).toBe('after@x.vn');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('adopts a hand-created person, without disturbing their lifecycle stage', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { worker_id } = await createWorker({
+          full_name: 'Hand Created',
+          work_email: 'adopt@x.vn',
+          session: t.adminSession,
+        });
+        // A human has already moved them on; adoption is an UPDATE and must not reset this.
+        await peopleDb()
+          .update(employmentPeriod)
+          .set({ lifecycle_stage: 'probation' })
+          .where(eq(employmentPeriod.person_id, worker_id));
+
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({ work_email: 'adopt@x.vn', full_name: 'Entra Name', linked_person_id: worker_id }),
+          ],
+          session: t.adminSession,
+        });
+
+        expect(results[0]?.outcome).toBe('updated');
+        expect(results[0]?.person_id).toBe(worker_id);
+
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.directory_managed).toBe(true);
+        expect(p?.full_name).toBe('Entra Name');
+
+        const [period] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(eq(employmentPeriod.person_id, worker_id));
+        expect(period?.lifecycle_stage).toBe('probation');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('reports a collision when the bound id is not a live person in this tenant', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({
+              work_email: 'ghost@x.vn',
+              full_name: 'Ghost',
+              linked_person_id: crypto.randomUUID(),
+            }),
+          ],
+          session: t.adminSession,
+        });
+
+        expect(results[0]?.outcome).toBe('collision');
+        expect(results[0]?.person_id).toBeNull();
+
+        const rows = await peopleDb()
+          .select()
+          .from(person)
+          .where(eq(person.tenant_id, t.tenant_id));
+        expect(rows).toHaveLength(0);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('reports a collision when two Entra users are bound to one person', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const [seeded] = await peopleDb()
+          .insert(person)
+          .values({
+            tenant_id: t.tenant_id,
+            full_name: 'Shared Person',
+            work_email: 'shared@x.vn',
+            directory_managed: true,
+          })
+          .returning();
+        if (!seeded) throw new Error('seed failed');
+
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({ work_email: 'shared@x.vn', full_name: 'First', linked_person_id: seeded.id }),
+            dp({ work_email: 'other@x.vn', full_name: 'Second', linked_person_id: seeded.id }),
+          ],
+          session: t.adminSession,
+        });
+
+        expect(results.map((r) => r.outcome)).toEqual(['updated', 'collision']);
+
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, seeded.id));
+        expect(p?.full_name).toBe('First');
+        expect(p?.work_email).toBe('shared@x.vn');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('reports a collision when the new address already belongs to someone else', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const rows = await peopleDb()
+          .insert(person)
+          .values([
+            {
+              tenant_id: t.tenant_id,
+              full_name: 'Bound Person',
+              work_email: 'bound@x.vn',
+              directory_managed: true,
+            },
+            {
+              tenant_id: t.tenant_id,
+              full_name: 'Address Holder',
+              work_email: 'taken@x.vn',
+              directory_managed: true,
+            },
+          ])
+          .returning();
+        const bound = rows[0] as { id: string };
+
+        const { results } = await syncDirectoryPeople({
+          people: [
+            dp({ work_email: 'taken@x.vn', full_name: 'Bound Person', linked_person_id: bound.id }),
+            dp({ work_email: 'fresh@x.vn', full_name: 'Fresh Person' }),
+          ],
+          session: t.adminSession,
+        });
+
+        // The unique partial index makes taking that address impossible; the rest of the batch
+        // must still commit rather than abort on the constraint.
+        expect(results.map((r) => r.outcome)).toEqual(['collision', 'created']);
+
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, bound.id));
+        expect(p?.work_email).toBe('bound@x.vn');
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});

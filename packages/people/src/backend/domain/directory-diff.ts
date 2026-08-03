@@ -26,6 +26,13 @@ export interface DirectoryPerson {
   ooo_until: string | null; // ISO timestamp
   /** `null` = mailboxSettings was unavailable (Graph 403), not "the mailbox is empty". */
   auto_replies_enabled: boolean | null;
+  /**
+   * The person this Entra user is already bound to (`m365_person_links`), when the caller holds
+   * one. Present = match by id rather than by `work_email`, so an address changing in Entra
+   * updates the bound person instead of orphaning them behind a duplicate. Never diffed: it is the
+   * identity, not an attribute.
+   */
+  linked_person_id?: string | null;
 }
 
 /** The `people.person` columns this sync compares against, as read back from Postgres. */

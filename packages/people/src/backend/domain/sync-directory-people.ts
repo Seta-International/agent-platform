@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, person } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
@@ -54,9 +54,16 @@ export async function syncDirectoryPeople(input: {
   if (input.people.length === 0) return { results: [] };
 
   const emails = [...new Set(input.people.map((p) => normalizeEmail(p.work_email)))];
+  const linkedIds = [
+    ...new Set(
+      input.people.map((p) => p.linked_person_id).filter((id): id is string => id != null),
+    ),
+  ];
+  const byEmailSql = inArray(sql`lower(${person.work_email})`, emails);
 
   // One query for the whole batch — a first sync is the entire company, so a per-person lookup
-  // would be thousands of round trips.
+  // would be thousands of round trips. Bound ids ride along in the same query: both matching keys
+  // need the identical column set, and the union is still one round trip.
   const matches = (await peopleDb()
     .select({
       id: person.id,
@@ -80,12 +87,14 @@ export async function syncDirectoryPeople(input: {
       and(
         eq(person.tenant_id, session.tenant_id),
         isNull(person.deleted_at),
-        inArray(sql`lower(${person.work_email})`, emails),
+        linkedIds.length > 0 ? or(byEmailSql, inArray(person.id, linkedIds)) : byEmailSql,
       ),
     )) as MatchRow[];
 
   const byEmail = new Map<string, MatchRow[]>();
+  const byId = new Map<string, MatchRow>();
   for (const row of matches) {
+    byId.set(row.id, row);
     const key = normalizeEmail(row.work_email ?? '');
     const bucket = byEmail.get(key);
     if (bucket) bucket.push(row);
@@ -116,6 +125,7 @@ export async function syncDirectoryPeople(input: {
 
   const results: DirectorySyncOutcome[] = [];
   const seenInBatch = new Set<string>();
+  const seenLinkedInBatch = new Set<string>();
   // `byEmail` is a pre-transaction snapshot, so a person created earlier in THIS batch is not in
   // it. Without this, a duplicated email whose first occurrence was a create reports a collision
   // with an empty candidate list — nothing for the admin screen to act on.
@@ -144,47 +154,81 @@ export async function syncDirectoryPeople(input: {
       for (const incoming of input.people) {
         const email = normalizeEmail(incoming.work_email);
         const candidates = byEmail.get(email) ?? [];
-
-        // Two incoming rows sharing a work_email is an ambiguous directory state, not something
-        // to guess at. Reporting the duplicate as a collision also keeps the unique index from
-        // aborting the whole batch on the second insert.
-        if (seenInBatch.has(email)) {
+        const collide = (): void => {
           results.push({
             entra_oid: incoming.entra_oid,
             person_id: null,
             outcome: 'collision',
             collision_candidates: candidatesFor(email, candidates),
           });
+        };
+
+        // Two incoming rows sharing a work_email is an ambiguous directory state, not something
+        // to guess at. Reporting the duplicate as a collision also keeps the unique index from
+        // aborting the whole batch on the second insert. Bound rows are held to this too — being
+        // matched by id does not exempt the address they still write.
+        if (seenInBatch.has(email)) {
+          collide();
           continue;
         }
         seenInBatch.add(email);
 
-        const managed = candidates.filter((c) => c.directory_managed);
-        // A hand-created person, or an ambiguous multi-match, is left strictly alone — Task 12
-        // raises an `email_collision` for a human to resolve.
-        if (candidates.length > 1 || (candidates.length === 1 && managed.length === 0)) {
-          results.push({
-            entra_oid: incoming.entra_oid,
-            person_id: null,
-            outcome: 'collision',
-            collision_candidates: candidatesFor(email, candidates),
-          });
-          continue;
-        }
-
-        if (candidates.length === 0) {
-          const created = await createFromDirectory(tx, session, incoming, email);
-          if (created.person_id) {
-            createdInBatch.set(email, {
-              person_id: created.person_id,
-              full_name: incoming.full_name,
-            });
+        // A binding answers "which person is this?" outright, so email matching — and the
+        // ambiguity detection that goes with it — does not apply. What still applies is every
+        // state the database itself refuses to hold.
+        const linkedId = incoming.linked_person_id ?? null;
+        let current: MatchRow;
+        let adopt = false;
+        if (linkedId !== null) {
+          // Two Entra users bound to one person is a collision, not a race to overwrite it.
+          if (seenLinkedInBatch.has(linkedId)) {
+            collide();
+            continue;
           }
-          results.push(created);
-          continue;
+          seenLinkedInBatch.add(linkedId);
+
+          const bound = byId.get(linkedId);
+          // Deleted, or another tenant's: surface it rather than quietly creating a second person
+          // and orphaning the binding — the whole defect this matching key exists to prevent.
+          if (!bound) {
+            collide();
+            continue;
+          }
+          // Somebody else already holds the incoming address. `person_uniq_email_per_tenant` makes
+          // taking it impossible, and letting it reach the UPDATE would abort the entire batch.
+          if (candidates.some((c) => c.id !== bound.id)) {
+            collide();
+            continue;
+          }
+          current = bound;
+          // Adoption (design §9.1 `link`): the admin's decision is what makes the person
+          // sync-owned. An UPDATE, never a create, so `lifecycle_stage` and every other
+          // human-curated column survive.
+          adopt = !bound.directory_managed;
+        } else {
+          const managed = candidates.filter((c) => c.directory_managed);
+          // A hand-created person, or an ambiguous multi-match, is left strictly alone — Task 12
+          // raises an `email_collision` for a human to resolve.
+          if (candidates.length > 1 || (candidates.length === 1 && managed.length === 0)) {
+            collide();
+            continue;
+          }
+
+          if (candidates.length === 0) {
+            const created = await createFromDirectory(tx, session, incoming, email);
+            if (created.person_id) {
+              createdInBatch.set(email, {
+                person_id: created.person_id,
+                full_name: incoming.full_name,
+              });
+            }
+            results.push(created);
+            continue;
+          }
+
+          current = managed[0] as MatchRow;
         }
 
-        const current = managed[0] as MatchRow;
         const openPeriod = periodByPerson.get(current.id);
         const periodState: EmploymentPeriodState | null = openPeriod
           ? {
@@ -195,7 +239,7 @@ export async function syncDirectoryPeople(input: {
           : null;
 
         const plan = planDirectoryUpdate(incoming, current, periodState);
-        if (planIsEmpty(plan)) {
+        if (planIsEmpty(plan) && !adopt) {
           results.push({
             entra_oid: incoming.entra_oid,
             person_id: current.id,
@@ -204,11 +248,14 @@ export async function syncDirectoryPeople(input: {
           continue;
         }
 
-        if (Object.keys(plan.person).length > 0) {
+        // `directory_managed` is asserted, not diffed — it is what adoption *means* — so it joins
+        // the patch here rather than inside `planDirectoryUpdate`.
+        const personPatch = adopt ? { ...plan.person, directory_managed: true } : plan.person;
+        if (Object.keys(personPatch).length > 0) {
           await tx
             .update(person)
             .set({
-              ...plan.person,
+              ...personPatch,
               version: sql`${person.version} + 1`,
               updated_at: new Date(),
             })
@@ -240,7 +287,7 @@ export async function syncDirectoryPeople(input: {
             worker_id: current.id,
             person_id: current.id,
             tenant_id: session.tenant_id,
-            fields: [...Object.keys(plan.person), ...Object.keys(plan.period)],
+            fields: [...Object.keys(personPatch), ...Object.keys(plan.period)],
             full_name: (plan.person.full_name as string | undefined) ?? current.full_name ?? '',
             work_email:
               'work_email' in plan.person
