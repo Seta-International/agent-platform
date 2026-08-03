@@ -1,7 +1,9 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
 import type { ApprovalCard } from '@seta/agent-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
+import { sql } from 'drizzle-orm';
 import type { Hono } from 'hono';
+import { agentDb } from '../db/index.ts';
 import { type ApprovalDecisionContext, recordApprovalDecision } from '../domain/decide-approval.ts';
 import { recordLlmTurn } from '../llm-metrics.ts';
 import { resolveModel } from '../model-registry.ts';
@@ -28,6 +30,60 @@ function decisionFor(raw: Record<string, unknown>): 'approve' | 'reject' | 'modi
   if (raw.chosen !== undefined) return raw.chosen === 'decline' ? 'reject' : 'approve';
   const d = raw.decision;
   return d === 'reject' || d === 'modify' ? d : 'approve';
+}
+
+/**
+ * Recovery for the decided-but-unexecuted gap: the decision committed but the
+ * write that follows it did not (a dropped connection, a process restart
+ * mid-resume). Repeating the IDENTICAL decision on a run that is still paused
+ * re-enters the suspended run rather than refusing.
+ *
+ * Safe because the gateway holds the advisory lock on (tenant, idempotencyKey)
+ * and returns the committed result with `replayed: true` — the write cannot
+ * happen twice. A different decision stays a 409: the user does not get to
+ * change their mind after the fact.
+ *
+ * Deliberately NOT a new `pending → executing → completed` status vocabulary.
+ * agent.workflow_approvals is shared with the canvas and evented surfaces, the
+ * sweeper and resumeRetry; a fourth state would ripple through all four for a
+ * failure mode this covers in one query.
+ */
+async function replayableDecision(args: {
+  approvalId: string;
+  tenantId: string;
+  requested: 'approve' | 'reject' | 'modify';
+}): Promise<ApprovalDecisionContext | null> {
+  const status =
+    args.requested === 'reject'
+      ? 'rejected'
+      : args.requested === 'modify'
+        ? 'modified'
+        : 'approved';
+  const res = await agentDb().execute(sql`
+    SELECT a.run_id, a.step_id, a.proposed_payload,
+           a.mastra_run_id, a.tool_call_id, a.surface_chat_thread_id,
+           r.workflow_id
+      FROM agent.workflow_approvals a
+      JOIN agent.workflow_runs r ON r.run_id = a.run_id
+     WHERE a.approval_id = ${args.approvalId}
+       AND r.tenant_id   = ${args.tenantId}
+       AND a.status      = ${status}
+       AND a.decision_payload->>'decision' = ${args.requested}
+       AND a.mastra_run_id IS NOT NULL
+       AND r.status = 'paused'
+  `);
+  const rows = (res as unknown as { rows: Record<string, unknown>[] }).rows ?? [];
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    runId: row.run_id as string,
+    workflowId: row.workflow_id as string,
+    stepId: row.step_id as string,
+    proposedPayload: row.proposed_payload,
+    mastraRunId: row.mastra_run_id as string,
+    toolCallId: (row.tool_call_id as string | null) ?? null,
+    surfaceChatThreadId: (row.surface_chat_thread_id as string | null) ?? null,
+  };
 }
 
 /** Only the legacy assignment body carries an assignee override. */
@@ -156,7 +212,21 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
         },
       });
     } catch (err) {
-      return handleDomainError(c, err);
+      if ((err as { code?: string }).code !== 'already_decided') {
+        return handleDomainError(c, err);
+      }
+      const replay = await replayableDecision({
+        approvalId,
+        tenantId: session.tenant_id,
+        requested: decisionFor(raw),
+      });
+      if (!replay) return handleDomainError(c, err);
+      try {
+        parsed = parseResumeBodyForWorkflow(replay.workflowId, raw);
+      } catch (parseErr) {
+        return handleDomainError(c, parseErr);
+      }
+      ctx = replay;
     }
 
     // requireMastraRun guarantees this is set; narrow the type for the resume call.

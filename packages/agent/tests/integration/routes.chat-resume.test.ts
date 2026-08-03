@@ -91,6 +91,43 @@ function makeCard(assigneeUserIds: string[], taskId: string) {
   };
 }
 
+/** The shape buildUpdateApprovalCard emits: an A2 update preview. Its argsPatch
+ *  carries everything the resumed tool needs, because the resume may run in a
+ *  different process than the turn that created it. */
+function makeActionCard(taskId: string) {
+  return {
+    toolCallId: `planner.action:${taskId}`,
+    intent: 'Update "AWS migration"',
+    riskBadge: 'write' as const,
+    summary: 'Due will change.',
+    details: [
+      { kind: 'kvTable', rows: [{ k: 'Due', v: '12 Aug 2026 23:59 → 15 Aug 2026 23:59' }] },
+    ],
+    primary: {
+      label: 'Apply the change',
+      argsPatch: {
+        action: 'update',
+        taskId,
+        patch: { due_at: '2026-08-15T16:59:00.000Z' },
+        expectedVersion: 4,
+        idempotencyKey: 'key-1',
+      },
+    },
+    alternates: [],
+    decline: {
+      label: 'Cancel',
+      argsPatch: { action: 'decline', taskId, expectedVersion: 4, idempotencyKey: 'key-1' },
+    },
+    meta: {
+      tenantId: 't',
+      userId: 'u',
+      agentPath: ['action', 'orchestrator'],
+      toolId: 'planner_updateTask',
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
 /** Inserts an agentic native-suspend approval row (carries mastra_run_id +
  *  tool_call_id) and returns the approval id. */
 async function seedAgenticApproval(
@@ -101,15 +138,23 @@ async function seedAgenticApproval(
     mastraRunId: string;
     toolCallId: string;
     threadId: string;
-    card: ReturnType<typeof makeCard>;
+    card: ReturnType<typeof makeCard> | ReturnType<typeof makeActionCard>;
+    /** The runtime that owns the card. /chat/resume dispatches on this, so it is
+     *  what decides which body contract the request must use. */
+    workflowId?: string;
   },
 ): Promise<{ approvalId: string; runId: string }> {
   const runId = randomUUID();
   await pool.query(
     `INSERT INTO agent.workflow_runs
        (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
-     VALUES ($1, 'planner.assignment-orchestrator', $2, $3, 'chat', '{}'::jsonb, 'paused', now())`,
-    [runId, args.tenantId, args.approverUserId],
+     VALUES ($1, $4, $2, $3, 'chat', '{}'::jsonb, 'paused', now())`,
+    [
+      runId,
+      args.tenantId,
+      args.approverUserId,
+      args.workflowId ?? 'planner.assignment-orchestrator',
+    ],
   );
   const approvalId = randomUUID();
   await pool.query(
@@ -134,13 +179,10 @@ async function seedAgenticApproval(
 }
 
 type CapturedResume = {
-  resume: {
-    decision: string;
-    overrideUserIds?: string[];
-    alternateIndices?: number[];
-    note?: string;
-  };
-  ctx: { mastraRunId: string; toolCallId?: string; threadId?: string };
+  /** Payload-agnostic: the legacy path forwards a decision object, the generic
+   *  path forwards the card's argsPatch verbatim. */
+  resume: Record<string, unknown>;
+  ctx: { mastraRunId: string; toolCallId?: string; threadId?: string; workflowId: string };
 };
 
 /** Fake resumeOrchestration that records (resume, ctx) and yields a final event.
@@ -148,7 +190,7 @@ type CapturedResume = {
 function makeFakeResume(captured: CapturedResume[]) {
   return async (
     resume: CapturedResume['resume'],
-    ctx: { mastraRunId: string; toolCallId?: string; threadId?: string },
+    ctx: CapturedResume['ctx'],
   ): Promise<ChatStreamRun> => {
     captured.push({ resume, ctx });
     return fakeChatRun();
@@ -192,6 +234,24 @@ async function outboxCount(pool: Pool, runId: string): Promise<number> {
   );
   return Number(r.rows[0]!.n);
 }
+
+const post = (
+  app: Hono<{ Variables: { session: TestSession } }>,
+  body: unknown,
+): Promise<Response> =>
+  app.request('/api/agent/v1/chat/resume', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+const statusOf = (pool: Pool, approvalId: string): Promise<string> =>
+  pool
+    .query<{ status: string }>(
+      'SELECT status FROM agent.workflow_approvals WHERE approval_id = $1',
+      [approvalId],
+    )
+    .then((r) => r.rows[0]!.status);
 
 describe('POST /api/agent/v1/chat/resume', () => {
   it('approve: records decision + outbox, resumes with overrideUserIds from primary card', async () => {
@@ -368,7 +428,10 @@ describe('POST /api/agent/v1/chat/resume', () => {
     });
   });
 
-  it('already-decided approval: 409', async () => {
+  // A CHANGED decision on a decided row is what 409s. Repeating the identical
+  // decision re-resumes instead (FUT-815: recovery for a decision that committed
+  // while its write did not) — covered by the same-decision replay suite below.
+  it('already-decided approval, different decision: 409', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       const userId = randomUUID();
@@ -383,19 +446,10 @@ describe('POST /api/agent/v1/chat/resume', () => {
       });
       const captured: CapturedResume[] = [];
       const app = buildApp(me, makeFakeResume(captured));
-      const body = JSON.stringify({ approvalId, decision: 'approve' });
-      const first = await app.request('/api/agent/v1/chat/resume', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body,
-      });
+      const first = await post(app, { approvalId, decision: 'approve' });
       expect(first.status).toBe(200);
       await first.text();
-      const second = await app.request('/api/agent/v1/chat/resume', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body,
-      });
+      const second = await post(app, { approvalId, decision: 'reject' });
       expect(second.status).toBe(409);
     });
   });
@@ -441,6 +495,42 @@ describe('POST /api/agent/v1/chat/resume', () => {
       expect(row.rows[0]!.status).toBe('pending');
       expect(await outboxCount(pool, runId)).toBe(0);
       expect(captured).toHaveLength(0);
+    });
+  });
+});
+
+describe('POST /api/agent/v1/chat/resume — same-decision replay', () => {
+  it('re-resumes when the SAME decision is confirmed again on a still-paused run', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const me = sessionWith(tenantId, userId, ['agent.workflow.approve']);
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: randomUUID(),
+        toolCallId: 'tc-replay',
+        threadId: randomUUID(),
+        card: makeActionCard(randomUUID()),
+        workflowId: 'planner.action',
+      });
+      const captured: CapturedResume[] = [];
+      const app = buildApp(me, makeFakeResume(captured));
+
+      const first = await post(app, { approvalId, chosen: 'primary' });
+      expect(first.status).toBe(200);
+      await first.text();
+
+      // Same decision again → resumed again; the gateway makes the write idempotent.
+      const second = await post(app, { approvalId, chosen: 'primary' });
+      expect(second.status).toBe(200);
+      await second.text();
+      expect(captured).toHaveLength(2);
+
+      // A DIFFERENT decision on a decided row is still refused.
+      const third = await post(app, { approvalId, chosen: 'decline' });
+      expect(third.status).toBe(409);
+      expect(await third.json()).toMatchObject({ error: 'already_decided' });
     });
   });
 });
