@@ -3,6 +3,7 @@
 docs/superpowers
 .superpowers/
 docs/feature/kpi-metrics
+docs/modules/pm-kpi-weekly-spec-coverage.md
 
 # Local Claude Code config (per-machine, not shared)
 .claude/settings.local.json

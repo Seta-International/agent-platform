@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchKpiRecord,
   type KpiRecordMetricRow,
@@ -29,16 +29,31 @@ import {
   computeMetricValue,
   computeOverallHealth,
   formatBandTriple,
+  hasKpiEntryIssue,
   isReportingWeekOpen,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
+  kpiComponentIssue,
+  metricUnit,
   ragBadge,
+  validateKpiEntry,
 } from './kpi-shared.tsx';
+
+function blockNonNumericPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+  if (!/^-?\d*\.?\d*$/.test(e.clipboardData.getData('text'))) e.preventDefault();
+}
 
 // Number-native, matching Astryx NumberInput: null = not measured yet (an empty box), a number
 // = an entered figure. The stored record uses the same number|null shape, so no string parsing.
-type EntryState = Record<string, { c1: number | null; c2: number | null }>;
-const EMPTY_ENTRY = { c1: null, c2: null } as const;
+type Entry = { c1: number | null; c2: number | null };
+type EntryState = Record<string, Entry>;
+const EMPTY_ENTRY: Entry = { c1: null, c2: null };
+
+function withSlot(entry: Entry, slot: 'c1' | 'c2', value: number | null): Entry {
+  return slot === 'c1' ? { c1: value, c2: entry.c2 } : { c1: entry.c1, c2: value };
+}
+
+const HIDE_STATUS_ICON = '[&>.astryx-icon]:hidden!';
 
 // RAG colour → Astryx status variant (chromatic colour is reserved for status, matching the
 // weekly reports page); null (nothing measured yet) reads as neutral.
@@ -64,6 +79,7 @@ export function KpiManualInputDialog({
   const [isoYear, setIsoYear] = useState(initial.iso_year);
   const [isoWeek, setIsoWeek] = useState(initial.iso_week);
   const [entries, setEntries] = useState<EntryState>({});
+  const valueAtFocus = useRef<number | null>(null);
 
   const recordQuery = useQuery({
     queryKey: pmKeys.kpiRecord({ project_id: projectId, iso_year: isoYear, iso_week: isoWeek }),
@@ -84,6 +100,26 @@ export function KpiManualInputDialog({
 
   const metrics: KpiRecordMetricRow[] = recordQuery.data?.metrics ?? [];
 
+  const setComponent = (metric_id: string, slot: 'c1' | 'c2', next: number) => {
+    setEntries((prev) => ({
+      ...prev,
+      [metric_id]: withSlot(prev[metric_id] ?? EMPTY_ENTRY, slot, next),
+    }));
+  };
+
+  const rememberOnFocus = (metric_id: string, slot: 'c1' | 'c2') => {
+    valueAtFocus.current = entries[metric_id]?.[slot] ?? null;
+  };
+
+  const restoreOnBlur = (metric: KpiRecordMetricRow, slot: 'c1' | 'c2') => {
+    const restored = valueAtFocus.current;
+    setEntries((prev) => {
+      const cur = prev[metric.metric_id] ?? EMPTY_ENTRY;
+      if (!kpiComponentIssue(metric, slot === 'c1' ? 1 : 2, cur[slot])) return prev;
+      return { ...prev, [metric.metric_id]: withSlot(cur, slot, restored) };
+    });
+  };
+
   // FUT-595 AC4: a colour computed from values the user typed but has NOT saved yet is a
   // provisional preview — mark it, so it can't be mistaken for the settled (stored) colour.
   const savedEntries = useMemo(() => {
@@ -101,10 +137,15 @@ export function KpiManualInputDialog({
   const anyDirty = metrics.some((m) => isDirty(m.metric_id));
 
   const live = useMemo(() => {
+    const issuesByMetric = new Map<string, ReturnType<typeof validateKpiEntry>>();
     const statusByMetric = new Map<string, ReturnType<typeof computeEntryStatus>>();
     for (const m of metrics) {
       const e = entries[m.metric_id] ?? EMPTY_ENTRY;
-      const value = computeMetricValue(m.component_count, e.c1, e.c2);
+      const issues = validateKpiEntry(m, e.c1, e.c2);
+      issuesByMetric.set(m.metric_id, issues);
+      const value = hasKpiEntryIssue(issues)
+        ? null
+        : computeMetricValue(m.component_count, e.c1, e.c2);
       statusByMetric.set(
         m.metric_id,
         computeEntryStatus(value, m.green_band, m.yellow_band, m.red_band),
@@ -123,7 +164,8 @@ export function KpiManualInputDialog({
     ) as Record<(typeof KPI_CATEGORIES)[number], ReturnType<typeof computeCategoryHealth>>;
     const overall = computeOverallHealth(KPI_CATEGORIES.map((c) => categoryHealth[c]));
     const completeCount = [...statusByMetric.values()].filter((s) => s !== null).length;
-    return { statusByMetric, categoryHealth, overall, completeCount };
+    const hasIssue = [...issuesByMetric.values()].some(hasKpiEntryIssue);
+    return { issuesByMetric, statusByMetric, categoryHealth, overall, completeCount, hasIssue };
   }, [metrics, entries]);
 
   const save = useMutation({
@@ -172,8 +214,6 @@ export function KpiManualInputDialog({
 
   return (
     <Dialog isOpen onOpenChange={onOpenChange} width={760} maxHeight="85vh">
-      {/* Astryx three-band anatomy (header / scrolling content / footer) — same as the weekly
-          report dialog: Cancel + Save never scroll away on long metric lists. */}
       <Layout
         header={
           <DialogHeader
@@ -182,8 +222,6 @@ export function KpiManualInputDialog({
             endContent={
               <div className="flex items-center gap-2">
                 {ragBadge(isNewRecord ? null : live.overall)}
-                {/* FUT-595 AC4: one aggregate "previewing" badge for the whole record — the
-                    overall RAG above is provisional until saved, so mark it once here. */}
                 {anyDirty ? (
                   <Badge variant="outline" className="font-normal text-secondary">
                     Previewing
@@ -197,8 +235,6 @@ export function KpiManualInputDialog({
         content={
           <LayoutContent>
             <div className="space-y-4">
-              {/* QCDP live health — same pillar row as the weekly report cards: a status dot
-                  per pillar, short name, off-norm pillar weights its name. Recomputes live. */}
               {projectId && metrics.length > 0 ? (
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {KPI_CATEGORIES.map((cat) => {
@@ -237,7 +273,6 @@ export function KpiManualInputDialog({
                   options={projects}
                   value={projectId}
                   onChange={setProjectId}
-                  placeholder="Pick a project…"
                 />
                 <Selector
                   label="Reporting week"
@@ -254,8 +289,6 @@ export function KpiManualInputDialog({
                 />
               </div>
 
-              {/* Fallback only (caller presets a manageable project): entry stays blocked while
-                  no project is selected, so the Save target is never ambiguous. */}
               {!projectId ? (
                 <p className="rounded-lg bg-surface px-3 py-8 text-center text-sm text-secondary">
                   Pick a project above to enter KPIs — every record is pinned to a Project + Week.
@@ -267,11 +300,9 @@ export function KpiManualInputDialog({
                   {!weekOpen ? (
                     <Banner
                       status="warning"
-                      title="This week is view-only — KPI records lock with the week at Friday 5:00 PM (VNT). Switch to the current week to enter data."
+                      title="This week is view-only — KPI records lock with the week at Friday 5:00 PM (VNT)."
                     />
                   ) : null}
-                  {/* One bordered card, same table anatomy as the KPI Norm tab: a labelled
-                      column header band, then rows separated by hairlines. */}
                   <div className="rounded-md border border-border">
                     <div className="grid grid-cols-12 gap-3 border-b border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-secondary">
                       <div className="col-span-6">Metric</div>
@@ -279,79 +310,99 @@ export function KpiManualInputDialog({
                       <div className="col-span-2">Status</div>
                     </div>
                     <div className="px-3">
-                      {metrics.map((m) => {
-                        const e = entries[m.metric_id] ?? EMPTY_ENTRY;
-                        const bands = formatBandTriple(
-                          m.name,
-                          m.component_count,
-                          m.green_band,
-                          m.yellow_band,
-                          m.red_band,
-                        );
+                      {KPI_CATEGORIES.map((cat) => {
+                        const catMetrics = metrics.filter((m) => m.category === cat);
+                        if (catMetrics.length === 0) return null;
                         return (
-                          <div
-                            key={m.metric_id}
-                            className="grid grid-cols-12 items-center gap-3 border-b border-border py-3 last:border-0"
-                          >
-                            <div className="col-span-6">
-                              <div className="font-medium text-primary">{m.name}</div>
-                              <div className="text-xs text-secondary">{m.formula_label}</div>
-                              {/* The week's NORM, read-only alongside the variables (FUT-594
-                                  AC1) — the frozen baseline bands, not the live catalog. */}
-                              <div className="text-xs">
-                                <span className="text-success">{bands.green}</span>
-                                <span className="text-secondary"> · </span>
-                                <span className="text-warning">{bands.yellow}</span>
-                                <span className="text-secondary"> · </span>
-                                <span className="text-error">{bands.red}</span>
-                              </div>
+                          <div key={cat}>
+                            <div className="sticky top-0 z-10 bg-card py-1.5">
+                              <h3 className="text-sm font-semibold text-primary">
+                                {KPI_CATEGORY_LABELS[cat]}
+                              </h3>
                             </div>
-                            {/* Compact, fixed-width number boxes — weekly KPI figures are a few
-                                digits (a count, a ratio like 100.0, or effort in the thousands).
-                                No clear button: it ate the digit space and clipped long values. */}
-                            <div className="col-span-4 flex items-center gap-1.5">
-                              <NumberInput
-                                label={m.component_1_label}
-                                isLabelHidden
-                                width={88}
-                                min={0}
-                                placeholder={m.component_1_label}
-                                value={e.c1}
-                                isDisabled={!weekOpen}
-                                onChange={(next) =>
-                                  setEntries((prev) => ({
-                                    ...prev,
-                                    [m.metric_id]: { c1: next, c2: prev[m.metric_id]?.c2 ?? null },
-                                  }))
-                                }
-                              />
-                              {m.component_count === 2 ? (
-                                <>
-                                  <span className="text-secondary">/</span>
-                                  <NumberInput
-                                    label={m.component_2_label ?? ''}
-                                    isLabelHidden
-                                    width={88}
-                                    min={0}
-                                    placeholder={m.component_2_label ?? ''}
-                                    value={e.c2}
-                                    isDisabled={!weekOpen}
-                                    onChange={(next) =>
-                                      setEntries((prev) => ({
-                                        ...prev,
-                                        [m.metric_id]: {
-                                          c1: prev[m.metric_id]?.c1 ?? null,
-                                          c2: next,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </>
-                              ) : null}
-                            </div>
-                            <div className="col-span-2">
-                              {ragBadge(live.statusByMetric.get(m.metric_id) ?? null)}
-                            </div>
+                            {catMetrics.map((m) => {
+                              const e = entries[m.metric_id] ?? EMPTY_ENTRY;
+                              const issues = live.issuesByMetric.get(m.metric_id);
+                              const bands = formatBandTriple(
+                                m.name,
+                                m.component_count,
+                                m.green_band,
+                                m.yellow_band,
+                                m.red_band,
+                              );
+                              return (
+                                <div
+                                  key={m.metric_id}
+                                  className="grid grid-cols-12 items-center gap-3 border-b border-border py-3 last:border-0"
+                                >
+                                  <div className="col-span-6">
+                                    <div className="flex items-center gap-2 font-medium text-primary">
+                                      {m.name}
+                                      <Badge variant="outline" className="font-normal">
+                                        {metricUnit(m.name, m.component_count, m.component_1_label)}
+                                      </Badge>
+                                    </div>
+                                    <div className="text-xs text-secondary">{m.formula_label}</div>
+                                    <div className="text-xs">
+                                      <span className="text-success">{bands.green}</span>
+                                      <span className="text-secondary"> · </span>
+                                      <span className="text-warning">{bands.yellow}</span>
+                                      <span className="text-secondary"> · </span>
+                                      <span className="text-error">{bands.red}</span>
+                                    </div>
+                                  </div>
+                                  <div className="col-span-4 flex items-start gap-1.5">
+                                    <NumberInput
+                                      label={m.component_1_label}
+                                      isLabelHidden
+                                      width={88}
+                                      value={e.c1}
+                                      isDisabled={!weekOpen}
+                                      className={HIDE_STATUS_ICON}
+                                      status={
+                                        issues?.component_1
+                                          ? { type: 'error', message: issues.component_1 }
+                                          : undefined
+                                      }
+                                      onPaste={blockNonNumericPaste}
+                                      onChange={(next) => setComponent(m.metric_id, 'c1', next)}
+                                      onFocus={() => rememberOnFocus(m.metric_id, 'c1')}
+                                      onBlur={() => restoreOnBlur(m, 'c1')}
+                                    />
+                                    {m.component_count === 2 ? (
+                                      <>
+                                        <span
+                                          className="flex items-center text-secondary"
+                                          style={{ height: 'var(--size-element-md)' }}
+                                        >
+                                          /
+                                        </span>
+                                        <NumberInput
+                                          label={m.component_2_label ?? ''}
+                                          isLabelHidden
+                                          width={88}
+                                          value={e.c2}
+                                          isDisabled={!weekOpen}
+                                          className={HIDE_STATUS_ICON}
+                                          status={
+                                            issues?.component_2
+                                              ? { type: 'error', message: issues.component_2 }
+                                              : undefined
+                                          }
+                                          onPaste={blockNonNumericPaste}
+                                          onChange={(next) => setComponent(m.metric_id, 'c2', next)}
+                                          onFocus={() => rememberOnFocus(m.metric_id, 'c2')}
+                                          onBlur={() => restoreOnBlur(m, 'c2')}
+                                        />
+                                      </>
+                                    ) : null}
+                                  </div>
+                                  <div className="col-span-2">
+                                    {ragBadge(live.statusByMetric.get(m.metric_id) ?? null)}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       })}
@@ -375,6 +426,7 @@ export function KpiManualInputDialog({
                   !projectId ||
                   save.isPending ||
                   recordQuery.isLoading ||
+                  live.hasIssue ||
                   live.completeCount === 0
                 }
               />

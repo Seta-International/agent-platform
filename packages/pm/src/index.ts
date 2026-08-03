@@ -24,6 +24,8 @@ export type { KpiNormDoc, KpiNormMetricRow } from './backend/domain/kpi-norm.ts'
 export { getKpiNorm } from './backend/domain/kpi-norm.ts';
 export type { BandCondition, KpiNormMetricSeed } from './backend/domain/kpi-norm-data.ts';
 export type {
+  KpiExplorerMetricCell,
+  KpiExplorerMetricDef,
   KpiExplorerResult,
   KpiExplorerRow,
   KpiRecordDetail,

@@ -7,8 +7,9 @@ import {
   LayoutContent,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  type AppliedMetricCoverage,
   fetchAppliedMetrics,
   fetchKpiNorm,
   type KpiCategory,
@@ -17,7 +18,12 @@ import {
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import { Badge, Button, Checkbox, Input, ScrollArea, Skeleton, toast } from './_ui-compat.tsx';
-import { KPI_CATEGORIES, KPI_CATEGORY_LABELS } from './kpi-shared.tsx';
+import {
+  formatBandTriple,
+  KPI_CATEGORIES,
+  KPI_CATEGORY_LABELS,
+  metricUnit,
+} from './kpi-shared.tsx';
 
 export function KpiConfigureDialog({
   open,
@@ -41,6 +47,11 @@ export function KpiConfigureDialog({
   // FUT-594 AC3: turning a metric OFF needs an explicit warning — its values stop counting
   // immediately and the week's colour can drop, re-demanding a Road-to-Green on submit.
   const [confirmOff, setConfirmOff] = useState<{ metricId: string; name: string } | null>(null);
+  const [categoryBlocked, setCategoryBlocked] = useState<{
+    metricName: string;
+    category: KpiCategory;
+    projectCount: number;
+  } | null>(null);
   const selectedIds = [...selected];
 
   const normQuery = useQuery({ queryKey: pmKeys.kpiNorm(), queryFn: fetchKpiNorm });
@@ -53,10 +64,36 @@ export function KpiConfigureDialog({
   const toggle = useMutation({
     mutationFn: ({ metricId, applied }: { metricId: string; applied: boolean }) =>
       setAppliedMetric(metricId, applied, selectedIds),
+    onMutate: async ({ metricId, applied }) => {
+      const key = pmKeys.kpiAppliedMetrics(selectedIds);
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<AppliedMetricCoverage[]>(key);
+      queryClient.setQueryData<AppliedMetricCoverage[]>(key, (old) => {
+        const list = old ?? [];
+        const nextCount = applied ? selectedIds.length : 0;
+        const idx = list.findIndex((c) => c.metric_id === metricId);
+        if (idx === -1) return [...list, { metric_id: metricId, applied_count: nextCount }];
+        return list.map((c) => (c.metric_id === metricId ? { ...c, applied_count: nextCount } : c));
+      });
+      return { key, prev };
+    },
+    onError: (err: Error & { details?: Record<string, unknown> }, vars, ctx) => {
+      if (ctx) queryClient.setQueryData(ctx.key, ctx.prev);
+      const emptyProjectIds = err.details?.empty_project_ids;
+      if (Array.isArray(emptyProjectIds) && emptyProjectIds.length > 0) {
+        const m = metrics.find((mm) => mm.metric_id === vars.metricId);
+        setCategoryBlocked({
+          metricName: m?.name ?? '',
+          category: (err.details?.category as KpiCategory | undefined) ?? m?.category ?? 'quality',
+          projectCount: emptyProjectIds.length,
+        });
+        return;
+      }
+      toast.error(err.message || 'Could not update metric');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pmKeys.all });
     },
-    onError: (err: Error) => toast.error(err.message || 'Could not update metric'),
   });
 
   const coverage = new Map((appliedQuery.data ?? []).map((c) => [c.metric_id, c.applied_count]));
@@ -76,14 +113,23 @@ export function KpiConfigureDialog({
       return next;
     });
 
+  const projectListRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!initialProjectId) return;
+    const scroller = projectListRef.current;
+    const row = scroller?.querySelector<HTMLElement>(`[data-project-row="${initialProjectId}"]`);
+    if (!scroller || !row) return;
+    const view = scroller.getBoundingClientRect();
+    const target = row.getBoundingClientRect();
+    scroller.scrollTop += target.top - view.top - (view.height - target.height) / 2;
+  }, [initialProjectId]);
+
   return (
     <Dialog isOpen={open} onOpenChange={onOpenChange} width={880} maxHeight="85vh" purpose="info">
       <Layout
         header={<DialogHeader title="Configure KPI metrics" onOpenChange={onOpenChange} />}
         content={
           <LayoutContent isScrollable={false}>
-            {/* Two independently-scrolling columns at a fixed body height, so the project list
-                stays put while the metrics list scrolls and the header/footer never move. */}
             <div className="grid h-[58vh] grid-cols-5 gap-4">
               <section className="col-span-2 flex min-h-0 flex-col gap-1.5">
                 <div className="flex min-h-[22rem] flex-1 flex-col rounded-lg border border-border">
@@ -98,7 +144,7 @@ export function KpiConfigureDialog({
                     />
                     <label
                       htmlFor="kpi-project-select-all"
-                      className="cursor-pointer font-medium text-primary"
+                      className="cursor-pointer text-base font-medium text-primary"
                     >
                       Select all
                     </label>
@@ -114,7 +160,7 @@ export function KpiConfigureDialog({
                       className="h-8"
                     />
                   </div>
-                  <ScrollArea className="min-h-0 flex-1">
+                  <ScrollArea className="min-h-0 flex-1" ref={projectListRef}>
                     <div className="space-y-0.5 p-1.5">
                       {visibleProjects.length === 0 ? (
                         <p className="px-2 py-4 text-center text-xs text-secondary">
@@ -126,6 +172,7 @@ export function KpiConfigureDialog({
                           return (
                             <div
                               key={p.project_id}
+                              data-project-row={p.project_id}
                               className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-surface"
                             >
                               <Checkbox
@@ -135,7 +182,7 @@ export function KpiConfigureDialog({
                               />
                               <label
                                 htmlFor={checkboxId}
-                                className="min-w-0 flex-1 cursor-pointer truncate text-sm text-primary"
+                                className="min-w-0 flex-1 cursor-pointer truncate text-base text-primary"
                               >
                                 {p.name}
                               </label>
@@ -149,10 +196,18 @@ export function KpiConfigureDialog({
               </section>
 
               <section className="col-span-3 flex min-h-0 flex-col gap-1.5">
-                <div className="text-xs uppercase tracking-wide text-secondary">Metrics</div>
+                <div className="flex flex-col gap-0.5">
+                  <div className="text-xs uppercase tracking-wide text-secondary">Metrics</div>
+                  {selectedIds.length > 0 ? (
+                    <p className="text-xs text-secondary">
+                      Changes apply to {selectedIds.length} selected{' '}
+                      {selectedIds.length === 1 ? 'project' : 'projects'} and save automatically.
+                    </p>
+                  ) : null}
+                </div>
                 {selectedIds.length === 0 ? (
                   <div className="flex min-h-[22rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border px-6 text-center">
-                    <p className="font-medium text-primary">No project selected</p>
+                    <p className="text-base font-medium text-primary">No project selected</p>
                     <p className="text-sm text-secondary">
                       Pick at least one project on the left to see and edit its metrics.
                     </p>
@@ -172,15 +227,15 @@ export function KpiConfigureDialog({
                         ).length;
                         return (
                           <section key={cat} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <h3 className="text-base font-semibold text-primary">
+                            <div className="sticky top-0 z-10 flex items-center justify-between bg-card py-1">
+                              <h3 className="text-lg font-semibold text-primary">
                                 {KPI_CATEGORY_LABELS[cat]}
                               </h3>
                               <span className="text-xs text-secondary">
                                 {appliedCount}/{catMetrics.length} applied
                               </span>
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
                               {catMetrics.map((m) => {
                                 const count = coverage.get(m.metric_id) ?? 0;
                                 const checked: boolean | 'indeterminate' =
@@ -189,17 +244,31 @@ export function KpiConfigureDialog({
                                     : count === selectedIds.length
                                       ? true
                                       : 'indeterminate';
-                                const locked = m.tier === 'core';
+                                const pendingThis =
+                                  toggle.isPending && toggle.variables?.metricId === m.metric_id;
                                 const checkboxId = `kpi-metric-${m.metric_id}`;
+                                const unit = metricUnit(
+                                  m.name,
+                                  m.component_count,
+                                  m.component_1_label,
+                                );
+                                const bands = formatBandTriple(
+                                  m.name,
+                                  m.component_count,
+                                  m.green_band,
+                                  m.yellow_band,
+                                  m.red_band,
+                                );
                                 return (
                                   <div
                                     key={m.metric_id}
-                                    className="flex items-start gap-2.5 rounded-md border border-border px-3 py-2 transition-colors hover:bg-surface"
+                                    className="flex items-start gap-2.5 px-3 py-2 transition-colors hover:bg-surface"
                                   >
                                     <Checkbox
                                       id={checkboxId}
+                                      className="mt-1"
                                       checked={checked}
-                                      disabled={locked || toggle.isPending}
+                                      disabled={pendingThis}
                                       onCheckedChange={(next) => {
                                         if (next === false) {
                                           setConfirmOff({ metricId: m.metric_id, name: m.name });
@@ -212,27 +281,36 @@ export function KpiConfigureDialog({
                                       htmlFor={checkboxId}
                                       className="min-w-0 flex-1 cursor-pointer"
                                     >
-                                      <div className="flex items-center gap-2 font-medium text-primary">
+                                      <div className="flex flex-wrap items-center gap-2 text-base font-medium text-primary">
                                         {m.name}
+                                        <Badge variant="outline" className="font-normal">
+                                          {unit}
+                                        </Badge>
                                         <Badge
-                                          variant={locked ? 'default' : 'secondary'}
+                                          variant={m.tier === 'core' ? 'default' : 'secondary'}
                                           className="font-normal"
                                         >
-                                          {locked ? 'Core' : 'Extended'}
+                                          {m.tier === 'core' ? 'Core' : 'Extended'}
                                         </Badge>
-                                        {m.is_live_capable ? (
-                                          <Badge variant="outline" className="font-normal">
-                                            Live column
-                                          </Badge>
-                                        ) : null}
                                         {checked === 'indeterminate' ? (
                                           <Badge variant="outline" className="font-normal">
                                             {count}/{selectedIds.length} projects
                                           </Badge>
                                         ) : null}
                                       </div>
-                                      <div className="text-xs text-secondary">
+                                      <div className="text-sm text-secondary">
                                         {m.formula_label}
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs tabular-nums">
+                                        <span className="text-success" title="Green">
+                                          {bands.green}
+                                        </span>
+                                        <span className="text-warning" title="Amber">
+                                          {bands.yellow}
+                                        </span>
+                                        <span className="text-error" title="Red">
+                                          {bands.red}
+                                        </span>
                                       </div>
                                     </label>
                                   </div>
@@ -252,7 +330,7 @@ export function KpiConfigureDialog({
         footer={
           <DialogFooter>
             <Button variant="primary" onClick={() => onOpenChange(false)}>
-              Done
+              Close
             </Button>
           </DialogFooter>
         }
@@ -273,6 +351,51 @@ export function KpiConfigureDialog({
           setConfirmOff(null);
         }}
       />
+
+      <Dialog
+        isOpen={categoryBlocked !== null}
+        onOpenChange={(o) => {
+          if (!o) setCategoryBlocked(null);
+        }}
+        width={420}
+        purpose="info"
+      >
+        <Layout
+          header={
+            <DialogHeader
+              title="Can't turn this off"
+              onOpenChange={(o) => {
+                if (!o) setCategoryBlocked(null);
+              }}
+            />
+          }
+          content={
+            <LayoutContent>
+              <p className="text-sm text-secondary">
+                <span className="font-medium text-primary">{categoryBlocked?.metricName}</span> is
+                the last{' '}
+                {categoryBlocked
+                  ? KPI_CATEGORY_LABELS[categoryBlocked.category].replace(/^.*— /, '')
+                  : ''}{' '}
+                metric applied
+                {categoryBlocked && categoryBlocked.projectCount > 1
+                  ? ` to ${categoryBlocked.projectCount} of the selected projects`
+                  : ' to this project'}
+                . Every area (Quality, Cost & Capacity, Delivery, Process) needs at least one
+                applied metric so its health can be measured — apply another one first if you want
+                to turn this one off.
+              </p>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="primary" onClick={() => setCategoryBlocked(null)}>
+                Got it
+              </Button>
+            </DialogFooter>
+          }
+        />
+      </Dialog>
     </Dialog>
   );
 }

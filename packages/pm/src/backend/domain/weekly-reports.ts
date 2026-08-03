@@ -40,7 +40,7 @@ import {
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
 import { getReportersAsOf } from './reporter-assignment.ts';
-import { buildProjectManageFlag, buildProjectScope } from './scope.ts';
+import { buildProjectManageFlag, buildProjectReadFlag, buildProjectScope } from './scope.ts';
 
 type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
 const CATEGORIES: readonly KpiCategory[] = ['quality', 'cost_capacity', 'delivery', 'process'];
@@ -422,10 +422,6 @@ export async function listWeeklyReports(input: {
   ];
   if (input.project_id) conds.push(eq(project.id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
-  // FUT-590 AC1: the weekly list is evaluated AS OF the selected week, so the live read
-  // scope is deliberately NOT pushed into the SQL — a PM removed from a project today must
-  // still see the weeks they were assigned; the as-of filter below is the whole rule for
-  // scoped viewers. Tenant-wide readers (BoD/admin) keep the organization-wide list.
   const scope = buildProjectScope(session);
 
   let projectRows = await pmDb()
@@ -438,6 +434,7 @@ export async function listWeeklyReports(input: {
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
       can_manage: buildProjectManageFlag(session),
+      live_readable: buildProjectReadFlag(session),
     })
     .from(project)
     .innerJoin(account, eq(account.id, project.account_id))
@@ -450,7 +447,7 @@ export async function listWeeklyReports(input: {
       iso_week,
       session,
     );
-    projectRows = projectRows.filter((p) => assigned.has(p.project_id));
+    projectRows = projectRows.filter((p) => p.live_readable || assigned.has(p.project_id));
   }
   if (projectRows.length === 0) return { rows: [] };
   const projectIds = projectRows.map((p) => p.project_id);
@@ -704,13 +701,6 @@ export async function getWeeklyReportDetail(input: {
   const { project_id, iso_year, iso_week, session } = input;
   requirePermission(session, 'pm.project.read');
 
-  // FUT-590 AC4 (reciprocal read): the week's reports open for a scoped viewer only when
-  // they were assigned to this project AS OF that week — being on the roster today does not
-  // open past weeks, and being removed since does not close the weeks they owned. The live
-  // read scope is therefore not pushed into the SQL; tenant-wide readers (BoD/admin) read
-  // organization-wide. To keep NOT_FOUND-vs-FORBIDDEN semantics (existence must not leak),
-  // a scoped viewer who fails the as-of check gets FORBIDDEN only if the project is at least
-  // live-readable to them, NOT_FOUND otherwise.
   const scope = buildProjectScope(session);
   const [proj] = await pmDb()
     .select({
@@ -744,10 +734,7 @@ export async function getWeeklyReportDetail(input: {
         .from(project)
         .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session), scope))
         .limit(1);
-      if (liveReadable) {
-        throw new PmError('FORBIDDEN', 'you were not assigned to this project in that week');
-      }
-      throw new PmError('NOT_FOUND', `project ${project_id} not found`);
+      if (!liveReadable) throw new PmError('NOT_FOUND', `project ${project_id} not found`);
     }
   }
 

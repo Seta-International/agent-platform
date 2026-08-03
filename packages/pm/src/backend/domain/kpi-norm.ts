@@ -52,6 +52,11 @@ export async function ensureKpiNormSeeded(tx: NodeTx, tenant_id: string): Promis
         component_count: m.component_count,
         component_1_label: m.component_1_label,
         component_2_label: m.component_2_label,
+        component_1_integer: m.component_1_integer,
+        component_2_integer: m.component_2_integer,
+        component_1_min: m.component_1_min === null ? null : String(m.component_1_min),
+        component_1_max: m.component_1_max === null ? null : String(m.component_1_max),
+        is_share: m.is_share,
         green_band: m.green_band,
         yellow_band: m.yellow_band,
         red_band: m.red_band,
@@ -66,10 +71,6 @@ export async function ensureKpiNormSeeded(tx: NodeTx, tenant_id: string): Promis
 }
 
 /**
- * Idempotent: applies every Core-tier metric to one project (Core is mandatory — "CORE — BẮT
- * BUỘC" in the norm — and on by default; Extended stays off until an admin opts in via Configure
- * metrics). Called by the `pm.project.created` subscriber so every new project starts with Core
- * applied; no-ops if the tenant's KPI Norm hasn't been seeded yet (pre-feature tenant).
  */
 export async function seedProjectCoreMetrics(
   tx: NodeTx,
@@ -119,6 +120,11 @@ export interface KpiNormMetricRow {
   component_count: 1 | 2;
   component_1_label: string;
   component_2_label: string | null;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
   green_band: BandCondition;
   yellow_band: BandCondition;
   red_band: BandCondition;
@@ -159,6 +165,11 @@ export async function getKpiNorm(session: SessionScope): Promise<KpiNormDoc | nu
       component_count: kpiNormMetric.component_count,
       component_1_label: kpiNormMetric.component_1_label,
       component_2_label: kpiNormMetric.component_2_label,
+      component_1_integer: kpiNormMetric.component_1_integer,
+      component_2_integer: kpiNormMetric.component_2_integer,
+      component_1_min: kpiNormMetric.component_1_min,
+      component_1_max: kpiNormMetric.component_1_max,
+      is_share: kpiNormMetric.is_share,
       green_band: kpiNormMetric.green_band,
       yellow_band: kpiNormMetric.yellow_band,
       red_band: kpiNormMetric.red_band,
@@ -183,6 +194,11 @@ export async function getKpiNorm(session: SessionScope): Promise<KpiNormDoc | nu
       component_count: r.component_count as 1 | 2,
       component_1_label: r.component_1_label,
       component_2_label: r.component_2_label,
+      component_1_integer: r.component_1_integer,
+      component_2_integer: r.component_2_integer,
+      component_1_min: r.component_1_min === null ? null : Number(r.component_1_min),
+      component_1_max: r.component_1_max === null ? null : Number(r.component_1_max),
+      is_share: r.is_share,
       green_band: r.green_band as BandCondition,
       yellow_band: r.yellow_band as BandCondition,
       red_band: r.red_band as BandCondition,

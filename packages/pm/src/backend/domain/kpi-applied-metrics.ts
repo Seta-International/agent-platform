@@ -1,13 +1,20 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import type { SetAppliedMetricInput } from '../../contracts.ts';
 import { PM_KPI_APPLIED_METRIC_CHANGED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { kpiAppliedMetric, kpiNormMetric } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
+
+const CATEGORY_LABEL: Record<string, string> = {
+  quality: 'Quality',
+  cost_capacity: 'Cost & Capacity',
+  delivery: 'Delivery',
+  process: 'Process',
+};
 
 /** How many of the queried projects have this metric applied — `applied_count ===
  * project_ids.length` means every one of them does, `0` means none, anything else is a mixed
@@ -59,13 +66,50 @@ export async function setAppliedMetric(
   }
 
   const [metric] = await pmDb()
-    .select({ id: kpiNormMetric.id, name: kpiNormMetric.name, tier: kpiNormMetric.tier })
+    .select({
+      id: kpiNormMetric.id,
+      name: kpiNormMetric.name,
+      tier: kpiNormMetric.tier,
+      category: kpiNormMetric.category,
+    })
     .from(kpiNormMetric)
     .where(and(eq(kpiNormMetric.id, metric_id), tenantScoped(kpiNormMetric.tenant_id, session)))
     .limit(1);
   if (!metric) throw new PmError('NOT_FOUND', `metric ${metric_id} not found`);
-  if (!applied && metric.tier === 'core') {
-    throw new PmError('VALIDATION', 'Core metrics are mandatory and cannot be unapplied');
+
+  if (!applied) {
+    const otherInCategory = await pmDb()
+      .select({ project_id: kpiAppliedMetric.project_id })
+      .from(kpiAppliedMetric)
+      .innerJoin(
+        kpiNormMetric,
+        and(
+          eq(kpiNormMetric.id, kpiAppliedMetric.metric_id),
+          eq(kpiNormMetric.tenant_id, kpiAppliedMetric.tenant_id),
+        ),
+      )
+      .where(
+        and(
+          tenantScoped(kpiAppliedMetric.tenant_id, session),
+          inArray(kpiAppliedMetric.project_id, project_ids),
+          eq(kpiNormMetric.category, metric.category),
+          ne(kpiAppliedMetric.metric_id, metric_id),
+        ),
+      );
+    const projectsWithOther = new Set(otherInCategory.map((r) => r.project_id));
+    const empty_project_ids = project_ids.filter((id) => !projectsWithOther.has(id));
+    if (empty_project_ids.length > 0) {
+      const label = CATEGORY_LABEL[metric.category] ?? metric.category;
+      throw new PmError(
+        'VALIDATION',
+        `Cannot turn off ${metric.name} — it is the last ${label} metric applied to ${
+          empty_project_ids.length > 1
+            ? `${empty_project_ids.length} of the selected projects`
+            : 'this project'
+        }. Every area needs at least one applied metric.`,
+        { category: metric.category, empty_project_ids },
+      );
+    }
   }
 
   await withEmit(

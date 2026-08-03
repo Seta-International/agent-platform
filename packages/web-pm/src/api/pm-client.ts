@@ -736,6 +736,11 @@ export interface KpiNormMetricRow {
   component_count: 1 | 2;
   component_1_label: string;
   component_2_label: string | null;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
   green_band: BandCondition;
   yellow_band: BandCondition;
   red_band: BandCondition;
@@ -789,6 +794,15 @@ export async function setAppliedMetric(
 export interface KpiExplorerMetricCell {
   value: number | null;
   status: RagStatus | null;
+  band: BandCondition | null;
+}
+
+export interface KpiExplorerMetricDef {
+  metric_id: string;
+  category: KpiCategory;
+  name: string;
+  component_count: 1 | 2;
+  green_band: BandCondition;
 }
 
 export interface KpiExplorerRow {
@@ -811,6 +825,7 @@ export interface KpiExplorerResult {
    * so different projects can have different applied sets; build columns from this instead of
    * assuming one shared tenant-wide set. */
   applied_metric_ids: string[];
+  metrics: KpiExplorerMetricDef[];
 }
 
 export async function fetchKpiExplorer(params: {
