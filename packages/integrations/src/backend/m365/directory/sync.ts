@@ -213,7 +213,17 @@ async function fetchChangedUsers(args: {
   storage: DirectoryPhotoStorage;
   counters: DirectoryPullCounters;
   graph: DirectoryGraph;
-}): Promise<{ pending: PendingUser[]; removed: string[]; deltaLink: string }> {
+}): Promise<{
+  pending: PendingUser[];
+  removed: string[];
+  deltaLink: string;
+  /**
+   * Every OID this walk saw, BEFORE the syncability filter. A full run uses it to infer removals
+   * by absence, and a user excluded by `isSyncableUser` is still present in Entra — diffing
+   * against the filtered set would offboard everyone whose domain is not verified.
+   */
+  seenOids: Set<string>;
+}> {
   const { tenantId, graph, counters } = args;
 
   const domains = await graph.verifiedDomains();
@@ -291,7 +301,12 @@ async function fetchChangedUsers(args: {
     });
   }
 
-  return { pending, removed: walk.removed, deltaLink: walk.deltaLink };
+  return {
+    pending,
+    removed: walk.removed,
+    deltaLink: walk.deltaLink,
+    seenOids: new Set(walk.users.map((u) => u.id)),
+  };
 }
 
 /** Steps 7-14. Throws on any failure — the caller records it and leaves the cursor alone. */
@@ -310,7 +325,12 @@ async function pullOnce(args: {
   const storedLinks = await repo.listPersonLinks(tenantId);
   const linkByOid = new Map(storedLinks.map((l) => [l.entraOid, l]));
 
-  const { pending, removed, deltaLink } = await fetchChangedUsers({
+  const {
+    pending,
+    removed: walkRemoved,
+    deltaLink,
+    seenOids,
+  } = await fetchChangedUsers({
     tenantId,
     startFrom: args.startFrom,
     linkByOid,
@@ -318,6 +338,24 @@ async function pullOnce(args: {
     counters,
     graph: deps.graph,
   });
+
+  // A full run walks `/users/delta` with NO token, so Graph has no baseline to diff against and
+  // `walk.removed` is necessarily empty — an initial delta enumerates who exists, never who left.
+  // The cursor is then overwritten below, so any `@removed` that arrived since the last run would
+  // be discarded unread and nobody would ever be offboarded. The admin "Sync now" button always
+  // posts `full: true`, so that is not a rare path. A full run IS a complete census, so absence
+  // from it is the same evidence the org-unit reap already relies on.
+  //
+  // Diffed against `seenOids` (pre-filter) rather than the census: a user Graph still returns but
+  // `isSyncableUser` rejects has not left the directory. And an empty walk is a failed or
+  // permission-starved fetch, not an empty company — inferring from it would offboard everyone.
+  const inferredRemoved =
+    isFullRun && seenOids.size > 0
+      ? storedLinks
+          .filter((l) => l.removedAt === null && !seenOids.has(l.entraOid))
+          .map((l) => l.entraOid)
+      : [];
+  const removed = [...new Set([...walkRemoved, ...inferredRemoved])];
   const removedOids = new Set(removed);
 
   // The census both the tree and the heads are judged against. A delta page carries only CHANGED
@@ -416,9 +454,6 @@ async function pullOnce(args: {
     // `findPersonLinkByOid`/`listPersonLinks` return soft-removed rows on purpose (a reappearing
     // OID must revive, not duplicate), so "already removed" is checked here, not there.
     if (!link || link.removedAt !== null) continue;
-    await repo.markRemoved(tenantId, oid);
-    counters.usersRemoved += 1;
-    removedForEvent.push({ entraOid: oid, personId: link.personId });
     removals.push({ oid, link });
   }
 
@@ -435,6 +470,13 @@ async function pullOnce(args: {
     : new Map<string, string>();
 
   for (const { oid, link } of removals) {
+    // Conflict FIRST, `markRemoved` second, and the order is load-bearing. `markRemoved` commits on
+    // its own (the repo writes through the module client, never a tx handle) and `removedAt !== null`
+    // is the only thing keying re-entry above. If the run died between the two — an ECS task
+    // rotation is enough, no error required — the retry would skip the row and the conflict would
+    // never be raised, leaving a departed employee active with nothing to prompt an admin. Raising
+    // first is safe to repeat: the partial unique index on `status = 'open'` turns a re-raise into a
+    // `last_seen_at` bump rather than a duplicate row.
     await repo.raiseConflict({
       tenantId,
       kind: 'user_removed',
@@ -449,6 +491,9 @@ async function pullOnce(args: {
         division: link.division,
       },
     });
+    await repo.markRemoved(tenantId, oid);
+    counters.usersRemoved += 1;
+    removedForEvent.push({ entraOid: oid, personId: link.personId });
   }
 
   // Step 11. Re-read: the batch above has just written its person ids and org facts, so this is

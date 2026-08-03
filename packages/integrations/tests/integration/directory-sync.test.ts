@@ -352,6 +352,118 @@ describe('runDirectoryPull', () => {
     );
   });
 
+  // A full run walks /users/delta with NO token, so Graph has no baseline and `@removed` is
+  // always empty — an initial delta says who exists, never who left. The cursor is then
+  // overwritten, so a removal that arrived since the last run would be discarded unread. The
+  // admin "Sync now" button always posts full:true, so this is the common path, not an edge case.
+  it('infers removals by absence on a full run, where Graph reports no @removed at all', async () => {
+    await withSync(
+      {
+        pages: [
+          page([user(ALICE, { department: 'Engineering' }), user(BOB, { department: 'Sales' })]),
+          // A full census: Bob is simply gone. No '@removed' entry anywhere.
+          page([user(ALICE, { department: 'Engineering' })], DELTA_2),
+        ],
+      },
+      async (h) => {
+        await h.run();
+        const bobPerson = (await h.repo.findPersonLinkByOid(TENANT, BOB))?.personId;
+        expect(bobPerson).toBeTruthy();
+
+        const second = await h.run({ full: true });
+
+        expect(second.status).toBe('ok');
+        expect(second.counters.usersRemoved).toBe(1);
+        expect((await h.repo.findPersonLinkByOid(TENANT, BOB))?.removedAt).not.toBeNull();
+        // Alice was in the census, so she is untouched.
+        expect((await h.repo.findPersonLinkByOid(TENANT, ALICE))?.removedAt).toBeNull();
+
+        const conflicts = await h.repo.listConflicts(TENANT, 'open');
+        const removedConflict = conflicts.find((c) => c.kind === 'user_removed');
+        expect(removedConflict?.entraOid).toBe(BOB);
+        expect(removedConflict?.subjectId).toBe(bobPerson);
+      },
+    );
+  });
+
+  // The inference above is only as trustworthy as the census. An empty walk is a failed or
+  // permission-starved fetch, not a company with no employees — inferring from it would offboard
+  // everyone at once.
+  it('infers nothing from an empty full-run census, however many links are stored', async () => {
+    await withSync(
+      {
+        pages: [
+          page([user(ALICE, { department: 'Engineering' }), user(BOB, { department: 'Sales' })]),
+          page([], DELTA_2),
+        ],
+      },
+      async (h) => {
+        await h.run();
+
+        const second = await h.run({ full: true });
+
+        expect(second.counters.usersRemoved).toBe(0);
+        expect((await h.repo.findPersonLinkByOid(TENANT, ALICE))?.removedAt).toBeNull();
+        expect((await h.repo.findPersonLinkByOid(TENANT, BOB))?.removedAt).toBeNull();
+        expect(await h.repo.listConflicts(TENANT, 'open')).toEqual([]);
+      },
+    );
+  });
+
+  // `markRemoved` commits on its own and `removedAt !== null` is the only re-entry key, so if the
+  // run dies between marking the link and raising the conflict, the retry skips the row and the
+  // conflict is never raised — a departed employee stays active with nothing to prompt an admin.
+  // Raising first makes the crash window harmless.
+  it('still has the conflict to act on when the run dies immediately after raising it', async () => {
+    let failNext = true;
+    await withIntegrationsTestDb(async ({ db, pool }) => {
+      try {
+        await seedTenantConfig(db, pool);
+        const real = createDirectoryRepo({ db });
+        const repo: DirectoryRepo = {
+          ...real,
+          async markRemoved(tenantId, oid) {
+            if (failNext) {
+              failNext = false;
+              throw new Error('killed between raiseConflict and markRemoved');
+            }
+            return real.markRemoved(tenantId, oid);
+          },
+        };
+        const people = createFakePeople(spine());
+        const photos = createPhotoRecorder();
+        const client = makeGraphClientStub({
+          pages: [
+            page([user(ALICE, { department: 'Engineering' })]),
+            page([{ id: ALICE, '@removed': { reason: 'deleted' } }], DELTA_2),
+            page([{ id: ALICE, '@removed': { reason: 'deleted' } }], DELTA_2),
+          ],
+        });
+        const graph = createDirectoryGraph(client as unknown as Client);
+        const run = () =>
+          runDirectoryPull({ tenant_id: TENANT }, { repo, graph, people, storage: photos });
+
+        await run();
+        await expect(run()).rejects.toThrow(/killed between/);
+
+        // The conflict survived the crash even though the link was never marked.
+        const afterCrash = await repo.listConflicts(TENANT, 'open');
+        expect(afterCrash.map((c) => c.kind)).toContain('user_removed');
+        expect((await repo.findPersonLinkByOid(TENANT, ALICE))?.removedAt).toBeNull();
+
+        // The retry re-reads the same window and completes, without duplicating the conflict.
+        const retry = await run();
+        expect(retry.counters.usersRemoved).toBe(1);
+        expect((await repo.findPersonLinkByOid(TENANT, ALICE))?.removedAt).not.toBeNull();
+        expect(
+          (await repo.listConflicts(TENANT, 'open')).filter((c) => c.kind === 'user_removed'),
+        ).toHaveLength(1);
+      } finally {
+        resetCoreDb();
+      }
+    });
+  });
+
   it('leaves mailbox-derived fields unset and stays green when mailboxSettings 403s', async () => {
     await withSync(
       { pages: [page([user(ALICE, { department: 'Engineering' })])], mailbox: { [ALICE]: 403 } },
