@@ -120,3 +120,83 @@ describe('planner_updateTask — first pass', () => {
     expect(suspend).not.toHaveBeenCalled();
   });
 });
+
+function resumeCtx(resumeData: unknown) {
+  const suspend = vi.fn(async () => {});
+  return { ctx: { agent: { suspend, resumeData }, requestContext: rc() } as never, suspend };
+}
+
+describe('planner_updateTask — resume pass', () => {
+  const goodResume = {
+    action: 'update' as const,
+    taskId: TASK_ID,
+    patch: { due_at: '2026-08-15T16:59:00.000Z' },
+    expectedVersion: 4,
+    idempotencyKey: 'key-1',
+  };
+
+  it('performs the gated write with the version and key that came off the card', async () => {
+    const { tool, taskUpdate } = build();
+    const { ctx: c, suspend } = resumeCtx(goodResume);
+    const out = (await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)) as {
+      updated: boolean;
+    };
+    expect(out.updated).toBe(true);
+    expect(suspend).not.toHaveBeenCalled();
+    expect(taskUpdate.update).toHaveBeenCalledWith({
+      tenantId: 't1',
+      actorUserId: 'a1',
+      taskId: TASK_ID,
+      expectedVersion: 4,
+      patch: { due_at: '2026-08-15T16:59:00.000Z' },
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  it('never re-reads or re-previews on resume — the preview is already agreed', async () => {
+    const { tool, taskRead } = build();
+    const { ctx: c } = resumeCtx(goodResume);
+    await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c);
+    expect(taskRead.read).not.toHaveBeenCalled();
+  });
+
+  it('decline: no gateway call at all, so no idempotency row is ever written', async () => {
+    const { tool, taskUpdate } = build();
+    const { ctx: c } = resumeCtx({ action: 'decline', taskId: TASK_ID });
+    const out = (await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)) as {
+      updated: boolean;
+    };
+    expect(out).toEqual({ updated: false, taskId: TASK_ID, refusal: null });
+    expect(taskUpdate.update).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a stale-version CONFLICT instead of writing', async () => {
+    const { tool } = build({
+      update: async () => {
+        throw Object.assign(new Error('Version mismatch'), { code: 'CONFLICT' });
+      },
+    });
+    const { ctx: c } = resumeCtx(goodResume);
+    // Same taxonomy mapping as PERMISSION_DENIED above: the domain detail is
+    // replaced by a safe message, the code is what callers branch on.
+    await expect(tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+  });
+
+  it('refuses a card that predates expectedVersion rather than writing unguarded', async () => {
+    const { tool, taskUpdate } = build();
+    const { ctx: c } = resumeCtx({
+      action: 'update',
+      taskId: TASK_ID,
+      patch: { due_at: '2026-08-15T16:59:00.000Z' },
+    });
+    const out = (await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)) as {
+      updated: boolean;
+      refusal?: string | null;
+    };
+    expect(out.updated).toBe(false);
+    expect(out.refusal).toMatch(/incomplete/i);
+    expect(taskUpdate.update).not.toHaveBeenCalled();
+  });
+});
