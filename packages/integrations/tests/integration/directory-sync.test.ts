@@ -536,4 +536,32 @@ describe('runDirectoryPull', () => {
       { graph: lyingGraph },
     );
   });
+
+  it('hands the write door the bound person id once a link row exists', async () => {
+    const alice = (): unknown => page([user(ALICE, { department: 'Engineering' })]);
+    await withSync({ pages: [alice(), alice()] }, async (h) => {
+      // First sight: nothing binds this oid yet, so the write door has to match on the email.
+      await h.run();
+      expect(h.people.calls.sync[0]?.[0]?.linked_person_id).toBeNull();
+
+      const [link] = await h.repo.listPersonLinks(TENANT);
+      expect(link?.entraOid).toBe(ALICE);
+
+      // From now on the link IS the identity — the email is just an attribute it carries.
+      await h.run({ full: true });
+      expect(h.people.calls.sync[1]?.[0]?.linked_person_id).toBe(link?.personId);
+    });
+  });
+
+  it('still binds a soft-removed link, so a reappearing user revives rather than duplicating', async () => {
+    const alice = (): unknown => page([user(ALICE, { department: 'Engineering' })]);
+    await withSync({ pages: [alice(), alice()] }, async (h) => {
+      await h.run();
+      const [link] = await h.repo.listPersonLinks(TENANT);
+      await h.repo.markRemoved(TENANT, ALICE);
+
+      await h.run({ full: true });
+      expect(h.people.calls.sync[1]?.[0]?.linked_person_id).toBe(link?.personId);
+    });
+  });
 });

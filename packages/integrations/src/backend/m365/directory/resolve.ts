@@ -29,6 +29,7 @@ export const DIRECTORY_RESOLUTION_ACTIONS = [
   'map_to_spine',
   'create_distinct',
   'offboard',
+  'link',
   'ignore',
 ] as const;
 export type DirectoryResolutionAction = (typeof DIRECTORY_RESOLUTION_ACTIONS)[number];
@@ -38,18 +39,15 @@ export type DirectoryResolutionAction = (typeof DIRECTORY_RESOLUTION_ACTIONS)[nu
  * is a validation failure, never a silent no-op — the caller asked for something this row cannot
  * mean.
  *
- * `email_collision` offers only `ignore` today. §9.1 also lists `link` (adopt an existing person)
- * and `create_new`, and neither is reachable from here: adopting requires flipping
- * `person.directory_managed`, for which `@seta/people` exports no write door (`editWorker` refuses
- * M365-owned fields and `syncDirectoryPeople` refuses to touch an unmanaged match), and
- * `create_new` cannot give a second person the colliding `work_email` at all —
- * `person_uniq_email_per_tenant` is a unique index over every non-deleted row. Offering either as
- * a no-op that re-raises on the next run would be the same defect as review finding I1. Both need
- * a `people`-side decision that is not this task's to take.
+ * `email_collision` offers `link` and `ignore`. §9.1 used to list `create_new` as well; it is not
+ * offered, because it is incoherent against the schema rather than merely unimplemented —
+ * `person_uniq_email_per_tenant` is a unique index over every non-deleted row, so no second live
+ * person can hold the colliding address. `ignore` stays the escape hatch for a genuine
+ * two-humans-one-address case, which is a data problem in Entra.
  */
 const ACTIONS_BY_KIND: Record<DirectoryConflictKind, ReadonlySet<DirectoryResolutionAction>> = {
   manager_ambiguous: new Set(['choose_head', 'ignore']),
-  email_collision: new Set(['ignore']),
+  email_collision: new Set(['link', 'ignore']),
   unit_delete_blocked: new Set(['reassign', 'keep', 'ignore']),
   spine_collision: new Set(['map_to_spine', 'create_distinct', 'ignore']),
   user_removed: new Set(['offboard', 'ignore']),
@@ -287,6 +285,65 @@ async function applyCreateDistinct(
   return { resolution: { action: 'create_distinct', org_unit_id: created.id } };
 }
 
+/**
+ * `email_collision` → this Entra user IS that person. Only the `m365_person_links` binding is
+ * written: `people` owns `person.directory_managed`, and `syncDirectoryPeople` asserts it from
+ * this very row on the next run (its `linked_person_id` door). Writing it from here would be
+ * reaching across the module boundary into a column this module does not own.
+ */
+async function applyLink(
+  conflict: ConflictRow,
+  params: Record<string, unknown> | undefined,
+  repo: DirectoryRepo,
+): Promise<Applied> {
+  const personId = requiredString(params, 'person_id', 'link');
+  const entraOid = conflict.entraOid;
+  if (!entraOid) {
+    throw new IntegrationsError('INVALID_INPUT', "link needs the conflict's Entra user");
+  }
+  const candidates = detailOf(conflict).candidates;
+  const known = Array.isArray(candidates)
+    ? candidates.some(
+        (c) =>
+          typeof c === 'object' &&
+          c !== null &&
+          (c as { person_id?: unknown }).person_id === personId,
+      )
+    : false;
+  if (!known) {
+    throw new IntegrationsError(
+      'INVALID_INPUT',
+      `person ${personId} is not a candidate for this collision`,
+    );
+  }
+
+  const links = await repo.listPersonLinks(conflict.tenantId);
+  // One oid per person (`m365_person_links_uniq_person`). Refuse cleanly rather than let the
+  // driver raise a unique violation the admin screen cannot explain.
+  const bound = links.find((l) => l.personId === personId && l.entraOid !== entraOid);
+  if (bound) {
+    throw new IntegrationsError(
+      'INVALID_INPUT',
+      `person ${personId} is already linked to Entra user ${bound.entraOid}`,
+    );
+  }
+
+  // Carry the census facts forward. The upsert nulls every column it is not given, and those
+  // three are what keeps `resolveOrgUnits`/`resolveHeads` seeing this member between full runs.
+  const existing = links.find((l) => l.entraOid === entraOid) ?? null;
+  await repo.upsertPersonLink({
+    tenantId: conflict.tenantId,
+    personId,
+    entraOid,
+    managerOid: existing?.managerOid ?? null,
+    department: existing?.department ?? null,
+    division: existing?.division ?? null,
+    // Keyed on the oid, not the person (see `photoKeyFor`), so it survives the rebinding.
+    photoMediaEtag: existing?.photoMediaEtag ?? null,
+  });
+  return { resolution: { action: 'link', person_id: personId } };
+}
+
 /** `user_removed` → close the employment period. The sync never does this on its own (§8.3). */
 async function applyOffboard(
   conflict: ConflictRow,
@@ -355,6 +412,9 @@ export async function resolveDirectoryConflict(
       break;
     case 'offboard':
       applied = await applyOffboard(conflict, session, deps.people);
+      break;
+    case 'link':
+      applied = await applyLink(conflict, params, deps.repo);
       break;
   }
 

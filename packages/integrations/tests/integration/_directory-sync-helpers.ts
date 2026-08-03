@@ -178,9 +178,18 @@ export function createFakePeople(seed: FakeUnit[]): FakePeople {
           });
           continue;
         }
-        const dto = JSON.stringify(incoming);
-        const prior = seen.get(email);
-        if (!prior) {
+        // Mirrors the real function: `linked_person_id` is the MATCH KEY when present, never a
+        // diffed attribute — so the binding appearing after the first run is not itself a change,
+        // and an email that changed in Entra follows the bound person instead of forking a new one.
+        const { linked_person_id: linkedId, ...comparable } = incoming;
+        const dto = JSON.stringify(comparable);
+        const priorKey = linkedId
+          ? ([...seen.entries()].find(([, v]) => v.person_id === linkedId)?.[0] ?? null)
+          : seen.has(email)
+            ? email
+            : null;
+        const prior = priorKey === null ? undefined : seen.get(priorKey);
+        if (!prior || priorKey === null) {
           const person_id = randomUUID();
           seen.set(email, { person_id, dto });
           results.push({ entra_oid: incoming.entra_oid, person_id, outcome: 'created' });
@@ -194,6 +203,7 @@ export function createFakePeople(seed: FakeUnit[]): FakePeople {
           });
           continue;
         }
+        seen.delete(priorKey);
         seen.set(email, { person_id: prior.person_id, dto });
         results.push({
           entra_oid: incoming.entra_oid,

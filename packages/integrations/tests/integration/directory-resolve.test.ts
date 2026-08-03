@@ -772,4 +772,124 @@ describe('resolveDirectoryConflict — user_removed and email_collision', () => 
       expect((await repo.getConflict(TENANT, conflictId))?.status).toBe('ignored');
     });
   });
+
+  it('link binds the chosen candidate, which is what makes the next run adopt them', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      await repo.raiseConflict({
+        tenantId: TENANT,
+        kind: 'email_collision',
+        subjectType: 'person',
+        subjectId: null,
+        entraOid: MGR_A_OID,
+        detail: {
+          work_email: 'ada@acme.test',
+          full_name: 'Ada Lovelace',
+          candidates: [{ person_id: P1, full_name: 'Ada L', directory_managed: false }],
+        },
+      });
+      const conflictId = await onlyConflictId(repo);
+
+      expect(
+        await resolveDirectoryConflict(
+          { conflictId, action: 'link', params: { person_id: P1 }, session: adminSession() },
+          { repo, people },
+        ),
+      ).toEqual({ resolved: true });
+
+      // `integrations` writes the binding and NOTHING else — `people` owns `directory_managed`,
+      // and `syncDirectoryPeople` is the door that asserts it from this row on the next run.
+      const link = await repo.findPersonLinkByOid(TENANT, MGR_A_OID);
+      expect(link?.personId).toBe(P1);
+      expect(link?.removedAt).toBeNull();
+      expect(people.calls.edit).toEqual([]);
+
+      const row = await repo.getConflict(TENANT, conflictId);
+      expect(row?.status).toBe('resolved');
+      expect(row?.resolution).toEqual({ action: 'link', person_id: P1 });
+    });
+  });
+
+  it('link refuses a person who is not one of the conflict candidates', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      await repo.raiseConflict({
+        tenantId: TENANT,
+        kind: 'email_collision',
+        subjectType: 'person',
+        subjectId: null,
+        entraOid: MGR_A_OID,
+        detail: {
+          work_email: 'ada@acme.test',
+          full_name: 'Ada Lovelace',
+          candidates: [{ person_id: P1, full_name: 'Ada L', directory_managed: false }],
+        },
+      });
+      const conflictId = await onlyConflictId(repo);
+
+      await expect(
+        resolveDirectoryConflict(
+          { conflictId, action: 'link', params: { person_id: P2 }, session: adminSession() },
+          { repo, people },
+        ),
+      ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      expect(await repo.findPersonLinkByOid(TENANT, MGR_A_OID)).toBeNull();
+    });
+  });
+
+  it('link refuses a person already bound to another Entra user', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      // `m365_person_links_uniq_person` allows one oid per person; the second must be a clean
+      // refusal, not a raw unique-violation out of the driver.
+      await repo.upsertPersonLink({ tenantId: TENANT, personId: P1, entraOid: MGR_B_OID });
+      await repo.raiseConflict({
+        tenantId: TENANT,
+        kind: 'email_collision',
+        subjectType: 'person',
+        subjectId: null,
+        entraOid: MGR_A_OID,
+        detail: {
+          work_email: 'ada@acme.test',
+          full_name: 'Ada Lovelace',
+          candidates: [{ person_id: P1, full_name: 'Ada L', directory_managed: false }],
+        },
+      });
+      const conflictId = await onlyConflictId(repo);
+
+      await expect(
+        resolveDirectoryConflict(
+          { conflictId, action: 'link', params: { person_id: P1 }, session: adminSession() },
+          { repo, people },
+        ),
+      ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      expect((await repo.getConflict(TENANT, conflictId))?.status).toBe('open');
+    });
+  });
+
+  it('does not offer create_new — a second live person cannot hold the colliding address', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      const repo = createDirectoryRepo({ db });
+      const people = createFakePeople(spine());
+      await repo.raiseConflict({
+        tenantId: TENANT,
+        kind: 'email_collision',
+        subjectType: 'person',
+        subjectId: null,
+        entraOid: MGR_A_OID,
+        detail: { work_email: 'ada@acme.test', full_name: 'Ada Lovelace', candidates: [] },
+      });
+      const conflictId = await onlyConflictId(repo);
+
+      await expect(
+        resolveDirectoryConflict(
+          { conflictId, action: 'create_new', session: adminSession() },
+          { repo, people },
+        ),
+      ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    });
+  });
 });

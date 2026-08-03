@@ -265,7 +265,14 @@ async function fetchChangedUsers(args: {
     if (mailbox === null) counters.mailboxForbidden += 1;
 
     pending.push({
-      person: mapGraphUser(u, { mailbox, photo: { result: photo, currentKey } }),
+      person: {
+        ...mapGraphUser(u, { mailbox, photo: { result: photo, currentKey } }),
+        // The link IS the identity; the email is just an attribute it carries. Without this the
+        // write door falls back to matching on `work_email`, so an address changed in Entra finds
+        // no match and duplicates the person. Soft-removed rows bind too — that is what makes a
+        // reappearing OID revive its person instead of growing a second one.
+        linked_person_id: link?.personId ?? null,
+      },
       photoMediaEtag: nextEtag,
       census: {
         entraOid: u.id,
