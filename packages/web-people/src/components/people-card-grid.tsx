@@ -142,7 +142,17 @@ export function PeopleCardGrid({
         ))}
       </div>
 
-      <Pagination page={page} onChange={goToPage} totalPages={pageCount} variant="compact" />
+      <div className="flex justify-center w-full mt-4">
+        <Pagination
+          page={page}
+          onChange={goToPage}
+          totalItems={total}
+          pageSize={pageSize}
+          pageSizeOptions={[25, 50, 100]}
+          onPageSizeChange={(newSize) => setQuery((q) => ({ ...q, pageSize: newSize, page: 1 }))}
+          style={{ justifyContent: 'center', width: 'auto' }}
+        />
+      </div>
     </div>
   );
 }
