@@ -187,8 +187,7 @@ export function NewCandidateDialog() {
     if (!v) reset();
   }
 
-  const effectiveReq = reqId || openReqs[0]?.id || '';
-  const missingRequired = !name.trim() || !effectiveReq;
+  const missingRequired = !name.trim() || !reqId;
   // FUT-559 unsaved-input guard: confirm before dismissing a form the recruiter has started.
   const dirty = !!(
     name.trim() ||
@@ -198,6 +197,7 @@ export function NewCandidateDialog() {
     gender ||
     seniority ||
     source ||
+    reqId ||
     note.trim() ||
     skills.length ||
     cvFile
@@ -206,7 +206,7 @@ export function NewCandidateDialog() {
   const nameFieldRef = useRef<HTMLDivElement>(null);
   const reqFieldRef = useRef<HTMLDivElement>(null);
   const nameInvalid = submitAttempted && !name.trim();
-  const reqInvalid = submitAttempted && !effectiveReq;
+  const reqInvalid = submitAttempted && !reqId;
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
@@ -216,7 +216,7 @@ export function NewCandidateDialog() {
   const mutation = useMutation({
     mutationFn: async () => {
       const res = await addCandidate({
-        requisition_id: effectiveReq,
+        requisition_id: reqId,
         name,
         personal_email: email.trim() || undefined,
         phone: phone.trim() || undefined,
@@ -270,7 +270,7 @@ export function NewCandidateDialog() {
       const target =
         !name.trim() || nameError
           ? nameFieldRef.current
-          : !effectiveReq
+          : !reqId
             ? reqFieldRef.current
             : dobError || isBadInput
               ? dobFieldRef.current
@@ -536,9 +536,12 @@ export function NewCandidateDialog() {
                   <Selector
                     label="Position applied"
                     isRequired
-                    options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
-                    value={effectiveReq}
-                    onChange={(v) => setReqId(v)}
+                    options={[
+                      { value: NONE, label: '—' },
+                      ...openReqs.map((r) => ({ value: r.id, label: r.title })),
+                    ]}
+                    value={reqId || NONE}
+                    onChange={(v) => setReqId(v === NONE ? '' : v)}
                     placeholder="Select a position"
                     status={
                       reqInvalid
