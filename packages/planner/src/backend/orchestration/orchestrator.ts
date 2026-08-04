@@ -2,12 +2,13 @@ import { Mastra } from '@mastra/core';
 import { Agent, type MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
 import {
   type AgentResult,
   type AgentTool,
+  buildAgentRequestContext,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
   withTemporalContext,
@@ -115,10 +116,7 @@ function buildQueryOrchestrator(
   input: QueryOrchestratorInput,
   ctx: SpecializedAgentRunCtx,
 ): BuiltQueryOrchestrator {
-  const rc = new RequestContext();
-  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-  rc.set('tenant_id', ctx.tenantId);
-  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+  const rc = buildAgentRequestContext(ctx);
 
   const tools = makeQueryOrchestratorTools({
     taskQuery: deps.taskQuery,
