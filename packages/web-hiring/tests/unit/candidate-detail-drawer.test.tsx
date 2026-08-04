@@ -13,6 +13,13 @@ const requestCandidateCvUpload = vi.fn();
 const putCvToS3 = vi.fn();
 const getCandidateCvDownloadUrl = vi.fn();
 const hireApplication = vi.fn();
+const fetchRequisition = vi.fn().mockResolvedValue({
+  skills: [
+    { skill_id: 's1', skill_name: 'TypeScript', min_level: 4 },
+    { skill_id: 's2', skill_name: 'React', min_level: 3 },
+    { skill_id: 's3', skill_name: 'Node', min_level: 3 },
+  ],
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -20,6 +27,7 @@ beforeEach(() => {
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidate: (id: string) => fetchCandidate(id),
+  fetchRequisition: (id: string) => fetchRequisition(id),
   moveApplicationStage: (id: string, input: unknown) => moveApplicationStage(id, input),
   editCandidate: (...args: unknown[]) => editCandidate(...args),
   requestCandidateCvUpload: (...args: unknown[]) => requestCandidateCvUpload(...args),
@@ -130,7 +138,7 @@ describe('CandidateDetailDrawer', () => {
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
     // Skills live in the CV now — the drawer surfaces the fit summary, not a chip list.
-    expect(screen.getByText('2/3 skills')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/2 of 3/)).toBeInTheDocument());
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
     expect(screen.getByText('1998-05-12')).toBeInTheDocument();
     expect(screen.getByText('Female')).toBeInTheDocument();
