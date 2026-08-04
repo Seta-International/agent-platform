@@ -65,7 +65,7 @@ function LifecycleBadge({ stage }: { stage: string | null }) {
 // All columns are toggleable. 'full_name' appears in the Columns menu like
 // every other column — always on by default, but can be hidden.
 const COLUMN_OPTIONS: ColumnSettingsOption[] = [
-  { key: 'full_name', label: 'Employee' },
+  { key: 'full_name', label: 'Name' },
   { key: 'accounts', label: 'Account' },
   { key: 'work_email', label: 'Work email' },
   { key: 'manager_name', label: 'Direct manager' },
@@ -179,7 +179,7 @@ export function PeoplePage() {
     () => [
       {
         key: 'full_name',
-        header: 'Employee',
+        header: 'Name',
         width: proportional(2),
         sortable: true,
         renderCell: (r) => (
@@ -302,16 +302,12 @@ export function PeoplePage() {
           <VStack gap={1}>
             <Breadcrumbs variant="supporting">
               <BreadcrumbItem href="/people">People</BreadcrumbItem>
-              {/* Deliberate exception to the title-wins rule: the page's h1 is "People", which
-                  collides with the app root crumb above. "Employees" is the manifest nav label
-                  for /people/employees — the item a user actually clicks to reach this page —
-                  and keeps this trail consistent with worker-profile-page's middle crumb. */}
               <BreadcrumbItem isCurrent>Employees</BreadcrumbItem>
             </Breadcrumbs>
             <HStack hAlign="between" vAlign="center" gap={2}>
               <HStack gap={2} vAlign="center">
                 <Text as="h1" size="lg" weight="semibold">
-                  People
+                  Employees
                 </Text>
               </HStack>
               {actions}
