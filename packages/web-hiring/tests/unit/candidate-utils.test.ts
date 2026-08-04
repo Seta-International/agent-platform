@@ -94,17 +94,17 @@ describe('resolveStageDrop', () => {
   it('returns the move when dropped on a different active column', () => {
     expect(
       resolveStageDrop({ draggableId: 'a1', source: 'new', destination: 'screening', items }),
-    ).toEqual({ application_id: 'a1', to: 'screening', expected_version: 7 });
+    ).toEqual({ kind: 'stage', application_id: 'a1', to: 'screening', expected_version: 7 });
   });
   it('returns null when dropped on the same column', () => {
     expect(
       resolveStageDrop({ draggableId: 'a1', source: 'new', destination: 'new', items }),
     ).toBeNull();
   });
-  it('returns null when dropped on the Hired column (offers deferred)', () => {
+  it('routes a drop on the Hired column to the hire mutation', () => {
     expect(
       resolveStageDrop({ draggableId: 'a1', source: 'new', destination: 'hired', items }),
-    ).toBeNull();
+    ).toEqual({ kind: 'hire', application_id: 'a1', expected_version: 7 });
   });
   it('returns null when there is no destination', () => {
     expect(

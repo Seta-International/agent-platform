@@ -11,11 +11,13 @@ vi.mock('@seta/web-identity', () => ({ usePermission: () => true }));
 
 const fetchCandidates = vi.fn();
 const moveApplicationStage = vi.fn();
+const hireApplication = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidates: () => fetchCandidates(),
   moveApplicationStage: (id: string, input: { expected_version?: number; to: string }) =>
     moveApplicationStage(id, input),
+  hireApplication: (id: string, input: { expected_version?: number }) => hireApplication(id, input),
   fetchRejectedCandidates: () => Promise.resolve([]),
   fetchCandidateStageCounts: () =>
     Promise.resolve({ new: 1, screening: 0, interview: 0, offer: 0, hired: 0, cancelled: 0 }),
