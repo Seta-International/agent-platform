@@ -3,6 +3,8 @@ import { buildUpdateApprovalCard } from './approval-card.ts';
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
 import {
+  PERCENT_COMPLETE_BY_WORD,
+  PRIORITY_NUMBER_BY_WORD,
   type ToolPatch,
   type UpdateTaskActionPatch,
   UpdateTaskActionPatchSchema,
@@ -18,14 +20,27 @@ export interface UpdateTaskToolDeps {
   ctx: SpecializedAgentRunCtx;
 }
 
-/** Model-facing dates may be a bare calendar day; the domain schema may not.
- *  Normalising in code — not in the prompt — is what makes the convention
- *  testable without an LLM. */
-function normalizePatch(patch: ToolPatch): UpdateTaskActionPatch {
-  const out: Record<string, unknown> = { ...patch };
-  if (typeof patch.due_at === 'string') out.due_at = normalizeInstant(patch.due_at, 'end');
-  if (typeof patch.start_at === 'string') out.start_at = normalizeInstant(patch.start_at, 'start');
-  for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
+/** Translate the model's vocabulary into the domain's.
+ *
+ *  Two conversions, both deliberately in code rather than in the prompt — which
+ *  is what makes them testable without an LLM:
+ *   - words → stored numbers (`urgent` → 1, `in_progress` → 50);
+ *   - a bare calendar day → an absolute instant, since the model may say
+ *     `2026-08-15` while the domain schema requires a full offset timestamp.
+ */
+function toDomainPatch(patch: ToolPatch): UpdateTaskActionPatch {
+  const out: Record<string, unknown> = {};
+  if (patch.title !== undefined) out.title = patch.title;
+  if (patch.description !== undefined) out.description = patch.description;
+  if (patch.dueAt !== undefined) {
+    out.due_at = typeof patch.dueAt === 'string' ? normalizeInstant(patch.dueAt, 'end') : null;
+  }
+  if (patch.startAt !== undefined) {
+    out.start_at =
+      typeof patch.startAt === 'string' ? normalizeInstant(patch.startAt, 'start') : null;
+  }
+  if (patch.priority !== undefined) out.priority_number = PRIORITY_NUMBER_BY_WORD[patch.priority];
+  if (patch.status !== undefined) out.percent_complete = PERCENT_COMPLETE_BY_WORD[patch.status];
   return UpdateTaskActionPatchSchema.parse(out);
 }
 
@@ -45,12 +60,17 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
     id: 'planner_updateTask',
     name: 'Update Task',
     description: [
-      'Change fields on ONE task and ask the user to confirm the change first.',
-      'Supported fields: title, description, due_at, start_at, priority_number,',
-      'percent_complete. Pass ONLY the fields the user actually asked to change.',
-      'Dates must already be absolute (YYYY-MM-DD or a full ISO timestamp) — resolve any',
-      'relative phrase before calling, and ask the user when it is ambiguous.',
-      'This tool never writes on its own: it pauses for the user to confirm.',
+      'Chat flow only — shows the user a preview card and waits for them to confirm.',
+      '',
+      'The user wants to change something about a task they have already identified.',
+      '',
+      'Use for: "đổi tên task này thành Deploy Hiring Screen"; "push the AWS migration to',
+      'next Friday"; "mark the first one as done"; "this is urgent now"; "clear the start date".',
+      'Do NOT use to find or inspect a task — use planner_queryTasks to search and',
+      'planner_getTask to read one, then pass its taskId here.',
+      '',
+      'Pass ONLY the fields the user actually asked to change, and resolve every relative',
+      'date to an absolute one before calling. This tool never writes on its own.',
     ].join('\n'),
     input: UpdateTaskToolInputSchema,
     output: UpdateTaskToolOutputSchema,
@@ -60,7 +80,7 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
     // WeakMap that nothing reads at runtime, which is why the first pass calls
     // assertCanUpdate itself.
     rbac: 'planner.task.update',
-    execute: async ({ taskId: taskRef, patch }, toolCtx) => {
+    execute: async ({ taskRef, patch }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -104,7 +124,7 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
         groupId: task.groupId,
       });
 
-      const normalized = normalizePatch(patch);
+      const normalized = toDomainPatch(patch);
       if (Object.keys(normalized).length === 0) {
         return {
           updated: false,
