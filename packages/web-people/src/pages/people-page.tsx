@@ -62,10 +62,10 @@ function LifecycleBadge({ stage }: { stage: string | null }) {
   return <Badge variant={variant} className="capitalize" label={stage} />;
 }
 
-// Universe of columns for the column-settings picker. 'full_name' is the only
-// always-visible one (matches the old bespoke popover, which never listed it).
+// All columns are toggleable. 'full_name' appears in the Columns menu like
+// every other column — always on by default, but can be hidden.
 const COLUMN_OPTIONS: ColumnSettingsOption[] = [
-  { key: 'full_name', label: 'Employee', isAlwaysVisible: true },
+  { key: 'full_name', label: 'Employee' },
   { key: 'accounts', label: 'Account' },
   { key: 'work_email', label: 'Work email' },
   { key: 'manager_name', label: 'Direct manager' },
@@ -76,7 +76,6 @@ const COLUMN_OPTIONS: ColumnSettingsOption[] = [
   { key: 'gender', label: 'Gender' },
   { key: 'skills', label: 'Techstack' },
 ];
-const HIDEABLE_COLUMN_KEYS = COLUMN_OPTIONS.filter((c) => !c.isAlwaysVisible);
 const DEFAULT_COLUMN_KEYS = COLUMN_OPTIONS.map((c) => c.key);
 
 export function PeoplePage() {
@@ -370,7 +369,7 @@ export function PeoplePage() {
                               <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                                 Toggle columns
                               </div>
-                              {HIDEABLE_COLUMN_KEYS.map((col) => (
+                              {COLUMN_OPTIONS.map((col) => (
                                 <Checkbox
                                   key={col.key}
                                   label={col.label}
