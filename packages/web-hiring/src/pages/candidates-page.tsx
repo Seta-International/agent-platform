@@ -1,5 +1,6 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
+  AlertDialog,
   Banner,
   BreadcrumbItem,
   Breadcrumbs,
@@ -49,11 +50,14 @@ import {
   Users,
 } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type CandidateListItem,
+  type CandStage,
+  type CandStatus,
   fetchCandidates,
   fetchRejectedCandidates,
+  hireApplication,
   moveApplicationStage,
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -65,8 +69,10 @@ import {
   boardColumns,
   COLUMN_EMPTY_COPY,
   fitLabel,
+  type HireMove,
   resolveStageDrop,
   STAGE_COLOR,
+  type StageMove,
 } from './candidate-utils.ts';
 import { NewCandidateDialog } from './new-candidate-dialog.tsx';
 import { TalentPoolCard } from './talent-pool-card.tsx';
@@ -187,11 +193,8 @@ function filterCandidates(
 
 export function onBoardDragEnd(
   items: CandidateListItem[],
-  mutate: (move: {
-    application_id: string;
-    to: import('../api/hiring-client.ts').CandStage;
-    expected_version: number;
-  }) => void,
+  mutate: (move: StageMove) => void,
+  hire?: (move: HireMove) => void,
 ) {
   return (result: DropResult) => {
     const move = resolveStageDrop({
@@ -200,7 +203,9 @@ export function onBoardDragEnd(
       destination: result.destination?.droppableId ?? null,
       items,
     });
-    if (move) mutate(move);
+    if (!move) return;
+    if (move.kind === 'hire') hire?.(move);
+    else mutate(move);
   };
 }
 
@@ -216,6 +221,8 @@ export function CandidatesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_CANDIDATE_COLUMN_KEYS);
+  const [optimisticStages, setOptimisticStages] = useState<Record<string, CandStage>>({});
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, CandStatus>>({});
 
   const { data, isLoading, error } = useQuery({
     queryKey: hiringKeys.candidates(),
@@ -228,9 +235,25 @@ export function CandidatesPage() {
     queryFn: fetchRejectedCandidates,
   });
 
+  const candidatesWithOptimistic = useMemo(() => {
+    if (!data) return [];
+    if (Object.keys(optimisticStages).length === 0 && Object.keys(optimisticStatuses).length === 0)
+      return data;
+    return data.map((c) => {
+      const stageOverride = optimisticStages[c.application_id];
+      const statusOverride = optimisticStatuses[c.application_id];
+      return {
+        ...c,
+        ...(stageOverride ? { stage: stageOverride } : {}),
+        ...(statusOverride ? { status: statusOverride } : {}),
+      };
+    });
+  }, [data, optimisticStages, optimisticStatuses]);
+
   const rows = useMemo(
-    () => filterCandidates(data ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
-    [data, q, reqFilter, seniorityFilter, sourceFilter],
+    () =>
+      filterCandidates(candidatesWithOptimistic, { q, reqFilter, seniorityFilter, sourceFilter }),
+    [candidatesWithOptimistic, q, reqFilter, seniorityFilter, sourceFilter],
   );
   const rejectedRows = useMemo(
     () => filterCandidates(rejectedData ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
@@ -290,25 +313,142 @@ export function CandidatesPage() {
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.candidate.manage');
   const stageMove = useMutation({
-    mutationFn: (m: {
-      application_id: string;
-      to: 'new' | 'screening' | 'interview' | 'offer';
-      expected_version: number;
-    }) =>
+    mutationFn: (m: StageMove) =>
       moveApplicationStage(m.application_id, { expected_version: m.expected_version, to: m.to }),
+    onMutate: (m) => {
+      // Snapshot previous candidates synchronously
+      const previousCandidates = queryClient.getQueryData<CandidateListItem[]>(
+        hiringKeys.candidates(),
+      );
+
+      // Optimistically update query cache SYNCHRONOUSLY before any async calls so React renders the new stage immediately
+      if (previousCandidates) {
+        queryClient.setQueryData<CandidateListItem[]>(hiringKeys.candidates(), (old) => {
+          if (!old) return old;
+          return old.map((c) =>
+            c.application_id === m.application_id
+              ? { ...c, stage: m.to, version: c.version + 1 }
+              : c,
+          );
+        });
+      }
+
+      // Fire-and-forget query cancellation in the background without delaying setQueryData
+      void queryClient.cancelQueries({ queryKey: hiringKeys.candidates() });
+      void queryClient.cancelQueries({ queryKey: hiringKeys.candidateStageCounts() });
+
+      return { previousCandidates };
+    },
+    onError: (e: Error, _m, context) => {
+      if (context?.previousCandidates) {
+        queryClient.setQueryData(hiringKeys.candidates(), context.previousCandidates);
+      }
+      on409(toast, e, queryClient, hiringKeys.candidates());
+    },
     onSuccess: () => {
       toast({ body: 'Stage updated' });
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
     },
-    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
-  const handleDragEnd = onBoardDragEnd(rows, (m) => stageMove.mutate(m));
+
+  const [pendingHire, setPendingHire] = useState<HireMove | null>(null);
+
+  const cancelPendingHire = useCallback(
+    (appId?: string) => {
+      const targetId = appId ?? pendingHire?.application_id;
+      if (targetId) {
+        setOptimisticStatuses((prev) => {
+          const copy = { ...prev };
+          delete copy[targetId];
+          return copy;
+        });
+      }
+      setPendingHire(null);
+    },
+    [pendingHire],
+  );
+
+  const hireMove = useMutation({
+    mutationFn: (m: HireMove) =>
+      hireApplication(m.application_id, { expected_version: m.expected_version }),
+    onError: (e: Error) => {
+      cancelPendingHire();
+      on409(toast, e, queryClient, hiringKeys.candidates());
+    },
+    onSuccess: () => {
+      toast({ body: 'Candidate hired successfully' });
+    },
+    onSettled: () => {
+      setPendingHire(null);
+      setOptimisticStatuses({});
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
+    },
+  });
+
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      const move = resolveStageDrop({
+        draggableId: result.draggableId,
+        source: result.source.droppableId,
+        destination: result.destination?.droppableId ?? null,
+        items: rows,
+      });
+      if (!move) return;
+
+      // A Hired drop is the terminal hire — confirm first, but optimistically show in Hired column immediately.
+      if (move.kind === 'hire') {
+        setOptimisticStatuses((prev) => ({
+          ...prev,
+          [move.application_id]: 'hired',
+        }));
+        setPendingHire(move);
+        return;
+      }
+
+      // 1. Synchronously update local React state so React updates DOM immediately in this frame!
+      setOptimisticStages((prev) => ({
+        ...prev,
+        [move.application_id]: move.to,
+      }));
+
+      // 2. Update Query Cache optimistically
+      queryClient.setQueryData<CandidateListItem[]>(hiringKeys.candidates(), (old) => {
+        if (!old) return old;
+        return old.map((c) =>
+          c.application_id === move.application_id
+            ? { ...c, stage: move.to, version: c.version + 1 }
+            : c,
+        );
+      });
+
+      stageMove.mutate(move, {
+        onError: () => {
+          setOptimisticStages((prev) => {
+            const next = { ...prev };
+            delete next[move.application_id];
+            return next;
+          });
+        },
+        onSettled: () => {
+          setOptimisticStages((prev) => {
+            const next = { ...prev };
+            delete next[move.application_id];
+            return next;
+          });
+        },
+      });
+    },
+    [rows, queryClient, stageMove],
+  );
 
   // Rejected rows come from a separate query; merge them in only for the board's column buckets.
   // The active-pipeline `rows` still drives drag/list/export/filter options untouched. Every stat
   // tile then reads straight from `groups`, so each number matches the column beneath it.
-  const groups = boardColumns([...rows, ...rejectedRows]);
+  const groups = useMemo(() => boardColumns([...rows, ...rejectedRows]), [rows, rejectedRows]);
 
   const columns = useMemo<TableColumn<Row>[]>(
     () => [
@@ -596,7 +736,7 @@ export function CandidatesPage() {
                       <Droppable
                         key={col.id}
                         droppableId={col.id}
-                        isDropDisabled={col.id === 'hired' || col.id === 'rejected' || !canManage}
+                        isDropDisabled={col.id === 'rejected' || !canManage}
                       >
                         {(provided, snapshot) => (
                           <KanbanColumn
@@ -664,6 +804,23 @@ export function CandidatesPage() {
             />
           </div>
           <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
+          <AlertDialog
+            isOpen={!!pendingHire}
+            onOpenChange={(open) => !open && cancelPendingHire()}
+            title="Hire Candidate"
+            description={
+              pendingHire
+                ? 'Hiring this candidate will transition them to Hired and automatically create a preboarding worker record in the People module. There must be a vacant opening for their requisition.'
+                : ''
+            }
+            cancelLabel="Cancel"
+            actionLabel={hireMove.isPending ? 'Hiring…' : 'Confirm'}
+            actionVariant="primary"
+            isActionLoading={hireMove.isPending}
+            onAction={() => {
+              if (pendingHire) hireMove.mutate(pendingHire);
+            }}
+          />
         </LayoutContent>
       }
     />

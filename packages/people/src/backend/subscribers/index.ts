@@ -7,6 +7,7 @@ import { accountProjectionCreated, accountProjectionUpdated } from './account-pr
 import {
   allocationProjectionCreated,
   allocationProjectionRemoved,
+  allocationProjectionUpdated,
 } from './allocation-projection.ts';
 import { linkUserToPerson } from './link-user-to-person.ts';
 import { performanceGroupsSeedOnTenantCreated } from './performance-groups-seed.ts';
@@ -18,6 +19,7 @@ export function peopleSubscribers(): SubscriberDef[] {
   return [
     linkUserToPerson,
     allocationProjectionCreated,
+    allocationProjectionUpdated,
     allocationProjectionRemoved,
     accountProjectionCreated,
     accountProjectionUpdated,

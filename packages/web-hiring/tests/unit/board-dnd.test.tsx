@@ -34,20 +34,28 @@ describe('onBoardDragEnd', () => {
       destination: { droppableId: 'screening', index: 0 },
     } as never);
     expect(mutate).toHaveBeenCalledWith({
+      kind: 'stage',
       application_id: 'a1',
       to: 'screening',
       expected_version: 9,
     });
   });
 
-  it('does nothing when dropped on the Hired column', () => {
+  it('routes a drop on the Hired column to the hire mutation', () => {
     const mutate = vi.fn();
-    const handler = onBoardDragEnd([item({})], mutate);
+    const hire = vi.fn();
+    const handler = onBoardDragEnd([item({ stage: 'offer' })], mutate, hire);
     handler({
       draggableId: 'a1',
-      source: { droppableId: 'new', index: 0 },
+      source: { droppableId: 'offer', index: 0 },
       destination: { droppableId: 'hired', index: 0 },
     } as never);
+    // resolveStageDrop now routes Hired drops to the hire mutation, not the stage move.
     expect(mutate).not.toHaveBeenCalled();
+    expect(hire).toHaveBeenCalledWith({
+      kind: 'hire',
+      application_id: 'a1',
+      expected_version: 9,
+    });
   });
 });

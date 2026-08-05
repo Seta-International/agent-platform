@@ -92,6 +92,13 @@
       "when": 1784187018259,
       "tag": "0028_fut601_report_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785747214819,
+      "tag": "0030_fut797_kpi_metric_entry_rules",
+      "breakpoints": true
     }
   ]
 }

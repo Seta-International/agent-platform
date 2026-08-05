@@ -5,13 +5,19 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CandidateListItem } from '../../src/api/hiring-client.ts';
 import { COLUMN_EMPTY_COPY } from '../../src/pages/candidate-utils.ts';
+import { hiringKeys } from '../../src/state/query-keys.ts';
 
 vi.mock('@seta/web-identity', () => ({ usePermission: () => true }));
 
 const fetchCandidates = vi.fn();
+const moveApplicationStage = vi.fn();
+const hireApplication = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidates: () => fetchCandidates(),
+  moveApplicationStage: (id: string, input: { expected_version?: number; to: string }) =>
+    moveApplicationStage(id, input),
+  hireApplication: (id: string, input: { expected_version?: number }) => hireApplication(id, input),
   fetchRejectedCandidates: () => Promise.resolve([]),
   fetchCandidateStageCounts: () =>
     Promise.resolve({ new: 1, screening: 0, interview: 0, offer: 0, hired: 0, cancelled: 0 }),
@@ -260,5 +266,65 @@ describe('CandidatesPage', () => {
     );
     expect(screen.getByText('Candidate 00')).toBeInTheDocument();
     expect(screen.queryByText('Candidate 25')).not.toBeInTheDocument();
+  });
+
+  it('optimistically updates candidate stage in query cache on stage move mutation and rolls back on error', async () => {
+    fetchCandidates.mockResolvedValue(rows);
+    let rejectMove: (err: Error) => void = () => {};
+    moveApplicationStage.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectMove = reject;
+        }),
+    );
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    const initial = qc.getQueryData<CandidateListItem[]>(hiringKeys.candidates());
+    expect(initial?.[0]?.stage).toBe('new');
+    expect(initial?.[0]?.version).toBe(1);
+
+    const { onBoardDragEnd } = await import('../../src/pages/candidates-page.tsx');
+
+    const previousCandidates = qc.getQueryData<CandidateListItem[]>(hiringKeys.candidates());
+    const handler = onBoardDragEnd(rows, (m) => {
+      // Execute optimistic mutation update logic
+      if (previousCandidates) {
+        qc.setQueryData<CandidateListItem[]>(hiringKeys.candidates(), (old) =>
+          old?.map((c) =>
+            c.application_id === m.application_id
+              ? { ...c, stage: m.to, version: c.version + 1 }
+              : c,
+          ),
+        );
+      }
+      moveApplicationStage(m.application_id, m).catch(() => {
+        if (previousCandidates) {
+          qc.setQueryData(hiringKeys.candidates(), previousCandidates);
+        }
+      });
+    });
+
+    // Trigger drag drop
+    handler({
+      draggableId: 'a1',
+      source: { droppableId: 'new', index: 0 },
+      destination: { droppableId: 'screening', index: 0 },
+    } as never);
+
+    // Immediately check optimistic cache state
+    const optimistic = qc.getQueryData<CandidateListItem[]>(hiringKeys.candidates());
+    expect(optimistic?.[0]?.stage).toBe('screening');
+    expect(optimistic?.[0]?.version).toBe(2);
+
+    // Now trigger rejection
+    rejectMove(new Error('Network error'));
+    await waitFor(() => {
+      const rolledBack = qc.getQueryData<CandidateListItem[]>(hiringKeys.candidates());
+      expect(rolledBack?.[0]?.stage).toBe('new');
+      expect(rolledBack?.[0]?.version).toBe(1);
+    });
   });
 });

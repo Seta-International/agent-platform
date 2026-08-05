@@ -20,6 +20,11 @@ export interface BaselineDef {
   component_count: 1 | 2;
   component_1_label: string;
   component_2_label: string | null;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
   green_band: BandCondition;
   yellow_band: BandCondition;
   red_band: BandCondition;
@@ -70,6 +75,11 @@ export async function ensureBaselineDefs(
       component_count: kpiNormMetric.component_count,
       component_1_label: kpiNormMetric.component_1_label,
       component_2_label: kpiNormMetric.component_2_label,
+      component_1_integer: kpiNormMetric.component_1_integer,
+      component_2_integer: kpiNormMetric.component_2_integer,
+      component_1_min: kpiNormMetric.component_1_min,
+      component_1_max: kpiNormMetric.component_1_max,
+      is_share: kpiNormMetric.is_share,
       green_band: kpiNormMetric.green_band,
       yellow_band: kpiNormMetric.yellow_band,
       red_band: kpiNormMetric.red_band,
@@ -142,6 +152,11 @@ export async function ensureBaselineDefs(
           component_count: def.component_count,
           component_1_label: def.component_1_label,
           component_2_label: def.component_2_label,
+          component_1_integer: def.component_1_integer,
+          component_2_integer: def.component_2_integer,
+          component_1_min: def.component_1_min,
+          component_1_max: def.component_1_max,
+          is_share: def.is_share,
           green_band: def.green_band,
           yellow_band: def.yellow_band,
           red_band: def.red_band,
@@ -194,6 +209,11 @@ export async function ensureBaselineDefs(
           component_count: r.component_count as 1 | 2,
           component_1_label: r.component_1_label,
           component_2_label: r.component_2_label,
+          component_1_integer: r.component_1_integer,
+          component_2_integer: r.component_2_integer,
+          component_1_min: r.component_1_min === null ? null : Number(r.component_1_min),
+          component_1_max: r.component_1_max === null ? null : Number(r.component_1_max),
+          is_share: r.is_share,
           green_band: r.green_band as BandCondition,
           yellow_band: r.yellow_band as BandCondition,
           red_band: r.red_band as BandCondition,

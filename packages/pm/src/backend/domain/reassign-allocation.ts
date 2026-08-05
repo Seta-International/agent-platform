@@ -416,6 +416,10 @@ export async function reassignAllocation(
           account_id: sourceProj.account_id,
           tenant_id: session.tenant_id,
           planned_pct: Number(current.planned_pct),
+          lead_worker_id: sourceProj.pm_worker_id ?? null,
+          date_from: current.date_from,
+          date_to: source.date_to ?? null,
+          bucket: current.bucket,
           fields: ['date_to'],
         },
       });
@@ -711,6 +715,10 @@ export async function reassignWorkerAllocations(
             account_id: s.proj.account_id,
             tenant_id: session.tenant_id,
             planned_pct: Number(s.current.planned_pct),
+            lead_worker_id: s.proj.pm_worker_id ?? null,
+            date_from: s.current.date_from,
+            date_to: source.date_to ?? null,
+            bucket: s.current.bucket,
             fields: ['date_to'],
           },
         });

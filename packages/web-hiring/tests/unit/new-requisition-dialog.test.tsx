@@ -59,13 +59,34 @@ describe('NewRequisitionDialog', () => {
     expect(within(dialog).getByRole('heading', { name: 'New requisition' })).toBeInTheDocument();
   });
 
+  // FUT-788: Dialog DOM stays mounted between open/close cycles (Astryx behaviour), so the
+  // LayoutContent scroll container would retain its previous scrollTop. Verify that scrollTo is
+  // called with { top: 0 } each time the dialog reopens.
+  it('resets scroll to top each time the dialog is reopened (FUT-788)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
+
+    // Open once then close (pristine form closes without confirmation).
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    // jsdom treats scrollTo as a no-op but records calls when spied upon.
+    const scrollToSpy = vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
+
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 });
+    scrollToSpy.mockRestore();
+  });
+
   it('clears entered data when reopened after Cancel', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     await userEvent.type(screen.getByLabelText(/job title/i), 'Stale Title');
-    // Dirty form → Cancel prompts to confirm; Discard actually closes it.
+    // Dirty form -> Cancel prompts to confirm; Discard actually closes it.
     await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     await userEvent.click(await screen.findByRole('button', { name: 'Discard' }));
 
@@ -89,7 +110,7 @@ describe('NewRequisitionDialog', () => {
     expect(within(confirm).getByText('Discard this requisition?')).toBeInTheDocument();
   });
 
-  // The confirmation is only for unsaved work — an untouched form closes on Cancel with no prompt.
+  // The confirmation is only for unsaved work -- an untouched form closes on Cancel with no prompt.
   it('closes without confirmation when Cancel is clicked on a pristine form', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<NewRequisitionDialog />, { wrapper: wrap(qc) });

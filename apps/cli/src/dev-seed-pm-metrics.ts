@@ -83,7 +83,9 @@ interface OwnerAccount {
   name: string;
   title: string;
   handle: string; // local-part of the login email (stable)
-  role: 'pm.manager' | 'pm.pmo';
+  role: 'pm.manager' | 'pm.pmo' | 'pm.viewer' | 'pm.bod';
+  scope_kind?: 'self' | 'tenant';
+  owner_access?: boolean;
 }
 const PM_OWNERS: OwnerAccount[] = [
   {
@@ -138,8 +140,38 @@ const PMO_OWNERS: OwnerAccount[] = [
     handle: 'pmo.trang',
     role: 'pm.pmo',
   },
+  {
+    id: randomUUID(),
+    name: 'Vương Thị Uyên',
+    title: 'PMO Lead',
+    handle: 'pmo.uyen',
+    role: 'pm.pmo',
+    owner_access: false,
+  },
 ];
-const OWNERS: OwnerAccount[] = [...PM_OWNERS, ...PMO_OWNERS];
+const AM_OWNERS: OwnerAccount[] = [
+  {
+    id: randomUUID(),
+    name: 'Phan Thị Hoa',
+    title: 'Account Manager',
+    handle: 'am.hoa',
+    role: 'pm.viewer',
+    owner_access: false,
+  },
+];
+const BOD_OWNERS: OwnerAccount[] = [
+  {
+    id: randomUUID(),
+    name: 'Tạ Văn Tuấn',
+    title: 'Board Member',
+    handle: 'bod.tuan',
+    role: 'pm.bod',
+    scope_kind: 'tenant',
+    owner_access: false,
+  },
+];
+const OWNERS: OwnerAccount[] = [...PM_OWNERS, ...PMO_OWNERS, ...AM_OWNERS, ...BOD_OWNERS];
+const [AM_HOA] = AM_OWNERS as [OwnerAccount];
 const ownerEmail = (o: OwnerAccount): string => `${o.handle}@${OWNER_EMAIL_DOMAIN}`;
 
 interface DemoAccount {
@@ -430,7 +462,13 @@ async function main(): Promise<void> {
       { type: 'cli', user_id: null },
     );
     await grantRole(
-      { user_id, tenant_id: tenantId, role_slug: o.role, scope_kind: 'self', scope_id: null },
+      {
+        user_id,
+        tenant_id: tenantId,
+        role_slug: o.role,
+        scope_kind: o.scope_kind ?? 'self',
+        scope_id: null,
+      },
       { type: 'cli', user_id: null },
     );
     ownerUserId.set(o.id, user_id);
@@ -541,11 +579,12 @@ async function main(): Promise<void> {
 
   // ── Accounts ──────────────────────────────────────────────────────────────────────────────
   const accountId = new Map<string, string>();
-  for (const a of ACCOUNTS) {
+  for (const [i, a] of ACCOUNTS.entries()) {
     const id = randomUUID();
+    const amPersonId = i === 0 ? AM_HOA.id : BINH.id;
     await db.execute(
       sql`INSERT INTO pm.account (id, tenant_id, name, industry, am_person_id)
-          VALUES (${id}, ${tenantId}, ${a.name}, ${a.industry}, ${BINH.id})`,
+          VALUES (${id}, ${tenantId}, ${a.name}, ${a.industry}, ${amPersonId})`,
     );
     accountId.set(a.name, id);
   }
@@ -592,9 +631,8 @@ async function main(): Promise<void> {
 
     // Owner grants: the PM/PMO owner accounts get a `project_access` 'owner' row on every project
     // (a spread of a handful each). For the bulk projects it doubles the pm_person_id lead they
-    // already are; for curated it makes them co-owners. It's also what gives a PMO manage scope —
-    // pmo_person_id alone doesn't (only pm_person_id / AM / access-owner arms do).
-    for (const ownerPersonId of [pmOwner.id, pmoOwner.id]) {
+    const grantees = [pmOwner, pmoOwner].filter((o) => o.owner_access !== false);
+    for (const ownerPersonId of grantees.map((o) => o.id)) {
       await db.execute(
         sql`INSERT INTO pm.project_access (tenant_id, project_id, person_id, level)
             VALUES (${tenantId}, ${pid}, ${ownerPersonId}, 'owner')`,

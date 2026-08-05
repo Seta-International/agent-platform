@@ -94,14 +94,14 @@ describe('NewCandidateDialog', () => {
     render(<NewCandidateDialog />, { wrapper: wrap(qc) });
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
     await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
-    // Wait for requisitions query to load so effectiveReq resolves to r1 (Backend Eng)
     await waitFor(() =>
       expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
     );
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
-    // effectiveReq auto-selects r1 (Backend Eng, the only open req)
+    await userEvent.click(screen.getByRole('combobox', { name: /position applied/i }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Backend Eng' }));
     await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
     await waitFor(() =>
       expect(addCandidate).toHaveBeenCalledWith(
@@ -110,10 +110,23 @@ describe('NewCandidateDialog', () => {
     );
   });
 
+  it('displays inline error and blocks submission when position applied is left unselected (FUT-644)', async () => {
+    addCandidate.mockClear();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
+    expect(addCandidate).not.toHaveBeenCalled();
+    expect(screen.getByText('Position applied is required.')).toBeInTheDocument();
+  });
+
   // FUT-765: a filled requisition keeps status 'open' once its headcount is hired out, so the
   // status check alone still lists it in the position picker. It must be excluded — a candidate
-  // added there can never be hired. Here the filled r1 is listed before the open r2; the default
-  // selection must skip r1 and land on r2.
+  // added there can never be hired. Here the filled r1 is listed before the open r2.
   it('excludes a headcount-filled requisition from the position picker', async () => {
     fetchRequisitions.mockResolvedValueOnce([
       { id: 'r1', title: 'Filled Role', status: 'open', openings_open: 0 },
@@ -130,8 +143,10 @@ describe('NewCandidateDialog', () => {
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
+    await userEvent.click(screen.getByRole('combobox', { name: /position applied/i }));
+    expect(screen.queryByRole('option', { name: 'Filled Role' })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('option', { name: 'Open Role' }));
     await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
-    // Default position is the first *selectable* row: r1 is filled, so it must be r2, not r1.
     await waitFor(() =>
       expect(addCandidate).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Ada Lovelace', requisition_id: 'r2' }),

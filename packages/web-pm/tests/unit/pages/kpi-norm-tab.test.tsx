@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { KpiNormDoc } from '../../../src/api/pm-client.ts';
@@ -30,7 +30,7 @@ const norm: KpiNormDoc = {
 };
 
 function renderTab() {
-  return render(<KpiNormTab norm={norm} appliedIds={new Set(['m1'])} isLoading={false} />);
+  return render(<KpiNormTab norm={norm} isLoading={false} />);
 }
 
 describe('KpiNormTab — Methodology lens & Executive reference sections', () => {
@@ -65,14 +65,65 @@ describe('KpiNormTab — Methodology lens & Executive reference sections', () =>
   it('search filters reference rows and hides emptied groups and cards', async () => {
     const user = userEvent.setup();
     renderTab();
-    await user.type(screen.getByPlaceholderText('Search metrics by name or formula…'), 'velocity');
+    await user.type(screen.getByPlaceholderText('Search metrics…'), 'velocity');
     // Scrum group survives with its two Velocity rows; the other groups disappear.
     expect(screen.getByText('Velocity')).toBeInTheDocument();
     expect(screen.getByText('Velocity Variance')).toBeInTheDocument();
     expect(screen.queryByText('5.2 · Kanban / Flow')).not.toBeInTheDocument();
     // Executive card has no match at all — the whole card hides.
     expect(screen.queryByText('Executive — Engineering Health')).not.toBeInTheDocument();
-    // Pillar metric doesn't match either.
     expect(screen.queryByText('Defect Leakage')).not.toBeInTheDocument();
+    const qualitySection = screen.getByText('Q — Quality').closest('section') as HTMLElement;
+    expect(within(qualitySection).getByText('No metrics in this area yet.')).toBeInTheDocument();
+  });
+});
+
+describe('KpiNormTab — metric library (FUT-797)', () => {
+  const richNorm: KpiNormDoc = {
+    ...norm,
+    metrics: [
+      ...norm.metrics,
+      {
+        metric_id: 'm2',
+        category: 'delivery',
+        tier: 'extended',
+        name: 'Lead Time for Changes',
+        formula_label: 'Commit → Production',
+        component_count: 1,
+        component_1_label: 'Commit → production (days)',
+        component_2_label: null,
+        green_band: { op: 'lt', value: 1 },
+        yellow_band: { op: 'between', min: 1, max: 7 },
+        red_band: { op: 'gt', value: 7 },
+        insight: 'DORA #2 — pipeline agility.',
+        is_live_capable: false,
+        sort_order: 30,
+      },
+    ],
+  };
+
+  function renderRichTab() {
+    return render(<KpiNormTab norm={richNorm} isLoading={false} />);
+  }
+
+  it("shows a metric count alongside each area's OHS weight (AC2)", () => {
+    renderRichTab();
+    const qualitySection = screen.getByText('Q — Quality').closest('section') as HTMLElement;
+    expect(within(qualitySection).getByText('1 metric · 25% of OHS')).toBeInTheDocument();
+    const deliverySection = screen.getByText('D — Delivery').closest('section') as HTMLElement;
+    expect(within(deliverySection).getByText('1 metric · 25% of OHS')).toBeInTheDocument();
+  });
+
+  it('shows "No metrics in this area yet." for a genuinely empty area (AC2)', () => {
+    renderRichTab();
+    const costSection = screen.getByText('C — Cost & Capacity').closest('section') as HTMLElement;
+    expect(within(costSection).getByText('0 metrics · 35% of OHS')).toBeInTheDocument();
+    expect(within(costSection).getByText('No metrics in this area yet.')).toBeInTheDocument();
+  });
+
+  it("shows each metric's formula alongside its name (AC3)", () => {
+    renderRichTab();
+    expect(screen.getByText('Production Defects / Total Defects')).toBeInTheDocument();
+    expect(screen.getByText('Commit → Production')).toBeInTheDocument();
   });
 });

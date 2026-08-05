@@ -43,11 +43,6 @@ function accessOwnerProjectsSubquery(session: SessionScope): SQL {
  *
  * Returns `null` when the viewer's `pm.project.read` scope resolves to tenant-wide. Otherwise
  * returns a predicate matching a project row iff it falls on any of: the viewer's org-unit
- * reach, projects the viewer leads (`pm_person_id`) or owns via a `project_access` 'owner'
- * grant (EM/TL, FUT-353), or projects on accounts the viewer manages (AM). The relationship
- * arms are null-safe: when `session.person_id` is null they contribute no
- * arm, so a scoped viewer with no worker link and no org reach resolves to `sql\`false\`` (fail-
- * closed) rather than matching everything.
  */
 export function buildProjectScope(session: SessionScope): SQL | null {
   return decide(session, 'pm.project.read', projectPlan(session));
@@ -76,12 +71,19 @@ export function buildProjectManageFlag(session: SessionScope): SQL<boolean> {
   return sql<boolean>`(CASE WHEN ${scope} THEN true ELSE false END)`;
 }
 
+export function buildProjectReadFlag(session: SessionScope): SQL<boolean> {
+  const scope = buildProjectScope(session);
+  if (!scope) return sql<boolean>`true`;
+  return sql<boolean>`(CASE WHEN ${scope} THEN true ELSE false END)`;
+}
+
 function projectPlan(session: SessionScope): ScopePlan {
   const w = session.person_id;
   return {
     orgUnit: { column: project.org_unit_id },
     relationships: [
       () => (w ? sql`${project.pm_person_id} = ${w}` : null),
+      () => (w ? sql`${project.pmo_person_id} = ${w}` : null),
       () => (w ? sql`${project.account_id} IN ${amAccountsSubquery(session)}` : null),
       () => (w ? sql`${project.id} IN ${accessOwnerProjectsSubquery(session)}` : null),
     ],

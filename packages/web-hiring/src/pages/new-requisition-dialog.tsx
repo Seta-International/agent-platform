@@ -22,7 +22,7 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { type ClipboardEvent, useId, useRef, useState } from 'react';
+import { type ClipboardEvent, useEffect, useId, useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -86,6 +86,14 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   // FUT-559 error focus: red per-field message + scroll to the first empty required field.
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const aboutFieldRef = useRef<HTMLDivElement>(null);
+  // FUT-788: Astryx Dialog keeps the DOM mounted regardless of `isOpen`, so the scrollable
+  // LayoutContent retains its scrollTop between open/close cycles. Reset to top on each open.
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open) {
+      contentScrollRef.current?.scrollTo({ top: 0 });
+    }
+  }, [open]);
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
   const titleInvalid = submitAttempted && !title.trim();
@@ -244,7 +252,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             <DialogHeader title="New requisition" onOpenChange={handleOpenChange} hasDivider />
           }
           content={
-            <LayoutContent>
+            <LayoutContent ref={contentScrollRef}>
               <VStack gap={6}>
                 {/* Role */}
                 <VStack gap={4}>
