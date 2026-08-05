@@ -170,25 +170,29 @@ function exportCandidatesCsv(rows: CandidateListItem[]) {
   URL.revokeObjectURL(url);
 }
 
+// Debounce the server-side search needle so keystrokes coalesce into at most one request per pause
+// (FUT-833 moves the search box's matching — name/skills/email/phone — to the backend).
+function useDebouncedValue(value: string, delayMs = 300): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 // Shared client-side filtering for the board's active pipeline and its Rejected column, so both
-// respond to the same search box and filter selectors.
-//
-// The search box targets candidate-owned fields only (name, skills) — Role and Seniority have
-// their own selectors below, so folding them into the needle would duplicate those filters.
+// respond to the same filter selectors. Search-box matching is NOT here — it runs server-side via
+// the `q` query param (FUT-833), keeping contact PII out of the list payload. Role and Seniority
+// keep their dedicated selectors here.
 function filterCandidates(
   items: CandidateListItem[],
-  f: { q: string; reqFilter: string; seniorityFilter: string; sourceFilter: string },
+  f: { reqFilter: string; seniorityFilter: string; sourceFilter: string },
 ): CandidateListItem[] {
   let r = items;
   if (f.reqFilter) r = r.filter((c) => c.requisition_id === f.reqFilter);
   if (f.seniorityFilter) r = r.filter((c) => c.seniority === f.seniorityFilter);
   if (f.sourceFilter) r = r.filter((c) => c.source === f.sourceFilter);
-  if (f.q.trim()) {
-    const needle = f.q.toLowerCase();
-    r = r.filter((c) =>
-      `${c.name} ${c.skills.map((s) => s.skill_name).join(' ')}`.toLowerCase().includes(needle),
-    );
-  }
   return r;
 }
 
@@ -225,15 +229,19 @@ export function CandidatesPage() {
   const [optimisticStages, setOptimisticStages] = useState<Record<string, CandStage>>({});
   const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, CandStatus>>({});
 
+  // FUT-833: search-box matching runs server-side (`q`), keyed by query key so each debounced value
+  // is its own cache entry; contact PII never rides the full list payload.
+  const debouncedQ = useDebouncedValue(q);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: hiringKeys.candidates(),
-    queryFn: fetchCandidates,
+    queryKey: hiringKeys.candidates(debouncedQ),
+    queryFn: () => fetchCandidates(debouncedQ),
   });
   // Rejected candidates load separately (fetchCandidates returns active+hired only) and feed the
   // board's read-only Rejected column.
   const { data: rejectedData } = useQuery({
-    queryKey: hiringKeys.rejectedCandidates(),
-    queryFn: fetchRejectedCandidates,
+    queryKey: hiringKeys.rejectedCandidates(debouncedQ),
+    queryFn: () => fetchRejectedCandidates(debouncedQ),
   });
 
   const candidatesWithOptimistic = useMemo(() => {
@@ -252,13 +260,12 @@ export function CandidatesPage() {
   }, [data, optimisticStages, optimisticStatuses]);
 
   const rows = useMemo(
-    () =>
-      filterCandidates(candidatesWithOptimistic, { q, reqFilter, seniorityFilter, sourceFilter }),
-    [candidatesWithOptimistic, q, reqFilter, seniorityFilter, sourceFilter],
+    () => filterCandidates(candidatesWithOptimistic, { reqFilter, seniorityFilter, sourceFilter }),
+    [candidatesWithOptimistic, reqFilter, seniorityFilter, sourceFilter],
   );
   const rejectedRows = useMemo(
-    () => filterCandidates(rejectedData ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
-    [rejectedData, q, reqFilter, seniorityFilter, sourceFilter],
+    () => filterCandidates(rejectedData ?? [], { reqFilter, seniorityFilter, sourceFilter }),
+    [rejectedData, reqFilter, seniorityFilter, sourceFilter],
   );
 
   const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });

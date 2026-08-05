@@ -10,7 +10,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchTalentPool, type TalentPoolRow } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 
@@ -42,21 +42,26 @@ export function TalentPoolCard({
   seniorityFilter?: string;
 }) {
   const [show, setShow] = useState(false);
+  // FUT-833: search runs server-side (`q`) so contact PII never rides the full pool payload.
+  const [debouncedQ, setDebouncedQ] = useState(q);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
   const pool = useQuery({
-    queryKey: hiringKeys.talentPool(),
-    queryFn: fetchTalentPool,
+    queryKey: hiringKeys.talentPool(debouncedQ),
+    queryFn: () => fetchTalentPool(debouncedQ),
     enabled: show,
   });
 
-  const needle = q.trim().toLowerCase();
   const filtered = (pool.data ?? []).filter((c) => {
     if (seniorityFilter && c.seniority !== seniorityFilter) return false;
     // A requisition filter narrows the pool to candidates the matcher recommends for that role.
     if (reqFilter && !c.recommended.some((r) => r.requisition_id === reqFilter)) return false;
-    if (needle && !`${c.name}`.toLowerCase().includes(needle)) return false;
     return true;
   });
-  const hasFilters = Boolean(seniorityFilter || reqFilter || needle);
+  const hasFilters = Boolean(seniorityFilter || reqFilter || debouncedQ);
 
   return (
     <Card padding={4}>

@@ -34,18 +34,20 @@ const rejectBody = version.extend({ input: rejectApplicationInput });
 const transferBody = version.extend({ input: transferApplicationInput });
 
 export function registerHiringCandidateRoutes(app: Hono<SessionEnv>): void {
+  // FUT-833: optional `q` filters rows by candidate name/contact (email/phone) server-side, so
+  // contact PII never rides the full list payload.
   app.get('/api/hiring/v1/candidates', async (c) =>
-    c.json({ candidates: await listCandidates(c.get('user')) }),
+    c.json({ candidates: await listCandidates(c.get('user'), c.req.query('q')) }),
   );
   app.get('/api/hiring/v1/candidates/stage-counts', async (c) =>
     c.json(await getCandidateStageCounts(c.get('user'))),
   );
   // Registered before `/candidates/:id` so the static segment wins the match.
   app.get('/api/hiring/v1/candidates/rejected', async (c) =>
-    c.json({ candidates: await listRejectedCandidates(c.get('user')) }),
+    c.json({ candidates: await listRejectedCandidates(c.get('user'), c.req.query('q')) }),
   );
   app.get('/api/hiring/v1/talent-pool', async (c) =>
-    c.json({ pool: await listTalentPool(c.get('user')) }),
+    c.json({ pool: await listTalentPool(c.get('user'), c.req.query('q')) }),
   );
   app.get('/api/hiring/v1/candidates/:id', async (c) =>
     c.json(await getCandidate({ candidate_id: c.req.param('id'), session: c.get('user') })),
