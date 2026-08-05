@@ -73,6 +73,16 @@ export const workerUserLinkedPayload = z.object({
 });
 export type WorkerUserLinkedPayload = z.infer<typeof workerUserLinkedPayload>;
 
+export const PEOPLE_PERFORMANCE_CONFIG_SAVED = 'people.performance.config.saved';
+
+export const performanceConfigSavedPayload = z.object({
+  account_id: z.string().uuid(),
+  revision_id: z.string().uuid(),
+  revision_no: z.number().int().positive(),
+  base_revision_no: z.number().int().positive(),
+});
+export type PerformanceConfigSavedPayload = z.infer<typeof performanceConfigSavedPayload>;
+
 export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
@@ -83,4 +93,5 @@ export const PEOPLE_EVENTS = {
   'people.worker.reinstated': workerLifecyclePayload,
   [PEOPLE_ORG_UNIT_CREATED]: orgUnitCreatedPayload,
   [PEOPLE_WORKER_USER_LINKED]: workerUserLinkedPayload,
+  [PEOPLE_PERFORMANCE_CONFIG_SAVED]: performanceConfigSavedPayload,
 } as const satisfies Record<string, z.ZodSchema>;

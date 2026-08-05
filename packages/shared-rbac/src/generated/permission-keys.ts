@@ -74,6 +74,7 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.update'
+  | 'people.performance.configure'
   | 'people.performance.read'
   | 'people.self.manage'
   | 'people.self.read'
@@ -209,6 +210,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.update',
+  'people.performance.configure',
   'people.performance.read',
   'people.self.manage',
   'people.self.read',

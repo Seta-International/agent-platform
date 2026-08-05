@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { PerformanceSectionStub } from '../../components/performance-shell.tsx';
+import { PerformanceConfigurationPage } from '../../pages/performance-configuration-page.tsx';
 
 export const Route = createFileRoute('/_authed/people/performance/configuration')({
-  component: () => <PerformanceSectionStub title="Configuration" />,
+  component: PerformanceConfigurationPage,
 });

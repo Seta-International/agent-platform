@@ -57,6 +57,13 @@
       "when": 1783746653071,
       "tag": "0013_previous_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785900385088,
+      "tag": "0014_performance_config",
+      "breakpoints": true
     }
   ]
 }

@@ -39,6 +39,11 @@ export function registerPeopleContributions(reg: ContributionRegistry): void {
       { table: 'people.worker_allocation_projection', policy: { kind: 'permanent' } },
       { table: 'people.account_projection', policy: { kind: 'permanent' } },
       { table: 'people.project_projection', policy: { kind: 'permanent' } },
+      { table: 'people.performance_evaluation_group', policy: { kind: 'permanent' } },
+      { table: 'people.performance_config_revision', policy: { kind: 'permanent' } },
+      { table: 'people.performance_config_group_weight', policy: { kind: 'permanent' } },
+      { table: 'people.performance_config_criterion', policy: { kind: 'permanent' } },
+      { table: 'people.performance_config_month_pin', policy: { kind: 'permanent' } },
     ]);
   }
 

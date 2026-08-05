@@ -9,6 +9,7 @@ import {
   allocationProjectionRemoved,
 } from './allocation-projection.ts';
 import { linkUserToPerson } from './link-user-to-person.ts';
+import { performanceGroupsSeedOnTenantCreated } from './performance-groups-seed.ts';
 import { projectProjectionCreated, projectProjectionUpdated } from './project-projection.ts';
 import { personSkillRenamed } from './skill-renamed.ts';
 import { userDeactivatedSynced, userReactivatedSynced } from './sync-user-status.ts';
@@ -27,5 +28,6 @@ export function peopleSubscribers(): SubscriberDef[] {
     personSkillRenamed,
     userDeactivatedSynced,
     userReactivatedSynced,
+    performanceGroupsSeedOnTenantCreated,
   ];
 }

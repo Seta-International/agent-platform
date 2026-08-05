@@ -323,10 +323,12 @@ export const INVENTORY: StatementSpec[] = [
     statement: {
       'people.worker': ['read', 'create', 'update', 'manage'],
       'people.self': ['read', 'manage'],
-      'people.performance': ['read'],
+      'people.performance': ['read', 'configure'],
     },
     descriptions: {
       'people.performance.read': 'Enter the Performance surface and read own capacities',
+      'people.performance.configure':
+        'Save evaluation group/criteria weights for accounts the principal manages (AM)',
     },
     roles: [
       {
@@ -340,6 +342,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.self.read',
           'people.self.manage',
           'people.performance.read',
+          'people.performance.configure',
           'core.skill.read',
         ],
       },
@@ -351,6 +354,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.self.read',
           'people.self.manage',
           'people.performance.read',
+          'people.performance.configure',
           'core.skill.read',
         ],
       },

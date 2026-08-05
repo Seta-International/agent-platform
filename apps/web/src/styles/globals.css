@@ -2,6 +2,25 @@
 @import '@seta/shared-ui/styles/fonts.css';
 @import '@seta/shared-ui/styles/globals.css';
 
+/* Entrance for dynamically added / swapped list rows (e.g. Performance config
+   criteria). Keyframes must live in this shim — packages can't declare CSS. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes row-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .row-fade-in {
+    animation: row-fade-in 180ms ease-out;
+  }
+}
+
 :root {
   --fc-border-color: var(--color-border);
   --fc-today-bg-color: var(--color-background-surface);

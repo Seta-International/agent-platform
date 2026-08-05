@@ -393,3 +393,62 @@ export async function fetchMonthTasks(month: string): Promise<MonthTasksResponse
   );
   return handleResponse<MonthTasksResponse>(res);
 }
+
+export type PerformanceConfigCriterion = {
+  id: string;
+  name: string;
+  weight: number;
+  sort: number;
+};
+
+export type PerformanceConfigGroup = {
+  group_id: string;
+  code: string;
+  name: string;
+  sort: number;
+  weight: number;
+  criteria: PerformanceConfigCriterion[];
+};
+
+export type PerformanceConfigResponse = {
+  account_id: string;
+  revision_no: number;
+  revision_id: string;
+  applies_to_next_cycle: boolean;
+  groups: PerformanceConfigGroup[];
+};
+
+export type SavePerformanceConfigBody = {
+  base_revision_no: number;
+  groups: {
+    group_id: string;
+    weight: number;
+    criteria: {
+      name: string;
+      weight: number;
+      sort?: number;
+    }[];
+  }[];
+};
+
+export async function fetchPerformanceConfig(
+  accountId: string,
+): Promise<PerformanceConfigResponse> {
+  const res = await fetch(`/api/people/v1/performance/accounts/${accountId}/config`, {
+    credentials: 'include',
+  });
+  return handleResponse<PerformanceConfigResponse>(res);
+}
+
+export async function savePerformanceConfig(
+  accountId: string,
+  body: SavePerformanceConfigBody,
+): Promise<{ revision_no: number; revision_id: string; applies_to_next_cycle: boolean }> {
+  const res = await fetch(`/api/people/v1/performance/accounts/${accountId}/config`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}

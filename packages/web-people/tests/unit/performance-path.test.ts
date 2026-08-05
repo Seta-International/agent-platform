@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { navIdFromPath } from '../../src/nav/performance-path.ts';
 
 describe('navIdFromPath', () => {
-  it('maps Performance section paths', () => {
-    expect(navIdFromPath('/people/performance')).toBe('dashboard');
-    expect(navIdFromPath('/people/performance/')).toBe('dashboard');
-    expect(navIdFromPath('/people/performance/scoring')).toBe('scoring');
-    expect(navIdFromPath('/people/performance/self-assessment')).toBe('self-assessment');
+  it('maps Performance section paths to top-tab ids', () => {
+    expect(navIdFromPath('/people/performance')).toBe('reviews');
+    expect(navIdFromPath('/people/performance/')).toBe('reviews');
+    expect(navIdFromPath('/people/performance/configuration')).toBe('configuration');
+    expect(navIdFromPath('/people/performance/scoring')).toBeNull();
     expect(navIdFromPath('/people/performance/unknown')).toBeNull();
   });
 });
