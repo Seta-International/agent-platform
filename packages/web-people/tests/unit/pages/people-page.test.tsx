@@ -154,4 +154,29 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(currentCrumb.closest('a')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Employees' })).toBeInTheDocument();
   });
+
+  it('renders Account column with CounterBadgePopover limiting to 2 tags and showing +N indicator with hover popover', async () => {
+    const user = userEvent.setup();
+    const rowsWithMultipleAccounts = [
+      {
+        ...mockRows[0],
+        accounts: [
+          { id: 'a1', name: 'Motion Global' },
+          { id: 'a2', name: 'AVIA' },
+          { id: 'a3', name: 'Commerce Canal' },
+        ],
+      },
+    ];
+    mockFetchWorkers.mockResolvedValue({ rows: rowsWithMultipleAccounts, total: 1 });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getAllByText('Motion Global')[0]).toBeInTheDocument();
+    expect(within(table).getAllByText('AVIA')[0]).toBeInTheDocument();
+    const overflowBtn = within(table).getByRole('button', { name: '+1' });
+    expect(overflowBtn).toBeInTheDocument();
+
+    await user.hover(overflowBtn);
+    expect(await screen.findByText('Commerce Canal')).toBeInTheDocument();
+  });
 });

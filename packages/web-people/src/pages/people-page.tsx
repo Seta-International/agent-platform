@@ -198,21 +198,15 @@ export function PeoplePage() {
         key: 'accounts',
         header: 'Account',
         width: proportional(1),
-        renderCell: (r) =>
-          r.accounts.length > 0 ? (
-            <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
-              {r.accounts.map((a) => (
-                <Badge
-                  key={a.id}
-                  variant="neutral"
-                  className="text-xs px-1.5 py-0 whitespace-nowrap"
-                  label={a.name}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center h-5 text-secondary">—</div>
-          ),
+        renderCell: (r) => (
+          <CounterBadgePopover
+            items={r.accounts}
+            title="Account"
+            limit={2}
+            type="badge"
+            badgeVariant="neutral"
+          />
+        ),
       },
       {
         key: 'work_email',
