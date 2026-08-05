@@ -32,7 +32,6 @@ export interface KpiNormMetricSeed {
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string;
-  is_live_capable: boolean;
   sort_order: number;
 }
 
@@ -70,7 +69,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.06, 0.1),
     red_band: gt(0.1),
     insight: 'Quality gate tightness — Red = QA system failure or release pressure.',
-    is_live_capable: true,
     sort_order: 1,
   },
   {
@@ -90,7 +88,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: or(between(2.6, 4.0), lt(0.5)),
     red_band: gt(4.0),
     insight: '< 0.5 suggests under-reporting; > 4 = overload or skill gap.',
-    is_live_capable: true,
     sort_order: 2,
   },
   {
@@ -110,7 +107,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.06, 0.15),
     red_band: gt(0.15),
     insight: 'Fix quality — Red = shallow fixes, missing root cause.',
-    is_live_capable: false,
     sort_order: 3,
   },
   {
@@ -130,7 +126,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.85, 0.94),
     red_band: lt(0.85),
     insight: 'Red = customers are finding your bugs for you.',
-    is_live_capable: false,
     sort_order: 4,
   },
   {
@@ -150,7 +145,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: or(between(0.1, 0.14), between(0.26, 0.35)),
     red_band: or(lt(0.1), gt(0.35)),
     insight: '< 10% = sacrificing architecture, will pay later; > 35% = over-investment.',
-    is_live_capable: false,
     sort_order: 5,
   },
   // Q — Quality — EXTENDED
@@ -171,7 +165,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(4, 7),
     red_band: gt(7),
     insight: 'Slow detection → fix cost grows exponentially.',
-    is_live_capable: false,
     sort_order: 6,
   },
   {
@@ -191,7 +184,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(2, 3),
     red_band: gt(3),
     insight: 'Long-lived defects = growing backlog, blocked tests.',
-    is_live_capable: false,
     sort_order: 7,
   },
   {
@@ -211,7 +203,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: eq(1),
     red_band: gte(2),
     insight: 'Zombie critical bug = escalation broken.',
-    is_live_capable: false,
     sort_order: 8,
   },
   {
@@ -231,7 +222,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.6, 0.79),
     red_band: lt(0.6),
     insight: '< 60% = regressions hard to control.',
-    is_live_capable: false,
     sort_order: 9,
   },
   {
@@ -251,7 +241,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(6, 15),
     red_band: gt(15),
     insight: 'Red = CI quality gate being bypassed.',
-    is_live_capable: false,
     sort_order: 10,
   },
   {
@@ -271,7 +260,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.15, 0.29),
     red_band: lt(0.15),
     insight: 'Red = reviews are just rubber-stamping.',
-    is_live_capable: false,
     sort_order: 11,
   },
 
@@ -291,9 +279,8 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     is_share: false,
     green_band: between(0.85, 1.1),
     yellow_band: or(between(0.75, 0.84), between(1.11, 1.19)),
-    red_band: or(lte(0.75), gte(1.2)),
+    red_band: or(lt(0.75), gte(1.2)),
     insight: '< 75% = under-planning; > 120% = blow-out.',
-    is_live_capable: false,
     sort_order: 12,
   },
   {
@@ -313,7 +300,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.15, 0.24),
     red_band: lt(0.15),
     insight: '< 15% = a single risk event turns a loss.',
-    is_live_capable: false,
     sort_order: 13,
   },
   {
@@ -333,7 +319,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.7, 0.79),
     red_band: lt(0.7),
     insight: 'Red = too much overhead, meetings, rework.',
-    is_live_capable: false,
     sort_order: 14,
   },
   {
@@ -353,7 +338,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: or(between(0.6, 0.74), between(0.91, 1.0)),
     red_band: or(lt(0.6), gt(1.0)),
     insight: '> 100% = burnout risk; < 60% = bench.',
-    is_live_capable: true,
     sort_order: 15,
   },
   {
@@ -370,10 +354,9 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     component_1_max: null,
     is_share: false,
     green_band: between(0.85, 1.1),
-    yellow_band: between(1.11, 1.19),
-    red_band: or(gt(1.2), lt(0.75)),
+    yellow_band: or(between(0.75, 0.84), between(1.11, 1.19)),
+    red_band: or(lt(0.75), gte(1.2)),
     insight: 'Early warning ahead of Utilization.',
-    is_live_capable: false,
     sort_order: 16,
   },
   {
@@ -393,7 +376,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(4.0, 4.29),
     red_band: lt(4.0),
     insight: 'Leading indicator of attrition and churn.',
-    is_live_capable: false,
     sort_order: 17,
   },
   // C — Cost & Capacity — EXTENDED
@@ -414,7 +396,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: or(between(0.7, 0.84), between(1.16, 1.3)),
     red_band: or(lt(0.7), gt(1.3)),
     insight: 'Drift = lower productivity or wrong rate-card.',
-    is_live_capable: false,
     sort_order: 18,
   },
   {
@@ -434,7 +415,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.85, 0.99),
     red_band: lt(0.85),
     insight: 'Track the trend rather than the absolute value.',
-    is_live_capable: false,
     sort_order: 19,
   },
   {
@@ -454,7 +434,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.1, 0.18),
     red_band: gt(0.18),
     insight: 'Red = knowledge loss + high onboarding cost.',
-    is_live_capable: false,
     sort_order: 20,
   },
   {
@@ -474,7 +453,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.11, 0.2),
     red_band: gt(0.2),
     insight: 'Red = wrong capacity forecast or weak pipeline.',
-    is_live_capable: false,
     sort_order: 21,
   },
   {
@@ -494,7 +472,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.06, 0.15),
     red_band: gt(0.15),
     insight: 'Leading indicator of burnout & quality drop.',
-    is_live_capable: false,
     sort_order: 22,
   },
   {
@@ -514,7 +491,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(31, 60),
     red_band: gt(60),
     insight: 'Red = poor knowledge management.',
-    is_live_capable: false,
     sort_order: 23,
   },
 
@@ -536,7 +512,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.7, 0.89),
     red_band: lt(0.7),
     insight: 'Commitment discipline — Red = delivery system failure.',
-    is_live_capable: false,
     sort_order: 24,
   },
   {
@@ -556,7 +531,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.85, 0.94),
     red_band: lt(0.85),
     insight: 'Red = rework, waste from requirements / skill / process.',
-    is_live_capable: false,
     sort_order: 25,
   },
   {
@@ -576,7 +550,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.7, 0.84),
     red_band: lt(0.7),
     insight: 'Roadmap reliability with the business.',
-    is_live_capable: false,
     sort_order: 26,
   },
   {
@@ -596,7 +569,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: or(between(0.85, 0.94), between(1.06, 1.15)),
     red_band: or(lt(0.85), gt(1.15)),
     insight: '> 1.15 is also a warning — under-planning.',
-    is_live_capable: false,
     sort_order: 27,
   },
   {
@@ -616,7 +588,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.11, 0.2),
     red_band: gt(0.2),
     insight: 'Red = planning chaos or unknown risks.',
-    is_live_capable: false,
     sort_order: 28,
   },
   // D — Delivery — EXTENDED
@@ -637,7 +608,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.033, 0.999),
     red_band: lt(0.033),
     insight: 'DORA #1 — Elite = on-demand.',
-    is_live_capable: false,
     sort_order: 29,
   },
   {
@@ -657,7 +627,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(1, 7),
     red_band: gt(7),
     insight: 'DORA #2 — pipeline agility.',
-    is_live_capable: false,
     sort_order: 30,
   },
   {
@@ -677,7 +646,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.06, 0.15),
     red_band: gt(0.15),
     insight: 'DORA #3 — Red = regression, test gap, rushed deploy.',
-    is_live_capable: false,
     sort_order: 31,
   },
   {
@@ -697,7 +665,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(1, 24),
     red_band: gt(24),
     insight: 'DORA #4 — reliability indicator.',
-    is_live_capable: false,
     sort_order: 32,
   },
   {
@@ -717,7 +684,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(7, 10),
     red_band: gt(10),
     insight: 'Red = features become obsolete before release.',
-    is_live_capable: false,
     sort_order: 33,
   },
   {
@@ -737,7 +703,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(6, 10),
     red_band: gt(10),
     insight: 'Red = UAT process broken.',
-    is_live_capable: false,
     sort_order: 34,
   },
 
@@ -759,7 +724,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.75, 0.89),
     red_band: lt(0.75),
     insight: 'Red = process bypassed, reliance on individuals.',
-    is_live_capable: false,
     sort_order: 35,
   },
   {
@@ -779,7 +743,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: eq(1),
     red_band: eq(0),
     insight: 'Applied = actually implemented, not just proposed.',
-    is_live_capable: false,
     sort_order: 36,
   },
   {
@@ -799,7 +762,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.85, 0.94),
     red_band: lt(0.85),
     insight: 'Red = risk of certification failure.',
-    is_live_capable: false,
     sort_order: 37,
   },
   {
@@ -819,7 +781,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.6, 0.79),
     red_band: lt(0.6),
     insight: 'Red = retro is just a formality.',
-    is_live_capable: false,
     sort_order: 38,
   },
   // P — Process — EXTENDED
@@ -840,7 +801,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.75, 0.89),
     red_band: lt(0.75),
     insight: 'Red = risk accumulates → audit failure.',
-    is_live_capable: false,
     sort_order: 39,
   },
   {
@@ -860,7 +820,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.6, 0.79),
     red_band: lt(0.6),
     insight: 'Red = risk register is just a form.',
-    is_live_capable: false,
     sort_order: 40,
   },
   {
@@ -880,7 +839,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0, 7),
     red_band: gt(7),
     insight: 'Red = only recorded after it blows up.',
-    is_live_capable: false,
     sort_order: 41,
   },
   {
@@ -900,7 +858,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.7, 0.89),
     red_band: lt(0.7),
     insight: 'Red = slow onboarding, knowledge silos.',
-    is_live_capable: false,
     sort_order: 42,
   },
   {
@@ -920,7 +877,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.85, 0.99),
     red_band: lt(0.85),
     insight: 'Red = legal & audit risk.',
-    is_live_capable: false,
     sort_order: 43,
   },
   {
@@ -940,7 +896,6 @@ export const KPI_NORM_METRICS: readonly KpiNormMetricSeed[] = [
     yellow_band: between(0.3, 0.59),
     red_band: lt(0.3),
     insight: 'Red = repeating the same old mistakes.',
-    is_live_capable: false,
     sort_order: 44,
   },
 ];

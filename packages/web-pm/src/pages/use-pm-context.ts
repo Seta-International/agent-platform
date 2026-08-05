@@ -86,5 +86,12 @@ export function usePmContext(route: string) {
   const setSearch = (patch: Partial<PmContextSearch> & Record<string, unknown>) =>
     void navigate({ to: route, search: { ...search, ...patch }, replace: true });
 
-  return { search, setSearch, weeks, iso_year, iso_week };
+  return {
+    search,
+    setSearch,
+    weeks,
+    iso_year,
+    iso_week,
+    weekReady: currentWeekQuery.isSuccess,
+  };
 }

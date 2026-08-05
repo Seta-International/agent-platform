@@ -21,8 +21,9 @@ import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
   computeCategoryHealth,
   computeEntryStatus,
-  computeMetricValue,
   computeOverallHealth,
+  computeScoredValue,
+  kpiValuePrecision,
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
@@ -50,6 +51,10 @@ interface AppliedMetricDef {
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
+}
+
+function precisionOf(def: AppliedMetricDef): number {
+  return kpiValuePrecision(def.green_band, def.yellow_band, def.red_band);
 }
 
 function statusOf(def: AppliedMetricDef, value: number | null): RagStatus | null {
@@ -178,7 +183,6 @@ export async function listKpiExplorer(input: {
       defs.push(d);
     }
   }
-  const defsById = new Map(defs.map((d) => [d.metric_id, d]));
 
   const recordRows = await pmDb()
     .select({
@@ -230,10 +234,13 @@ export async function listKpiExplorer(input: {
   const rows = projectRows.map((p) => {
     const record_id = recordByProject.get(p.project_id) ?? null;
     const entries = record_id ? (entriesByRecord.get(record_id) ?? []) : [];
-    const category_health = categoryHealths(defsById, entries);
+    const projectDefs = defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [];
+    const category_health = categoryHealths(
+      new Map(projectDefs.map((d) => [d.metric_id, d])),
+      entries,
+    );
     const overall_health = computeOverallHealth(CATEGORIES.map((c) => category_health[c]));
     const entryByMetric = new Map(entries.map((e) => [e.metric_id, e]));
-    const projectDefs = defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [];
     const metrics: Record<string, KpiExplorerMetricCell> = {};
     for (const def of projectDefs) {
       const e = entryByMetric.get(def.metric_id);
@@ -423,10 +430,11 @@ export async function upsertKpiRecord(
   );
   const computed = attempted.map((e) => {
     const def = defsById.get(e.metric_id)!;
-    const computed_value = computeMetricValue(
+    const computed_value = computeScoredValue(
       def.component_count,
       e.component_1_value,
       e.component_2_value,
+      precisionOf(def),
     );
     return {
       ...e,
@@ -456,10 +464,17 @@ export async function upsertKpiRecord(
         )
         .limit(1);
 
-      if (existing && expected_version !== undefined && existing.version !== expected_version) {
-        throw new PmError('CONFLICT', 'record was modified by someone else', {
-          current_version: existing.version,
-        });
+      if (existing && expected_version !== undefined) {
+        if (expected_version === null) {
+          throw new PmError('CONFLICT', 'another reporter created this record first', {
+            current_version: existing.version,
+          });
+        }
+        if (existing.version !== expected_version) {
+          throw new PmError('CONFLICT', 'record was modified by someone else', {
+            current_version: existing.version,
+          });
+        }
       }
 
       let record_id: string;
