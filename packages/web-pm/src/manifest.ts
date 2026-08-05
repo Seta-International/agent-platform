@@ -40,7 +40,6 @@ export const pmAppManifest: AppManifest = {
           label: 'Weekly Reports',
           to: '/pm/weekly',
           requires: ['pm.account.read'],
-          badge: 'Soon',
         },
         {
           id: 'pm.resourcing',

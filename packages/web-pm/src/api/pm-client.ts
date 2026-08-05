@@ -745,7 +745,6 @@ export interface KpiNormMetricRow {
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
-  is_live_capable: boolean;
 }
 
 export interface KpiNormDoc {
@@ -766,11 +765,20 @@ export interface AppliedMetricCoverage {
   /** How many of the queried projects have this metric applied — compare against the queried
    * project count to tell "applied everywhere" from "applied to some". */
   applied_count: number;
+  entered_count: number;
+  would_empty_count: number;
 }
 
-export async function fetchAppliedMetrics(projectIds: string[]): Promise<AppliedMetricCoverage[]> {
+export async function fetchAppliedMetrics(
+  projectIds: string[],
+  week?: { iso_year: number; iso_week: number },
+): Promise<AppliedMetricCoverage[]> {
   if (projectIds.length === 0) return [];
   const sp = new URLSearchParams({ project_ids: projectIds.join(',') });
+  if (week) {
+    sp.set('iso_year', String(week.iso_year));
+    sp.set('iso_week', String(week.iso_week));
+  }
   const res = await fetch(`/api/pm/v1/kpi-applied-metrics?${sp.toString()}`, {
     credentials: 'include',
   });
@@ -879,7 +887,7 @@ export interface UpsertKpiRecordBody {
   project_id: string;
   iso_year: number;
   iso_week: number;
-  expected_version?: number;
+  expected_version?: number | null;
   entries: Array<{
     metric_id: string;
     component_1_value: number | null;

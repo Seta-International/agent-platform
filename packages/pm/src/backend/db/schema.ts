@@ -413,7 +413,6 @@ export const kpiNormMetric = pmSchema.table(
     yellow_band: jsonb('yellow_band').notNull(),
     red_band: jsonb('red_band').notNull(),
     insight: text('insight'),
-    is_live_capable: boolean('is_live_capable').default(false).notNull(),
     sort_order: integer('sort_order').default(0).notNull(),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

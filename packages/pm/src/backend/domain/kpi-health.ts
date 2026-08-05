@@ -8,7 +8,9 @@ export {
   computeEntryStatus,
   computeMetricValue,
   computeOverallHealth,
+  computeScoredValue,
   evaluateBand,
+  kpiValuePrecision,
   type RagStatus,
   worstStatus,
 } from '../../contracts.ts';
