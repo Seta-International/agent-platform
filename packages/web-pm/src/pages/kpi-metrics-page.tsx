@@ -31,7 +31,6 @@ import {
 } from './_ui-compat.tsx';
 import { KpiConfigureDialog } from './kpi-configure-dialog.tsx';
 import { type ExplorerColumn, KpiExplorerTable } from './kpi-explorer-table.tsx';
-import { KpiManualInputDialog } from './kpi-manual-input-dialog.tsx';
 import { KpiNormTab } from './kpi-norm-tab.tsx';
 import {
   formatBand,
@@ -51,6 +50,8 @@ export interface KpiMetricsSearch {
   iso_year?: number;
   iso_week?: number;
 }
+
+const MANUAL_ENTRY_SOON = 'Coming soon — manual KPI entry is not available yet.';
 
 const FROZEN_CELL = 'sticky z-10 bg-card transition-colors group-hover:bg-muted';
 const FROZEN_START_WIDTH = 192 + 144 + 96;
@@ -93,11 +94,6 @@ export function KpiMetricsPage() {
   const canConfigure = !managesNothing && weekReady && viewingCurrentWeek && weekIsOpen;
 
   const [configureOpen, setConfigureOpen] = useState(false);
-  const [manualInput, setManualInput] = useState<{
-    project_id: string;
-    iso_year: number;
-    iso_week: number;
-  } | null>(null);
 
   const explorerQuery = useQuery({
     queryKey: pmKeys.kpiExplorer({
@@ -130,13 +126,6 @@ export function KpiMetricsPage() {
   );
   const projectOptions = useMemo(
     () => projectsInAccount.map((p) => ({ value: p.project_id, label: p.name })),
-    [projectsInAccount],
-  );
-  const entryProjectOptions = useMemo(
-    () =>
-      projectsInAccount
-        .filter((p) => p.can_manage)
-        .map((p) => ({ value: p.project_id, label: p.name })),
     [projectsInAccount],
   );
 
@@ -250,19 +239,15 @@ export function KpiMetricsPage() {
         },
         cell: ({ row }: Ctx) =>
           row.original.can_manage ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                setManualInput({ project_id: row.original.project_id, iso_year, iso_week })
-              }
-            >
-              {weekIsOpen ? 'Edit' : 'View'}
-            </Button>
+            <DisabledActionTooltip disabled reason={MANUAL_ENTRY_SOON}>
+              <Button size="sm" variant="ghost" disabled>
+                {weekIsOpen ? 'Edit' : 'View'}
+              </Button>
+            </DisabledActionTooltip>
           ) : null,
       },
     ],
-    [iso_year, iso_week, metricColumnGroups, weekIsOpen],
+    [metricColumnGroups, weekIsOpen],
   );
 
   return (
@@ -369,18 +354,11 @@ export function KpiMetricsPage() {
                     }
                     endContent={
                       weekIsOpen && soleEntryTarget ? (
-                        <Button
-                          variant="primary"
-                          onClick={() =>
-                            setManualInput({
-                              project_id: soleEntryTarget.project_id,
-                              iso_year,
-                              iso_week,
-                            })
-                          }
-                        >
-                          Enter weekly KPIs
-                        </Button>
+                        <DisabledActionTooltip disabled reason={MANUAL_ENTRY_SOON}>
+                          <Button variant="primary" disabled>
+                            Enter weekly KPIs
+                          </Button>
+                        </DisabledActionTooltip>
                       ) : null
                     }
                   />
@@ -428,16 +406,6 @@ export function KpiMetricsPage() {
               projects={configurableProjects}
               initialProjectId={search.project}
               currentWeek={weeks[0]}
-            />
-          ) : null}
-          {manualInput ? (
-            <KpiManualInputDialog
-              initial={manualInput}
-              projects={entryProjectOptions}
-              weeks={weeks}
-              onOpenChange={(open) => {
-                if (!open) setManualInput(null);
-              }}
             />
           ) : null}
         </LayoutContent>

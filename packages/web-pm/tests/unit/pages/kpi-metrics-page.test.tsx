@@ -110,7 +110,7 @@ describe('KpiMetricsPage — entry actions', () => {
     fetchCurrentWeekMock.mockReset();
   });
 
-  it('offers Edit on a project the viewer manages', async () => {
+  it('shows Edit disabled while manual KPI entry is blocked', async () => {
     fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
     fetchKpiExplorerMock.mockResolvedValue({
       rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
@@ -120,7 +120,7 @@ describe('KpiMetricsPage — entry actions', () => {
     renderPage();
 
     const cell = await actionCellFor('Acme Billing Revamp');
-    expect(within(cell).getByRole('button', { name: 'Edit' })).toBeEnabled();
+    expect(within(cell).getByRole('button', { name: 'Edit' })).toBeDisabled();
   });
 
   it('leaves no action on a project the viewer only reads', async () => {
@@ -136,7 +136,7 @@ describe('KpiMetricsPage — entry actions', () => {
     expect(within(cell).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('opens the KPI entry dialog from Edit', async () => {
+  it('opens no entry dialog when Edit is clicked', async () => {
     const user = userEvent.setup();
     fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
     fetchKpiExplorerMock.mockResolvedValue({
@@ -149,32 +149,19 @@ describe('KpiMetricsPage — entry actions', () => {
     const cell = await actionCellFor('Acme Billing Revamp');
     await user.click(within(cell).getByRole('button', { name: 'Edit' }));
 
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('offers only manageable projects in the entry dialog project picker', async () => {
-    const user = userEvent.setup();
-    fetchProjectsMock.mockResolvedValue([
-      projectRow('p-manage', 'Acme Billing Revamp', true),
-      projectRow('p-read', 'Acme Analytics Hub', false),
-    ]);
+  it('shows the banner entry button disabled when nothing is entered yet', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
     fetchKpiExplorerMock.mockResolvedValue({
-      rows: [
-        explorerRow('p-manage', 'Acme Billing Revamp', true),
-        explorerRow('p-read', 'Acme Analytics Hub', false),
-      ],
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
       applied_metric_ids: [],
       metrics: [],
     });
     renderPage();
 
-    const cell = await actionCellFor('Acme Billing Revamp');
-    await user.click(within(cell).getByRole('button', { name: 'Edit' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('combobox', { name: /^Project/ }));
-
-    expect(await screen.findByRole('option', { name: 'Acme Billing Revamp' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Acme Analytics Hub' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Enter weekly KPIs' })).toBeDisabled();
   });
 
   it('enables Configure metrics when the viewer manages a project', async () => {
