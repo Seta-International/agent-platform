@@ -35,13 +35,12 @@ describe('pmAppManifest', () => {
     const byId = Object.fromEntries(
       pmAppManifest.nav.flatMap((s) => s.items).map((i) => [i.id, i.badge]),
     );
-    for (const id of ['pm.risks']) {
+    for (const id of ['pm.weekly', 'pm.risks']) {
       expect(byId[id]).toBe('Soon');
     }
     for (const id of [
       'pm.portfolio',
       'pm.requests',
-      'pm.weekly',
       'pm.resourcing',
       'pm.metrics',
       'pm.accounts',
