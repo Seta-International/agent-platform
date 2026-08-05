@@ -172,6 +172,9 @@ function exportCandidatesCsv(rows: CandidateListItem[]) {
 
 // Shared client-side filtering for the board's active pipeline and its Rejected column, so both
 // respond to the same search box and filter selectors.
+//
+// The search box targets candidate-owned fields only (name, skills) — Role and Seniority have
+// their own selectors below, so folding them into the needle would duplicate those filters.
 function filterCandidates(
   items: CandidateListItem[],
   f: { q: string; reqFilter: string; seniorityFilter: string; sourceFilter: string },
@@ -183,9 +186,7 @@ function filterCandidates(
   if (f.q.trim()) {
     const needle = f.q.toLowerCase();
     r = r.filter((c) =>
-      `${c.name} ${c.requisition_title} ${c.seniority ?? ''} ${c.skills.map((s) => s.skill_name).join(' ')}`
-        .toLowerCase()
-        .includes(needle),
+      `${c.name} ${c.skills.map((s) => s.skill_name).join(' ')}`.toLowerCase().includes(needle),
     );
   }
   return r;

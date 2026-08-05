@@ -53,7 +53,7 @@ export function TalentPoolCard({
     if (seniorityFilter && c.seniority !== seniorityFilter) return false;
     // A requisition filter narrows the pool to candidates the matcher recommends for that role.
     if (reqFilter && !c.recommended.some((r) => r.requisition_id === reqFilter)) return false;
-    if (needle && !`${c.name} ${c.seniority ?? ''}`.toLowerCase().includes(needle)) return false;
+    if (needle && !`${c.name}`.toLowerCase().includes(needle)) return false;
     return true;
   });
   const hasFilters = Boolean(seniorityFilter || reqFilter || needle);
