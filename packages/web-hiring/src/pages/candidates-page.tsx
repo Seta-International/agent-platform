@@ -105,6 +105,15 @@ const STAGE_COUNT_SEGMENTS: { key: BoardColumnId; label: string }[] = [
 // signature, so alias locally (do not touch the shared DTO).
 type Row = CandidateListItem & Record<string, unknown>;
 
+const CAND_STAGE_ORDER: Record<string, number> = {
+  new: 0,
+  screening: 1,
+  interview: 2,
+  offer: 3,
+  hired: 4,
+  rejected: 5,
+};
+
 // Universe of columns for the column-settings picker. The deleted DataTable never disabled
 // `enableColumnVisibility` here (and no column set `enableHiding: false`), so every column —
 // including "Candidate" — was genuinely hideable; preserved as-is (no `isAlwaysVisible`).
@@ -260,7 +269,20 @@ export function CandidatesPage() {
     [rejectedData, q, reqFilter, seniorityFilter, sourceFilter],
   );
 
-  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({
+    data: rows as Row[],
+    comparators: {
+      stage: (a, b) => {
+        const getStageIdx = (r: Row) => {
+          if (r.status === 'hired') return CAND_STAGE_ORDER.hired;
+          if (r.status === 'rejected') return CAND_STAGE_ORDER.rejected;
+          return CAND_STAGE_ORDER[r.stage as string] ?? 99;
+        };
+        return (getStageIdx(a) ?? 99) - (getStageIdx(b) ?? 99);
+      },
+      fit: (a, b) => a.fit.score - b.fit.score,
+    },
+  });
   const sortable = useTableSortable<Row>(sortConfig);
 
   // Reset to page 1 whenever a filter narrows/widens the result set, or the sort order changes —
