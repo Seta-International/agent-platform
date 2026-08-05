@@ -11,7 +11,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import type { PerformanceCapacity } from '../api/people-client.ts';
 import { usePerformanceScope } from '../hooks/use-performance-scope.ts';
 import { amTopTabs, isPerformancePathAllowed } from '../nav/performance-nav.ts';
@@ -52,7 +52,7 @@ export function PerformanceShell({
 
   const tabs = amTopTabs(resolved.capacity);
   const activeTab = navIdFromPath(pathname);
-  const linkSearch = { ...urlSearch, ...search };
+  const linkSearch = useMemo(() => ({ ...urlSearch, ...search }), [urlSearch, search]);
   const cycleMonth = resolved.month;
 
   useEffect(() => {
@@ -60,10 +60,15 @@ export function PerformanceShell({
     // Only enforce access on Performance URLs — never redirect away-navigation to /403.
     const path = pathname.replace(/\/$/, '') || '/';
     if (!path.startsWith('/people/performance')) return;
+    // Already on the always-allowed home — nothing to enforce (avoids any loop).
+    if (path === '/people/performance') return;
     if (!isPerformancePathAllowed(pathname, role_slugs, resolved.capacity)) {
-      void navigate({ to: '/403' });
+      // A section that doesn't fit the current capacity (e.g. switching to a
+      // non-AM context while on the Configuration tab) is a navigation concern,
+      // not a permission error: fall back to the Reviews home, keep the context.
+      void navigate({ to: '/people/performance', search: linkSearch, replace: true });
     }
-  }, [navigate, pathname, resolved.capacity, role_slugs]);
+  }, [navigate, pathname, resolved.capacity, role_slugs, linkSearch]);
 
   return (
     <PerformanceScopeProvider value={{ role_slugs, capacities, resolved, search }}>

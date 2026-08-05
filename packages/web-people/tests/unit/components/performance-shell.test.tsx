@@ -130,7 +130,9 @@ describe('PerformanceShell', () => {
     });
   });
 
-  it('redirects to /403 for a disallowed Performance deep link', async () => {
+  it('falls back to the Reviews home (not /403) when a section does not fit the capacity', async () => {
+    // e.g. a non-AM context on the Configuration tab — a navigation concern,
+    // not a permission error.
     pathname = '/people/performance/configuration';
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -147,7 +149,10 @@ describe('PerformanceShell', () => {
     );
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ to: '/403' });
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({ to: '/people/performance', replace: true }),
+      );
     });
+    expect(navigate).not.toHaveBeenCalledWith(expect.objectContaining({ to: '/403' }));
   });
 });
