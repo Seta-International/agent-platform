@@ -144,4 +144,22 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(currentCrumb.closest('a')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'People' })).toBeInTheDocument();
   });
+
+  it('hides pagination in List view when total items is <= 25', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 20 });
+    renderPage();
+
+    await screen.findByRole('table');
+    expect(screen.queryByRole('navigation', { name: /table pagination/i })).not.toBeInTheDocument();
+  });
+
+  it('retains pagination controls in List view when total = 50 and pageSize = 100', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 50 });
+    renderPage();
+
+    await screen.findByRole('table');
+    const pager = await screen.findByRole('navigation', { name: /table pagination/i });
+    expect(pager).toBeInTheDocument();
+    expect(within(pager).getByRole('combobox', { name: /items per page/i })).toBeInTheDocument();
+  });
 });

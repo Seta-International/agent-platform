@@ -83,4 +83,47 @@ describe('PeopleCardGrid pager', () => {
     renderGrid({ page: 4, pageSize: 25 } as WorkersQuery);
     expect(screen.getByRole('button', { name: /next/i })).toBeDisabled();
   });
+
+  it('hides pagination when total items is <= 25 (total fits within smallest page size)', () => {
+    render(
+      <PeopleCardGrid
+        rows={rows}
+        total={20}
+        isLoading={false}
+        query={{ page: 1, pageSize: 25 }}
+        setQuery={vi.fn()}
+        onRowClick={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  it('shows pagination when total = 50 and pageSize = 25', () => {
+    render(
+      <PeopleCardGrid
+        rows={rows}
+        total={50}
+        isLoading={false}
+        query={{ page: 1, pageSize: 25 }}
+        setQuery={vi.fn()}
+        onRowClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+  });
+
+  it('keeps pagination and page-size selector visible when total = 50 and pageSize = 100', () => {
+    render(
+      <PeopleCardGrid
+        rows={rows}
+        total={50}
+        isLoading={false}
+        query={{ page: 1, pageSize: 100 }}
+        setQuery={vi.fn()}
+        onRowClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Items per page' })).toBeInTheDocument();
+  });
 });
