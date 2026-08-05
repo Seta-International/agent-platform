@@ -62,6 +62,9 @@ const STATUS_LABEL: Record<string, string> = {
   filled: 'Filled',
   cancelled: 'Cancelled',
 };
+// Lifecycle status order for the Stage column sort — non-open statuses group before open ones,
+// in the order the cell displays them (On hold → Filled → Cancelled).
+const STATUS_ORDER: Array<'on_hold' | 'filled' | 'cancelled'> = ['on_hold', 'filled', 'cancelled'];
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
 // signature, so alias locally (do not touch the shared DTO).
@@ -195,6 +198,17 @@ export function RequisitionsPage() {
         const frac = (r: Row) =>
           r.openings_total > 0 ? (r.openings_total - r.openings_open) / r.openings_total : -1;
         return frac(a) - frac(b);
+      },
+      // The Stage cell shows the pipeline stage for open reqs and the lifecycle word
+      // (On hold / Filled / Cancelled) for non-open ones. Sort by pipeline position so open
+      // reqs read in the stage sequence the cell displays (Sourcing → … → Offer); non-open
+      // reqs group AFTER all open ones, ordered by STATUS_ORDER.
+      stage: (a, b) => {
+        const stageIdx = (r: Row) =>
+          r.status === 'open'
+            ? STAGES.indexOf(r.stage)
+            : STAGES.length + STATUS_ORDER.indexOf(r.status);
+        return stageIdx(a) - stageIdx(b);
       },
     },
   });
