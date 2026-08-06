@@ -1,5 +1,5 @@
 // packages/hiring/tests/integration/open-requisitions-board.test.ts
-// FUT-326: BOD/PMO view every board requisition (open, on_hold or filled — cancelled excluded)
+// FUT-326: BOD/PMO view every board requisition (open, on_hold, filled or cancelled — FUT-878)
 // company-wide on a board.
 import { resetCoreDb } from '@seta/core/testing';
 import { createAccount } from '@seta/pm';
@@ -106,17 +106,11 @@ describe('open requisitions board (FUT-326)', () => {
           roles: ['pm.pmo', 'hiring.viewer_all'],
         });
 
+        // FUT-878: the board carries the same dataset as the list view — including cancelled —
+        // so switching views preserves the requisitions and dashboard stats.
         const ids = (await listOpenRequisitions(pmo)).requisitions.map((r) => r.id);
         expect(ids).toContain(onHold);
-        expect(ids).not.toContain(cancelled);
-
-        // FUT-771: the board excludes cancelled by default, but the Cancelled status filter
-        // opts them back in — otherwise selecting Cancelled on the board returns nothing.
-        const withCancelled = (
-          await listOpenRequisitions(pmo, { includeCancelled: true })
-        ).requisitions.map((r) => r.id);
-        expect(withCancelled).toContain(onHold);
-        expect(withCancelled).toContain(cancelled);
+        expect(ids).toContain(cancelled);
       } finally {
         resetHiringDb();
         resetCoreDb();
