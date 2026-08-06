@@ -9,6 +9,10 @@ overrides:
   # msw's optional peer, which otherwise pulls TS 7 and forks vitest into two @vitest/mocker
   # instances (shared-ui snapshot tests then fail "SnapshotClient.setup() not called").
   typescript: 6.0.3
+  # Every workspace pins 26.1.1 exactly, but transitive @types/* ask for a loose range and
+  # pull a second copy — which forks vite, then vitest, and breaks shared-ui's snapshots the
+  # same way TS 7 does above. Hold one copy of the version the manifests already name.
+  '@types/node@^26': 26.1.1
 allowBuilds:
   '@astryxdesign/cli': true
   '@astryxdesign/core': true
