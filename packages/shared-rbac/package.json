@@ -18,7 +18,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "better-auth": "^1.6.25",
+    "better-auth": "^1.6.26",
     "drizzle-orm": "^0.45.2"
   }
 }
