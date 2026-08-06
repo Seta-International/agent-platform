@@ -6,10 +6,22 @@ import { m365TenantConfig } from '../db/schema/index.ts';
 import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const inputSchema = z.object({
   entra_tenant_id: z.string().uuid(),
   client_id: z.string().min(1),
-  client_secret_plaintext: z.string().min(1),
+  // Entra's "Certificates & secrets" blade puts a Secret *ID* (a UUID) next to the secret *Value*,
+  // and shows the Value only once at creation — so pasting the ID is the common misconfiguration.
+  // A UUID is never a valid secret Value, and accepting one only defers the failure to token time,
+  // where it surfaces as an opaque AADSTS7000215 long after whoever configured it has moved on.
+  client_secret_plaintext: z
+    .string()
+    .min(1)
+    .refine((s) => !UUID_RE.test(s.trim()), {
+      message:
+        'client_secret_plaintext looks like an Entra Secret ID (a UUID), not a secret Value. Copy the "Value" column from Certificates & secrets — it is shown only once, so create a new client secret if it is already masked.',
+    }),
 });
 
 export type SetM365TenantConfigInput = z.infer<typeof inputSchema>;

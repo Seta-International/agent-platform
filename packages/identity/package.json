@@ -50,7 +50,7 @@
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
-    "better-auth": "^1.6.24",
+    "better-auth": "^1.6.25",
     "drizzle-orm": "^0.45.2",
     "graphile-worker": "^0.17.3",
     "hono": "^4.12.31",

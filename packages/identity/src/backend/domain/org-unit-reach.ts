@@ -1,6 +1,6 @@
 // rbac: system-only — read-only tree expansion invoked while building the actor
 // session itself (Task 7); no caller session exists yet to gate on.
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { orgUnitProjection } from '../db/schema.ts';
 
@@ -39,6 +39,6 @@ export async function expandOrgUnits(
   const rows = await identityDb()
     .select({ org_unit_id: orgUnitProjection.org_unit_id, parent_id: orgUnitProjection.parent_id })
     .from(orgUnitProjection)
-    .where(eq(orgUnitProjection.tenant_id, tenantId));
+    .where(and(eq(orgUnitProjection.tenant_id, tenantId), isNull(orgUnitProjection.deleted_at)));
   return expandFromTree(rows, rootIds);
 }

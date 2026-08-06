@@ -56,9 +56,8 @@ export function registerHiringRequisitionRoutes(app: Hono<SessionEnv>): void {
   // account-scoped). Registered before `:id` so the literal "board" segment is not parsed as a
   // requisition id.
   app.get('/api/hiring/v1/requisitions/board', async (c) => {
-    // FUT-771: opt cancelled reqs back onto the board so the Cancelled status filter can find them.
-    const includeCancelled = c.req.query('include_cancelled') === 'true';
-    return c.json(await listOpenRequisitions(c.get('user'), { includeCancelled }));
+    // FUT-878: the board carries every status (incl. cancelled) so Board and List agree.
+    return c.json(await listOpenRequisitions(c.get('user')));
   });
   app.get('/api/hiring/v1/requisitions/:id', async (c) =>
     c.json(await getRequisition({ requisition_id: c.req.param('id'), session: c.get('user') })),

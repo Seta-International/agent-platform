@@ -318,7 +318,10 @@ describe('cancel and expiry leave no idempotency key (FUT-803)', () => {
           approvalId,
           decision: 'approve',
         }),
-      ).rejects.toMatchObject({ code: 'already_decided' });
+        // FUT-815 split expiry out of the not-pending guard: the user never
+        // decided this one, so 'already_decided' would be a misleading thing to
+        // tell them. The refusal itself — and the absent key row — is unchanged.
+      ).rejects.toMatchObject({ code: 'expired' });
 
       expect(await keyRowCount(pool, key)).toBe(0);
     });

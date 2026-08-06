@@ -11,6 +11,8 @@ export interface ChatRouterDeps {
   assignment: RunStream;
   plannerQuery: RunStream;
   weeklyPlanner: RunStream;
+  /** A2 — the mutate intent: change a task, with a preview to confirm. */
+  action: RunStream;
 }
 
 /** Composed chat runtime: classify the turn, dispatch to the matching orchestrator.
@@ -21,6 +23,7 @@ export function makeChatRouter(deps: ChatRouterDeps): RunStream {
     const intent = await deps.classify(runInput.userText, classifierHistory);
     if (intent === 'assignment') return deps.assignment(runInput, ctx);
     if (intent === 'weekly_planner') return deps.weeklyPlanner(runInput, ctx);
+    if (intent === 'mutate') return deps.action(runInput, ctx);
     return deps.plannerQuery(runInput, ctx);
   };
 }

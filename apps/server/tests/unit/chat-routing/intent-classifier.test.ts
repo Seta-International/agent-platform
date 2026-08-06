@@ -191,3 +191,87 @@ describe('chat intent classifier (tier 2: assignment vs planner_qna)', () => {
     });
   });
 });
+
+describe('mutate intent (FUT-814)', () => {
+  const classify = makeIntentClassifier({
+    resolveModel: () => ({}) as never,
+    // No row below may reach the LLM fallback; if one does, a regex tier failed
+    // and the failure should say exactly that.
+    classifyLlm: async () => {
+      throw new Error('LLM fallback reached — a regex tier should have matched');
+    },
+  });
+
+  it.each([
+    'đổi due date của task Alpha sang thứ 6',
+    'change the deadline on the API task to next Monday',
+    'set the priority of task Alpha to urgent',
+    'sửa tiêu đề task này thành "Migrate RDS"',
+    'dời hạn task Alpha sang tuần sau',
+    'mark this task as done',
+    'đóng các task tagged infra',
+    'close the AWS inventory task',
+    'mở lại task Alpha',
+    'tạo task mới cho nhóm tôi',
+    'create a task for the migration',
+    'gộp hai task này lại',
+    'merge these two tasks',
+    'liên kết task này với task kia',
+    'xoá task Alpha',
+    'delete the duplicate task',
+  ])('routes %j to mutate', async (text) => {
+    expect(await classify(text)).toBe('mutate');
+  });
+
+  // D3: the assignment path must not regress. Sentences that literally contain
+  // "assign" prove nothing — ACTION_RE already catches those. The real risk is a
+  // CHANGE VERB plus an ASSIGNMENT NOUN, which matches MUTATE_RE while ACTION_RE
+  // never sees it.
+  it.each([
+    'change the assignee to Tuấn',
+    'set owner to Tuấn',
+    'đổi người phụ trách sang Tuấn',
+    'sửa người được giao task này',
+    'giao lại task cho Lan',
+    'remove Tuấn from this task',
+    'assign task này cho Tuấn',
+  ])('keeps %j on the assignment runtime', async (text) => {
+    expect(await classify(text)).toBe('assignment');
+  });
+
+  it.each(['what is the deadline of the API task?', 'how many open tasks do I have?'])(
+    'keeps %j on planner_qna',
+    async (text) => {
+      expect(await classify(text)).toBe('planner_qna');
+    },
+  );
+
+  // These three match no regex tier TODAY either — they are pure-Vietnamese, or
+  // carry no English question word. The claim under test is therefore not "the
+  // rules route them" but "the new mutate tier does not STEAL them": they must
+  // still reach the LLM, which decides as it does today.
+  it.each(['ai nên làm task này?', 'tìm người biết React', 'task nào của tôi quá hạn?'])(
+    'leaves %j to the LLM rather than claiming it as mutate',
+    async (text) => {
+      const llm = vi.fn(async () => 'assignment' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      expect(await c(text)).toBe('assignment');
+      expect(llm).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('keeps weekly planning ahead of every mutate verb', async () => {
+    expect(await classify('sắp xếp công việc tuần này')).toBe('weekly_planner');
+    expect(await classify('plan my week')).toBe('weekly_planner');
+  });
+
+  it('a bare confirmation after a mutate turn stays on A2', async () => {
+    const history = [{ role: 'user' as const, content: 'đổi due date task Alpha sang thứ 6' }];
+    expect(await classify('ừ, làm đi', history)).toBe('mutate');
+  });
+
+  it('a bare confirmation after an assignment turn stays on assignment', async () => {
+    const history = [{ role: 'user' as const, content: 'assign task này cho Tuấn' }];
+    expect(await classify('ok', history)).toBe('assignment');
+  });
+});

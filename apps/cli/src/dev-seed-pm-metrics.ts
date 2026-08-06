@@ -21,7 +21,8 @@ import { getCurrentIsoWeek } from '@seta/pm';
 import {
   type BandCondition,
   computeEntryStatus,
-  computeMetricValue,
+  computeScoredValue,
+  kpiValuePrecision,
   type RagStatus,
 } from '@seta/pm/contracts';
 import { closePools, initPools } from '@seta/shared-db';
@@ -421,7 +422,12 @@ function buildEntry(m: CatalogMetric, target: RagStatus) {
     c2 = 20; // readable denominator; the ratio c1/c2 reproduces `value`.
     c1 = round4(value * c2);
   }
-  const computed = computeMetricValue(m.component_count, c1, c2);
+  const computed = computeScoredValue(
+    m.component_count,
+    c1,
+    c2,
+    kpiValuePrecision(m.green_band, m.yellow_band, m.red_band),
+  );
   const status = computeEntryStatus(computed, m.green_band, m.yellow_band, m.red_band);
   return { c1, c2, computed, status };
 }

@@ -1,13 +1,20 @@
 import type { SearchableItem, SearchSource } from '@seta/shared-ui';
 
+/** Person identity as an org-chart node renders it — `photo_url` is null when there is no photo. */
+export interface OrgPersonRef {
+  person_id: string;
+  full_name: string;
+  photo_url: string | null;
+}
+
 export interface OrgUnitNode {
   id: string;
   parent_id: string | null;
   name: string;
   kind: string;
   sort: number;
-  head: { person_id: string; full_name: string } | null;
-  members: Array<{ person_id: string; full_name: string; job_title: string | null }>;
+  head: OrgPersonRef | null;
+  members: Array<OrgPersonRef & { job_title: string | null }>;
 }
 
 export type CompanyNodeKind =
@@ -28,16 +35,18 @@ export interface CompanyNode {
   count?: number;
   person_id?: string;
   account_id?: string;
+  /** Only ever set on `am` nodes — the other kinds render a type glyph, not an avatar. */
+  photo_url?: string | null;
 }
 
 export interface DeliveryAccount {
   account_id: string;
   name: string;
-  am: { person_id: string; full_name: string } | null;
+  am: OrgPersonRef | null;
   projects: Array<{
     project_id: string;
     name: string;
-    members: Array<{ person_id: string; full_name: string; is_lead: boolean }>;
+    members: Array<OrgPersonRef & { is_lead: boolean }>;
   }>;
 }
 

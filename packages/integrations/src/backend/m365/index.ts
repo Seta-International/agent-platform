@@ -1,6 +1,62 @@
 export type { CredsProvider, M365Creds } from './auth.ts';
-export { buildAuthProvider, buildDbCredsProvider, M365NotConfiguredError } from './auth.ts';
+export {
+  buildAuthProvider,
+  buildDbCredsProvider,
+  isPermanentAuthError,
+  M365NotConfiguredError,
+} from './auth.ts';
 export { buildGraphClient } from './client.ts';
+export type { DirectoryGraph, PhotoFetchResult } from './directory/graph.ts';
+export { createDirectoryGraph } from './directory/graph.ts';
+export type { PeopleOrgSurface } from './directory/org-tree.ts';
+export {
+  createPeopleDirectorySurface,
+  createPeopleResolutionSurface,
+} from './directory/people-surface.ts';
+export type {
+  CloseConflictInput,
+  ConflictRow,
+  CreateDirectoryRepoDeps,
+  DirectoryRepo,
+  DirectoryStateRow,
+  OrgUnitLinkRow,
+  PersonLinkRow,
+  RaiseConflictInput,
+  UpsertOrgUnitLinkInput,
+  UpsertPersonLinkInput,
+} from './directory/repo.ts';
+export { createDirectoryRepo } from './directory/repo.ts';
+export type {
+  DirectoryResolutionAction,
+  PeopleResolutionSurface,
+  ResolveDirectoryConflictDeps,
+  ResolveDirectoryConflictInput,
+  ResolveDirectoryConflictResult,
+} from './directory/resolve.ts';
+export { DIRECTORY_RESOLUTION_ACTIONS, resolveDirectoryConflict } from './directory/resolve.ts';
+export type {
+  DirectoryCounterKey,
+  DirectoryRunReader,
+  DirectoryRunSummary,
+  DirectoryStatus,
+  DirectoryStatusDeps,
+} from './directory/status.ts';
+export { createDirectoryRunReader, getDirectoryStatus } from './directory/status.ts';
+export type {
+  DirectoryPhotoStorage,
+  DirectoryPullCounters,
+  DirectoryPullResult,
+  PeopleDirectorySurface,
+  RunDirectoryPullDeps,
+  RunDirectoryPullInput,
+} from './directory/sync.ts';
+export { DirectoryPhotoInvariantError, runDirectoryPull } from './directory/sync.ts';
+export { listDirectoryTenantIds } from './directory/tenants.ts';
+export type {
+  RunDirectoryPullCronDeps,
+  RunDirectoryPullCronResult,
+} from './jobs/directory-pull-cron.ts';
+export { directoryPullJobKey, runDirectoryPullCron } from './jobs/directory-pull-cron.ts';
 export type { RunPlanAutoMirrorDeps, RunPlanAutoMirrorInput } from './jobs/plan-auto-mirror.ts';
 export { runPlanAutoMirror } from './jobs/plan-auto-mirror.ts';
 export type {

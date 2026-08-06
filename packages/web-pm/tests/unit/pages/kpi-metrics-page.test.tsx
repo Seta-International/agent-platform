@@ -1,12 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KpiMetricsPage } from '../../../src/pages/kpi-metrics-page.tsx';
 
+const routerState = vi.hoisted(() => ({
+  search: { iso_year: 2026, iso_week: 32 } as Record<string, unknown>,
+}));
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
-  useSearch: () => ({ iso_year: 2026, iso_week: 32 }),
+  useSearch: () => routerState.search,
 }));
 
 const explorerRow = (project_id: string, project_name: string, can_manage: boolean) => ({
@@ -28,16 +31,43 @@ const explorerRow = (project_id: string, project_name: string, can_manage: boole
   can_manage,
 });
 
+const projectRow = (
+  project_id: string,
+  name: string,
+  can_manage: boolean,
+  account_id = 'acc-1',
+) => ({
+  project_id,
+  account_id,
+  name,
+  phase: 'delivery',
+  status: 'active' as const,
+  pm_worker_id: null,
+  can_manage,
+});
+
 const fetchKpiExplorerMock = vi.fn();
+const fetchProjectsMock = vi.fn();
+const fetchCurrentWeekMock = vi.fn();
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
   return {
     ...actual,
-    fetchCurrentWeek: () => Promise.resolve({ iso_year: 2026, iso_week: 32 }),
+    fetchCurrentWeek: () => fetchCurrentWeekMock(),
     fetchAccounts: () => Promise.resolve([]),
-    fetchProjects: () => Promise.resolve([]),
+    fetchProjects: () => fetchProjectsMock(),
     fetchKpiNorm: () => Promise.resolve({ metrics: [] }),
     fetchKpiExplorer: () => fetchKpiExplorerMock(),
+    fetchAppliedMetrics: () => Promise.resolve([]),
+    fetchKpiRecord: () =>
+      Promise.resolve({
+        record_id: null,
+        version: 0,
+        project_id: 'p-manage',
+        iso_year: 2026,
+        iso_week: 32,
+        metrics: [],
+      }),
   };
 });
 
@@ -51,19 +81,37 @@ function renderPage() {
 }
 
 async function actionCellFor(projectName: string): Promise<HTMLElement> {
-  const row = (await screen.findByText(projectName)).closest('tr');
+  const table = await screen.findByRole('table');
+  const row = (await within(table).findByText(projectName)).closest('tr');
   if (!row) throw new Error(`no row for ${projectName}`);
   const cells = within(row).getAllByRole('cell');
   return cells[cells.length - 1] as HTMLElement;
 }
 
-describe('KpiMetricsPage — entry actions are not wired up yet', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    fetchKpiExplorerMock.mockReset();
+async function configureButton(): Promise<HTMLElement> {
+  return screen.findByRole('button', { name: 'Configure metrics' });
+}
+
+const WEDNESDAY_OF_W32 = new Date('2026-08-05T03:00:00Z');
+const FRIDAY_1800_VNT_OF_W32 = new Date('2026-08-07T11:00:00Z');
+
+describe('KpiMetricsPage — entry actions', () => {
+  beforeEach(() => {
+    vi.setSystemTime(WEDNESDAY_OF_W32);
+    routerState.search = { iso_year: 2026, iso_week: 32 };
+    fetchCurrentWeekMock.mockResolvedValue({ iso_year: 2026, iso_week: 32 });
   });
 
-  it('disables Edit even on a project the viewer manages', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    fetchKpiExplorerMock.mockReset();
+    fetchProjectsMock.mockReset();
+    fetchCurrentWeekMock.mockReset();
+  });
+
+  it('shows Edit disabled while manual KPI entry is blocked', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
     fetchKpiExplorerMock.mockResolvedValue({
       rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
       applied_metric_ids: [],
@@ -75,7 +123,8 @@ describe('KpiMetricsPage — entry actions are not wired up yet', () => {
     expect(within(cell).getByRole('button', { name: 'Edit' })).toBeDisabled();
   });
 
-  it('says why rather than leaving a dead button', async () => {
+  it('leaves no action on a project the viewer only reads', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-read', 'Acme Analytics Hub', false)]);
     fetchKpiExplorerMock.mockResolvedValue({
       rows: [explorerRow('p-read', 'Acme Analytics Hub', false)],
       applied_metric_ids: [],
@@ -84,22 +133,12 @@ describe('KpiMetricsPage — entry actions are not wired up yet', () => {
     renderPage();
 
     const cell = await actionCellFor('Acme Analytics Hub');
-    expect(within(cell).getByText(/coming soon/i)).toBeInTheDocument();
+    expect(within(cell).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('disables Configure metrics', async () => {
-    fetchKpiExplorerMock.mockResolvedValue({
-      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
-      applied_metric_ids: [],
-      metrics: [],
-    });
-    renderPage();
-
-    expect(await screen.findByRole('button', { name: 'Configure metrics' })).toBeDisabled();
-  });
-
-  it('opens no weekly-report dialog when a project row is clicked', async () => {
+  it('opens no entry dialog when Edit is clicked', async () => {
     const user = userEvent.setup();
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
     fetchKpiExplorerMock.mockResolvedValue({
       rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
       applied_metric_ids: [],
@@ -107,8 +146,151 @@ describe('KpiMetricsPage — entry actions are not wired up yet', () => {
     });
     renderPage();
 
-    await user.click(await screen.findByText('Acme Billing Revamp'));
+    const cell = await actionCellFor('Acme Billing Revamp');
+    await user.click(within(cell).getByRole('button', { name: 'Edit' }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the banner entry button disabled when nothing is entered yet', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Enter weekly KPIs' })).toBeDisabled();
+  });
+
+  it('enables Configure metrics when the viewer manages a project', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeEnabled());
+  });
+
+  it('disables Configure metrics for a viewer who manages nothing', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-read', 'Acme Analytics Hub', false)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-read', 'Acme Analytics Hub', false)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeDisabled());
+  });
+
+  it('keeps Configure metrics disabled until the server says which week it is', async () => {
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    fetchCurrentWeekMock.mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    await actionCellFor('Acme Billing Revamp');
+    expect(await configureButton()).toBeDisabled();
+  });
+
+  it('disables Configure metrics while a past week is on screen', async () => {
+    routerState.search = { iso_year: 2026, iso_week: 29 };
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await actionCellFor('Acme Billing Revamp');
+    expect(await configureButton()).toBeDisabled();
+  });
+
+  it('disables Configure metrics once the current week is past its Friday deadline', async () => {
+    vi.setSystemTime(FRIDAY_1800_VNT_OF_W32);
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await actionCellFor('Acme Billing Revamp');
+    expect(await configureButton()).toBeDisabled();
+  });
+
+  it('opens the configure dialog from Configure metrics', async () => {
+    const user = userEvent.setup();
+    fetchProjectsMock.mockResolvedValue([projectRow('p-manage', 'Acme Billing Revamp', true)]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-manage', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeEnabled());
+    await user.click(await configureButton());
+
+    expect(await screen.findByText('Configure KPI metrics')).toBeInTheDocument();
+  });
+
+  it('lists only the filtered account’s projects in the configure dialog', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, account: 'acc-1' };
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
+      projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-acme', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeEnabled());
+    await user.click(await configureButton());
+
+    expect(
+      await screen.findByRole('checkbox', { name: 'Acme Billing Revamp' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Globex Subscriber Insights' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('derives the account from a project filter when no account is picked', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-globex' };
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
+      projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-globex', 'Globex Subscriber Insights', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeEnabled());
+    await user.click(await configureButton());
+
+    expect(
+      await screen.findByRole('checkbox', { name: 'Globex Subscriber Insights' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Acme Billing Revamp' })).not.toBeInTheDocument();
   });
 });

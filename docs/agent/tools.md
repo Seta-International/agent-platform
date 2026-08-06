@@ -621,12 +621,31 @@ execute: async (input, ctx) => {
 
 The stream emits a `tool-call-suspended` chunk with your `suspendPayload`; resume via `resumeStream(resumeData, { runId })`. Remember: `suspend()` does not throw — `return` immediately after calling it.
 
-**C. Request-level approval — `requireToolApproval` (boolean or function).**
+**C. Preview-carrying approval — `suspend()` for an unconditional mutation.**
+`requireApproval: true` emits only `{ toolCallId, toolName, args }`. When the human gate needs to show
+more than the raw args — a rendered before→after diff, an `expectedVersion` for optimistic locking, a
+minted `idempotencyKey` — that payload has nowhere to travel, so use `suspend()` even though the
+mutation is unconditional. The distinguishing question is **not** "is the risk conditional?" but
+**"does approval need a payload the tool computes?"**
+
+```ts
+// planner_updateTask (A2): unconditional write, but the user confirms a PREVIEW.
+const card = buildUpdateApprovalCard({ task, patch, idempotencyKey: crypto.randomUUID() });
+await ctx.agent.suspend({ card }); // card persists; resume reads patch+version+key OFF the card
+```
+
+Mint the resume-critical values (version, idempotency key) on the suspending pass and persist them
+**inside** the payload — never in process memory, and never accept them from the confirmation request.
+Resume may run in a different process after a page reload, and taking the patch from the client would
+let a caller confirm something the user never previewed.
+
+**D. Request-level approval — `requireToolApproval` (boolean or function).**
 Set on the `stream()`/`generate()` call to gate _every_ tool, or pass a function `({ toolName, args, requestContext, workspace }) => boolean` to gate dynamically. A tool's own `requireApproval` always takes precedence. (Function form is unavailable for durable/stored agents — they fall back to gating everything.)
 
 | Condition                                                     | Mechanism                                  |
 | ------------------------------------------------------------- | ------------------------------------------ |
-| Unconditional mutation (create, update, delete, assign, post) | `requireApproval: true` on the tool        |
+| Unconditional mutation, args alone are reviewable             | `requireApproval: true` on the tool        |
+| Unconditional mutation needing a computed preview payload      | `suspend()` inside `execute` (§9.2 C)      |
 | Mutation whose risk depends on runtime values                 | `suspend()` inside `execute`               |
 | Gate every tool for a whole request                           | `requireToolApproval: true` on the request |
 | Gate tools dynamically for a request                          | `requireToolApproval: (info) => boolean`   |
@@ -737,7 +756,7 @@ Specialist instructions in `register.ts` are load-bearing — they direct the mo
 
 **Symptom:** A write tool uses `requireApproval: true` when the risk is actually conditional, so it pauses for harmless calls and trains users to rubber-stamp; or a tool needs runtime-conditional confirmation but has no `suspend()` and just executes.
 **Why it fails:** Unconditional gates on conditional risk cause approval fatigue; missing gates on conditional risk cause unreviewed mutations. Mastra distinguishes the two (§9.2) for a reason.
-**Fix:** Unconditional risk → `requireApproval: true`. Runtime-conditional risk → `suspend()` inside `execute` with a `suspendSchema`/`resumeSchema`.
+**Fix:** Unconditional risk reviewable from the args → `requireApproval: true`. Runtime-conditional risk, **or** approval that needs a computed preview payload (§9.2 C) → `suspend()` inside `execute` with a `suspendSchema`/`resumeSchema`.
 
 ---
 

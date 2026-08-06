@@ -2,11 +2,12 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
 import {
   type AgentResult,
+  buildAgentRequestContext,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
   temporalContextBlock,
@@ -156,10 +157,7 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
     inputSchema: QuerySubAgentInputSchema,
     outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })

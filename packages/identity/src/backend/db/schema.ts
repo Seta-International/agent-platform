@@ -175,10 +175,21 @@ export const orgUnitProjection = identity.table(
     org_unit_id: uuid('org_unit_id').primaryKey(),
     tenant_id: uuid('tenant_id').notNull(),
     parent_id: uuid('parent_id'),
-    name: text('name').notNull(),
+    // Nullable only so a tombstone (delete arriving before its create) can be inserted without
+    // a name. Every live (deleted_at IS NULL) row still has one — see the check constraint below.
+    name: text('name'),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    // Tombstone marker: set by delete-on-deleted instead of a hard DELETE, so a late create/update
+    // for the same org unit can never resurrect a row whose delete already landed (FUT-842).
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('org_unit_projection_by_tenant').on(t.tenant_id)],
+  (t) => [
+    index('org_unit_projection_by_tenant').on(t.tenant_id),
+    check(
+      'org_unit_projection_name_required_unless_deleted',
+      sql`deleted_at IS NOT NULL OR name IS NOT NULL`,
+    ),
+  ],
 );
 
 export const productGrant = identity.table(

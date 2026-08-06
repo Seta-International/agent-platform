@@ -7,7 +7,7 @@ import type { EditWorkerInput } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, person, personHistory, userProjection } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
-import { classifyField } from './field-rules.ts';
+import { classifyField, isM365Owned } from './field-rules.ts';
 
 export async function editWorker(
   input: EditWorkerInput & { session: SessionScope },
@@ -41,6 +41,12 @@ export async function editWorker(
 
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as [string, unknown][];
   for (const [field] of entries) {
+    if (current.person.directory_managed && isM365Owned(field)) {
+      throw new PeopleError('FORBIDDEN', `${field} is managed by Microsoft 365`, {
+        code: 'PERSON_FIELD_M365_MANAGED',
+        field,
+      });
+    }
     const klass = classifyField(field);
     if (klass === 'admin_only' && !isAdmin) {
       throw new PeopleError('FORBIDDEN', `Field ${field} is admin-only`);
