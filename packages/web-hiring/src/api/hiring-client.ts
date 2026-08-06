@@ -474,14 +474,21 @@ export interface CandidateStageCounts {
 }
 
 // ---- Candidate reads ----
-export async function fetchCandidates(): Promise<CandidateListItem[]> {
-  const res = await fetch('/api/hiring/v1/candidates', { credentials: 'include' });
+// FUT-833: optional `q` searches candidate-owned fields (name, contact email/phone) server-side,
+// so contact PII never rides the full list payload. The query-keys layer keys the cache by `q`.
+function withQ(url: string, q?: string): string {
+  return q ? `${url}?q=${encodeURIComponent(q)}` : url;
+}
+export async function fetchCandidates(q?: string): Promise<CandidateListItem[]> {
+  const res = await fetch(withQ('/api/hiring/v1/candidates', q), { credentials: 'include' });
   return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
 }
 // Rejected applications — backs the board's read-only "Rejected" column (kept out of
 // fetchCandidates so the active pipeline stays active+hired only).
-export async function fetchRejectedCandidates(): Promise<CandidateListItem[]> {
-  const res = await fetch('/api/hiring/v1/candidates/rejected', { credentials: 'include' });
+export async function fetchRejectedCandidates(q?: string): Promise<CandidateListItem[]> {
+  const res = await fetch(withQ('/api/hiring/v1/candidates/rejected', q), {
+    credentials: 'include',
+  });
   return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
 }
 export async function fetchCandidateStageCounts(): Promise<CandidateStageCounts> {
@@ -620,8 +627,8 @@ export interface TalentPoolRow {
   recommended: TalentPoolRecommendation[];
 }
 
-export async function fetchTalentPool(): Promise<TalentPoolRow[]> {
-  const res = await fetch('/api/hiring/v1/talent-pool', { credentials: 'include' });
+export async function fetchTalentPool(q?: string): Promise<TalentPoolRow[]> {
+  const res = await fetch(withQ('/api/hiring/v1/talent-pool', q), { credentials: 'include' });
   return (await handleResponse<{ pool: TalentPoolRow[] }>(res)).pool;
 }
 
