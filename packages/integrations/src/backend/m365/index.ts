@@ -1,5 +1,10 @@
 export type { CredsProvider, M365Creds } from './auth.ts';
-export { buildAuthProvider, buildDbCredsProvider, M365NotConfiguredError } from './auth.ts';
+export {
+  buildAuthProvider,
+  buildDbCredsProvider,
+  isPermanentAuthError,
+  M365NotConfiguredError,
+} from './auth.ts';
 export { buildGraphClient } from './client.ts';
 export type { DirectoryGraph, PhotoFetchResult } from './directory/graph.ts';
 export { createDirectoryGraph } from './directory/graph.ts';

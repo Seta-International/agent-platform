@@ -460,17 +460,24 @@ export function buildM365Boot(deps: M365BootDeps): M365Boot {
     'm365.directory.pull': async (payload) => {
       const p = payload as { tenant_id: string; full?: boolean };
       const graphClient = await graphClientFor(p.tenant_id);
-      // No try/catch on purpose: runDirectoryPull records directory_last_status='error' and
-      // rethrows so graphile-worker retries. Catching it here would report success and silently
-      // stop the retry; `GET /directory/status` is what surfaces the error state to the admin.
-      await m365.runDirectoryPull(
-        { tenant_id: p.tenant_id, full: p.full === true },
-        {
-          repo: directoryRepo,
-          graph: m365.createDirectoryGraph(graphClient),
-          people: directoryPeople,
-        },
-      );
+      // runDirectoryPull records directory_last_status='error' and rethrows so graphile-worker
+      // retries, which is what a transient Graph fault needs. A rejected client credential is not
+      // transient: retrying it burns all 25 attempts over backoff, rewriting directory_last_error
+      // each time and drowning the worker log, and it still cannot succeed until someone fixes the
+      // stored secret. Stop that one class here — the failure is already persisted, so
+      // `GET /directory/status` still surfaces the error state to the admin.
+      try {
+        await m365.runDirectoryPull(
+          { tenant_id: p.tenant_id, full: p.full === true },
+          {
+            repo: directoryRepo,
+            graph: m365.createDirectoryGraph(graphClient),
+            people: directoryPeople,
+          },
+        );
+      } catch (err) {
+        if (!m365.isPermanentAuthError(err)) throw err;
+      }
     },
 
     // Snake_case because graphile-worker's crontab parser rejects dots in a task identifier
