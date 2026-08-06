@@ -15,7 +15,7 @@ const PAGE_2_URL = 'https://graph.microsoft.com/v1.0/users/delta?$skiptoken=PAGE
 const DELTA_LINK_1 = 'https://graph.microsoft.com/v1.0/users/delta?$deltatoken=DELTATOKEN1';
 const DELTA_LINK_2 = 'https://graph.microsoft.com/v1.0/users/delta?$deltatoken=DELTATOKEN2';
 const INITIAL_DELTA_PATH =
-  '/users/delta?$select=id,userPrincipalName,mail,otherMails,displayName,employeeId,employeeType,employeeHireDate,employeeLeaveDateTime,jobTitle,department,employeeOrgData,mobilePhone,businessPhones,accountEnabled,userType,manager';
+  '/users/delta?$select=id,userPrincipalName,mail,otherMails,displayName,givenName,surname,assignedLicenses,employeeId,employeeType,employeeHireDate,employeeLeaveDateTime,jobTitle,department,employeeOrgData,mobilePhone,businessPhones,accountEnabled,userType,manager';
 
 type RouteHandler = () => unknown;
 

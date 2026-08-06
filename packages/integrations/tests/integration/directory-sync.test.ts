@@ -40,6 +40,9 @@ interface WireUser {
   userPrincipalName?: string;
   mail?: string;
   displayName?: string;
+  givenName?: string | null;
+  surname?: string | null;
+  assignedLicenses?: Array<{ skuId?: string | null }>;
   jobTitle?: string;
   department?: string;
   employeeOrgData?: { division?: string | null };
@@ -57,6 +60,10 @@ function user(id: string, over: Partial<WireUser> = {}): WireUser {
     userPrincipalName: `u${name}@contoso.com`,
     mail: `u${name}@contoso.com`,
     displayName: `User ${name}`,
+    // Named on purpose: `isSyncableUser` drops an account that has neither a licence nor a name,
+    // because that is what a room/equipment/shared mailbox looks like on `/users/delta`.
+    givenName: 'User',
+    surname: name,
     accountEnabled: true,
     userType: 'Member',
     ...over,

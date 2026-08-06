@@ -7,6 +7,11 @@
 export interface GraphDirectoryUser {
   id: string;
   displayName?: string | null;
+  // givenName/surname/assignedLicenses back the resource-mailbox exclusion in `filter.ts`; Graph
+  // omits assignedLicenses rather than sending [] when a user holds none.
+  givenName?: string | null;
+  surname?: string | null;
+  assignedLicenses?: Array<{ skuId?: string | null }> | null;
   employeeId?: string | null;
   mail?: string | null;
   userPrincipalName?: string | null;

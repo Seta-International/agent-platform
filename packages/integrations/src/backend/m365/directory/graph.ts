@@ -13,6 +13,10 @@ const USER_SELECT = [
   'mail',
   'otherMails',
   'displayName',
+  // Read by `isSyncableUser` to keep room/equipment/shared mailboxes out of people.
+  'givenName',
+  'surname',
+  'assignedLicenses',
   'employeeId',
   'employeeType',
   'employeeHireDate',
