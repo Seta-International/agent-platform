@@ -968,11 +968,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   if (isRichTextEmpty(body)) return null;
                   return (
                     <div key={s.key}>
-                      <div
-                        className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
-                      >
-                        {s.label}
-                      </div>
+                      <div className="mb-1 font-semibold text-primary">{s.label}</div>
                       <RichTextDisplay value={body} />
                     </div>
                   );
