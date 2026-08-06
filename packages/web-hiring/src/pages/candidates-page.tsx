@@ -321,7 +321,15 @@ export function CandidatesPage() {
   const columnSettingsState = useTableColumnSettingsState({
     columns: CANDIDATE_COLUMN_OPTIONS,
     activeColumnKeys,
-    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+    // FUT-801: re-enabling a hidden column must restore it to its default slot, not append it in
+    // re-enable order. The library's toggleColumn pushes onto the end of activeColumnKeys; sorting
+    // by the canonical CANDIDATE_COLUMN_OPTIONS order keeps the layout fixed while toggling visibility.
+    // ponytail: no user column reordering exists yet — if drag-reorder arrives, sort only NEWLY added
+    // keys and preserve manual order for the rest.
+    onChangeActiveColumnKeys: (keys) =>
+      setActiveColumnKeys(
+        CANDIDATE_COLUMN_OPTIONS.map((c) => c.key).filter((k) => keys.includes(k)),
+      ),
   });
   const columnSettings = useTableColumnSettings<Row>(columnSettingsState.columnSettingsConfig);
 
