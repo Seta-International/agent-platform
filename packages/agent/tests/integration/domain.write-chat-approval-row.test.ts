@@ -240,3 +240,75 @@ describe('writeChatApprovalRow', () => {
     });
   });
 });
+
+/** The shape buildUpdateApprovalCard emits: same card contract, but its taskId
+ *  belongs to an UPDATE preview, not an assignment proposal. */
+function actionCard(taskId: string, tenantId: string, userId: string): ApprovalCard {
+  return {
+    ...card(taskId, tenantId, userId),
+    intent: 'Update "AWS migration"',
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      toolId: 'planner_updateTask',
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
+describe('writeChatApprovalRow — per-workflow behaviour', () => {
+  it('stamps the caller-supplied workflow id on the synthetic run', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const { runId } = await writeChatApprovalRow({
+        card: actionCard(taskId, tenantId, userId),
+        workflowId: 'planner.action',
+        dedupPendingAssignment: false,
+        mastraRunId: 'mr-1',
+        toolCallId: 'tc-1',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      const row = await pool.query<{ workflow_id: string }>(
+        'SELECT workflow_id FROM agent.workflow_runs WHERE run_id = $1',
+        [runId],
+      );
+      expect(row.rows[0]!.workflow_id).toBe('planner.action');
+    });
+  });
+
+  it('does NOT reuse a pending assignment approval when dedup is off', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      // A pending ASSIGNMENT card for the same task, written the shipped way.
+      const assignment = await writeChatApprovalRow({
+        card: card(taskId, tenantId, userId),
+        mastraRunId: 'mr-a',
+        toolCallId: 'tc-a',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      const { approvalId } = await writeChatApprovalRow({
+        card: actionCard(taskId, tenantId, userId),
+        workflowId: 'planner.action',
+        dedupPendingAssignment: false,
+        mastraRunId: 'mr-2',
+        toolCallId: 'tc-2',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      expect(approvalId).not.toBe(assignment.approvalId);
+    });
+  });
+});
