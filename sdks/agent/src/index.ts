@@ -61,6 +61,7 @@ export type {
 export {
   type AgentMemoryHandle,
   actorFromContext,
+  buildAgentRequestContext,
   RC_THREAD_ID,
   RequestContextSchema,
 } from './request-context.ts';
@@ -78,6 +79,7 @@ export {
 export type { SubscriberBuilder, SubscriberBuilderDeps } from './subscriber-builder.ts';
 export {
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
   type TaskRefResolution,
   TaskRefResolveError,
 } from './task-ref-resolver.ts';

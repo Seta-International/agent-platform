@@ -1,3 +1,4 @@
+import { TASK_REF_DESCRIPTION } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { UpdateTaskPatchSchema } from '../../inputs.ts';
 
@@ -81,15 +82,7 @@ export const ToolPatchSchema = z
 export type ToolPatch = z.infer<typeof ToolPatchSchema>;
 
 export const UpdateTaskToolInputSchema = z.object({
-  taskRef: z
-    .string()
-    .trim()
-    .min(1)
-    .describe(
-      'Task UUID from a planner_getTask or planner_queryTasks result, or an ordinal ' +
-        'reference into the tasks already listed in this conversation: "#1"/"first", ' +
-        '"#2"/"second", "last". Never invent a UUID.',
-    ),
+  taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
   patch: ToolPatchSchema,
 });
 

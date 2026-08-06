@@ -3,6 +3,7 @@ import {
   defineAgentTool,
   recordEntityExposure,
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
@@ -15,15 +16,7 @@ export const plannerListCommentsTool = defineAgentTool({
     'List comments on a planner task, newest first.\n\n' +
     'Use for: "what were the latest comments on this?"; showing discussion history before posting a reply.',
   input: z.object({
-    taskRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
-        'Task UUID, or an ordinal reference into your working memory `recentTasks` list: ' +
-          '"#1" / "1" / "first" → most recent, "#2" / "second" → next, "last" → most recent. ' +
-          'Prefer ordinals when the user is referring to something you just discussed.',
-      ),
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
     limit: z.number().int().min(1).max(100).optional(),
   }),
   output: z.object({

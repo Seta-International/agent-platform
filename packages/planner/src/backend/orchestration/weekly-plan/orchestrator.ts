@@ -1,9 +1,10 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import {
   type AgentResult,
   type AgentTool,
+  buildAgentRequestContext,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
   withTemporalContext,
@@ -78,10 +79,7 @@ function buildWeeklyPlanOrchestrator(
   input: WeeklyPlanOrchestratorInput,
   ctx: SpecializedAgentRunCtx,
 ): BuiltWeeklyPlanOrchestrator {
-  const rc = new RequestContext();
-  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-  rc.set('tenant_id', ctx.tenantId);
-  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+  const rc = buildAgentRequestContext(ctx);
 
   // Deterministic window resolution — before any LLM sees the turn.
   const week = resolveWeekChoice(input.userText);
