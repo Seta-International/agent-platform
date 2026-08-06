@@ -28,8 +28,6 @@ export const OHS_WEIGHTS = {
 
 export type OhsCategory = keyof typeof OHS_WEIGHTS;
 
-/** Average OHS points over Core metrics with a status in this pillar; 0/N → 0 (same Red-default
- * principle as computeCategoryHealth, expressed as points instead of a color). */
 export function computePillarScore(coreStatuses: readonly RagStatus[]): number {
   if (coreStatuses.length === 0) return 0;
   const sum = coreStatuses.reduce((acc, s) => acc + OHS_POINTS[s], 0);

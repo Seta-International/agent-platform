@@ -29,6 +29,7 @@ export function Input({
   disabled,
   isDisabled,
   isLabelHidden,
+  inputMode,
   min: _min,
   max: _max,
   ...rest
@@ -37,6 +38,7 @@ export function Input({
   type?: string;
   disabled?: boolean;
   isLabelHidden?: boolean;
+  inputMode?: 'decimal' | 'numeric';
   min?: string;
   max?: string;
 }) {
@@ -44,6 +46,7 @@ export function Input({
   return (
     <AstryxInput
       {...(rest as InputProps)}
+      {...(inputMode ? ({ inputMode } as unknown as Partial<InputProps>) : {})}
       label={(label ?? '') as InputProps['label']}
       // Honour an explicit isLabelHidden; only fall back to hiding when there's no label
       // to show (so a labelled-but-hidden field like a table cell doesn't leak its label).

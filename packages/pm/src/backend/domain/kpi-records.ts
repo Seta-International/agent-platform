@@ -68,7 +68,7 @@ function bandFor(def: AppliedMetricDef, status: RagStatus): BandCondition {
 function categoryHealths(
   defsById: Map<string, AppliedMetricDef>,
   entries: { metric_id: string; status: RagStatus | null }[],
-): Record<KpiCategory, RagStatus> {
+): Record<KpiCategory, RagStatus | null> {
   const byCategory: Record<KpiCategory, RagStatus[]> = {
     quality: [],
     cost_capacity: [],
@@ -111,8 +111,8 @@ export interface KpiExplorerRow {
   record_id: string | null;
   iso_year: number;
   iso_week: number;
-  overall_health: RagStatus;
-  category_health: Record<KpiCategory, RagStatus>;
+  overall_health: RagStatus | null;
+  category_health: Record<KpiCategory, RagStatus | null>;
   metrics: Record<string, KpiExplorerMetricCell>;
   can_manage: boolean;
 }
@@ -292,8 +292,8 @@ export interface KpiRecordDetail {
   iso_week: number;
   version: number | null;
   metrics: KpiRecordMetricRow[];
-  category_health: Record<KpiCategory, RagStatus>;
-  overall_health: RagStatus;
+  category_health: Record<KpiCategory, RagStatus | null>;
+  overall_health: RagStatus | null;
 }
 
 export async function getKpiRecord(input: {
@@ -396,7 +396,7 @@ export async function getKpiRecord(input: {
 
 export async function upsertKpiRecord(
   input: UpsertKpiRecordInputContract & { session: SessionScope },
-): Promise<{ record_id: string; version: number; overall_health: RagStatus }> {
+): Promise<{ record_id: string; version: number; overall_health: RagStatus | null }> {
   const { project_id, iso_year, iso_week, expected_version, entries, session } = input;
   await assertProjectManageable(project_id, session);
   if (iso_week < 1 || iso_week > 53) {
@@ -447,7 +447,7 @@ export async function upsertKpiRecord(
     throw new PmError('VALIDATION', 'Enter at least one metric');
   }
 
-  let result!: { record_id: string; version: number; overall_health: RagStatus };
+  let result!: { record_id: string; version: number; overall_health: RagStatus | null };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {

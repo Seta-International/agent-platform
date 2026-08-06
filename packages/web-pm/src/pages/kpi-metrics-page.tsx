@@ -10,7 +10,8 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   fetchAccounts,
   fetchKpiExplorer,
@@ -31,6 +32,7 @@ import {
 } from './_ui-compat.tsx';
 import { KpiConfigureDialog } from './kpi-configure-dialog.tsx';
 import { type ExplorerColumn, KpiExplorerTable } from './kpi-explorer-table.tsx';
+import { KpiManualInputDialog } from './kpi-manual-input-dialog.tsx';
 import { KpiNormTab } from './kpi-norm-tab.tsx';
 import {
   formatBand,
@@ -42,6 +44,7 @@ import {
   shortMetricLabel,
 } from './kpi-shared.tsx';
 import { usePmContext } from './use-pm-context.ts';
+import { WeeklyReportDetailDialog } from './weekly-report-detail-dialog.tsx';
 
 export interface KpiMetricsSearch {
   tab?: 'explorer' | 'norm';
@@ -49,9 +52,8 @@ export interface KpiMetricsSearch {
   project?: string;
   iso_year?: number;
   iso_week?: number;
+  detail?: string;
 }
-
-const MANUAL_ENTRY_SOON = 'Coming soon — manual KPI entry is not available yet.';
 
 const FROZEN_CELL = 'sticky z-10 bg-card transition-colors group-hover:bg-muted';
 const FROZEN_START_WIDTH = 192 + 144 + 96;
@@ -80,6 +82,20 @@ const PIN = {
 export function KpiMetricsPage() {
   const { search, setSearch, weeks, iso_year, iso_week, weekReady } = usePmContext('/pm/metrics');
   const tab = (search as Partial<KpiMetricsSearch>).tab ?? 'explorer';
+  const detailProjectId =
+    typeof search.detail === 'string' && search.detail ? search.detail : undefined;
+
+  const detailSearch = useCallback(
+    (project_id: string): KpiMetricsSearch => ({
+      tab,
+      account: search.account,
+      project: search.project,
+      iso_year,
+      iso_week,
+      detail: project_id,
+    }),
+    [tab, search.account, search.project, iso_year, iso_week],
+  );
 
   const accountsQuery = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
   const projectsQuery = useQuery({ queryKey: pmKeys.projects(), queryFn: fetchProjects });
@@ -94,6 +110,11 @@ export function KpiMetricsPage() {
   const canConfigure = !managesNothing && weekReady && viewingCurrentWeek && weekIsOpen;
 
   const [configureOpen, setConfigureOpen] = useState(false);
+  const [manualInput, setManualInput] = useState<{
+    project_id: string;
+    iso_year: number;
+    iso_week: number;
+  } | null>(null);
 
   const explorerQuery = useQuery({
     queryKey: pmKeys.kpiExplorer({
@@ -128,6 +149,13 @@ export function KpiMetricsPage() {
     () => projectsInAccount.map((p) => ({ value: p.project_id, label: p.name })),
     [projectsInAccount],
   );
+  const entryProjectOptions = useMemo(
+    () =>
+      projectsInAccount
+        .filter((p) => p.can_manage)
+        .map((p) => ({ value: p.project_id, label: p.name })),
+    [projectsInAccount],
+  );
 
   const appliedIds = explorerQuery.data?.applied_metric_ids ?? [];
 
@@ -147,7 +175,6 @@ export function KpiMetricsPage() {
     `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
   const nothingEntered =
     !explorerQuery.isLoading && rows.length > 0 && rows.every((r) => r.record_id === null);
-  const soleEntryTarget = rows.length === 1 && rows[0]?.can_manage ? rows[0] : null;
   const selectedAccount =
     search.account ??
     (search.project
@@ -214,7 +241,14 @@ export function KpiMetricsPage() {
         header: 'Project',
         meta: { headerClassName: PIN.project.header, cellClassName: PIN.project.cell },
         cell: ({ row }: Ctx) => (
-          <span className="truncate font-medium text-primary">{row.original.project_name}</span>
+          <Link
+            to="/pm/metrics"
+            search={detailSearch(row.original.project_id)}
+            onClick={(e) => e.stopPropagation()}
+            className="block truncate font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {row.original.project_name}
+          </Link>
         ),
       },
       {
@@ -226,8 +260,7 @@ export function KpiMetricsPage() {
         id: 'overall_health',
         header: 'Health',
         meta: { headerClassName: PIN.health.header, cellClassName: PIN.health.cell },
-        cell: ({ row }: Ctx) =>
-          ragBadge(row.original.record_id === null ? null : row.original.overall_health),
+        cell: ({ row }: Ctx) => ragBadge(row.original.overall_health),
       },
       ...metricColumnGroups,
       {
@@ -239,15 +272,20 @@ export function KpiMetricsPage() {
         },
         cell: ({ row }: Ctx) =>
           row.original.can_manage ? (
-            <DisabledActionTooltip disabled reason={MANUAL_ENTRY_SOON}>
-              <Button size="sm" variant="ghost" disabled>
-                {weekIsOpen ? 'Edit' : 'View'}
-              </Button>
-            </DisabledActionTooltip>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setManualInput({ project_id: row.original.project_id, iso_year, iso_week });
+              }}
+            >
+              {!weekIsOpen ? 'View' : row.original.record_id === null ? 'Enter' : 'Edit'}
+            </Button>
           ) : null,
       },
     ],
-    [metricColumnGroups, weekIsOpen],
+    [iso_year, iso_week, metricColumnGroups, weekIsOpen, detailSearch],
   );
 
   return (
@@ -301,7 +339,9 @@ export function KpiMetricsPage() {
             <Tabs
               className="flex min-h-0 flex-1 flex-col"
               value={tab}
-              onValueChange={(v) => setSearch({ tab: v === 'norm' ? 'norm' : 'explorer' })}
+              onValueChange={(v) =>
+                setSearch({ tab: v === 'norm' ? 'norm' : 'explorer', detail: undefined })
+              }
             >
               <TabsList className="self-start">
                 <TabsTrigger value="explorer">KPI Explorer</TabsTrigger>
@@ -348,18 +388,7 @@ export function KpiMetricsPage() {
                     description={
                       !weekIsOpen
                         ? 'This week is closed, so its figures stay view-only.'
-                        : soleEntryTarget
-                          ? 'Entry closes Friday 17:00 (Asia/Ho_Chi_Minh).'
-                          : 'Entry closes Friday 17:00 (Asia/Ho_Chi_Minh). Open a project to enter its numbers.'
-                    }
-                    endContent={
-                      weekIsOpen && soleEntryTarget ? (
-                        <DisabledActionTooltip disabled reason={MANUAL_ENTRY_SOON}>
-                          <Button variant="primary" disabled>
-                            Enter weekly KPIs
-                          </Button>
-                        </DisabledActionTooltip>
-                      ) : null
+                        : 'Entry closes Friday 17:00 (Asia/Ho_Chi_Minh). Open a project to enter its numbers.'
                     }
                   />
                 ) : null}
@@ -371,6 +400,7 @@ export function KpiMetricsPage() {
                     isLoading={explorerQuery.isLoading}
                     emptyState={<EmptyState title="No projects for this week" />}
                     getRowKey={(row) => row.project_id}
+                    onRowClick={(row) => setSearch({ detail: row.project_id })}
                     regionLabel={`KPI Explorer, ${weekLabel} — scroll sideways for the remaining metric columns`}
                     pinnedStartWidth={FROZEN_START_WIDTH}
                     pinnedEndWidth={ACTION_COL_WIDTH}
@@ -406,6 +436,27 @@ export function KpiMetricsPage() {
               projects={configurableProjects}
               initialProjectId={search.project}
               currentWeek={weeks[0]}
+            />
+          ) : null}
+          {detailProjectId ? (
+            <WeeklyReportDetailDialog
+              key={detailProjectId}
+              project_id={detailProjectId}
+              iso_year={iso_year}
+              iso_week={iso_week}
+              onOpenChange={(open) => {
+                if (!open) setSearch({ detail: undefined });
+              }}
+            />
+          ) : null}
+          {manualInput ? (
+            <KpiManualInputDialog
+              initial={manualInput}
+              projects={entryProjectOptions}
+              weeks={weeks}
+              onOpenChange={(open) => {
+                if (!open) setManualInput(null);
+              }}
             />
           ) : null}
         </LayoutContent>

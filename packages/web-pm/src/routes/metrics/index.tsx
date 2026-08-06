@@ -15,6 +15,7 @@ export const Route = createFileRoute('/_authed/pm/metrics/')({
     project: str(s.project),
     iso_year: num(s.iso_year),
     iso_week: num(s.iso_week),
+    detail: str(s.detail),
   }),
   component: KpiMetricsPage,
 });

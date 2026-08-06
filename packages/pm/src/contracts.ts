@@ -477,17 +477,14 @@ export function worstStatus(statuses: readonly RagStatus[]): RagStatus | null {
   return statuses.reduce((worst, s) => (RAG_RANK[s] > RAG_RANK[worst] ? s : worst));
 }
 
-/**
- * Worst-wins over the entries that have a status; 0/N (no entry in this category has a value)
- * defaults to `red` — "No Data = No Management" (functional-analysis.md §4 decision #2, updated
- * 2026-07-14: previously a neutral "not reported" state, now explicitly Red per the business doc).
- */
-export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus {
-  return worstStatus(entryStatuses) ?? 'red';
+export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus | null {
+  return worstStatus(entryStatuses);
 }
 
-export function computeOverallHealth(categoryHealths: readonly RagStatus[]): RagStatus {
-  return worstStatus(categoryHealths) ?? 'red';
+export function computeOverallHealth(
+  categoryHealths: readonly (RagStatus | null)[],
+): RagStatus | null {
+  return worstStatus(categoryHealths.filter((s): s is RagStatus => s !== null));
 }
 export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
 

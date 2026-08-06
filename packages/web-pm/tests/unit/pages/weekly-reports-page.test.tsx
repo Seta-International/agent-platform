@@ -1,0 +1,159 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { WeeklyReportCard, WeeklyReportDetail } from '../../../src/api/pm-client.ts';
+import { WeeklyReportsPage } from '../../../src/pages/weekly-reports-page.tsx';
+
+const routerState = vi.hoisted(() => ({
+  search: {} as Record<string, unknown>,
+  navigate: vi.fn(),
+}));
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => routerState.navigate,
+  useSearch: () => routerState.search,
+}));
+
+const fetchWeeklyReportsMock = vi.fn();
+const fetchDetailMock = vi.fn();
+vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
+  return {
+    ...actual,
+    fetchCurrentWeek: () => Promise.resolve({ iso_year: 2026, iso_week: 32 }),
+    fetchAccounts: () => Promise.resolve([]),
+    fetchProjects: () =>
+      Promise.resolve([
+        {
+          project_id: 'p-1',
+          account_id: 'acc-1',
+          name: 'Acme API Gateway',
+          phase: 'delivery',
+          status: 'active' as const,
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ]),
+    fetchWeeklyReports: () => fetchWeeklyReportsMock(),
+    fetchWeeklyReportDetail: () => fetchDetailMock(),
+  };
+});
+
+const card: WeeklyReportCard = {
+  project_id: 'p-1',
+  project_name: 'Acme API Gateway',
+  account_id: 'acc-1',
+  account_name: 'Acme Corporation',
+  pm_name: 'Mai Tran',
+  pmo_name: null,
+  overall_colour: 'green',
+  category_colours: {
+    quality: 'green',
+    cost_capacity: 'green',
+    delivery: 'green',
+    process: 'green',
+  },
+  stats: { applied_count: 6, measured_count: 6, yellow_count: 0, red_count: 0, worst: null },
+  staffed: 4,
+  team_size: 5,
+  headline_metrics: [],
+  latest_summary: null,
+  reporters: [],
+  report_count: 0,
+  can_manage: true,
+};
+
+const detail: WeeklyReportDetail = {
+  project_id: 'p-1',
+  project_name: 'Acme API Gateway',
+  account_name: 'Acme Corporation',
+  phase: 'delivery',
+  pricing_model: 'fixed_price',
+  pm_person_id: 'per-1',
+  pmo_person_id: null,
+  staffed: 4,
+  team_size: 5,
+  headline_metrics: [],
+  pm_name: 'Mai Tran',
+  pmo_name: null,
+  week_editable: true,
+  iso_year: 2026,
+  iso_week: 32,
+  overall_colour: 'green',
+  flags: [
+    { category: 'quality', computed_colour: 'green', final_colour: 'green', overridden: false },
+    { category: 'delivery', computed_colour: 'green', final_colour: 'green', overridden: false },
+    {
+      category: 'cost_capacity',
+      computed_colour: 'green',
+      final_colour: 'green',
+      overridden: false,
+    },
+    { category: 'process', computed_colour: 'green', final_colour: 'green', overridden: false },
+  ],
+  stats: { applied_count: 6, measured_count: 6, yellow_count: 0, red_count: 0, worst: null },
+  trend: [{ iso_year: 2026, iso_week: 32, colour: 'green' }],
+  reports: [],
+  can_manage: true,
+  my_reporter_id: 'per-1',
+};
+
+function renderPage() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <WeeklyReportsPage />
+    </QueryClientProvider>,
+  );
+}
+
+describe('WeeklyReportsPage — detail deep link', () => {
+  beforeEach(() => {
+    routerState.search = { iso_year: 2026, iso_week: 32 };
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchWeeklyReportsMock.mockResolvedValue([card]);
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  it('opens the detail for the project named in the URL', async () => {
+    routerState.search = { iso_year: 2026, iso_week: 32, detail: 'p-1' };
+    renderPage();
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows the board alone when no project is named', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Acme API Gateway' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('names the opened project in the URL when a card is clicked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Open weekly report for Acme API Gateway' }),
+    );
+
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ search: expect.objectContaining({ detail: 'p-1' }) }),
+    );
+  });
+
+  it('drops the project from the URL when the detail closes', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, detail: 'p-1' };
+    renderPage();
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(await within(dialog).findByRole('button', { name: 'Close' }));
+
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ search: expect.objectContaining({ detail: undefined }) }),
+    );
+  });
+});

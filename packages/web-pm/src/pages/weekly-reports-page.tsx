@@ -37,28 +37,34 @@ export interface WeeklyReportsSearch {
   project?: string;
   iso_year?: number;
   iso_week?: number;
+  detail?: string;
 }
 
 // RAG colour → Astryx status variant (shared by StatusDot and Badge; chromatic = status only).
-const COLOUR_VARIANT: Record<ReportColour, 'success' | 'warning' | 'error' | 'neutral'> = {
+type ColourKey = ReportColour | 'none';
+const colourKey = (colour: ReportColour | null): ColourKey => colour ?? 'none';
+
+const COLOUR_VARIANT: Record<ColourKey, 'success' | 'warning' | 'error' | 'neutral'> = {
   green: 'success',
   yellow: 'warning',
   red: 'error',
   gray: 'neutral',
+  none: 'neutral',
 };
 // RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
-const COLOUR_LABEL: Record<ReportColour, string> = {
+const COLOUR_LABEL: Record<ColourKey, string> = {
   green: 'Green',
   yellow: 'Amber',
   red: 'Red',
   gray: 'No data',
+  none: 'Not assessed',
 };
 // Colour budget: status colour appears only as small marks (dots, one verdict badge per card).
 // Large chromatic surfaces made the board shout — Green is the norm and must stay quiet.
 
 // The portfolio-health strip: one tile per outcome, always Green/Amber/Red; "No data" only
 // when a project has no measured entries this week (so it never adds noise on a full board).
-const SUMMARY_ORDER: ReportColour[] = ['green', 'yellow', 'red', 'gray'];
+const SUMMARY_ORDER: ColourKey[] = ['green', 'yellow', 'red', 'gray', 'none'];
 
 export function WeeklyReportsPage() {
   const { search, setSearch, weeks, iso_year, iso_week } = usePmContext('/pm/weekly');
@@ -83,10 +89,9 @@ export function WeeklyReportsPage() {
 
   // id null = the composer was opened without an explicit project context — the dialog
   // prompts for one instead of silently defaulting (FUT-589 AC1).
-  const [detailProject, setDetailProject] = useState<{
-    id: string | null;
-    compose: boolean;
-  } | null>(null);
+  const [composeProject, setComposeProject] = useState<{ id: string | null } | null>(null);
+  const detailParam = typeof search.detail === 'string' ? search.detail : undefined;
+  const openProject = composeProject ?? (detailParam ? { id: detailParam } : null);
 
   const weekOptions = useMemo(
     () => weeks.map((w) => ({ value: `${w.iso_year}-${w.iso_week}`, label: w.label })),
@@ -137,18 +142,25 @@ export function WeeklyReportsPage() {
 
   // Portfolio rollup for the strip: how many projects sit at each overall colour this week.
   const summary = useMemo(() => {
-    const c: Record<ReportColour, number> = { green: 0, yellow: 0, red: 0, gray: 0 };
-    for (const card of cards) c[card.overall_colour] += 1;
+    const c: Record<ColourKey, number> = { green: 0, yellow: 0, red: 0, gray: 0, none: 0 };
+    for (const card of cards) c[colourKey(card.overall_colour)] += 1;
     return c;
   }, [cards]);
-  const summaryTiles = SUMMARY_ORDER.filter((k) => k !== 'gray' || summary.gray > 0);
+  const summaryTiles = SUMMARY_ORDER.filter(
+    (k) => (k !== 'gray' && k !== 'none') || summary[k] > 0,
+  );
 
   const openComposer = () => {
     // Straight into the composer — the filtered project when manageable, else the first
     // manageable one; the PROJECT dropdown at the top of the form keeps the context explicit.
     const preset =
       manageableOptions.find((o) => o.value === search.project) ?? manageableOptions[0];
-    if (preset) setDetailProject({ id: preset.value, compose: true });
+    if (preset) setComposeProject({ id: preset.value });
+  };
+
+  const closeDetail = () => {
+    setComposeProject(null);
+    if (detailParam) setSearch({ detail: undefined });
   };
 
   return (
@@ -267,7 +279,7 @@ export function WeeklyReportsPage() {
                     <ClickableCard
                       key={card.project_id}
                       label={`Open weekly report for ${card.project_name}`}
-                      onClick={() => setDetailProject({ id: card.project_id, compose: false })}
+                      onClick={() => setSearch({ detail: card.project_id })}
                       padding={4}
                       className="flex h-full flex-col gap-3"
                     >
@@ -282,7 +294,10 @@ export function WeeklyReportsPage() {
                           </Text>
                         </div>
                         <span className="shrink-0">
-                          <Badge variant={COLOUR_VARIANT[overall]} label={COLOUR_LABEL[overall]} />
+                          <Badge
+                            variant={COLOUR_VARIANT[colourKey(overall)]}
+                            label={COLOUR_LABEL[colourKey(overall)]}
+                          />
                         </span>
                       </div>
 
@@ -291,18 +306,19 @@ export function WeeklyReportsPage() {
                       <div className="flex flex-wrap gap-x-3 gap-y-1">
                         {KPI_CATEGORIES.map((cat) => {
                           const colour = card.category_colours[cat];
+                          const key = colourKey(colour);
                           const name =
                             KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
-                          const off = colour !== 'green' && colour !== 'gray';
+                          const off = colour !== null && colour !== 'green' && colour !== 'gray';
                           return (
                             <span
                               key={cat}
                               className="flex items-center gap-1.5"
-                              title={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[colour]}`}
+                              title={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
                             >
                               <StatusDot
-                                variant={COLOUR_VARIANT[colour]}
-                                label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[colour]}`}
+                                variant={COLOUR_VARIANT[key]}
+                                label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
                               />
                               <Text
                                 type="supporting"
@@ -360,19 +376,19 @@ export function WeeklyReportsPage() {
             )}
           </div>
 
-          {detailProject ? (
+          {openProject ? (
             <WeeklyReportDetailDialog
               // Keyed by project so switching in the composer's PROJECT dropdown remounts the
               // dialog with fresh form state prefilled from the new project.
-              key={detailProject.id ?? 'pick-project'}
-              project_id={detailProject.id}
-              startInCompose={detailProject.compose}
+              key={openProject.id ?? 'pick-project'}
+              project_id={openProject.id}
+              startInCompose={composeProject !== null}
               iso_year={iso_year}
               iso_week={iso_week}
-              projectOptions={detailProject.compose ? manageableOptions : undefined}
-              onProjectChange={(id) => setDetailProject({ id, compose: true })}
+              projectOptions={composeProject !== null ? manageableOptions : undefined}
+              onProjectChange={(id) => setComposeProject({ id })}
               onOpenChange={(open) => {
-                if (!open) setDetailProject(null);
+                if (!open) closeDetail();
               }}
             />
           ) : null}

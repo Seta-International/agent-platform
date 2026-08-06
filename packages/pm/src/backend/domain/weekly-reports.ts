@@ -50,9 +50,10 @@ export type ReportColour = 'green' | 'yellow' | 'red' | 'gray';
 // gray only ever enters via a manual override (nothing computes it); rank it between green and
 // yellow so a gray override dampens but never hides a yellow/red pillar in the overall roll-up.
 const COLOUR_RANK: Record<ReportColour, number> = { green: 0, gray: 1, yellow: 2, red: 3 };
-function worstColour(colours: readonly ReportColour[]): ReportColour {
-  if (colours.length === 0) return 'red'; // No Data = No Management
-  return colours.reduce((worst, c) => (COLOUR_RANK[c] > COLOUR_RANK[worst] ? c : worst));
+function worstColour(colours: readonly (ReportColour | null)[]): ReportColour | null {
+  const known = colours.filter((c): c is ReportColour => c !== null);
+  if (known.length === 0) return null;
+  return known.reduce((worst, c) => (COLOUR_RANK[c] > COLOUR_RANK[worst] ? c : worst));
 }
 
 // ── ISO week arithmetic (Dec 28 is always in the last ISO week of its year) ───────────────
@@ -155,8 +156,8 @@ export interface WeekStats {
 }
 
 interface ProjectWeekComputation {
-  category_colours: Record<KpiCategory, RagStatus>;
-  overall_colour: RagStatus;
+  category_colours: Record<KpiCategory, RagStatus | null>;
+  overall_colour: RagStatus | null;
   stats: WeekStats;
   ohs: number;
 }
@@ -202,7 +203,9 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
     delivery: computeCategoryHealth(byCategory.delivery),
     process: computeCategoryHealth(byCategory.process),
   };
-  const overall_colour = worstColour(CATEGORIES.map((c) => category_colours[c])) as RagStatus;
+  const overall_colour = worstColour(
+    CATEGORIES.map((c) => category_colours[c]),
+  ) as RagStatus | null;
   const worstDef = worstRed ?? worstYellow;
   const ohs = computeOhs({
     quality: computePillarScore(coreByCategory.quality),
@@ -357,8 +360,8 @@ export interface WeeklyReportCard {
   account_name: string;
   pm_name: string | null;
   pmo_name: string | null;
-  overall_colour: ReportColour;
-  category_colours: Record<KpiCategory, ReportColour>;
+  overall_colour: ReportColour | null;
+  category_colours: Record<KpiCategory, ReportColour | null>;
   stats: WeekStats;
   /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
   staffed: number;
@@ -520,21 +523,17 @@ export async function listWeeklyReports(input: {
     .filter((id): id is string => id !== null);
   const names = await loadNames(session, personIds);
 
-  // Flag resolution (FUT-593 AC4 + staleness rationale in getWeeklyReportDetail):
-  // closed weeks read the STAMPED colours wholesale — reopening reproduces the original
-  // report; the open week stays live, shadowed only by human overrides.
-  const weekOpen = isWeekEditable(iso_year, iso_week);
   const storedByProject = new Map<
     string,
-    Map<KpiCategory, { computed: ReportColour; final: ReportColour }>
+    Map<KpiCategory, { computed: ReportColour | null; final: ReportColour | null }>
   >();
   for (const f of flagRows) {
     const m =
       storedByProject.get(f.project_id) ??
-      new Map<KpiCategory, { computed: ReportColour; final: ReportColour }>();
+      new Map<KpiCategory, { computed: ReportColour | null; final: ReportColour | null }>();
     m.set(f.category as KpiCategory, {
-      computed: f.computed_colour as ReportColour,
-      final: f.final_colour as ReportColour,
+      computed: f.computed_colour as ReportColour | null,
+      final: f.final_colour as ReportColour | null,
     });
     storedByProject.set(f.project_id, m);
   }
@@ -554,11 +553,9 @@ export async function listWeeklyReports(input: {
     const category_colours = Object.fromEntries(
       CATEGORIES.map((c) => {
         const s = stored?.get(c);
-        if (!s) return [c, computation.category_colours[c]];
-        if (!weekOpen) return [c, s.final];
-        return [c, s.final !== s.computed ? s.final : computation.category_colours[c]];
+        return [c, s ? s.final : computation.category_colours[c]];
       }),
-    ) as Record<KpiCategory, ReportColour>;
+    ) as Record<KpiCategory, ReportColour | null>;
     const projectReports = reportsByProject.get(p.project_id) ?? [];
     return {
       project_id: p.project_id,
@@ -639,16 +636,16 @@ export interface WeeklyReportDetail {
   pmo_name: string | null;
   iso_year: number;
   iso_week: number;
-  overall_colour: ReportColour;
+  overall_colour: ReportColour | null;
   flags: {
     category: KpiCategory;
-    computed_colour: ReportColour;
-    final_colour: ReportColour;
+    computed_colour: ReportColour | null;
+    final_colour: ReportColour | null;
     overridden: boolean;
   }[];
   stats: WeekStats;
   /** Selected week first, then the 4 preceding weeks — overall colour each. */
-  trend: { iso_year: number; iso_week: number; colour: ReportColour }[];
+  trend: { iso_year: number; iso_week: number; colour: ReportColour | null }[];
   reports: WeeklyReportEntry[];
   can_manage: boolean;
   /** The caller's person id — the UI matches it against reports[].reporter_id to find "my"
@@ -827,11 +824,6 @@ export async function getWeeklyReportDetail(input: {
     entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
   );
 
-  // Flag resolution: the OPEN week is live (KPI edits show immediately; a stored flag only
-  // wins as a human override — final ≠ computed stored with it). A CLOSED week reads the
-  // STAMPED colours wholesale (FUT-593 AC4): reopening reproduces the original report, and
-  // entries/baseline are locked anyway so nothing fresher exists.
-  const selectedWeekOpen = isWeekEditable(iso_year, iso_week);
   const selectedFlags = new Map(
     flagRows
       .filter((f) => f.iso_year === iso_year && f.iso_week === iso_week)
@@ -839,41 +831,30 @@ export async function getWeeklyReportDetail(input: {
   );
   const flags = CATEGORIES.map((c) => {
     const row = selectedFlags.get(c);
-    const live = selectedComputation.category_colours[c] as ReportColour;
-    const overridden = row ? row.final_colour !== row.computed_colour : false;
-    if (row && !selectedWeekOpen) {
-      return {
-        category: c,
-        computed_colour: row.computed_colour as ReportColour,
-        final_colour: row.final_colour as ReportColour,
-        overridden,
-      };
+    if (!row) {
+      const live = selectedComputation.category_colours[c] as ReportColour | null;
+      return { category: c, computed_colour: live, final_colour: live, overridden: false };
     }
     return {
       category: c,
-      computed_colour: live,
-      final_colour: overridden && row ? (row.final_colour as ReportColour) : live,
-      overridden,
+      computed_colour: row.computed_colour as ReportColour | null,
+      final_colour: row.final_colour as ReportColour | null,
+      overridden: row.final_colour !== row.computed_colour,
     };
   });
   const overall_colour = worstColour(flags.map((f) => f.final_colour));
 
-  // Trend: same per-week rule — stamped colours for closed weeks with flags, baseline-live
-  // otherwise (each week computed against its own frozen baseline).
   const trend = trendWeeks.map((w) => {
     const weekDefs = defsByKey.get(baselineKey(project_id, w)) ?? [];
     const computation = computeProjectWeek(weekDefs, entriesByKey.get(weekKey(w)) ?? []);
     const weekFlags = flagRows.filter(
       (f) => f.iso_year === w.iso_year && f.iso_week === w.iso_week,
     );
-    const weekOpen = isWeekEditable(w.iso_year, w.iso_week);
     const colours = CATEGORIES.map((c) => {
       const row = weekFlags.find((f) => f.category === c);
-      if (row && !weekOpen) return row.final_colour as ReportColour;
-      const overridden = row && row.final_colour !== row.computed_colour;
-      return overridden
-        ? (row.final_colour as ReportColour)
-        : (computation.category_colours[c] as ReportColour);
+      return row
+        ? (row.final_colour as ReportColour | null)
+        : (computation.category_colours[c] as ReportColour | null);
     });
     return { ...w, colour: worstColour(colours) };
   });
@@ -1070,7 +1051,7 @@ export async function discardWeeklyReport(
 
 export async function upsertWeeklyReport(
   input: UpsertWeeklyReportInput & { session: SessionScope },
-): Promise<{ report_id: string; version: number; overall_colour: ReportColour }> {
+): Promise<{ report_id: string; version: number; overall_colour: ReportColour | null }> {
   const { project_id, iso_year, iso_week, expected_version, session } = input;
   // Draft lifecycle (FUT-591/601): 'draft' saves anything without the submit gate and never
   // stamps flags/snapshots/rollup; 'submit' runs the gate and stamps. A draft save over a
@@ -1096,7 +1077,9 @@ export async function upsertWeeklyReport(
 
   // The computed colours are only the prefill — the reporter declares each QCDP pillar in the
   // composer, and overall (plus the Road-to-Green requirement) follows the declared colours.
-  const declaredColours: Record<KpiCategory, ReportColour> = { ...computation.category_colours };
+  const declaredColours: Record<KpiCategory, ReportColour | null> = {
+    ...computation.category_colours,
+  };
   for (const category of CATEGORIES) {
     const chosen = input.category_colours?.[category];
     if (chosen) declaredColours[category] = chosen;
@@ -1119,13 +1102,10 @@ export async function upsertWeeklyReport(
       );
     }
 
-    // Business rule (functional-analysis.md §9.5): a non-Green report MUST carry a
-    // Road-to-Green action — and an action without a deadline isn't trackable, so the due
-    // date travels with it.
-    if (overall_colour !== 'green' && !(input.road_to_green?.trim() && input.road_to_green_due)) {
+    if (input.risk_issue?.trim() && !(input.road_to_green?.trim() && input.road_to_green_due)) {
       throw new PmError(
         'VALIDATION',
-        'Non-Green report requires a Road-to-Green action with a due date',
+        'A declared Risk / Issue requires a Road-to-Green action with a due date',
       );
     }
     if (input.road_to_green?.trim() && !input.road_to_green_due) {
@@ -1292,7 +1272,9 @@ export async function upsertWeeklyReport(
           ),
         );
       const flagByCategory = new Map(existingFlags.map((f) => [f.category as KpiCategory, f]));
-      const finalColours: Record<KpiCategory, ReportColour> = { ...computation.category_colours };
+      const finalColours: Record<KpiCategory, ReportColour | null> = {
+        ...computation.category_colours,
+      };
       const insertAudit = async (
         flag_id: string,
         from_colour: ReportColour | null,
@@ -1333,8 +1315,9 @@ export async function upsertWeeklyReport(
             })
             .returning({ id: flag.id });
           if (!created) continue;
-          let latest = await insertAudit(created.id, null, computed, null);
-          let final: ReportColour = computed;
+          let latest =
+            computed === null ? null : await insertAudit(created.id, null, computed, null);
+          let final: ReportColour | null = computed;
           if (declared && declared !== computed) {
             latest =
               (await insertAudit(
@@ -1354,11 +1337,12 @@ export async function upsertWeeklyReport(
           continue;
         }
 
-        let final = row.final_colour as ReportColour;
+        let final = row.final_colour as ReportColour | null;
         let latest = row.latest_audit_entry_id;
         const wasOverridden = row.final_colour !== row.computed_colour;
         if (row.computed_colour !== computed && !wasOverridden) {
-          latest = (await insertAudit(row.id, final, computed, null)) ?? latest;
+          if (computed !== null)
+            latest = (await insertAudit(row.id, final, computed, null)) ?? latest;
           final = computed;
         }
         if (declared && declared !== final) {
@@ -1494,8 +1478,8 @@ export async function overrideFlag(
             eq(flag.iso_week, iso_week),
           ),
         );
-      const byCat = new Map(flags.map((f) => [f.category, f.final_colour as ReportColour]));
-      const colourOf = (c: KpiCategory) => byCat.get(c) ?? 'red';
+      const byCat = new Map(flags.map((f) => [f.category, f.final_colour as ReportColour | null]));
+      const colourOf = (c: KpiCategory) => byCat.get(c) ?? null;
       await tx
         .update(projectWeekRollup)
         .set({
@@ -1527,7 +1511,7 @@ export async function overrideFlag(
           iso_year,
           iso_week,
           category,
-          from_colour: row.final_colour as ReportColour,
+          from_colour: row.final_colour as ReportColour | null,
           to_colour: final_colour,
           reason,
           actor_user_id: session.user_id,

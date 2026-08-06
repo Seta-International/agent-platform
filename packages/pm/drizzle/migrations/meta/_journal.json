@@ -106,6 +106,13 @@
       "when": 1785828697080,
       "tag": "0031_kpi_norm_metric_bands_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785998230416,
+      "tag": "0021_faulty_gunslinger",
+      "breakpoints": true
     }
   ]
 }
