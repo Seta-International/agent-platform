@@ -86,6 +86,20 @@ describe('NewRequisitionDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     await userEvent.type(screen.getByLabelText(/job title/i), 'Stale Title');
+    await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Stale About');
+    await userEvent.type(
+      screen.getByPlaceholderText(/write the responsibilities/i),
+      'Stale Responsibilities',
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/write the requirements/i),
+      'Stale Requirements',
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/write the nice to have/i),
+      'Stale Nice to have',
+    );
+
     // Dirty form -> Cancel prompts to confirm; Discard actually closes it.
     await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     await userEvent.click(await screen.findByRole('button', { name: 'Discard' }));
@@ -94,6 +108,10 @@ describe('NewRequisitionDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     expect(screen.getByLabelText(/job title/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the about section/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the responsibilities/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the requirements/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the nice to have/i)).toHaveValue('');
   });
 
   // Cancel must mirror the close (X) button: with unsaved input it opens the discard confirmation
