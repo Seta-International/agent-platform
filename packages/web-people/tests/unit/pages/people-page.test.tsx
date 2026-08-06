@@ -127,6 +127,37 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(within(table).queryByText('Work email')).not.toBeInTheDocument();
   });
 
+  // FUT-856: Re-enabling a hidden column must restore it to its canonical (default) position,
+  // not append it per the re-enable order. Hide Employee + Work email, re-enable Work email first
+  // then Employee — the table must still show Employee before Work email.
+  it('restores re-enabled columns to their default position', async () => {
+    const user = userEvent.setup();
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Employee' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Work email' }));
+    expect(headerNames()).not.toContain('Employee');
+    expect(headerNames()).not.toContain('Work email');
+
+    // Re-enable (picker stays open; all checkboxes remain present) in the WRONG order:
+    // Work email first, then Employee.
+    await user.click(screen.getByRole('checkbox', { name: 'Work email' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Employee' }));
+
+    expect(headerNames()).toContain('Employee');
+    expect(headerNames()).toContain('Work email');
+    // Canonical order restored: Employee stays before Work email regardless of re-enable order.
+    expect(headerNames().indexOf('Employee')).toBeLessThan(headerNames().indexOf('Work email'));
+  });
+
   it('renders the "no matching people" empty state while a search is active', async () => {
     const user = userEvent.setup();
     mockFetchWorkers.mockResolvedValue({ rows: [], total: 0 });
