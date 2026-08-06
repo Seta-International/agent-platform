@@ -16,7 +16,7 @@ const fetchOpenRequisitions = vi.fn();
 const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
-  fetchOpenRequisitions: (opts?: { includeCancelled?: boolean }) => fetchOpenRequisitions(opts),
+  fetchOpenRequisitions: () => fetchOpenRequisitions(),
   fetchRequisitions: () => fetchRequisitions(),
   fetchAccounts: () => Promise.resolve([]),
   fetchProjects: () => Promise.resolve([]),
@@ -169,29 +169,27 @@ describe('RequisitionsPage', () => {
     await waitFor(() => expect(totalValue()).toHaveTextContent('1'));
   });
 
-  // FUT-771: the board hides cancelled reqs by default, but its status filter still offers
-  // "Cancelled". Selecting it must refetch the board with includeCancelled and surface them —
-  // otherwise the filter matches an in-memory list that never contains a cancelled row.
-  it('surfaces cancelled requisitions on the board when the Cancelled filter is selected', async () => {
-    fetchOpenRequisitions.mockImplementation((opts?: { includeCancelled?: boolean }) =>
-      Promise.resolve(
-        board(
-          opts?.includeCancelled
-            ? [row({ id: 'c1', title: 'Abandoned Role', status: 'cancelled' })]
-            : [row({ id: 'r1', title: 'Open A', status: 'open' })],
-        ),
-      ),
+  // FUT-878: the board carries the same dataset as the list view, including cancelled — so
+  // switching views preserves the requisitions and dashboard stats. The cancelled role renders
+  // on the board by default; filtering to "Cancelled" narrows to just it.
+  it('shows cancelled requisitions on the board by default and narrows via the Cancelled filter', async () => {
+    fetchOpenRequisitions.mockResolvedValue(
+      board([
+        row({ id: 'r1', title: 'Open A', status: 'open' }),
+        row({ id: 'c1', title: 'Abandoned Role', status: 'cancelled' }),
+      ]),
     );
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const user = userEvent.setup();
     render(<RequisitionsPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Open A')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Abandoned Role')).toBeInTheDocument());
 
     await user.click(screen.getByRole('combobox', { name: /filter by status/i }));
     await user.click(await screen.findByRole('option', { name: 'Cancelled' }));
 
-    await waitFor(() => expect(screen.getByText('Abandoned Role')).toBeInTheDocument());
-    expect(fetchOpenRequisitions).toHaveBeenCalledWith({ includeCancelled: true });
+    await waitFor(() => expect(screen.queryByText('Open A')).not.toBeInTheDocument());
+    expect(screen.getByText('Abandoned Role')).toBeInTheDocument();
   });
 
   it('clicking "Sort by Position" reorders the rows', async () => {

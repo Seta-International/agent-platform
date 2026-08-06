@@ -8,6 +8,7 @@ import {
   candidate,
   opening,
   projectProjection,
+  REQUISITION_STATUS,
   requisition,
   requisitionJdSection,
   requisitionSkill,
@@ -128,15 +129,10 @@ export async function listRequisitions(session: SessionScope): Promise<Requisiti
   return requisitionListQuery().where(and(...conds));
 }
 
-// The board carries live requisitions plus the ones marked filled — recruiters keep needing to
-// find a filled role (to read its outcome, or see it wasn't hired-out but closed by hand), so a
-// filled requisition stays listed and is told apart by its status pill. Only `cancelled` (an
-// abandoned req) drops off the *default* board; the status filter narrows the rest.
-const BOARD_STATUSES = ['open', 'on_hold', 'filled'] as const;
-// FUT-771: the status filter still offers "Cancelled", so it must be able to surface them.
-// Selecting it flips `includeCancelled`, widening the board query to include abandoned reqs
-// (the default board stays clean; the client narrows the widened set to just cancelled).
-const BOARD_STATUSES_WITH_CANCELLED = [...BOARD_STATUSES, 'cancelled'] as const;
+// The board carries the same lifecycle statuses as the list view — open, on_hold, filled and
+// cancelled — so switching between Board and List preserves the dataset and dashboard stats
+// (FUT-878). Every requisition a viewer can read is shown; status pills tell them apart.
+const BOARD_STATUSES = REQUISITION_STATUS;
 
 export interface OpenRequisitionsBoard {
   scope: 'all' | 'scoped';
@@ -150,24 +146,20 @@ export interface OpenRequisitionsBoard {
  *
  * A requisition is a hiring-owned resource, so access is gated by `hiring.requisition.read`.
  * Row scoping delegates to `buildRequisitionScope` (the unified RBAC scope layer, FUT-378):
- * a tenant-wide `hiring.requisition.read` grant sees every board requisition (open, on_hold
- * or filled — cancelled excluded) company-wide; a scoped grant is limited to requisitions the viewer owns, is an assigned
+ * a tenant-wide `hiring.requisition.read` grant sees every board requisition company-wide;
+ * a scoped grant is limited to requisitions the viewer owns, is an assigned
  * recruiter or the AM on its account (via `@seta/pm.listAccountIdsManagedBy`, FUT-330;
  * AM ownership resolves against `pm.account` directly, not a local projection), or owns
  * the project of as EM/TL/PM (FUT-328).
  * `scoped_account_names`/`scoped_project_names` are derived from the returned rows rather
  * than a second lookup, so they always match what's actually shown.
  */
-export async function listOpenRequisitions(
-  session: SessionScope,
-  options: { includeCancelled?: boolean } = {},
-): Promise<OpenRequisitionsBoard> {
+export async function listOpenRequisitions(session: SessionScope): Promise<OpenRequisitionsBoard> {
   requirePermission(session, 'hiring.requisition.read');
 
-  const statuses = options.includeCancelled ? BOARD_STATUSES_WITH_CANCELLED : BOARD_STATUSES;
   const conds = [
     tenantScoped(requisition.tenant_id, session),
-    inArray(requisition.status, statuses),
+    inArray(requisition.status, BOARD_STATUSES),
   ];
   const scope = await buildRequisitionScope(session);
   if (scope) conds.push(scope);
