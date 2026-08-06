@@ -58,7 +58,7 @@ describe('planner_updateTask — first pass', () => {
       order.push('suspend');
     });
     await tool.execute!(
-      { taskId: TASK_ID, patch: { due_at: '2026-08-15' } } as never,
+      { taskRef: TASK_ID, patch: { dueAt: '2026-08-15' } } as never,
       firstPassCtx(suspend),
     );
     expect(order).toEqual(['assert', 'suspend']);
@@ -74,7 +74,7 @@ describe('planner_updateTask — first pass', () => {
       suspended = p as { card?: unknown };
     });
     const out = await tool.execute!(
-      { taskId: TASK_ID, patch: { due_at: '2026-08-15' } } as never,
+      { taskRef: TASK_ID, patch: { dueAt: '2026-08-15' } } as never,
       firstPassCtx(suspend),
     );
     expect(out).toEqual({ updated: false, taskId: TASK_ID });
@@ -89,11 +89,40 @@ describe('planner_updateTask — first pass', () => {
     });
   });
 
+  it('speaks the same vocabulary planner_queryTasks returns — priority and status words, not numbers', async () => {
+    const { tool } = build();
+    let suspended: { card?: unknown } | undefined;
+    const suspend = vi.fn(async (p: unknown) => {
+      suspended = p as { card?: unknown };
+    });
+    await tool.execute!(
+      { taskRef: TASK_ID, patch: { priority: 'urgent', status: 'in_progress' } } as never,
+      firstPassCtx(suspend),
+    );
+    const card = suspended?.card as { primary: { argsPatch: { patch: Record<string, unknown> } } };
+    // The model says the word; the domain patch carries the number.
+    expect(card.primary.argsPatch.patch).toEqual({ priority_number: 1, percent_complete: 50 });
+  });
+
+  it('rejects the raw numeric vocabulary the model must never see', async () => {
+    const { tool } = build();
+    const suspend = vi.fn(async () => {});
+    // The strict schema turns a wrong-vocabulary call into a validation error the
+    // model is told to fix, rather than a patch that silently drops both fields.
+    const out = (await tool.execute!(
+      { taskRef: TASK_ID, patch: { priority_number: 1, percent_complete: 50 } } as never,
+      firstPassCtx(suspend),
+    )) as { message?: string };
+    expect(out.message).toMatch(/validation failed/i);
+    expect(out.message).toMatch(/priority_number/);
+    expect(suspend).not.toHaveBeenCalled();
+  });
+
   it('refuses an empty patch instead of suspending — never invent a value', async () => {
     const { tool } = build();
     const suspend = vi.fn(async () => {});
     const out = (await tool.execute!(
-      { taskId: TASK_ID, patch: {} } as never,
+      { taskRef: TASK_ID, patch: {} } as never,
       firstPassCtx(suspend),
     )) as { updated: boolean; refusal?: string | null };
     expect(suspend).not.toHaveBeenCalled();
@@ -110,7 +139,7 @@ describe('planner_updateTask — first pass', () => {
     const suspend = vi.fn(async () => {});
     await expect(
       tool.execute!(
-        { taskId: TASK_ID, patch: { due_at: '2026-08-15' } } as never,
+        { taskRef: TASK_ID, patch: { dueAt: '2026-08-15' } } as never,
         firstPassCtx(suspend),
       ),
       // wrapExecute maps a domain FORBIDDEN onto the PERMISSION_DENIED taxonomy
@@ -138,7 +167,7 @@ describe('planner_updateTask — resume pass', () => {
   it('performs the gated write with the version and key that came off the card', async () => {
     const { tool, taskUpdate } = build();
     const { ctx: c, suspend } = resumeCtx(goodResume);
-    const out = (await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)) as {
+    const out = (await tool.execute!({ taskRef: TASK_ID, patch: {} } as never, c)) as {
       updated: boolean;
     };
     expect(out.updated).toBe(true);
@@ -156,14 +185,14 @@ describe('planner_updateTask — resume pass', () => {
   it('never re-reads or re-previews on resume — the preview is already agreed', async () => {
     const { tool, taskRead } = build();
     const { ctx: c } = resumeCtx(goodResume);
-    await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c);
+    await tool.execute!({ taskRef: TASK_ID, patch: {} } as never, c);
     expect(taskRead.read).not.toHaveBeenCalled();
   });
 
   it('decline: no gateway call at all, so no idempotency row is ever written', async () => {
     const { tool, taskUpdate } = build();
     const { ctx: c } = resumeCtx({ action: 'decline', taskId: TASK_ID });
-    const out = (await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)) as {
+    const out = (await tool.execute!({ taskRef: TASK_ID, patch: {} } as never, c)) as {
       updated: boolean;
     };
     expect(out).toEqual({ updated: false, taskId: TASK_ID, refusal: null });
@@ -179,7 +208,7 @@ describe('planner_updateTask — resume pass', () => {
     const { ctx: c } = resumeCtx(goodResume);
     // Same taxonomy mapping as PERMISSION_DENIED above: the domain detail is
     // replaced by a safe message, the code is what callers branch on.
-    await expect(tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)).rejects.toMatchObject({
+    await expect(tool.execute!({ taskRef: TASK_ID, patch: {} } as never, c)).rejects.toMatchObject({
       code: 'CONFLICT',
     });
   });
@@ -191,7 +220,7 @@ describe('planner_updateTask — resume pass', () => {
       taskId: TASK_ID,
       patch: { due_at: '2026-08-15T16:59:00.000Z' },
     });
-    const out = (await tool.execute!({ taskId: TASK_ID, patch: {} } as never, c)) as {
+    const out = (await tool.execute!({ taskRef: TASK_ID, patch: {} } as never, c)) as {
       updated: boolean;
       refusal?: string | null;
     };
