@@ -37,6 +37,34 @@ function renderGrid(query: WorkersQuery, setQuery = vi.fn()) {
   return setQuery;
 }
 
+describe('PeopleCardGrid avatars', () => {
+  function renderRows(over: Partial<WorkerListRow>[]) {
+    render(
+      <PeopleCardGrid
+        rows={over.map((o, i) => ({ ...rows[0], worker_id: `w-${i}`, ...o }) as WorkerListRow)}
+        total={over.length}
+        isLoading={false}
+        query={{ page: 1, pageSize: 25 } as WorkersQuery}
+        setQuery={vi.fn()}
+        onRowClick={vi.fn()}
+      />,
+    );
+  }
+
+  it('renders the M365 photo as the avatar image when the row has one', () => {
+    renderRows([{ full_name: 'Ada Lovelace', photo_url: '/api/people/v1/workers/w-0/photo' }]);
+    const avatar = screen.getByRole('img', { name: 'Ada Lovelace' });
+    expect(avatar.querySelector('img')).toHaveAttribute('src', '/api/people/v1/workers/w-0/photo');
+  });
+
+  it('falls back to initials with no <img> at all when the row has no photo', () => {
+    renderRows([{ full_name: 'Grace Hopper', photo_url: null }]);
+    const avatar = screen.getByRole('img', { name: 'Grace Hopper' });
+    expect(avatar.querySelector('img')).toBeNull();
+    expect(avatar).toHaveTextContent('GH');
+  });
+});
+
 describe('PeopleCardGrid pager', () => {
   it('renders page numbers and page size selector matching List view', () => {
     // total 80 / pageSize 25 => 4 pages (buttons 1, 2, 3, 4)

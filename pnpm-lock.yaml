@@ -926,6 +926,9 @@ importers:
       '@seta/identity':
         specifier: workspace:^
         version: link:../identity
+      '@seta/people':
+        specifier: workspace:*
+        version: link:../people
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
@@ -941,6 +944,9 @@ importers:
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared-rbac
+      '@seta/shared-storage':
+        specifier: workspace:*
+        version: link:../shared-storage
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../shared-types

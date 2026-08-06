@@ -12,4 +12,8 @@ export const m365TenantConfig = integrations.table('m365_tenant_config', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid('updated_by').notNull(),
   enabled: boolean('enabled').notNull().default(true),
+  directoryDeltaLink: text('directory_delta_link'),
+  directorySyncedAt: timestamp('directory_synced_at', { withTimezone: true }),
+  directoryLastStatus: text('directory_last_status'),
+  directoryLastError: text('directory_last_error'),
 });

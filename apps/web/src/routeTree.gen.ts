@@ -23,6 +23,7 @@ import { Route as routesAuthedSettingsIndexRouteImport } from './routes/_authed/
 import { Route as AdminIndexRouteImport } from './../../../packages/web-admin/src/routes/index'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
 import { Route as AdminGroupsRouteImport } from './../../../packages/web-admin/src/routes/groups'
+import { Route as AdminM365DirectoryRouteImport } from './../../../packages/web-admin/src/routes/m365-directory'
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
 import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
 import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
@@ -155,6 +156,11 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
 const AdminGroupsRoute = AdminGroupsRouteImport.update({
   id: '/groups',
   path: '/groups',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminM365DirectoryRoute = AdminM365DirectoryRouteImport.update({
+  id: '/m365-directory',
+  path: '/m365-directory',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminMailRoute = AdminMailRouteImport.update({
@@ -501,6 +507,7 @@ export interface FileRoutesByFullPath {
   '/people/performance': typeof PeoplePerformanceRouteRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/groups': typeof AdminGroupsRoute
+  '/admin/m365-directory': typeof AdminM365DirectoryRoute
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
@@ -571,6 +578,7 @@ export interface FileRoutesByTo {
   '/settings': typeof routesAuthedSettingsIndexRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/groups': typeof AdminGroupsRoute
+  '/admin/m365-directory': typeof AdminM365DirectoryRoute
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
@@ -651,6 +659,7 @@ export interface FileRoutesById {
   '/_authed/people/performance': typeof PeoplePerformanceRouteRouteWithChildren
   '/_authed/admin/audit': typeof AdminAuditRoute
   '/_authed/admin/groups': typeof AdminGroupsRoute
+  '/_authed/admin/m365-directory': typeof AdminM365DirectoryRoute
   '/_authed/admin/mail': typeof AdminMailRoute
   '/_authed/admin/notifications': typeof AdminNotificationsRoute
   '/_authed/admin/role-access': typeof AdminRoleAccessRoute
@@ -731,6 +740,7 @@ export interface FileRouteTypes {
     | '/people/performance'
     | '/admin/audit'
     | '/admin/groups'
+    | '/admin/m365-directory'
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
@@ -801,6 +811,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/audit'
     | '/admin/groups'
+    | '/admin/m365-directory'
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
@@ -880,6 +891,7 @@ export interface FileRouteTypes {
     | '/_authed/people/performance'
     | '/_authed/admin/audit'
     | '/_authed/admin/groups'
+    | '/_authed/admin/m365-directory'
     | '/_authed/admin/mail'
     | '/_authed/admin/notifications'
     | '/_authed/admin/role-access'
@@ -1048,6 +1060,13 @@ declare module '@tanstack/react-router' {
       path: '/groups'
       fullPath: '/admin/groups'
       preLoaderRoute: typeof AdminGroupsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/m365-directory': {
+      id: '/_authed/admin/m365-directory'
+      path: '/m365-directory'
+      fullPath: '/admin/m365-directory'
+      preLoaderRoute: typeof AdminM365DirectoryRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_authed/admin/mail': {
@@ -1497,6 +1516,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminGroupsRoute: typeof AdminGroupsRoute
+  AdminM365DirectoryRoute: typeof AdminM365DirectoryRoute
   AdminMailRoute: typeof AdminMailRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminRoleAccessRoute: typeof AdminRoleAccessRoute
@@ -1510,6 +1530,7 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminGroupsRoute: AdminGroupsRoute,
+  AdminM365DirectoryRoute: AdminM365DirectoryRoute,
   AdminMailRoute: AdminMailRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminRoleAccessRoute: AdminRoleAccessRoute,
