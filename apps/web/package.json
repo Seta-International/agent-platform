@@ -42,7 +42,7 @@
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-virtual": "^3.14.8",
     "@tanstack/router-plugin": "^1.168.23",
-    "better-auth": "^1.6.25",
+    "better-auth": "^1.6.26",
     "date-fns": "^4.4.0",
     "fractional-indexing": "^4.0.0",
     "lucide-react": "^1.25.0",
