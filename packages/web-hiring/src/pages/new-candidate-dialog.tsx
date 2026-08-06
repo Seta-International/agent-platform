@@ -125,7 +125,7 @@ export function NewCandidateDialog() {
   // Suggest values already in use (same distinct-value approach as the Candidates board filters).
   const { data: existingCandidates } = useQuery({
     queryKey: hiringKeys.candidates(),
-    queryFn: fetchCandidates,
+    queryFn: () => fetchCandidates(),
     enabled: open,
   });
   const seniorityOptions = useMemo(
