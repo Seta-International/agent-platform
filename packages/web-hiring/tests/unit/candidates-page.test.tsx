@@ -245,6 +245,40 @@ describe('CandidatesPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  // FUT-801: Re-enabling a hidden column must restore it to its canonical (default) position,
+  // not append it per the re-enable order. Hide Candidate + Position, re-enable Position first
+  // then Candidate — the table must still show Candidate before Position.
+  it('restores re-enabled columns to their default position', async () => {
+    const user = userEvent.setup();
+    fetchCandidates.mockResolvedValue(rows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Candidate' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Position' }));
+    expect(headerNames()).not.toContain('Candidate');
+    expect(headerNames()).not.toContain('Position');
+
+    // Re-enable (picker stays open; all checkboxes remain present) in the WRONG order:
+    // Position first, then Candidate.
+    await user.click(screen.getByRole('checkbox', { name: 'Position' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Candidate' }));
+
+    expect(headerNames()).toContain('Candidate');
+    expect(headerNames()).toContain('Position');
+    // Canonical order restored: Candidate stays before Position regardless of re-enable order.
+    expect(headerNames().indexOf('Candidate')).toBeLessThan(headerNames().indexOf('Position'));
+  });
+
   it('paginates client-side at 25/page', async () => {
     const user = userEvent.setup();
     const manyCandidates: CandidateListItem[] = Array.from({ length: 26 }, (_, i) => ({
