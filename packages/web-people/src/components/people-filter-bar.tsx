@@ -26,6 +26,14 @@ const STATUS_OPTIONS: SearchableItem[] = [
 
 const STATUS_SOURCE = createStaticSource(STATUS_OPTIONS);
 
+// Project Tokenizer `key`: include the account scope so the tokenizer remounts
+// when the account changes — BaseTypeahead caches `results` and only re-bootstraps
+// when empty, so a newly-scoped source would otherwise show the previous account's
+// projects until the user picks one. Exported for the cascade-remount unit test.
+export function projectFilterKey(accountIds: string[], projectIds: string[]): string {
+  return `project-${accountIds.join(',')}-${projectIds.join(',')}`;
+}
+
 interface Props {
   query: WorkersQuery;
   onChange: (patch: Partial<WorkersQuery>) => void;
@@ -153,7 +161,7 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         className="w-44"
       />
       <Tokenizer
-        key={`project-${(query.project_id ?? []).join(',')}`}
+        key={projectFilterKey(query.account_id ?? [], query.project_id ?? [])}
         ref={projectControl.fieldRef}
         handleRef={projectControl.controlRef}
         label="Project"
