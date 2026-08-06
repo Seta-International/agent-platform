@@ -476,4 +476,59 @@ describe('read candidates', () => {
       }
     });
   });
+
+  it('filters the board by contact email and phone via q (FUT-833)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'Search Req',
+          kind: 'new',
+          headcount: 2,
+          session: t.adminSession,
+        });
+        const { application_id: adaApp } = await addCandidate({
+          requisition_id,
+          name: 'Ada',
+          personal_email: 'ada@example.com',
+          phone: '+84123456789',
+          skills: [],
+          session: t.adminSession,
+        });
+        await addCandidate({
+          requisition_id,
+          name: 'Bob',
+          personal_email: 'bob@example.com',
+          phone: '+84987654321',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        // Search by email — only Ada's row returns
+        const byEmail = await listCandidates(t.adminSession, 'ada@example.com');
+        expect(byEmail.map((r) => r.application_id)).toEqual([adaApp]);
+        // Search by phone — only Ada's row returns
+        const byPhone = await listCandidates(t.adminSession, '123456789');
+        expect(byPhone.map((r) => r.application_id)).toEqual([adaApp]);
+        // Case-insensitive partial email
+        const partial = await listCandidates(t.adminSession, 'BOB');
+        expect(partial.map((r) => r.name)).toEqual(['Bob']);
+        // Empty q returns the full board
+        const all = await listCandidates(t.adminSession, '');
+        expect(all.length).toBe(2);
+        // No-match returns nothing
+        const none = await listCandidates(t.adminSession, 'zzz-nope');
+        expect(none).toEqual([]);
+        // Rows must NOT expose the contact PII
+        expect('contact' in (byEmail[0] as object)).toBe(false);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

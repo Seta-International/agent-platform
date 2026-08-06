@@ -194,6 +194,85 @@ describe('RequisitionsPage', () => {
     expect(fetchOpenRequisitions).toHaveBeenCalledWith({ includeCancelled: true });
   });
 
+  // FUT-834: the Stage column sorts by the requisition's pipeline order (Sourcing → Screening →
+  // Interview → Offer), not by the raw enum string alphabetically (Interview, Offer, Screening,
+  // Sourcing). Two open reqs whose raw stage strings sort oppositely to the pipeline prove it.
+  it('sorting by Stage orders the pipeline sequence, not the enum alphabetically', async () => {
+    const { user, table } = await renderListView([
+      row({ id: 'r1', title: 'Alpha Role', stage: 'interview', status: 'open' }),
+      row({ id: 'r2', title: 'Beta Role', stage: 'screening', status: 'open' }),
+    ]);
+    // Server order: Interview before Screening.
+    expect(screen.getAllByText(/Alpha Role|Beta Role/)[0]).toHaveTextContent('Alpha Role');
+
+    await user.click(within(table).getByRole('button', { name: /sort by stage/i }));
+
+    // Pipeline ascending: Screening (stage index 1) before Interview (index 2).
+    expect(screen.getAllByText(/Alpha Role|Beta Role/)[0]).toHaveTextContent('Beta Role');
+  });
+
+  // FUT-834: non-open requisitions sort AFTER every open one (they show a lifecycle word, not a
+  // pipeline stage), and among themselves follow STATUS_ORDER (On hold → Filled → Cancelled).
+  it('sorting by Stage groups non-open requisitions after open ones in status order', async () => {
+    const { user, table } = await renderListView([
+      row({ id: 'r1', title: 'Filled Role', stage: 'offer', status: 'filled' }),
+      row({ id: 'r2', title: 'Open Offer Role', stage: 'offer', status: 'open' }),
+      row({ id: 'r3', title: 'Held Role', stage: 'sourcing', status: 'on_hold' }),
+      row({ id: 'r4', title: 'Cancelled Role', stage: 'interview', status: 'cancelled' }),
+    ]);
+
+    await user.click(within(table).getByRole('button', { name: /sort by stage/i }));
+
+    // Data rows follow the header row; the first row is the header.
+    const dataRows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(dataRows[0]).toContain('Open Offer Role');
+    expect(dataRows[1]).toContain('Held Role');
+    expect(dataRows[2]).toContain('Filled Role');
+    expect(dataRows[3]).toContain('Cancelled Role');
+  });
+
+  // FUT-834: clicking Stage again flips the order — second click must not "stick" at the same
+  // stage. Ascending puts Screening first, descending puts Interview first.
+  it('sorting by Stage toggles ascending then descending on repeat clicks', async () => {
+    const { user, table } = await renderListView([
+      row({ id: 'r1', title: 'Alpha Role', stage: 'interview', status: 'open' }),
+      row({ id: 'r2', title: 'Beta Role', stage: 'screening', status: 'open' }),
+      row({ id: 'r3', title: 'Gamma Role', stage: 'sourcing', status: 'open' }),
+      row({ id: 'r4', title: 'Delta Role', stage: 'offer', status: 'open' }),
+    ]);
+
+    const header = within(table).getByRole('button', { name: /sort by stage/i });
+
+    // First click: ascending pipeline order → Sourcing, Screening, Interview, Offer.
+    await user.click(header);
+    let rows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(rows.map((t) => t.match(/Gamma|Beta|Alpha|Delta/)?.[0])).toEqual([
+      'Gamma',
+      'Beta',
+      'Alpha',
+      'Delta',
+    ]);
+
+    // Second click: descending → Offer, Interview, Screening, Sourcing.
+    await user.click(header);
+    rows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(rows.map((t) => t.match(/Gamma|Beta|Alpha|Delta/)?.[0])).toEqual([
+      'Delta',
+      'Alpha',
+      'Beta',
+      'Gamma',
+    ]);
+  });
+
   it('clicking "Sort by Position" reorders the rows', async () => {
     const { user, table } = await renderListView(twoRows);
     // Server order: Zeta before Ada.

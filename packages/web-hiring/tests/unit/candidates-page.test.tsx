@@ -168,6 +168,64 @@ describe('CandidatesPage', () => {
     expect(screen.getAllByText(/Zed Zephyr|Ada Lovelace/)[0]).toHaveTextContent('Ada Lovelace');
   });
 
+  // FUT-834: Candidate Stage column sorts by pipeline stage order (New → Screening → Interview → Offer),
+  // not by the raw string alphabetically (Interview, New, Offer, Screening).
+  it('sorting by Stage orders candidates in pipeline sequence', async () => {
+    const user = userEvent.setup();
+    const candidateRows: CandidateListItem[] = [
+      {
+        ...rows[0]!,
+        application_id: 'a1',
+        candidate_id: 'c1',
+        name: 'Cand Interview',
+        stage: 'interview',
+      },
+      {
+        ...rows[0]!,
+        application_id: 'a2',
+        candidate_id: 'c2',
+        name: 'Cand Screening',
+        stage: 'screening',
+      },
+      { ...rows[0]!, application_id: 'a3', candidate_id: 'c3', name: 'Cand New', stage: 'new' },
+      { ...rows[0]!, application_id: 'a4', candidate_id: 'c4', name: 'Cand Offer', stage: 'offer' },
+    ];
+    fetchCandidates.mockResolvedValue(candidateRows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Cand Interview')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    const header = within(table).getByRole('button', { name: /sort by stage/i });
+
+    // First click: ascending pipeline order → New, Screening, Interview, Offer.
+    await user.click(header);
+    let dataRows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(dataRows.map((t) => t.match(/Cand (New|Screening|Interview|Offer)/)?.[0])).toEqual([
+      'Cand New',
+      'Cand Screening',
+      'Cand Interview',
+      'Cand Offer',
+    ]);
+
+    // Second click: descending pipeline order → Offer, Interview, Screening, New.
+    await user.click(header);
+    dataRows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(dataRows.map((t) => t.match(/Cand (New|Screening|Interview|Offer)/)?.[0])).toEqual([
+      'Cand Offer',
+      'Cand Interview',
+      'Cand Screening',
+      'Cand New',
+    ]);
+  });
+
   it('hiding the Seniority column via the Columns toggle removes it from the table', async () => {
     const user = userEvent.setup();
     fetchCandidates.mockResolvedValue(twoRows);
