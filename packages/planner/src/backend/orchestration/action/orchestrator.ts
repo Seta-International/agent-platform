@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { pickModel } from '../assignment/model.ts';
 import { makeActionTools } from './orchestrator.tools.ts';
 import type { ActionPorts } from './ports.ts';
-import type { UpdateTaskResume } from './schemas.ts';
+import type { ActionResume } from './schemas.ts';
 
 export const ActionInputSchema = z.object({
   userText: z.string(),
@@ -77,10 +77,16 @@ export function instructionsText(): string {
     'mean two different days, ask which one — for example "Thứ Sáu 07/08 hay 14/08?".',
     'Pass dates as YYYY-MM-DD; the server applies the time of day.',
     '',
+    'LINKING TWO TASKS — planner_linkTasks records a relationship and deletes nothing.',
+    'Direction matters for two of the three kinds: with `duplicates` the SOURCE task is',
+    'the duplicate, and with `blocks` the SOURCE task is the blocker. When the user just',
+    'says "related" or "link", use relates. If you cannot tell which task the user means',
+    'on either side, ask — never guess a target.',
+    '',
     'WHAT YOU CANNOT DO — say so plainly and name what you can do instead. You cannot',
-    'create tasks, delete tasks, merge tasks, link tasks, change who a task is assigned to,',
-    'or answer general questions. Assigning people is handled elsewhere in this product;',
-    'if the user asks you to assign someone, tell them to ask for a recommendation instead.',
+    'create tasks, delete tasks, merge tasks, change who a task is assigned to, or answer',
+    'general questions. Assigning people is handled elsewhere in this product; if the user',
+    'asks you to assign someone, tell them to ask for a recommendation instead.',
     '',
     'NEVER INVENT A VALUE. If the user names a field but not a value ("change the deadline"),',
     'ask for the value. If you cannot tell which task they mean, ask. One question at a time.',
@@ -211,14 +217,14 @@ export function makeActionStreamer(deps: ActionOrchestratorDeps) {
  *  the persisted native-suspend snapshot reloads by runId. */
 export function makeActionResumer(deps: ActionOrchestratorDeps) {
   return async function resumeChat(
-    resume: UpdateTaskResume,
+    resume: ActionResume,
     ctx: ActionResumeCtx,
   ): Promise<ChatStreamRun> {
     const built = await buildAction(deps, { userText: '', taskId: null }, ctx);
     const output = (await (
       built.agent as unknown as {
         resumeStream: (
-          resumeData: UpdateTaskResume,
+          resumeData: ActionResume,
           opts: { runId: string; toolCallId?: string; requestContext: RequestContext },
         ) => Promise<unknown>;
       }
