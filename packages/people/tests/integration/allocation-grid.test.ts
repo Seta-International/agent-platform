@@ -109,6 +109,77 @@ describe('getAllocationGrid', () => {
     });
   });
 
+  it('does not flag sequential non-overlapping allocations within the same month as over-allocated', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+        const projB = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'Sam Sequential',
+        });
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            { project_id: projA, tenant_id: t.tenant_id, account_id: accountId, name: 'Project A' },
+            { project_id: projB, tenant_id: t.tenant_id, account_id: accountId, name: 'Project B' },
+          ]);
+        // Two sequential allocations in January: Jan 1-15 (60%) and Jan 16-31 (60%)
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-01-15',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projB,
+              account_id: accountId,
+              date_from: '2026-01-16',
+              date_to: '2026-01-31',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+
+        expect(grid.rows).toHaveLength(2);
+        const totals = grid.worker_totals.find((w) => w.worker_id === personId)!;
+        // Peak concurrent allocation in Jan is 60% (sequential, non-overlapping)
+        expect(totals.totals[0]).toBe(60);
+        expect(totals.over_months).not.toContain(0);
+        expect(grid.kpis.over_allocated_count).toBe(0);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('returns rows grouped per worker, sorted by name', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
