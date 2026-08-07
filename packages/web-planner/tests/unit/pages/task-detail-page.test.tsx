@@ -20,7 +20,7 @@ vi.mock('@seta/web-agent', () => ({
 import type { SessionScopeProjection } from '@seta/web-identity';
 import { SessionProvider } from '@seta/web-identity';
 import { TaskDetailPage } from '../../../src/pages/task-detail-page';
-import { makePlan, makeTaskWithAssignees } from '../../../src/testing/fixtures';
+import { makePlan, makeTaskDetail, makeTaskWithAssignees } from '../../../src/testing/fixtures';
 
 const fxSession: SessionScopeProjection = {
   user_id: 'u-self',
@@ -40,13 +40,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+/** Delegates to the shared fixture so a new REQUIRED field on `TaskDetailRow`
+ *  (`links`, FUT-820) can never again be silently absent from this page's
+ *  responses — the cards read those collections without a guard. */
 function buildTaskDetail(over: Partial<TaskDetailRow> = {}): TaskDetailRow {
-  return {
-    ...makeTaskWithAssignees(),
-    checklist: [],
-    references: [],
-    ...over,
-  };
+  return makeTaskDetail(over);
 }
 
 interface RenderOptions {
