@@ -78,17 +78,17 @@ const leadTime: KpiRecordMetricRow = {
   red_band: { op: 'gt', value: 7 },
 };
 
-const onTime: KpiRecordMetricRow = {
+const reopened: KpiRecordMetricRow = {
   ...base,
-  metric_id: 'm-ontime',
-  category: 'delivery',
-  name: 'On-time Delivery',
-  formula_label: 'On-time milestones / Total milestones',
-  component_1_label: 'On-time milestones',
-  component_2_label: 'Total milestones',
-  green_band: { op: 'gte', value: 0.9 },
-  yellow_band: { op: 'between', min: 0.8, max: 0.89 },
-  red_band: { op: 'lt', value: 0.8 },
+  metric_id: 'm-reopened',
+  category: 'quality',
+  name: 'Reopened Defect Rate',
+  formula_label: 'Reopened defects / Total defects closed',
+  component_1_label: 'Reopened defects',
+  component_2_label: 'Total defects closed',
+  green_band: { op: 'lte', value: 0.05 },
+  yellow_band: { op: 'between', min: 0.05, max: 0.15 },
+  red_band: { op: 'gt', value: 0.15 },
 };
 
 const record: KpiRecordDetail = {
@@ -144,9 +144,22 @@ const discardPrompt = () =>
   document.querySelector<HTMLDialogElement>('dialog[role="alertdialog"][open]');
 const headerBadges = () =>
   screen.getByRole('button', { name: /close/i }).parentElement as HTMLElement;
+const pillarFlag = (label: string) =>
+  within(screen.getByRole('heading', { name: label }).parentElement as HTMLElement);
 
 function speaksLocale(tag: string) {
   Object.defineProperty(navigator, 'language', { value: tag, configurable: true });
+}
+
+const greyBlock = (n: number) =>
+  `${n} ${n === 1 ? 'metric is' : 'metrics are'} still Grey — every metric needs its figures to save`;
+
+async function fillEveryMetric(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByRole('textbox', { name: 'Production defects' }), '1');
+  await user.type(box('Total defects'), '20');
+  await user.type(box('Worked hours'), '8');
+  await user.type(box('Available hours'), '10');
+  await user.type(box('Days occurrence → register entry'), '-1');
 }
 
 describe('parseNumericPaste — reads the figure out of the separators it was written with', () => {
@@ -505,14 +518,14 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(days).toHaveValue('');
   });
 
-  it('saves an emptied metric as not measured', async () => {
+  it('refuses to save once an emptied metric turns the record Grey', async () => {
     fetchKpiRecordMock.mockResolvedValue({
       ...record,
       record_id: 'rec-1',
       version: 3,
       metrics: [
         { ...base, component_1_value: 1, component_2_value: 20 },
-        hoursRatio,
+        { ...hoursRatio, component_1_value: 8, component_2_value: 10 },
         { ...leadTime, component_1_value: 7 },
       ],
     });
@@ -526,11 +539,10 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.tab();
     await user.click(saveButton());
 
-    expect(upsertKpiRecordMock).toHaveBeenCalledOnce();
-    const body = upsertKpiRecordMock.mock.calls[0][0] as {
-      entries: { metric_id: string; component_1_value: number | null }[];
-    };
-    expect(body.entries.find((e) => e.metric_id === 'm-risk-lead')?.component_1_value).toBeNull();
+    expect(upsertKpiRecordMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('1 metric is still Grey — every metric needs its figures to save'),
+    ).toBeInTheDocument();
   });
 
   it('confirms the save to the reporter', async () => {
@@ -538,9 +550,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
 
     const confirmations = () => screen.queryAllByText('KPI record saved').length;
     const before = confirmations();
@@ -554,9 +564,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
     await user.click(saveButton());
 
     expect(
@@ -569,9 +577,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
 
     fetchKpiRecordMock.mockResolvedValue({
       ...record,
@@ -583,6 +589,61 @@ describe('KpiManualInputDialog — entry validation', () => {
 
     await waitFor(() => expect(box('Production defects')).toHaveValue('3'));
     expect(box('Total defects')).toHaveValue('40');
+  });
+
+  it('computes the result and shows it in the units its bands are written in', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '1');
+    await user.type(box('Total defects'), '20');
+
+    expect(screen.getByTitle('Defect Leakage — computed from the figures above')).toHaveTextContent(
+      '5%',
+    );
+  });
+
+  it('shows a one-box result as the plain figure, not a percentage', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const days = await screen.findByRole('textbox', {
+      name: 'Days occurrence → register entry',
+    });
+    await user.type(days, '-3');
+
+    expect(
+      screen.getByTitle('Risk Identification Lead Time — computed from the figures above'),
+    ).toHaveTextContent('-3');
+  });
+
+  it('offers no box to type the result into — it is read-only text', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '1');
+    await user.type(box('Total defects'), '20');
+
+    const result = screen.getByTitle('Defect Leakage — computed from the figures above');
+    expect(result.tagName).toBe('SPAN');
+    expect(screen.getAllByRole('textbox')).toHaveLength(5);
+  });
+
+  it('withholds the result while a figure is unusable', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '1');
+    await user.type(box('Total defects'), '20');
+    expect(screen.queryByTitle('Defect Leakage — computed from the figures above')).not.toBeNull();
+
+    await user.clear(box('Total defects'));
+    await user.type(box('Total defects'), '0');
+
+    expect(screen.queryByTitle('Defect Leakage — computed from the figures above')).toBeNull();
   });
 
   it('previews a colour for a ratio that falls between two band thresholds', async () => {
@@ -615,7 +676,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(screen.queryByText('Green')).not.toBeInTheDocument();
   });
 
-  it('reads Green when the only assessed metric is Green and the rest are left blank', async () => {
+  it('marks each unfilled metric with a dash and never invents a colour for it', async () => {
     fetchKpiRecordMock.mockResolvedValue({
       ...record,
       record_id: 'rec-1',
@@ -650,9 +711,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
     await user.click(saveButton());
 
     const body = upsertKpiRecordMock.mock.calls[0][0] as { expected_version: number | null };
@@ -718,7 +777,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(screen.getByText('1 figure needs fixing')).toBeInTheDocument();
   });
 
-  it('leaves a metric holding a letter out of the colour entirely', async () => {
+  it('withholds the overall colour while a metric holds a letter', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -726,6 +785,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.type(hours, 'abc');
 
     expect(within(headerBadges()).getByText('—')).toBeInTheDocument();
+    expect(within(headerBadges()).queryByText('Grey')).not.toBeInTheDocument();
   });
 
   it('clears the complaint once the letter is taken back out', async () => {
@@ -757,7 +817,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(messageUnder(hours)).toBeNull();
   });
 
-  it('saves a metric holding a letter as not measured once the rest is fixed', async () => {
+  it('saves the metric that held a letter once a real figure replaces it', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -766,14 +826,17 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.type(box('Total defects'), '40');
     await user.type(box('Worked hours'), 'abc');
     await user.clear(box('Worked hours'));
+    await user.type(box('Worked hours'), '8');
+    await user.type(box('Available hours'), '10');
+    await user.type(box('Days occurrence → register entry'), '-1');
 
     await user.click(saveButton());
 
     await waitFor(() => expect(upsertKpiRecordMock).toHaveBeenCalledTimes(1));
     expect(upsertKpiRecordMock.mock.calls[0]?.[0].entries).toContainEqual({
       metric_id: hoursRatio.metric_id,
-      component_1_value: null,
-      component_2_value: null,
+      component_1_value: 8,
+      component_2_value: 10,
     });
   });
 
@@ -808,7 +871,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(box('Total defects')).toHaveFocus();
   });
 
-  it('says the record is still empty rather than a Save that does nothing', async () => {
+  it('names how many metrics are still Grey rather than a Save that does nothing', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -816,23 +879,115 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.click(saveButton());
 
     expect(upsertKpiRecordMock).not.toHaveBeenCalled();
-    expect(screen.getByText('Enter at least one figure to save')).toBeInTheDocument();
+    expect(screen.getByText(greyBlock(3))).toBeInTheDocument();
     expect(box('Production defects')).toHaveFocus();
   });
 
-  it('drops the blocking message once the figures are in range', async () => {
+  it('marks every box a Grey metric still needs, and only those', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '1');
+    await user.type(box('Total defects'), '20');
+    await user.click(saveButton());
+
+    expect(numerator).not.toHaveAttribute('aria-invalid');
+    expect(box('Total defects')).not.toHaveAttribute('aria-invalid');
+    expect(box('Worked hours')).toHaveAttribute('aria-invalid', 'true');
+    expect(box('Available hours')).toHaveAttribute('aria-invalid', 'true');
+    expect(box('Days occurrence → register entry')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('says nothing under a box that is merely empty, so only the footer explains', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const hours = await screen.findByRole('textbox', { name: 'Worked hours' });
+    await user.click(saveButton());
+
+    expect(hours).toHaveAttribute('aria-invalid', 'true');
+    expect(messageUnder(hours)).toBeNull();
+  });
+
+  it('marks a half-typed figure that no other box can complain about', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(await screen.findByRole('textbox', { name: 'Production defects' }), '1');
+    await user.type(box('Total defects'), '20');
+    await user.type(box('Worked hours'), '8');
+    await user.type(box('Available hours'), '10');
+    const days = box('Days occurrence → register entry');
+    await user.type(days, '7.');
+    await user.click(saveButton());
+
+    expect(upsertKpiRecordMock).not.toHaveBeenCalled();
+    expect(screen.getByText(greyBlock(1))).toBeInTheDocument();
+    expect(days).toHaveAttribute('aria-invalid', 'true');
+    expect(messageUnder(days)).toBe('Enter a number');
+  });
+
+  it('marks both boxes of a two-component metric when neither figure is readable', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '12.');
+    await user.type(box('Total defects'), '20.');
+    await user.type(box('Worked hours'), '8');
+    await user.type(box('Available hours'), '10');
+    await user.type(box('Days occurrence → register entry'), '-1');
+    await user.click(saveButton());
+
+    expect(upsertKpiRecordMock).not.toHaveBeenCalled();
+    expect(screen.getByText(greyBlock(1))).toBeInTheDocument();
+    expect(numerator).toHaveAttribute('aria-invalid', 'true');
+    expect(messageUnder(numerator)).toBe('Enter a number');
+    expect(box('Total defects')).toHaveAttribute('aria-invalid', 'true');
+    expect(messageUnder(box('Total defects'))).toBe('Enter a number');
+  });
+
+  it('clears the mark on a box as soon as its figure lands', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const hours = await screen.findByRole('textbox', { name: 'Worked hours' });
+    await user.click(saveButton());
+    expect(hours).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(hours, '8');
+    await user.type(box('Available hours'), '10');
+
+    expect(hours).not.toHaveAttribute('aria-invalid');
+    expect(box('Available hours')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('leaves the boxes unmarked until the reporter has actually tried to save', async () => {
+    renderDialog();
+    const hours = await screen.findByRole('textbox', { name: 'Worked hours' });
+
+    expect(hours).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('counts down the Grey metrics as the reporter fills them in', async () => {
     const user = userEvent.setup();
     renderDialog();
 
     const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
     await user.click(saveButton());
-    expect(screen.getByText('Enter at least one figure to save')).toBeInTheDocument();
+    expect(screen.getByText(greyBlock(3))).toBeInTheDocument();
 
     await user.type(numerator, '1');
     await user.type(box('Total defects'), '20');
+    expect(screen.getByText(greyBlock(2))).toBeInTheDocument();
+
+    await user.type(box('Worked hours'), '8');
+    await user.type(box('Available hours'), '10');
+    await user.type(box('Days occurrence → register entry'), '-1');
 
     expect(screen.queryByText(/needs? fixing/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Enter at least one figure to save')).not.toBeInTheDocument();
+    expect(screen.queryByText(/still Grey/)).not.toBeInTheDocument();
   });
 
   it('drops the blocking message when the reporter moves to another project', async () => {
@@ -841,13 +996,13 @@ describe('KpiManualInputDialog — entry validation', () => {
 
     await screen.findByRole('textbox', { name: 'Production defects' });
     await user.click(saveButton());
-    expect(screen.getByText('Enter at least one figure to save')).toBeInTheDocument();
+    expect(screen.getByText(greyBlock(3))).toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: /^Project/ }));
     await user.click(await screen.findByRole('option', { name: 'Acme Billing Revamp' }));
     await waitFor(() => expect(box('Production defects')).toHaveValue(''));
 
-    expect(screen.queryByText('Enter at least one figure to save')).not.toBeInTheDocument();
+    expect(screen.queryByText(/still Grey/)).not.toBeInTheDocument();
   });
 
   it('brings the blocking message back on the project it was raised for', async () => {
@@ -859,14 +1014,12 @@ describe('KpiManualInputDialog — entry validation', () => {
 
     await user.click(screen.getByRole('combobox', { name: /^Project/ }));
     await user.click(await screen.findByRole('option', { name: 'Acme Billing Revamp' }));
-    await waitFor(() =>
-      expect(screen.queryByText('Enter at least one figure to save')).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText(/still Grey/)).not.toBeInTheDocument());
 
     await user.click(screen.getByRole('combobox', { name: /^Project/ }));
     await user.click(await screen.findByRole('option', { name: 'Acme Analytics Hub' }));
 
-    expect(await screen.findByText('Enter at least one figure to save')).toBeInTheDocument();
+    expect(await screen.findByText(greyBlock(3))).toBeInTheDocument();
   });
 
   it('holds Save shut until the record reloaded after a conflict has landed', async () => {
@@ -874,9 +1027,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
 
     let landReload: ((v: unknown) => void) | null = null;
     fetchKpiRecordMock.mockImplementation(
@@ -897,13 +1048,11 @@ describe('KpiManualInputDialog — entry validation', () => {
     await waitFor(() => expect(saveButton()).toBeEnabled());
   });
 
-  it('saves once every figure is in range', async () => {
+  it('saves once every metric is filled and in range', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
     expect(saveButton()).toBeEnabled();
 
     await user.click(saveButton());
@@ -975,9 +1124,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
     await user.click(saveButton());
 
     await waitFor(() => expect(cancelButton()).toBeDisabled());
@@ -988,9 +1135,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     const user = userEvent.setup();
     const { onOpenChange } = renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
+    await fillEveryMetric(user);
     await user.click(saveButton());
     await waitFor(() => expect(cancelButton()).toBeDisabled());
 
@@ -1021,10 +1166,10 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('rolls a week up from the metrics that were assessed, ignoring the blank ones', async () => {
+  it('turns the whole pillar Grey when one of its metrics has no figures', async () => {
     fetchKpiRecordMock.mockResolvedValue({
       ...record,
-      metrics: [base, hoursRatio, onTime, leadTime],
+      metrics: [base, reopened, hoursRatio, leadTime],
     });
     const user = userEvent.setup();
     renderDialog();
@@ -1032,25 +1177,67 @@ describe('KpiManualInputDialog — entry validation', () => {
     const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
     await user.type(numerator, '1');
     await user.type(box('Total defects'), '20');
-    await user.type(box('Worked hours'), '8');
-    await user.type(box('Available hours'), '10');
 
-    expect(within(headerBadges()).getByText('Green')).toBeInTheDocument();
+    expect(pillarFlag('Q — Quality').getByText('—')).toBeInTheDocument();
   });
 
-  it('shows no colour at all while nothing has been assessed', async () => {
+  it('keeps the pillar Grey even when the metric beside it reads Red', async () => {
+    fetchKpiRecordMock.mockResolvedValue({
+      ...record,
+      metrics: [base, reopened, hoursRatio, leadTime],
+    });
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '9');
+    await user.type(box('Total defects'), '20');
+    expect(pillarFlag('Q — Quality').getByText('—')).toBeInTheDocument();
+    expect(pillarFlag('Q — Quality').queryByText('Red')).not.toBeInTheDocument();
+  });
+
+  it('settles the pillar on its worst metric once every metric in it is filled', async () => {
+    fetchKpiRecordMock.mockResolvedValue({
+      ...record,
+      metrics: [base, reopened, hoursRatio, leadTime],
+    });
+    const user = userEvent.setup();
+    renderDialog();
+
+    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(numerator, '9');
+    await user.type(box('Total defects'), '20');
+    await user.type(box('Reopened defects'), '1');
+    await user.type(box('Total defects closed'), '20');
+
+    expect(pillarFlag('Q — Quality').getByText('Red')).toBeInTheDocument();
+  });
+
+  it('marks the overall with a dash while nothing has been assessed', async () => {
     renderDialog();
     await screen.findByRole('textbox', { name: 'Production defects' });
 
     expect(within(headerBadges()).getByText('—')).toBeInTheDocument();
   });
 
-  it('drops the week back to no colour when the last assessed figure is cleared', async () => {
+  it('leaves both the Grey pillar and the overall on a dash, naming neither', async () => {
+    renderDialog();
+    await screen.findByRole('textbox', { name: 'Production defects' });
+
+    expect(pillarFlag('Q — Quality').getByText('—')).toBeInTheDocument();
+    expect(within(headerBadges()).getByText('—')).toBeInTheDocument();
+  });
+
+  it('drops the overall back to a dash when a saved figure is cleared', async () => {
     fetchKpiRecordMock.mockResolvedValue({
       ...record,
       record_id: 'rec-1',
       version: 3,
-      metrics: [base, hoursRatio, onTime, { ...leadTime, component_1_value: 7 }],
+      metrics: [
+        { ...base, component_1_value: 1, component_2_value: 20 },
+        { ...hoursRatio, component_1_value: 8, component_2_value: 10 },
+        { ...leadTime, component_1_value: -1 },
+      ],
     });
     const user = userEvent.setup();
     renderDialog();
@@ -1058,11 +1245,23 @@ describe('KpiManualInputDialog — entry validation', () => {
     const days = await screen.findByRole('textbox', {
       name: 'Days occurrence → register entry',
     });
-    expect(within(headerBadges()).getByText('Amber')).toBeInTheDocument();
+    expect(within(headerBadges()).getByText('Green')).toBeInTheDocument();
 
     await user.clear(days);
     await user.tab();
 
     expect(within(headerBadges()).getByText('—')).toBeInTheDocument();
+    expect(pillarFlag('P — Process').getByText('—')).toBeInTheDocument();
+  });
+
+  it('leaves a pillar with no applied metric out of the way of a save', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fillEveryMetric(user);
+
+    expect(screen.queryByRole('heading', { name: 'D — Delivery' })).not.toBeInTheDocument();
+    await user.click(saveButton());
+    expect(upsertKpiRecordMock).toHaveBeenCalledOnce();
   });
 });

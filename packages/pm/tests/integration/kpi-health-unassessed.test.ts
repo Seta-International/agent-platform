@@ -40,6 +40,21 @@ async function liveProject(
   return (await approveCharterTwoStage(charterId, session.tenant_id)).project_id;
 }
 
+async function applyMetrics(
+  project_id: string,
+  metric_ids: (string | undefined)[],
+  session: import('@seta/core').SessionScope,
+): Promise<void> {
+  for (const metric_id of metric_ids) {
+    await setAppliedMetric({
+      metric_id: metric_id as string,
+      applied: true,
+      project_ids: [project_id],
+      session,
+    });
+  }
+}
+
 async function seedFourMetrics(pool: Pool, tenantId: string): Promise<string[]> {
   const normId = crypto.randomUUID();
   await pool.query(
@@ -82,14 +97,7 @@ describe('weekly health ignores metrics that were never assessed', () => {
         const t = await seedTenant(pool);
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
         const metrics = await seedFourMetrics(pool, t.tenant_id);
-        for (const metric_id of metrics) {
-          await setAppliedMetric({
-            metric_id,
-            applied: true,
-            project_ids: [projectId],
-            session: t.adminSession,
-          });
-        }
+        await applyMetrics(projectId, [metrics[0], metrics[2]], t.adminSession);
 
         await upsertKpiRecord({
           project_id: projectId,
@@ -101,6 +109,7 @@ describe('weekly health ignores metrics that were never assessed', () => {
           ],
           session: t.adminSession,
         });
+        await applyMetrics(projectId, [metrics[1], metrics[3]], t.adminSession);
 
         const { rows } = await listKpiExplorer({
           iso_year: 2026,
@@ -123,7 +132,7 @@ describe('weekly health ignores metrics that were never assessed', () => {
     });
   });
 
-  it('still turns Red as soon as an assessed metric is off norm', async () => {
+  it('still turns the Explorer Red on an off-norm metric, while the entry screen reads Grey', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -132,14 +141,7 @@ describe('weekly health ignores metrics that were never assessed', () => {
         const t = await seedTenant(pool);
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
         const metrics = await seedFourMetrics(pool, t.tenant_id);
-        for (const metric_id of metrics) {
-          await setAppliedMetric({
-            metric_id,
-            applied: true,
-            project_ids: [projectId],
-            session: t.adminSession,
-          });
-        }
+        await applyMetrics(projectId, [metrics[0], metrics[2]], t.adminSession);
 
         const saved = await upsertKpiRecord({
           project_id: projectId,
@@ -152,6 +154,17 @@ describe('weekly health ignores metrics that were never assessed', () => {
           session: t.adminSession,
         });
         expect(saved.overall_health).toBe('red');
+        await applyMetrics(projectId, [metrics[1], metrics[3]], t.adminSession);
+
+        const { rows } = await listKpiExplorer({
+          iso_year: 2026,
+          iso_week: 29,
+          session: t.adminSession,
+        });
+        const row = rows.find((r) => r.project_id === projectId);
+        expect(row?.category_health.quality).toBe('green');
+        expect(row?.category_health.delivery).toBe('red');
+        expect(row?.overall_health).toBe('red');
 
         const detail = await getKpiRecord({
           project_id: projectId,
@@ -159,10 +172,10 @@ describe('weekly health ignores metrics that were never assessed', () => {
           iso_week: 29,
           session: t.adminSession,
         });
-        expect(detail.category_health.quality).toBe('green');
-        expect(detail.category_health.delivery).toBe('red');
+        expect(detail.category_health.quality).toBe('gray');
+        expect(detail.category_health.delivery).toBe('gray');
         expect(detail.category_health.process).toBeNull();
-        expect(detail.overall_health).toBe('red');
+        expect(detail.overall_health).toBe('gray');
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -171,7 +184,7 @@ describe('weekly health ignores metrics that were never assessed', () => {
     });
   });
 
-  it('has no health at all for a week where nothing was assessed', async () => {
+  it('leaves the Explorer colourless for an unassessed week, while the entry screen reads Grey', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -180,14 +193,7 @@ describe('weekly health ignores metrics that were never assessed', () => {
         const t = await seedTenant(pool);
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
         const metrics = await seedFourMetrics(pool, t.tenant_id);
-        for (const metric_id of metrics) {
-          await setAppliedMetric({
-            metric_id,
-            applied: true,
-            project_ids: [projectId],
-            session: t.adminSession,
-          });
-        }
+        await applyMetrics(projectId, metrics, t.adminSession);
 
         const detail = await getKpiRecord({
           project_id: projectId,
@@ -196,7 +202,8 @@ describe('weekly health ignores metrics that were never assessed', () => {
           session: t.adminSession,
         });
         expect(detail.record_id).toBeNull();
-        expect(detail.overall_health).toBeNull();
+        expect(detail.overall_health).toBe('gray');
+        expect(detail.category_health.cost_capacity).toBeNull();
 
         const { rows } = await listKpiExplorer({
           iso_year: 2026,

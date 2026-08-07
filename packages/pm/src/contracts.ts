@@ -486,6 +486,32 @@ export function computeOverallHealth(
 ): RagStatus | null {
   return worstStatus(categoryHealths.filter((s): s is RagStatus => s !== null));
 }
+
+export type KpiRecordColour = RagStatus | 'gray';
+
+export function computeRecordCategoryColour(
+  metricStatuses: readonly (RagStatus | null)[],
+): KpiRecordColour | null {
+  if (metricStatuses.length === 0) return null;
+  if (metricStatuses.some((s) => s === null)) return 'gray';
+  return worstStatus(metricStatuses as readonly RagStatus[]);
+}
+
+export function computeRecordOverallColour(
+  categoryColours: readonly (KpiRecordColour | null)[],
+): KpiRecordColour | null {
+  const known = categoryColours.filter((c): c is KpiRecordColour => c !== null);
+  if (known.length === 0) return null;
+  if (known.includes('gray')) return 'gray';
+  return worstStatus(known as readonly RagStatus[]);
+}
+
+export function incompleteRecordMetrics<T extends { name: string }>(
+  defs: readonly T[],
+  statusOf: (def: T) => RagStatus | null,
+): string[] {
+  return defs.filter((d) => statusOf(d) === null).map((d) => d.name);
+}
 export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
 
 export const weeklyReportsQuery = z.object({

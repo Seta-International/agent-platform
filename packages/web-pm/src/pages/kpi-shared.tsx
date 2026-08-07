@@ -1,4 +1,4 @@
-import type { BandCondition, KpiCategory, RagStatus } from '../api/pm-client.ts';
+import type { BandCondition, KpiCategory, KpiRecordColour, RagStatus } from '../api/pm-client.ts';
 import { Badge, cn, StatusDot, type StatusDotVariant } from './_ui-compat.tsx';
 
 export const KPI_CATEGORY_LABELS: Record<KpiCategory, string> = {
@@ -182,6 +182,26 @@ export function metricValueText(
   );
 }
 
+export function kpiResultValue(
+  value: number | null,
+  status: RagStatus | null,
+  metricName: string,
+  component_count: 1 | 2,
+) {
+  if (value === null) return null;
+  return (
+    <span
+      className={cn(
+        'shrink-0 text-sm font-medium tabular-nums',
+        status === null ? 'text-secondary' : RAG_MARK[status].text,
+      )}
+      title={`${metricName} — computed from the figures above`}
+    >
+      {formatMetricValue(value, metricName, component_count)}
+    </span>
+  );
+}
+
 export function ragBadge(status: RagStatus | null) {
   if (status === null) {
     return (
@@ -199,6 +219,10 @@ export function ragBadge(status: RagStatus | null) {
   );
 }
 
+export function kpiColourBadge(colour: KpiRecordColour | null) {
+  return ragBadge(colour === 'gray' ? null : colour);
+}
+
 // FUT-595 AC4: the live preview runs the EXACT functions the server settles colours with —
 // imported from @seta/pm/contracts (pm's public contract subpath), not a client-side copy,
 // so preview and stored colour can never disagree.
@@ -206,8 +230,11 @@ export {
   computeCategoryHealth,
   computeEntryStatus,
   computeOverallHealth,
+  computeRecordCategoryColour,
+  computeRecordOverallColour,
   computeScoredValue,
   hasKpiEntryIssue,
+  incompleteRecordMetrics,
   kpiComponentIssue,
   kpiValuePrecision,
   validateKpiEntry,

@@ -26,15 +26,17 @@ import {
   useToast,
 } from './_ui-compat.tsx';
 import {
-  computeCategoryHealth,
   computeEntryStatus,
-  computeOverallHealth,
+  computeRecordCategoryColour,
+  computeRecordOverallColour,
   computeScoredValue,
   formatBandTriple,
   hasKpiEntryIssue,
   isReportingWeekOpen,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
+  kpiColourBadge,
+  kpiResultValue,
   kpiValuePrecision,
   metricUnit,
   ragBadge,
@@ -117,6 +119,25 @@ function withSlot(entry: Entry, slot: 'c1' | 'c2', value: string): Entry {
 }
 
 const COMPONENT_BOX_WIDTH = 96;
+
+type FigureGap = 'blank' | 'unreadable';
+
+// A box holding text that isn't a figure yet ("7.", "-") reads as blank everywhere else, so
+// validateKpiEntry has nothing to say about it — without this the metric goes Grey and blocks
+// the save while its box shows no mark at all.
+function figureGap(text: string): FigureGap | null {
+  if (text.trim() === '') return 'blank';
+  return readFigure(text) === null ? 'unreadable' : null;
+}
+
+function boxStatus(
+  issue: string | null | undefined,
+  gap: FigureGap | null,
+): { type: 'error'; message?: string } | undefined {
+  if (issue) return { type: 'error', message: issue };
+  if (gap === 'unreadable') return { type: 'error', message: NOT_A_FIGURE };
+  return gap ? { type: 'error' } : undefined;
+}
 
 const HIDE_STATUS_ICON = '[&>.astryx-icon]:hidden!';
 
@@ -227,6 +248,7 @@ export function KpiManualInputDialog({
   const live = useMemo(() => {
     const issuesByMetric = new Map<string, ReturnType<typeof validateKpiEntry>>();
     const statusByMetric = new Map<string, ReturnType<typeof computeEntryStatus>>();
+    const valueByMetric = new Map<string, number | null>();
     for (const m of metrics) {
       const e = entries[m.metric_id] ?? EMPTY_ENTRY;
       const c1 = readFigure(e.c1);
@@ -243,25 +265,24 @@ export function KpiManualInputDialog({
             c2,
             kpiValuePrecision(m.green_band, m.yellow_band, m.red_band),
           );
+      valueByMetric.set(m.metric_id, value);
       statusByMetric.set(
         m.metric_id,
         computeEntryStatus(value, m.green_band, m.yellow_band, m.red_band),
       );
     }
-    const categoryHealth = Object.fromEntries(
+    const categoryColour = Object.fromEntries(
       KPI_CATEGORIES.map((cat) => [
         cat,
-        computeCategoryHealth(
+        computeRecordCategoryColour(
           metrics
             .filter((m) => m.category === cat)
-            .map((m) => statusByMetric.get(m.metric_id))
-            .filter((s): s is NonNullable<typeof s> => s !== null && s !== undefined),
+            .map((m) => statusByMetric.get(m.metric_id) ?? null),
         ),
       ]),
-    ) as Record<(typeof KPI_CATEGORIES)[number], ReturnType<typeof computeCategoryHealth>>;
-    const overall = computeOverallHealth(KPI_CATEGORIES.map((c) => categoryHealth[c]));
-    const completeCount = [...statusByMetric.values()].filter((s) => s !== null).length;
-    return { issuesByMetric, statusByMetric, categoryHealth, overall, completeCount };
+    ) as Record<(typeof KPI_CATEGORIES)[number], ReturnType<typeof computeRecordCategoryColour>>;
+    const overall = computeRecordOverallColour(KPI_CATEGORIES.map((c) => categoryColour[c]));
+    return { issuesByMetric, statusByMetric, valueByMetric, categoryColour, overall };
   }, [metrics, entries]);
 
   const saveBlock = useMemo(() => {
@@ -275,11 +296,17 @@ export function KpiManualInputDialog({
       const noun = fields.length === 1 ? 'figure needs' : 'figures need';
       return { field: fields[0] ?? null, message: `${fields.length} ${noun} fixing` };
     }
-    if (live.completeCount === 0) {
-      const first = orderedMetrics[0];
+    if (orderedMetrics.length === 0) {
+      return { field: null, message: 'No metric is applied to this project yet' };
+    }
+    const grey = orderedMetrics.filter(
+      (m) => (live.statusByMetric.get(m.metric_id) ?? null) === null,
+    );
+    if (grey.length > 0) {
+      const noun = grey.length === 1 ? 'metric is' : 'metrics are';
       return {
-        field: first ? `${first.metric_id}:c1` : null,
-        message: 'Enter at least one figure to save',
+        field: grey[0] ? `${grey[0].metric_id}:c1` : null,
+        message: `${grey.length} ${noun} still Grey — every metric needs its figures to save`,
       };
     }
     return null;
@@ -376,7 +403,7 @@ export function KpiManualInputDialog({
               onOpenChange={(open) => !open && requestClose()}
               endContent={
                 <div className="flex items-center gap-2">
-                  {ragBadge(live.overall)}
+                  {kpiColourBadge(live.overall)}
                   {anyDirty ? (
                     <Badge variant="outline" className="font-normal text-secondary">
                       Previewing
@@ -436,20 +463,25 @@ export function KpiManualInputDialog({
                       <div className="grid grid-cols-12 gap-3 border-b border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-secondary">
                         <div className="col-span-6">Metric</div>
                         <div className="col-span-4">Formula components</div>
-                        <div className="col-span-2">Status</div>
+                        <div className="col-span-2">Result</div>
                       </div>
                       <div className="px-3">
                         {KPI_CATEGORIES.map((cat) => {
                           const catMetrics = metrics.filter((m) => m.category === cat);
                           if (catMetrics.length === 0) return null;
                           return (
-                            <div key={cat}>
-                              <div className="sticky top-0 z-10 bg-surface py-1.5">
+                            <div key={cat} className="pt-5 first:pt-0">
+                              <div className="sticky top-0 z-10 flex items-center gap-2 bg-surface pb-1 pt-1.5">
                                 <Heading level={3}>{KPI_CATEGORY_LABELS[cat]}</Heading>
+                                {kpiColourBadge(live.categoryColour[cat])}
                               </div>
                               {catMetrics.map((m) => {
                                 const e = entries[m.metric_id] ?? EMPTY_ENTRY;
                                 const issues = live.issuesByMetric.get(m.metric_id);
+                                const markMissing =
+                                  saveAttempted &&
+                                  (live.statusByMetric.get(m.metric_id) ?? null) === null;
+                                const result = live.valueByMetric.get(m.metric_id) ?? null;
                                 const bands = formatBandTriple(
                                   m.name,
                                   m.component_count,
@@ -476,7 +508,7 @@ export function KpiManualInputDialog({
                                       <div className="text-sm text-secondary">
                                         {m.formula_label}
                                       </div>
-                                      <div className="text-xs tabular-nums">
+                                      <div className="text-sm tabular-nums">
                                         <span className="text-success">{bands.green}</span>
                                         <span className="text-secondary"> · </span>
                                         <span className="text-warning">{bands.yellow}</span>
@@ -495,11 +527,10 @@ export function KpiManualInputDialog({
                                         hasClear
                                         isDisabled={!weekOpen}
                                         className={HIDE_STATUS_ICON}
-                                        status={
-                                          issues?.component_1
-                                            ? { type: 'error', message: issues.component_1 }
-                                            : undefined
-                                        }
+                                        status={boxStatus(
+                                          issues?.component_1,
+                                          markMissing ? figureGap(e.c1) : null,
+                                        )}
                                         onPaste={pasteFigure(m.metric_id, 'c1')}
                                         onChange={(next) => setComponent(m.metric_id, 'c1', next)}
                                       />
@@ -521,11 +552,10 @@ export function KpiManualInputDialog({
                                             hasClear
                                             isDisabled={!weekOpen}
                                             className={HIDE_STATUS_ICON}
-                                            status={
-                                              issues?.component_2
-                                                ? { type: 'error', message: issues.component_2 }
-                                                : undefined
-                                            }
+                                            status={boxStatus(
+                                              issues?.component_2,
+                                              markMissing ? figureGap(e.c2) : null,
+                                            )}
                                             onPaste={pasteFigure(m.metric_id, 'c2')}
                                             onChange={(next) =>
                                               setComponent(m.metric_id, 'c2', next)
@@ -534,7 +564,13 @@ export function KpiManualInputDialog({
                                         </>
                                       ) : null}
                                     </div>
-                                    <div className="col-span-2">
+                                    <div className="col-span-2 flex items-center gap-1.5">
+                                      {kpiResultValue(
+                                        result,
+                                        live.statusByMetric.get(m.metric_id) ?? null,
+                                        m.name,
+                                        m.component_count,
+                                      )}
                                       {ragBadge(live.statusByMetric.get(m.metric_id) ?? null)}
                                     </div>
                                   </div>

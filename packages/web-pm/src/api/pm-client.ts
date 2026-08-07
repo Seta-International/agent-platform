@@ -722,6 +722,8 @@ export type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
 export type KpiTier = 'core' | 'extended';
 export type RagStatus = 'green' | 'yellow' | 'red';
 
+export type KpiRecordColour = RagStatus | 'gray';
+
 export type BandCondition =
   | { op: 'lte' | 'lt' | 'gte' | 'gt' | 'eq'; value: number }
   | { op: 'between'; min: number; max: number }
@@ -865,8 +867,8 @@ export interface KpiRecordDetail {
   iso_week: number;
   version: number | null;
   metrics: KpiRecordMetricRow[];
-  category_health: Record<KpiCategory, RagStatus | null>;
-  overall_health: RagStatus | null;
+  category_health: Record<KpiCategory, KpiRecordColour | null>;
+  overall_health: KpiRecordColour | null;
 }
 
 export async function fetchKpiRecord(params: {

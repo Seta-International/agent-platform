@@ -84,18 +84,18 @@ describe('KPI Explorer per-project applied metrics', () => {
           project_ids: [projectA, projectB],
           session: t.adminSession,
         });
-        await setAppliedMetric({
-          metric_id: metric2,
-          applied: true,
-          project_ids: [projectA],
-          session: t.adminSession,
-        });
-
         await upsertKpiRecord({
           project_id: projectA,
           iso_year: 2026,
           iso_week: 29,
           entries: [{ metric_id: metric1, component_1_value: 150, component_2_value: null }],
+          session: t.adminSession,
+        });
+
+        await setAppliedMetric({
+          metric_id: metric2,
+          applied: true,
+          project_ids: [projectA],
           session: t.adminSession,
         });
 
