@@ -8,7 +8,11 @@ import {
   TENANT_ID,
 } from '../../fixtures/golden/constants.ts';
 import { embedGoldenTasks } from '../../fixtures/golden/embed-tasks.ts';
-import { resolveEvalGenModel, resolveEvalJudgeModel } from '../../fixtures/golden/eval-models.ts';
+import {
+  hasEvalModelEnv,
+  resolveEvalGenModel,
+  resolveEvalJudgeModel,
+} from '../../fixtures/golden/eval-models.ts';
 import { type GoldenRunReport, runGoldenEval } from '../../fixtures/golden/golden-eval-runner.ts';
 import { cleanGoldenDataset, seedGoldenDataset } from '../../fixtures/golden/index.ts';
 import { makeGoldenJudge } from '../../fixtures/golden/judge-runner.ts';
@@ -130,12 +134,16 @@ async function runGoldenSuiteE2E(
 // pipeline and surfaces which case/policy/scorer gated. It does NOT assert
 // gateFailed===false — a live LLM will not always satisfy every strict A1
 // constraint on the small smoke set; the regression lane below is the gate.
-it('runs the smoke suite data-driven end-to-end and reports gate outcomes', async () => {
-  const { report } = await runGoldenSuiteE2E('smoke');
-  expect(report.totalCases).toBeGreaterThan(0);
-  expect(report.cases.length).toBe(report.totalCases);
-  for (const cr of report.cases) expect(cr.policies.length).toBeGreaterThan(0);
-}, 300_000);
+it.skipIf(!hasEvalModelEnv())(
+  'runs the smoke suite data-driven end-to-end and reports gate outcomes',
+  async () => {
+    const { report } = await runGoldenSuiteE2E('smoke');
+    expect(report.totalCases).toBeGreaterThan(0);
+    expect(report.cases.length).toBe(report.totalCases);
+    for (const cr of report.cases) expect(cr.policies.length).toBeGreaterThan(0);
+  },
+  300_000,
+);
 
 // Regression gate lane: evaluates EVERY non-holdout case across all four case
 // files (factual + edge + adversarial + rbac). Opt-in — it runs the full

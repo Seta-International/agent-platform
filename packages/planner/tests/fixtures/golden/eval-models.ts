@@ -29,6 +29,20 @@ export const DEFAULT_JUDGE_MODEL = 'openai/gpt-5-mini';
  * Throws on an unusable value (unset, `auto`, or missing the provider slash) —
  * the eval must not silently run against the wrong model.
  */
+/**
+ * Whether this environment is configured to run the golden lane at all. Every lane
+ * calls a real model — for embeddings as well as generation — so with no concrete
+ * `"provider/model"` id there is nothing to evaluate against and the lanes skip
+ * rather than fail. The PR gate (`ci.yml`) carries no model config on purpose:
+ * paid, network-dependent calls do not belong in it. `eval-quality.yml` runs the
+ * lane nightly with one configured. Reads the same env as `resolveEvalGenModel`,
+ * which still throws — once a lane runs, an unusable model must not pass silently.
+ */
+export function hasEvalModelEnv(): boolean {
+  const key = process.env.EVAL_GEN_MODEL ?? process.env.AGENT_MODEL_DEFAULT;
+  return key !== undefined && key !== '' && key !== 'auto' && key.includes('/');
+}
+
 export function resolveEvalGenModel(): { key: string; model: MastraModelConfig } {
   const key = process.env.EVAL_GEN_MODEL ?? process.env.AGENT_MODEL_DEFAULT;
   if (!key || key === 'auto' || !key.includes('/')) {
