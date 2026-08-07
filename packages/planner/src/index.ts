@@ -156,6 +156,8 @@ export type {
   PlanWithRollupsRow,
   TaskDetailRow,
   TaskExternalSource,
+  TaskLinkKind,
+  TaskLinkRow,
   TaskPreviewType,
   TaskPriorityNumber,
   TaskReferenceRow,
