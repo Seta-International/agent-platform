@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { formatDisplayDate } from './ra-shared.tsx';
 import {
   buildMonthColumns,
-  monthColumnRange,
+  dayFractionRange,
   monthLabel,
   monthlyTotals,
   type TimelineSegment,
@@ -92,7 +92,7 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
           ))}
 
           {rows.map((row, rowIndex) => {
-            const { start, end } = monthColumnRange(months, row.date_from, row.date_to);
+            const { start, end } = dayFractionRange(months, row.date_from, row.date_to);
             const isRestricted = row.isRestricted;
             const dot = isRestricted
               ? 'bg-amber-vivid'
