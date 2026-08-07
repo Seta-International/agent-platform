@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import {
   buildMonthColumns,
+  dayFractionRange,
   monthColumnRange,
   monthKey,
   monthLabel,
@@ -57,6 +57,26 @@ describe('monthColumnRange', () => {
 
   it('clamps a start before the chart range to column 0', () => {
     expect(monthColumnRange(months, '2020-01-01', '2026-05-01')).toEqual({ start: 0, end: 2 });
+  });
+});
+
+describe('dayFractionRange', () => {
+  const months = ['2026-09'];
+
+  it('maps intra-month date ranges to precise fractional column offsets', () => {
+    // 01 Sep - 15 Sep in Sep 2026 (30 days) -> start 0, end 0.5
+    expect(dayFractionRange(months, '2026-09-01', '2026-09-15')).toEqual({ start: 0, end: 0.5 });
+    // 16 Sep - 30 Sep in Sep 2026 -> start 0.5, end 1.0
+    expect(dayFractionRange(months, '2026-09-16', '2026-09-30')).toEqual({ start: 0.5, end: 1 });
+  });
+
+  it('handles multi-month fractional ranges', () => {
+    const multiMonths = ['2026-08', '2026-09'];
+    // 01 Sep - 15 Sep in multi-month chart -> start 1.0, end 1.5
+    expect(dayFractionRange(multiMonths, '2026-09-01', '2026-09-15')).toEqual({
+      start: 1,
+      end: 1.5,
+    });
   });
 });
 
