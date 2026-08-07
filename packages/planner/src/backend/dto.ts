@@ -8,6 +8,7 @@ export type GroupSyncStatus = 'idle' | 'pulling' | 'pushing' | 'error' | 'confli
 export type TaskExternalSource = 'native' | 'm365';
 export type TaskPriorityNumber = 1 | 3 | 5 | 9;
 export type TaskPreviewType = 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
+export type TaskLinkKind = 'relates' | 'duplicates' | 'blocks';
 export type TaskReferenceType =
   | 'word'
   | 'excel'
