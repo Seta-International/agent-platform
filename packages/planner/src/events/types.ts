@@ -646,6 +646,49 @@ export interface PlannerTaskReferenceRemoved {
 }
 
 // ---------------------------------------------------------------------------
+// Task links (FUT-820)
+// ---------------------------------------------------------------------------
+
+/** Modelled on `planner.task.reference-added`. Aggregates on the SOURCE task,
+ *  and carries both plan ids so a subscriber never has to read back to find out
+ *  which board changed. */
+export interface PlannerTaskLinkAdded {
+  event_type: 'planner.task.link-added';
+  event_version: 1;
+  aggregate_type: 'planner.task';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    link_id: Uuid;
+    source_task_id: Uuid;
+    target_task_id: Uuid;
+    source_plan_id: Uuid;
+    target_plan_id: Uuid;
+    kind: 'relates' | 'duplicates' | 'blocks';
+  };
+}
+
+export interface PlannerTaskLinkRemoved {
+  event_type: 'planner.task.link-removed';
+  event_version: 1;
+  aggregate_type: 'planner.task';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    link_id: Uuid;
+    source_task_id: Uuid;
+    target_task_id: Uuid;
+    source_plan_id: Uuid;
+    target_plan_id: Uuid;
+    kind: 'relates' | 'duplicates' | 'blocks';
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Checklist items
 // ---------------------------------------------------------------------------
 
@@ -875,6 +918,8 @@ export type PlannerEvent =
   | PlannerTaskReopened
   | PlannerTaskReferenceAdded
   | PlannerTaskReferenceRemoved
+  | PlannerTaskLinkAdded
+  | PlannerTaskLinkRemoved
   | PlannerChecklistItemAdded
   | PlannerChecklistItemUpdated
   | PlannerChecklistItemRemoved
