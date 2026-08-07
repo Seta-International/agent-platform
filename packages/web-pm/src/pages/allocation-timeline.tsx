@@ -14,6 +14,7 @@ export interface TimelineRow extends TimelineSegment {
   key: string;
   label: string;
   isRestricted?: boolean;
+  hasError?: boolean;
 }
 
 const LABEL_WIDTH = 224;
@@ -94,12 +95,16 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
           {rows.map((row, rowIndex) => {
             const { start, end } = dayFractionRange(months, row.date_from, row.date_to);
             const isRestricted = row.isRestricted;
-            const dot = isRestricted
-              ? 'bg-amber-vivid'
-              : ROW_DOT_CLASSES[rowIndex % ROW_DOT_CLASSES.length];
-            const bar = isRestricted
-              ? 'bg-amber-subtle text-amber-vivid border border-dashed border-amber-strong'
-              : ROW_BAR_CLASSES[rowIndex % ROW_BAR_CLASSES.length];
+            const dot = row.hasError
+              ? 'bg-error'
+              : isRestricted
+                ? 'bg-amber-vivid'
+                : ROW_DOT_CLASSES[rowIndex % ROW_DOT_CLASSES.length];
+            const bar = row.hasError
+              ? 'bg-error-muted text-error font-semibold'
+              : isRestricted
+                ? 'bg-amber-subtle text-amber-vivid border border-dashed border-amber-strong'
+                : ROW_BAR_CLASSES[rowIndex % ROW_BAR_CLASSES.length];
             return (
               <div className="contents" key={row.key}>
                 <div
@@ -113,7 +118,13 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
                     <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
                   )}
                   <span
-                    className={`truncate ${isRestricted ? 'font-medium text-secondary italic' : 'text-primary'}`}
+                    className={`truncate ${
+                      row.hasError
+                        ? 'font-medium text-error'
+                        : isRestricted
+                          ? 'font-medium text-secondary italic'
+                          : 'text-primary'
+                    }`}
                   >
                     {row.label}
                   </span>
