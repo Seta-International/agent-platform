@@ -719,4 +719,62 @@ describe('getAllocationGrid', () => {
       }
     });
   });
+
+  it('prorates monthly planned_pct for partial-month allocations so total_mm matches grid months', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const proj = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'Thu Ngọc Trần',
+          employee_no: '6799',
+        });
+        await peopleDb().insert(projectProjection).values({
+          project_id: proj,
+          tenant_id: t.tenant_id,
+          account_id: accountId,
+          name: 'Commerce Canal',
+        });
+        // Allocation spanning mid-July to mid-August (partial months)
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: personId,
+          project_id: proj,
+          account_id: accountId,
+          date_from: '2026-07-27',
+          date_to: '2026-08-05',
+          planned_pct: '100',
+          bucket: 'billable',
+          active: true,
+        });
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const row = grid.rows.find((r) => r.worker_id === personId)!;
+
+        // July (m=6) has 5 working days out of 23 -> ~21.74%
+        // Aug (m=7) has 3 working days out of 21 -> ~14.29%
+        expect(row.months[6]).toBeCloseTo(21.74, 1);
+        expect(row.months[7]).toBeCloseTo(14.29, 1);
+
+        // Sum of monthly MM matches total_mm
+        const sumMonthlyMm = row.months.reduce((s: number, m) => s + (m ?? 0) / 100, 0);
+        expect(Math.round(sumMonthlyMm * 100) / 100).toBe(row.total_mm);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

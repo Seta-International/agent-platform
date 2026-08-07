@@ -197,12 +197,15 @@ export async function getAllocationGrid(
     for (let m = 0; m < 12; m++) {
       const [mStart, mEnd] = monthBounds(year, m);
       const active = pct != null && from <= mEnd && to >= mStart;
-      months.push(active ? pct : null);
       if (active && pct != null) {
         const ovStart = from > mStart ? from : mStart;
         const ovEnd = to < mEnd ? to : mEnd;
         const frac = workingDays(ovStart, ovEnd) / Math.max(1, workingDays(mStart, mEnd));
+        const monthPct = Math.round(pct * frac * 100) / 100;
+        months.push(monthPct);
         mm += (pct / 100) * frac;
+      } else {
+        months.push(null);
       }
     }
     return {
