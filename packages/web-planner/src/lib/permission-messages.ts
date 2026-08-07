@@ -14,6 +14,7 @@ export const PERMISSION_DENIED = {
     comment: "You don't have permission to comment on tasks.",
     move: "You don't have permission to move tasks.",
     restore: "You don't have permission to restore tasks.",
+    unlink: 'You need edit access to both tasks to remove this link.',
   },
   bucket: {
     create: "You don't have permission to create buckets.",
