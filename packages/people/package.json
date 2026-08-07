@@ -36,7 +36,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "@mastra/pg": "^1.17.0",
+    "@mastra/pg": "^1.19.0",
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/knowledge": "workspace:^",

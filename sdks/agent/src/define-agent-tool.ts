@@ -2,7 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import type { z } from 'zod';
 import { registerToolPermission } from './rbac.ts';
 import { RequestContextSchema } from './request-context.ts';
-import type { AgentTool, AgentToolSpec } from './tool.ts';
+import type { AgentToolSpec, ExecutableAgentTool } from './tool.ts';
 import { wrapExecute } from './wrap-execute.ts';
 
 /**
@@ -22,7 +22,7 @@ export function defineAgentTool<
   O extends z.ZodTypeAny,
   S extends z.ZodTypeAny = z.ZodTypeAny,
   R extends z.ZodTypeAny = z.ZodTypeAny,
->(spec: AgentToolSpec<I, O, S, R>): AgentTool {
+>(spec: AgentToolSpec<I, O, S, R>): ExecutableAgentTool<I, O, S, R> {
   // Pass-through to Mastra's native HITL mechanism. The agent loop
   // (mastra/packages/core/src/loop/workflows/agentic-execution/tool-call-step.ts)
   // reads `Tool.requireApproval` (boolean or per-call predicate) to decide
@@ -61,5 +61,9 @@ export function defineAgentTool<
   // displayName has no Mastra equivalent — it is consumed only by our own
   // agent-factory tool catalog. Keep as an attached property.
   Object.assign(tool, { displayName: spec.name });
-  return tool;
+  // `execute` was handed to createTool through the `as never` widening above, so
+  // Mastra infers it back as its own erased signature. wrapExecute preserves the
+  // authored contract 1:1, so re-assert it here rather than leak the erasure to
+  // every caller.
+  return tool as unknown as ExecutableAgentTool<I, O, S, R>;
 }

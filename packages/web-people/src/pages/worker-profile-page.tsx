@@ -367,10 +367,13 @@ export function WorkerProfilePage() {
                   header={
                     <LayoutHeader hasDivider>
                       <div className="flex items-center gap-4">
+                        {/* Name is spelled out beside the avatar, so Astryx's
+                            name-on-hover tooltip would only duplicate it. */}
                         <Avatar
                           name={worker.full_name}
                           src={worker.photo_url ?? undefined}
                           size={60}
+                          tooltip={false}
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">

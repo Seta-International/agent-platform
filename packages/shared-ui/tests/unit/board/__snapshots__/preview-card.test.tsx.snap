@@ -84,11 +84,23 @@ exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             JD
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_1_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Jane Doe
         </div>
       </div>
       <div
@@ -103,11 +115,23 @@ exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             ML
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_2_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Mark Lee
         </div>
       </div>
     </div>
@@ -225,11 +249,23 @@ exports[`PreviewCard > renders checklist variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             JD
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_7_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Jane Doe
         </div>
       </div>
       <div
@@ -244,11 +280,23 @@ exports[`PreviewCard > renders checklist variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             ML
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_8_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Mark Lee
         </div>
       </div>
     </div>
@@ -322,11 +370,23 @@ exports[`PreviewCard > renders description variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             JD
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_a_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Jane Doe
         </div>
       </div>
       <div
@@ -341,11 +401,23 @@ exports[`PreviewCard > renders description variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             ML
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_b_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Mark Lee
         </div>
       </div>
     </div>
@@ -407,11 +479,23 @@ exports[`PreviewCard > renders noPreview variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             JD
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_4_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Jane Doe
         </div>
       </div>
       <div
@@ -426,11 +510,23 @@ exports[`PreviewCard > renders noPreview variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             ML
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_5_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Mark Lee
         </div>
       </div>
     </div>
@@ -515,11 +611,23 @@ exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             JD
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_d_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Jane Doe
         </div>
       </div>
       <div
@@ -534,11 +642,23 @@ exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
           style="--x-width: 24px; --x-height: 24px;"
         >
           <div
-            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
-            style="--x-fontSize: 9.600000000000001px;"
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d xelv01g xicfil x9ynric xi08x9w xtvhhri xdmh292"
+            style="--x-fontSize: var(--_avatar-fallback-font-size, 9.600000000000001px);"
           >
             ML
           </div>
+        </div>
+      </div>
+      <div
+        class="astryx-tooltip xexx8yu x18d9i69 x1c1uobl xyri2b xc342km xng3xce x1rea2x4 x19aspcf xrkvqaz x1hviunn x9ynric xjm74w1 xw6l6zx xcsaf9d x14cgwvg x1lziwak x14z9mp x3psbcj x1aquc0h x9uej1z x128ha8g xskzprw"
+        id="_r_e_"
+        popover="manual"
+        role="tooltip"
+      >
+        <div
+          class="xfsso4q xy143xn x12gdq22 x1djylfy xw5ewwj x13faqbe"
+        >
+          Mark Lee
         </div>
       </div>
     </div>

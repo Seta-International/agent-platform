@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mastra/core": "^1.52.1",
+    "@mastra/core": "^1.57.0",
     "@seta/agent-sdk": "workspace:^",
     "graphile-worker": "^0.17.3",
     "zod": "^4.4.3"

@@ -190,7 +190,9 @@ export function PeoplePage() {
         sortable: true,
         renderCell: (r) => (
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar name={r.full_name} src={r.photo_url ?? undefined} size={32} />
+            {/* Name is spelled out beside the avatar, so Astryx's name-on-hover
+                tooltip would only duplicate it in the a11y tree. */}
+            <Avatar name={r.full_name} src={r.photo_url ?? undefined} size={32} tooltip={false} />
             <div className="min-w-0">
               <div className="truncate font-medium">{r.full_name}</div>
               {r.job_title && (

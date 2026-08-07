@@ -1,6 +1,6 @@
 import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -205,7 +205,10 @@ describe('CandidateDetailDrawer', () => {
     const input = screen.getByLabelText('Replace') as HTMLInputElement;
     await userEvent.upload(input, big);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
+    // Scoped to the viewport: Astryx also mirrors the message into a body-level
+    // assertive live region, which carries role="alert" too.
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
   it('shows a CV upload dropzone when cv_storage_key is null', async () => {
@@ -280,7 +283,8 @@ describe('CandidateDetailDrawer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     // Should display exact error message in toast, NOT "This record changed — refreshing."
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent(
       'No vacant openings for this requisition',
     );
     expect(onClose).toHaveBeenCalled();

@@ -100,6 +100,7 @@ export type {
   AgentTool,
   AgentToolContext,
   AgentToolSpec,
+  ExecutableAgentTool,
 } from './tool.ts';
 export {
   type AgentResult,

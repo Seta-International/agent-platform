@@ -44,9 +44,9 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "@mastra/core": "^1.52.1",
-    "@mastra/observability": "^1.16.2",
-    "@mastra/pg": "^1.17.0",
+    "@mastra/core": "^1.57.0",
+    "@mastra/observability": "^1.16.5",
+    "@mastra/pg": "^1.19.0",
     "@mastra/rag": "^2.4.2",
     "@opentelemetry/api": "^1.9.1",
     "@seta/agent-sdk": "workspace:^",
