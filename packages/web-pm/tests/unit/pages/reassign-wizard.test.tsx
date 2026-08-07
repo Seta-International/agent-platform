@@ -17,8 +17,10 @@ vi.mock('../../../src/api/pm-client.ts', async () => {
   );
   return {
     ...actual,
+    removeAllocation: vi.fn().mockResolvedValue(undefined),
+    updateAllocation: vi.fn().mockResolvedValue({ version: 2 }),
     previewReassignWorkerAllocations: vi.fn().mockResolvedValue({
-      worker_name: 'Test Worker',
+      worker_name: 'An Đình Luận',
       sources: [],
       targets: [],
       peak_pct: 100,
@@ -26,8 +28,6 @@ vi.mock('../../../src/api/pm-client.ts', async () => {
       peak_from: null,
       peak_to: null,
     }),
-    removeAllocation: vi.fn().mockResolvedValue(undefined),
-    updateAllocation: vi.fn().mockResolvedValue({ version: 2 }),
   };
 });
 
@@ -597,5 +597,48 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getAllByText(/30 Sep 2026/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/01 Nov 2026/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/30 Nov 2026/).length).toBeGreaterThan(0);
+  });
+
+  it('FUT-852: displays target allocation in AllocationTimeline with error styling when preview fails', async () => {
+    const user = userEvent.setup({ delay: null });
+    const { previewReassignWorkerAllocations } = await import('../../../src/api/pm-client.ts');
+    vi.mocked(previewReassignWorkerAllocations).mockRejectedValueOnce(
+      new Error('AV1A: Allocation end 2026-12-31 is after the project end 2026-06-30'),
+    );
+
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    await user.click(screen.getByRole('button', { name: /review impact/i }));
+
+    expect(
+      await screen.findByText(
+        /AV1A: Allocation end 2026-12-31 is after the project end 2026-06-30/,
+      ),
+    ).toBeInTheDocument();
+
+    // AllocationTimeline renders target allocation project name even though preview dry-run failed
+    const targetLabel = screen.getByText('Aeris - Finch Mobile');
+    expect(targetLabel).toBeInTheDocument();
+    expect(targetLabel).toHaveClass('text-error');
   });
 });

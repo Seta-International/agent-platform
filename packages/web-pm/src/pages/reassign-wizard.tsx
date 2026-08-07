@@ -271,6 +271,7 @@ export function ReassignWizardDialog({
         })),
       }),
     onSuccess: (result) => setPreview(result),
+    onError: () => setPreview(null),
   });
 
   const mutation = useMutation({
@@ -379,6 +380,7 @@ export function ReassignWizardDialog({
       onReassigned();
     }
 
+    setPreview(null);
     setStep(2);
     previewMutation.mutate();
   }
@@ -473,6 +475,9 @@ export function ReassignWizardDialog({
                 <ReviewStep
                   preview={preview}
                   currentAllocations={futureAllocations}
+                  targetRows={targetRows}
+                  rowDrafts={rowDrafts}
+                  projects={projects}
                   previewMutation={previewMutation}
                   mutation={mutation}
                 />
@@ -785,7 +790,7 @@ export function ReassignWizardDialog({
                   <Button variant="ghost" label="Back" onClick={() => setStep(1)} />
                   <Button
                     variant="primary"
-                    isDisabled={mutation.isPending}
+                    isDisabled={mutation.isPending || previewMutation.isError}
                     label={mutation.isPending ? 'Confirming…' : 'Confirm'}
                     onClick={() => mutation.mutate()}
                   />
@@ -994,11 +999,17 @@ function TargetRowFields({
 function ReviewStep({
   preview,
   currentAllocations,
+  targetRows,
+  rowDrafts,
+  projects,
   previewMutation,
   mutation,
 }: {
   preview: ReassignGroupPreviewResult | null;
   currentAllocations: RaMonitoringAllocation[];
+  targetRows: ReassignTargetRow[];
+  rowDrafts: Record<string, RowDraft>;
+  projects: ProjectListRow[];
   previewMutation: {
     isPending: boolean;
     isError: boolean;
@@ -1010,21 +1021,49 @@ function ReviewStep({
     return <p className="py-8 text-center text-sm text-secondary">Checking impact…</p>;
   }
 
+  const targetTimelineRows: TimelineRow[] = preview?.targets
+    ? preview.targets.map((t, i) => ({
+        key: `target-${i}`,
+        label: t.project_name,
+        date_from: t.date_from,
+        date_to: t.date_to,
+        planned_pct: t.planned_pct,
+      }))
+    : targetRows
+        .filter((r) => r.project_id && isValidIsoDate(r.date_from))
+        .map((r, i) => {
+          const projName =
+            projects.find((p) => p.project_id === r.project_id)?.name ?? 'New Allocation';
+          return {
+            key: `target-row-${i}`,
+            label: projName,
+            date_from: r.date_from,
+            date_to: r.date_to || null,
+            planned_pct: fractionToPct(r.planned_pct),
+            hasError: previewMutation.isError,
+          };
+        });
+
   const timelineRows: TimelineRow[] = [
-    ...currentAllocations.map((a) => ({
-      key: a.allocation_id,
-      label: a.project_name,
-      date_from: a.date_from as string,
-      date_to: a.date_to,
-      planned_pct: a.planned_pct ?? 0,
-    })),
-    ...(preview?.targets.map((t, i) => ({
-      key: `target-${i}`,
-      label: t.project_name,
-      date_from: t.date_from,
-      date_to: t.date_to,
-      planned_pct: t.planned_pct,
-    })) ?? []),
+    ...currentAllocations.map((a) => {
+      const draft = rowDrafts[a.allocation_id];
+      const dateFrom = draft?.date_from || (a.date_from as string);
+      const dateTo = draft?.date_to !== undefined ? draft.date_to || null : a.date_to;
+      const plannedPct =
+        draft?.planned_pct !== undefined ? fractionToPct(draft.planned_pct) : (a.planned_pct ?? 0);
+      const hasError =
+        previewMutation.isError &&
+        (previewMutation.error?.message.includes(a.project_name) ?? false);
+      return {
+        key: a.allocation_id,
+        label: a.project_name,
+        date_from: dateFrom,
+        date_to: dateTo,
+        planned_pct: plannedPct,
+        hasError,
+      };
+    }),
+    ...targetTimelineRows,
     ...(preview?.restricted_segments?.map((r, i) => ({
       key: `restricted-${i}`,
       label: 'Restricted projects',
@@ -1037,10 +1076,9 @@ function ReviewStep({
 
   return (
     <div className="space-y-4">
-      {previewMutation.isError ? (
-        <Banner status="error" title={previewMutation.error?.message} />
+      {previewMutation.isError || mutation.isError ? (
+        <Banner status="error" title={previewMutation.error?.message || mutation.error?.message} />
       ) : null}
-      {mutation.isError ? <Banner status="error" title={mutation.error?.message} /> : null}
 
       {preview?.exceeds ? (
         // Over-allocation is a soft warning (you can still confirm), so it's a warning Banner —
