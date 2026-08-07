@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ActionResumeSchema,
   BULK_TARGET_CAP,
+  LinkTasksResumeSchema,
+  LinkTasksToolInputSchema,
   UpdateTaskResumeSchema,
   UpdateTaskToolInputSchema,
 } from '../../../../src/backend/orchestration/action/schemas.ts';
@@ -71,6 +74,72 @@ describe('UpdateTaskResumeSchema', () => {
       UpdateTaskResumeSchema.parse({
         action: 'merge',
         targets: [{ taskId: TASK_A, expectedVersion: 4 }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('LinkTasksToolInputSchema', () => {
+  it('takes two named refs and a kind', () => {
+    const parsed = LinkTasksToolInputSchema.parse({
+      sourceTaskRef: 'Alpha',
+      targetTaskRef: 'Beta',
+      kind: 'relates',
+    });
+    expect(parsed.kind).toBe('relates');
+  });
+
+  it('rejects a kind outside the three the table stores', () => {
+    expect(() =>
+      LinkTasksToolInputSchema.parse({
+        sourceTaskRef: 'Alpha',
+        targetTaskRef: 'Beta',
+        kind: 'supersedes',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('the ActionResume union', () => {
+  it('parses a link resume', () => {
+    const parsed = ActionResumeSchema.parse({
+      action: 'link',
+      sourceTaskId: TASK_A,
+      targetTaskId: TASK_B,
+      kind: 'duplicates',
+      idempotencyKey: 'k',
+    });
+    expect(parsed.action).toBe('link');
+  });
+
+  it('parses an update resume', () => {
+    const parsed = ActionResumeSchema.parse({
+      action: 'update',
+      targets: [{ taskId: TASK_A, expectedVersion: 1 }],
+      patch: { percent_complete: 100 },
+      idempotencyKey: 'k',
+    });
+    expect(parsed.action).toBe('update');
+  });
+
+  // Each tool re-parses with its OWN schema, so an update payload must never be
+  // accepted as a link and vice versa.
+  it('does not let a link payload parse as an update', () => {
+    expect(() =>
+      UpdateTaskResumeSchema.parse({
+        action: 'link',
+        sourceTaskId: TASK_A,
+        targetTaskId: TASK_B,
+        kind: 'relates',
+      }),
+    ).toThrow();
+  });
+
+  it('does not let an update payload parse as a link', () => {
+    expect(() =>
+      LinkTasksResumeSchema.parse({
+        action: 'update',
+        targets: [{ taskId: TASK_A, expectedVersion: 1 }],
       }),
     ).toThrow();
   });

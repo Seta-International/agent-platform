@@ -152,3 +152,48 @@ export interface ActionTaskSnapshot {
   version: number;
   groupId: string;
 }
+
+/** The three kinds `planner.task_links` stores. Kept as a literal rather than
+ *  imported from `db/schema.ts`, so the model-facing vocabulary and the storage
+ *  enum can diverge without a silent coupling. */
+export const TaskLinkKindSchema = z.enum(['relates', 'duplicates', 'blocks']);
+export type ToolTaskLinkKind = z.infer<typeof TaskLinkKindSchema>;
+
+export const LinkTasksToolInputSchema = z.object({
+  sourceTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+  targetTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+  kind: TaskLinkKindSchema.describe(
+    'relates = the two tasks are connected, symmetric. ' +
+      'duplicates = the SOURCE task is a duplicate of the target. ' +
+      'blocks = the SOURCE task blocks the target. ' +
+      'When the user just says "link" or "related", use relates.',
+  ),
+});
+
+export const LinkTasksToolOutputSchema = z.object({
+  linked: z.boolean(),
+  linkId: z.string().nullable(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const LinkTasksSuspendSchema = z.object({ card: z.unknown() });
+
+/** Read off the persisted card, never off the confirm request. */
+export const LinkTasksResumeSchema = z
+  .object({
+    action: z.enum(['link', 'decline']),
+    sourceTaskId: z.string(),
+    targetTaskId: z.string(),
+    kind: TaskLinkKindSchema,
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type LinkTasksResume = z.infer<typeof LinkTasksResumeSchema>;
+
+/**
+ * Everything `makeActionResumer` may be handed. Mastra routes a resume payload to
+ * the suspended tool by `toolCallId`, and each tool re-parses with its own schema
+ * — so this union only types the resumer's parameter. It is NOT a dispatcher.
+ */
+export const ActionResumeSchema = z.union([UpdateTaskResumeSchema, LinkTasksResumeSchema]);
+export type ActionResume = UpdateTaskResume | LinkTasksResume;
