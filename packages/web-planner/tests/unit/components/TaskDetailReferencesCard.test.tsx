@@ -1,4 +1,4 @@
-import type { TaskDetailRow, TaskReferenceRow } from '@seta/planner';
+import type { TaskReferenceRow } from '@seta/planner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -6,7 +6,7 @@ import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TaskDetailReferencesCard } from '../../../src/components/TaskDetailReferencesCard';
-import { makeTaskWithAssignees } from '../../../src/testing/fixtures';
+import { makeTaskDetail } from '../../../src/testing/fixtures';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -29,10 +29,6 @@ function ref(over: Partial<TaskReferenceRow> = {}): TaskReferenceRow {
   };
 }
 
-function makeDetail(refs: TaskReferenceRow[]): TaskDetailRow {
-  return { ...makeTaskWithAssignees({ id: 't1' }), checklist: [], references: refs };
-}
-
 function renderWithClient(node: ReactNode) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -41,6 +37,13 @@ function renderWithClient(node: ReactNode) {
 }
 
 describe('TaskDetailReferencesCard', () => {
+  it('the fixture yields a complete TaskDetailRow', () => {
+    const detail = makeTaskDetail();
+    expect(detail.checklist).toEqual([]);
+    expect(detail.references).toEqual([]);
+    expect(detail.links).toEqual([]);
+  });
+
   it('renders one row per reference', () => {
     const refs = [
       ref({ id: 'r1', alias: 'A' }),
@@ -48,7 +51,9 @@ describe('TaskDetailReferencesCard', () => {
       ref({ id: 'r3', url: 'https://c.test', alias: 'C' }),
       ref({ id: 'r4', url: 'https://d.test', alias: 'D' }),
     ];
-    renderWithClient(<TaskDetailReferencesCard task={makeDetail(refs)} planId="p1" />);
+    renderWithClient(
+      <TaskDetailReferencesCard task={makeTaskDetail({ references: refs })} planId="p1" />,
+    );
     expect(screen.getByText('A')).toBeInTheDocument();
     expect(screen.getByText('B')).toBeInTheDocument();
     expect(screen.getByText('C')).toBeInTheDocument();
@@ -57,7 +62,10 @@ describe('TaskDetailReferencesCard', () => {
 
   it('is not wired into a drag-drop context (no reorder in this PR)', () => {
     const { container } = renderWithClient(
-      <TaskDetailReferencesCard task={makeDetail([ref({ id: 'r1' })])} planId="p1" />,
+      <TaskDetailReferencesCard
+        task={makeTaskDetail({ references: [ref({ id: 'r1' })] })}
+        planId="p1"
+      />,
     );
     expect(container.querySelector('[data-rfd-droppable-id]')).toBeNull();
     expect(container.querySelector('[data-rfd-draggable-id]')).toBeNull();
@@ -71,7 +79,9 @@ describe('TaskDetailReferencesCard', () => {
         return HttpResponse.json(ref({ id: 'rNew' }));
       }),
     );
-    renderWithClient(<TaskDetailReferencesCard task={makeDetail([])} planId="p1" />);
+    renderWithClient(
+      <TaskDetailReferencesCard task={makeTaskDetail({ references: [] })} planId="p1" />,
+    );
     const input = screen.getByPlaceholderText(/Paste a URL/i);
     fireEvent.change(input, { target: { value: 'https://added.test/doc' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -93,7 +103,9 @@ describe('TaskDetailReferencesCard', () => {
         ),
       ),
     );
-    renderWithClient(<TaskDetailReferencesCard task={makeDetail([])} planId="p1" />);
+    renderWithClient(
+      <TaskDetailReferencesCard task={makeTaskDetail({ references: [] })} planId="p1" />,
+    );
     const input = screen.getByPlaceholderText(/Paste a URL/i);
     await user.type(input, 'https://dupe.test/doc{Enter}');
     expect(await screen.findByText(/already exists on the task/i)).toBeInTheDocument();
@@ -111,7 +123,7 @@ describe('TaskDetailReferencesCard', () => {
     );
     renderWithClient(
       <TaskDetailReferencesCard
-        task={makeDetail([ref({ id: 'r1', url: 'https://x.test/y' })])}
+        task={makeTaskDetail({ references: [ref({ id: 'r1', url: 'https://x.test/y' })] })}
         planId="p1"
       />,
     );
