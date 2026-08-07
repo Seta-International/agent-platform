@@ -80,22 +80,33 @@ export function todayFraction(months: string[], todayIso: string): number {
 }
 
 /**
- * Total planned_pct per month, counting any segment that overlaps the month
- * at all (not a true daily peak — a lightweight per-month approximation
- * appropriate for an at-a-glance chart, not the authoritative over-allocation
- * check the backend already performs).
+ * Peak planned_pct per month, calculated as the maximum daily total allocation
+ * across all days in that month (FUT-851).
+ *
+ * For consecutive non-overlapping allocations within the same month (e.g. 01–15 Sep @ 100%
+ * and 16–30 Sep @ 100%), the daily total on every day is 100%, so the month peak is 100%
+ * rather than summing all month-overlapping records to 200%.
  */
 export function monthlyTotals(segments: TimelineSegment[], months: string[]): number[] {
   return months.map((month) => {
-    const monthStart = `${month}-01`;
     const [y, m] = month.split('-').map(Number);
-    // Date.UTC in, toISOString out — both UTC, so this can't drift a day
-    // depending on the machine's local timezone (unlike `new Date(y, m, 0)`).
+    // Date.UTC with month m (1-indexed) and day 0 gives the last day of month m.
     // biome-ignore lint/style/noNonNullAssertion: month is always 'YYYY-MM'
-    const monthEnd = new Date(Date.UTC(y!, m!, 0)).toISOString().slice(0, 10);
-    return segments
-      .filter((s) => s.date_from <= monthEnd && (s.date_to === null || s.date_to >= monthStart))
-      .reduce((sum, s) => sum + s.planned_pct, 0);
+    const daysInMonth = new Date(Date.UTC(y!, m!, 0)).getUTCDate();
+    let maxDailySum = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayIso = `${month}-${String(day).padStart(2, '0')}`;
+      const dailySum = segments
+        .filter((s) => s.date_from <= dayIso && (s.date_to === null || s.date_to >= dayIso))
+        .reduce((sum, s) => sum + s.planned_pct, 0);
+
+      if (dailySum > maxDailySum) {
+        maxDailySum = dailySum;
+      }
+    }
+
+    return maxDailySum;
   });
 }
 

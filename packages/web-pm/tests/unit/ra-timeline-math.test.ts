@@ -117,6 +117,30 @@ describe('monthlyTotals', () => {
     );
     expect(totals).toEqual([0, 20, 20]);
   });
+
+  it('FUT-851: calculates monthly total as peak daily allocation for consecutive non-overlapping segments', () => {
+    const months = ['2026-09'];
+    const totals = monthlyTotals(
+      [
+        { date_from: '2026-09-01', date_to: '2026-09-15', planned_pct: 100 },
+        { date_from: '2026-09-16', date_to: '2026-09-30', planned_pct: 100 },
+      ],
+      months,
+    );
+    expect(totals).toEqual([100]);
+  });
+
+  it('FUT-851: calculates peak daily allocation when segments partially overlap in a month', () => {
+    const months = ['2026-09'];
+    const totals = monthlyTotals(
+      [
+        { date_from: '2026-09-01', date_to: '2026-09-20', planned_pct: 60 },
+        { date_from: '2026-09-10', date_to: '2026-09-30', planned_pct: 50 },
+      ],
+      months,
+    );
+    expect(totals).toEqual([110]);
+  });
 });
 
 describe('monthLabel', () => {
