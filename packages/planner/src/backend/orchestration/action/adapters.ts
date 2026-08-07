@@ -1,12 +1,14 @@
 import { withGatedMutation } from '@seta/core/events';
 import { buildActorSession } from '@seta/identity';
-import { and, inArray, isNull } from 'drizzle-orm';
-import { tasks } from '../../db/schema.ts';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { plannerDb } from '../../db/index.ts';
+import { taskLinks, tasks } from '../../db/schema.ts';
 import { getTask } from '../../domain/get-task.ts';
+import { linkTasks } from '../../domain/link-tasks.ts';
 import { updateTask } from '../../domain/update-task.ts';
 import { PlannerError, requirePermission } from '../../rbac.ts';
 import { getTaskGroupId } from '../../read-helpers.ts';
-import type { TaskReadPort, TaskUpdatePort } from './ports.ts';
+import type { TaskLinkPort, TaskReadPort, TaskUpdatePort } from './ports.ts';
 import type { ActionTaskSnapshot } from './schemas.ts';
 
 export function makeActionTaskRead(): TaskReadPort {
@@ -98,6 +100,110 @@ export function makeActionTaskUpdate(): TaskUpdatePort {
         },
       );
       return { taskIds: result.taskIds, replayed };
+    },
+  };
+}
+
+export function makeActionTaskLink(): TaskLinkPort {
+  return {
+    async readEndpoint({ tenantId, taskId, actorUserId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      try {
+        const task = await getTask({ task_id: taskId, session });
+        const groupId = await getTaskGroupId(tenantId, taskId);
+        if (!groupId) return null;
+        return {
+          taskId: task.id,
+          title: task.title,
+          description: task.description,
+          due_at: task.due_at,
+          start_at: task.start_at,
+          priority_number: task.priority_number,
+          percent_complete: task.percent_complete,
+          version: task.version,
+          groupId,
+        };
+      } catch (err) {
+        // THE normalisation. getTask distinguishes "absent" from "you may not
+        // read this", and a link tool that surfaced the difference would answer
+        // the question an attacker is asking. Everything else still propagates.
+        const code = (err as { code?: unknown }).code;
+        if (code === 'NOT_FOUND' || code === 'FORBIDDEN' || code === 'CROSS_TENANT') return null;
+        throw err;
+      }
+    },
+
+    async assertCanLink({ actorUserId, groupIds }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      for (const groupId of new Set(groupIds)) {
+        await requirePermission(session, 'planner.task.update', groupId);
+      }
+    },
+
+    async linkExists({ tenantId, sourceTaskId, targetTaskId, kind }) {
+      const rows = await plannerDb()
+        .select({ id: taskLinks.id })
+        .from(taskLinks)
+        .where(
+          and(
+            eq(taskLinks.tenant_id, tenantId),
+            eq(taskLinks.kind, kind),
+            // Either direction: `task_links_pair_kind_uniq` normalises the pair,
+            // so the storage would refuse the inverse too.
+            or(
+              and(
+                eq(taskLinks.source_task_id, sourceTaskId),
+                eq(taskLinks.target_task_id, targetTaskId),
+              ),
+              and(
+                eq(taskLinks.source_task_id, targetTaskId),
+                eq(taskLinks.target_task_id, sourceTaskId),
+              ),
+            ),
+          ),
+        )
+        .limit(1);
+      return rows.length > 0;
+    },
+
+    async link({ actorUserId, sourceTaskId, targetTaskId, kind, idempotencyKey }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      const { result, replayed } = await withGatedMutation(
+        session,
+        {
+          idempotencyKey,
+          onBehalfOf: actorUserId,
+          actorKind: 'agent',
+          mutationKind: 'link',
+          // A link row has no "before": it did not exist. The gateway calls this
+          // once before the body (null) and once after (the row), and backfills
+          // both onto the emitted events.
+          snapshot: async (tx) => {
+            const [row] = await tx
+              .select()
+              .from(taskLinks)
+              .where(
+                and(
+                  eq(taskLinks.source_task_id, sourceTaskId),
+                  eq(taskLinks.target_task_id, targetTaskId),
+                  eq(taskLinks.kind, kind),
+                ),
+              )
+              .limit(1);
+            return row ?? null;
+          },
+        },
+        async () => {
+          const { id } = await linkTasks({
+            source_task_id: sourceTaskId,
+            target_task_id: targetTaskId,
+            kind,
+            session,
+          });
+          return { linkId: id };
+        },
+      );
+      return { linkId: result.linkId, replayed };
     },
   };
 }
