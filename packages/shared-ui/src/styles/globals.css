@@ -7,6 +7,30 @@
 html { color-scheme: dark; }
 html.theme-light { color-scheme: light; }
 
+/* RAG palette — one declaration for every Red/Amber/Green mark in the product.
+   Astryx carries two status palettes and exposes only one of them as tokens: the
+   vivid values below are hard-coded inside .astryx-statusdot/.astryx-badge rules,
+   while --color-error/--color-warning/--color-success hold the darker, text-legible
+   pair. Anything painting a shape (dot, badge, trend pip, accent rule) drifted to a
+   different red or amber depending on which one it reached for. --rag-* mirrors the
+   vivid trio so shapes match Astryx's own dots exactly; --rag-*-text aliases the
+   legible trio, because #ffce2f as type is unreadable on either ground. Shapes take
+   --rag-*, type takes --rag-*-text, and --rag-on-* is the label pair for a filled
+   shape. */
+:root {
+  --rag-red: light-dark(#e33f4a, #ff705d);
+  --rag-amber: #ffce2f;
+  --rag-green: light-dark(#198100, #64af4c);
+
+  --rag-on-red: light-dark(#ffffff, #171717);
+  --rag-on-amber: #171717;
+  --rag-on-green: light-dark(#ffffff, #171717);
+
+  --rag-red-text: var(--color-error);
+  --rag-amber-text: var(--color-warning);
+  --rag-green-text: var(--color-success);
+}
+
 /* Required-field indicator: Astryx FieldLabel renders required fields as a
    " ∙ Required" suffix in --color-text-secondary, with no prop or dedicated
    token to restyle it — design wants it error-red so required fields read at

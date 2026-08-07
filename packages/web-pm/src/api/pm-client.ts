@@ -923,6 +923,8 @@ export interface WeekStats {
     name: string;
     computed_value: number | null;
     component_count: 1 | 2;
+    green_band: BandCondition;
+    status: RagStatus;
   } | null;
 }
 

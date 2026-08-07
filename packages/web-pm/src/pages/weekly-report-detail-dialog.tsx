@@ -18,6 +18,7 @@ import {
   Badge,
   Banner,
   Button,
+  Card,
   DateInput,
   Dialog,
   DialogHeader,
@@ -34,7 +35,13 @@ import {
   Textarea,
   toast,
 } from './_ui-compat.tsx';
-import { formatMetricValue, KPI_CATEGORIES, KPI_CATEGORY_LABELS } from './kpi-shared.tsx';
+import {
+  formatBand,
+  formatMetricValue,
+  isoWeekBase,
+  KPI_CATEGORIES,
+  KPI_CATEGORY_LABELS,
+} from './kpi-shared.tsx';
 
 // RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
 type ColourKey = ReportColour | 'none';
@@ -76,10 +83,6 @@ const PRICING_LABEL: Record<string, string> = {
   time_materials: 'T&M',
 };
 
-function weekLabel(iso_year: number, iso_week: number): string {
-  return `${iso_year}-W-${String(iso_week).padStart(2, '0')}`;
-}
-
 function initials(name: string | null): string {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -113,20 +116,34 @@ export function colourBadge(colour: ReportColour | null) {
           ? 'destructive'
           : 'secondary';
   return (
-    <Badge variant={variant} className="font-normal">
+    <Badge variant={variant} className="font-normal" style={badgeStyle(colour)}>
       {COLOUR_LABEL[colour]}
     </Badge>
   );
 }
 
-// Trend squares are fill marks. Green/red fill tokens read correctly, but light-mode
-// --color-warning is the warning *text* colour (#745b00 — olive), so amber uses the theme's
-// chromatic warning fill directly (the same value theme-neutral gives .astryx-badge.warning),
-// matching the StatusDot wrapper in shared-ui.
+// Every RAG shape in here — trend pip, verdict badge, pillar dot, the Road-to-Green rule — paints
+// from the shared --rag-* palette in shared-ui/styles/globals.css, so one red and one amber run
+// across the dialog, the board and Astryx's own status dots.
+const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
+  green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
+  yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
+  red: { fill: 'var(--rag-red)', on: 'var(--rag-on-red)' },
+  gray: null,
+  none: null,
+};
+const markStyle = (key: ColourKey) => {
+  const token = RAG_MARK_TOKEN[key];
+  return token ? { backgroundColor: token.fill } : undefined;
+};
+const badgeStyle = (key: ColourKey) => {
+  const token = RAG_MARK_TOKEN[key];
+  return token ? { backgroundColor: token.fill, color: token.on } : undefined;
+};
 const TREND_FILL: Record<ColourKey, string> = {
-  green: 'var(--color-success)',
-  yellow: 'light-dark(#ffce2f, #fdcf4f)',
-  red: 'var(--color-error)',
+  green: 'var(--rag-green)',
+  yellow: 'var(--rag-amber)',
+  red: 'var(--rag-red)',
   gray: 'var(--color-background-gray)',
   none: 'var(--color-background-gray)',
 };
@@ -137,28 +154,35 @@ function reporterRole(detail: WeeklyReportDetail, reporter_id: string): 'PM' | '
   return null;
 }
 
-// Mock's headline line: "Staffed 5/7 · util 102% · predictability 40% · CSS 3.60" — every
-// metric value renders in primary text; unmeasured metrics simply don't appear.
+// The old line listed three hand-picked headline metrics (util, predictability, CSS) with no band
+// beside them, so a reader could not tell whether any of the numbers was good. This carries the
+// same norm check the board card leads with — worst metric against its norm, then how far the miss
+// spreads — so opening a card continues the sentence it started instead of changing the subject.
 function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
+  const { worst, measured_count, applied_count, red_count, yellow_count } = detail.stats;
+  const seatsShort = detail.team_size != null ? detail.team_size - detail.staffed : 0;
+
+  const spread: string[] = [];
+  if (measured_count === 0) spread.push('No figures entered this week');
+  else if (red_count + yellow_count === 0) spread.push(`All ${measured_count} on norm`);
+  else spread.push(`${red_count} red and ${yellow_count} amber of ${measured_count} measured`);
+  if (measured_count > 0 && measured_count < applied_count) {
+    spread.push(`${applied_count - measured_count} still blank`);
+  }
+  if (seatsShort > 0) spread.push(`${seatsShort} seat${seatsShort === 1 ? '' : 's'} short`);
+
   return (
-    <p className="text-sm text-secondary">
-      {detail.team_size != null ? (
+    <p className="text-base text-secondary">
+      {worst && worst.computed_value !== null ? (
         <>
-          Staffed{' '}
+          <span className="font-semibold text-primary">{worst.name}</span>{' '}
           <span className="font-semibold text-primary">
-            {detail.staffed}/{detail.team_size}
+            {formatMetricValue(worst.computed_value, worst.name, worst.component_count)}
           </span>
+          {` vs norm ${formatBand(worst.name, worst.component_count, worst.green_band)} · `}
         </>
       ) : null}
-      {detail.headline_metrics.map((m) => (
-        <span key={m.label}>
-          {' · '}
-          {m.label}{' '}
-          <span className="font-semibold text-primary">
-            {formatMetricValue(m.computed_value, m.name, m.component_count)}
-          </span>
-        </span>
-      ))}
+      {spread.join(' · ')}
     </p>
   );
 }
@@ -199,13 +223,15 @@ function ReportCard({
     inputRef.current?.focus();
   };
   return (
-    <div className="space-y-3 rounded-lg bg-surface p-4">
+    <Card padding={4} className="space-y-3">
       {/* The reporter's name is the card's identity — the only bold element up here. Section
           labels below drop to eyebrows so the written content stays the loudest thing. */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {role ? <Badge variant="secondary">{role}</Badge> : null}
-          <span className="font-semibold text-primary">{entry.reporter_name ?? 'Unknown'}</span>
+          <span className="text-base font-semibold text-primary">
+            {entry.reporter_name ?? 'Unknown'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-secondary">
@@ -218,19 +244,25 @@ function ReportCard({
       {entry.executive_summary ? (
         <div className="space-y-0.5">
           <div className="text-xs uppercase tracking-wide text-secondary">Summary</div>
-          <p className="text-sm text-primary">{entry.executive_summary}</p>
+          <p className="text-base text-primary">{entry.executive_summary}</p>
         </div>
       ) : null}
       {entry.risk_issue ? (
         <div className="space-y-0.5">
           <div className="text-xs uppercase tracking-wide text-secondary">Risk / Issue</div>
-          <p className="text-sm text-primary">{entry.risk_issue}</p>
+          <p className="text-base text-primary">{entry.risk_issue}</p>
         </div>
       ) : null}
       {/* A Green entry carries no recovery plan — hide any stale Road-to-Green saved by older
           revisions so the card never shows "Green" and a recovery plan side by side. */}
       {entry.road_to_green && entry.overall_colour !== 'green' ? (
-        <div className="border-l-2 border-warning pl-3 text-sm text-secondary">
+        <div
+          className="border-l-2 pl-3 text-base text-secondary"
+          style={{
+            borderColor:
+              RAG_MARK_TOKEN[colourKey(entry.overall_colour)]?.fill ?? 'var(--color-border)',
+          }}
+        >
           <span className="font-semibold text-primary">Road to Green</span> ·{' '}
           <span className="text-primary">{entry.road_to_green}</span>
           {entry.road_to_green_owner_name ? (
@@ -239,21 +271,27 @@ function ReportCard({
               <span className="font-medium text-primary">{entry.road_to_green_owner_name}</span>
             </>
           ) : null}
-          {entry.road_to_green_due ? ` · due ${entry.road_to_green_due}` : ''}
+          {entry.road_to_green_due ? (
+            <span className="whitespace-nowrap">{` · due ${entry.road_to_green_due}`}</span>
+          ) : null}
         </div>
       ) : null}
 
       <div className="space-y-2 border-t border-border pt-3">
-        <div className="text-xs uppercase tracking-wide text-secondary">
-          Comments{entry.comments.length > 0 ? ` (${entry.comments.length})` : ''}
-        </div>
+        {/* The label earns its place only once there is a thread to name — an empty section
+            headed "Comments" above a box that already reads "Write a comment" says it twice. */}
+        {entry.comments.length > 0 ? (
+          <div className="text-xs uppercase tracking-wide text-secondary">
+            Comments ({entry.comments.length})
+          </div>
+        ) : null}
         {entry.comments.length > 0 ? (
           <div ref={threadRef} className="max-h-64 space-y-3 overflow-y-auto pr-1">
             {entry.comments.map((c) => (
               // Replies indent by one avatar column so the thread reads at a glance.
               <div key={c.id} className={`flex gap-2.5 ${c.parent_comment_id ? 'pl-9' : ''}`}>
                 <Avatar className="mt-0.5 h-7 w-7">
-                  <AvatarFallback className="bg-surface-3 text-[10px] font-medium">
+                  <AvatarFallback className="bg-muted text-xs font-medium">
                     {initials(c.author_name)}
                   </AvatarFallback>
                 </Avatar>
@@ -266,7 +304,7 @@ function ReportCard({
                       {commentWhen(c.created_at)}
                     </span>
                   </div>
-                  <p className="text-sm text-primary [overflow-wrap:anywhere]">{c.body}</p>
+                  <p className="text-base text-primary [overflow-wrap:anywhere]">{c.body}</p>
                 </div>
               </div>
             ))}
@@ -302,7 +340,7 @@ function ReportCard({
           <p className="text-xs text-secondary">Comments open once this report is submitted.</p>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -485,7 +523,7 @@ export function WeeklyReportDetailDialog({
               <div className="space-y-3">
                 <p className="text-sm text-secondary">
                   Every report is pinned to a Project + Week. Pick the project to continue — week{' '}
-                  {weekLabel(iso_year, iso_week)}.
+                  {isoWeekBase(iso_year, iso_week)}.
                 </p>
                 <div className="space-y-1">
                   <Selector
@@ -541,11 +579,12 @@ export function WeeklyReportDetailDialog({
       <Layout
         header={
           <DialogHeader
+            hasDivider
             title={
               composing
-                ? `New weekly report · ${weekLabel(iso_year, iso_week)}`
+                ? `New weekly report · ${isoWeekBase(iso_year, iso_week)}`
                 : detail
-                  ? `${detail.project_name} · ${weekLabel(iso_year, iso_week)}`
+                  ? `${detail.project_name} · ${isoWeekBase(iso_year, iso_week)}`
                   : 'Weekly report'
             }
             subtitle={
@@ -589,10 +628,12 @@ export function WeeklyReportDetailDialog({
                     <Button variant="secondary" label="Close" onClick={() => onOpenChange(false)} />
                     {seatsShort > 0 && detail.can_manage ? (
                       // A backfill answers this week's seat shortage — a past (locked) week is
-                      // read-only, so composing one there would act on stale numbers.
+                      // read-only, so composing one there would act on stale numbers. The week
+                      // also closes on Friday at 17:00, so the reason names both gates rather
+                      // than telling a reader on the current week that it is not the current one.
                       <DisabledActionTooltip
                         disabled={!detail.week_editable}
-                        reason="Backfills can only be raised for the current week."
+                        reason="Backfills can only be raised for the current week, until Friday 5:00 PM."
                       >
                         <Button
                           variant="primary"
@@ -617,7 +658,7 @@ export function WeeklyReportDetailDialog({
         content={
           <LayoutContent>
             {detailQuery.isError ? (
-              <p className="rounded-lg bg-surface px-3 py-8 text-center text-sm text-secondary">
+              <p className="rounded-lg border border-border px-3 py-8 text-center text-sm text-secondary">
                 {(detailQuery.error as Error).message ||
                   'This report could not be loaded — you may not have access to this week.'}
               </p>
@@ -633,57 +674,61 @@ export function WeeklyReportDetailDialog({
                 {/* Same treatment as the list cards: StatusDot + full pillar name, off-norm
                     pillars weight their name. */}
                 {!composing ? (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    {detail.flags.map((f) => {
-                      const off =
-                        f.final_colour !== null &&
-                        f.final_colour !== 'green' &&
-                        f.final_colour !== 'gray';
-                      const key = colourKey(f.final_colour);
-                      const name =
-                        KPI_CATEGORY_LABELS[f.category].split(' — ')[1] ??
-                        KPI_CATEGORY_LABELS[f.category];
-                      return (
-                        <span
-                          key={f.category}
-                          className="flex items-center gap-1.5 text-sm"
-                          title={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
-                        >
-                          <StatusDot
-                            variant={COLOUR_VARIANT[key]}
-                            label={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
-                          />
-                          <span className={off ? 'font-semibold text-primary' : 'text-secondary'}>
-                            {name}
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      {detail.flags.map((f) => {
+                        const off =
+                          f.final_colour !== null &&
+                          f.final_colour !== 'green' &&
+                          f.final_colour !== 'gray';
+                        const key = colourKey(f.final_colour);
+                        const name =
+                          KPI_CATEGORY_LABELS[f.category].split(' — ')[1] ??
+                          KPI_CATEGORY_LABELS[f.category];
+                        return (
+                          <span
+                            key={f.category}
+                            className="flex items-center gap-1.5 text-sm"
+                            title={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
+                          >
+                            <StatusDot
+                              variant={COLOUR_VARIANT[key]}
+                              label={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
+                              style={markStyle(key)}
+                            />
+                            <span className={off ? 'font-semibold text-primary' : 'text-secondary'}>
+                              {name}
+                            </span>
                           </span>
-                        </span>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    {/* Trend closes the pillar row on the right: both read the same week, so they
+                        belong on one line — the pillars say where it hurts, the pips say whether
+                        it has been hurting. */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs uppercase tracking-wide text-secondary">Trend</span>
+                      {/* One segmented strip, not five dots: a StatusDot on this row means "a
+                          pillar is off", and a run of weeks must not borrow that mark. Oldest
+                          week left, the viewed week last — the title already names it, so the
+                          strip needs no "you are here" mark of its own. */}
+                      <span className="flex gap-px overflow-hidden rounded-sm">
+                        {[...detail.trend].reverse().map((t, i, arr) => (
+                          <span
+                            key={`${t.iso_year}-${t.iso_week}`}
+                            className="inline-block h-2.5 w-4"
+                            style={{ backgroundColor: TREND_FILL[colourKey(t.colour)] }}
+                            title={`${isoWeekBase(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[colourKey(t.colour)]}${
+                              i === arr.length - 1 ? ' (this week)' : ''
+                            }`}
+                          />
+                        ))}
+                      </span>
+                    </div>
                   </div>
                 ) : null}
 
-                {/* Delivery pulse + the week-over-week trend, on one balanced row. */}
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <StatsLine detail={detail} />
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs uppercase tracking-wide text-secondary">Trend</span>
-                    {[...detail.trend].reverse().map((t, i, arr) => (
-                      <span
-                        key={`${t.iso_year}-${t.iso_week}`}
-                        // The last square is the week being viewed — an inset ring marks
-                        // "you are here" without adding a label. Inset (not offset) keeps the
-                        // ring inside the box so the scroll container can't clip its top edge.
-                        className={`inline-block size-3.5 rounded-full${
-                          i === arr.length - 1 ? ' ring-2 ring-inset ring-primary/40' : ''
-                        }`}
-                        style={{ backgroundColor: TREND_FILL[colourKey(t.colour)] }}
-                        title={`${weekLabel(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[colourKey(t.colour)]}${
-                          i === arr.length - 1 ? ' (this week)' : ''
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <StatsLine detail={detail} />
 
                 {/* Composing is a focused view (mock: the submit modal is just the form) — the
                 submitted reports and their comment threads only render in the read view. */}
@@ -692,13 +737,13 @@ export function WeeklyReportDetailDialog({
                   // week's report gets the composer one click away, right where the gap is.
                   // Quieter than the shared EmptyState on purpose — inside a dialog the empty
                   // slot is a hint, not a hero: caption-scale type and a hairline button.
-                  <div className="flex flex-col items-center rounded-lg bg-surface px-3 py-8 text-center">
+                  <div className="flex flex-col items-center rounded-lg border border-border px-3 py-8 text-center">
                     <CalendarDays className="mb-2 h-5 w-5 text-secondary" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-primary">No reports yet</p>
                     <p className="mt-0.5 text-xs text-secondary">
                       {detail.can_manage && detail.week_editable
-                        ? `Reports for ${weekLabel(iso_year, iso_week)} stay open until Friday 5:00 PM.`
-                        : `No one submitted a report for ${weekLabel(iso_year, iso_week)}.`}
+                        ? `Reports for ${isoWeekBase(iso_year, iso_week)} stay open until Friday 5:00 PM.`
+                        : `No one submitted a report for ${isoWeekBase(iso_year, iso_week)}.`}
                     </p>
                     {canCompose ? (
                       <Button
@@ -726,9 +771,9 @@ export function WeeklyReportDetailDialog({
                 {formOpen && detail.can_manage && !detail.week_editable ? (
                   // Epic 3: flags are set for the current week only and lock Friday 5:00 PM (VNT).
                   // Past/future weeks stay readable and commentable.
-                  <p className="rounded-lg bg-surface px-3 py-4 text-center text-sm text-secondary">
-                    {weekLabel(iso_year, iso_week)} is locked — reports cover the current week only
-                    and close at Friday 5:00 PM.
+                  <p className="rounded-lg border border-border px-3 py-4 text-center text-sm text-secondary">
+                    {isoWeekBase(iso_year, iso_week)} is locked — reports cover the current week
+                    only and close at Friday 5:00 PM.
                   </p>
                 ) : null}
 

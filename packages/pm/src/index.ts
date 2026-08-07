@@ -18,7 +18,11 @@ export {
   linkPlannerGroup,
   reopenProject,
 } from './backend/domain/edit-project.ts';
-export { getCurrentIsoWeek, setWeeklyReportClock } from './backend/domain/iso-week.ts';
+export {
+  getCurrentIsoWeek,
+  isWeekEditable,
+  setWeeklyReportClock,
+} from './backend/domain/iso-week.ts';
 export type { AppliedMetricCoverage } from './backend/domain/kpi-applied-metrics.ts';
 export { listAppliedMetrics, setAppliedMetric } from './backend/domain/kpi-applied-metrics.ts';
 export type { KpiNormDoc, KpiNormMetricRow } from './backend/domain/kpi-norm.ts';

@@ -13,6 +13,7 @@ import { seedOrgStructure } from './phase-org-structure.ts';
 import { seedPeopleIdentity } from './phase-people-identity.ts';
 import { seedPlanner } from './phase-planner.ts';
 import { seedPm } from './phase-pm.ts';
+import { seedPmWeekly } from './phase-pm-weekly.ts';
 import { seedSkillCatalog } from './phase-skills.ts';
 
 const log = pino({ name: 'cli/seed-fixture' });
@@ -127,6 +128,9 @@ export async function seedFixtureCommand(opts: {
 
     await seedEdgeCases(session, people, fx.employees);
     log.info('phase: edge-cases done');
+
+    await seedPmWeekly(session, pm.projectByCode, pm.pmByCode);
+    log.info('phase: pm-weekly done');
   } else {
     log.info('phases hiring + edge-cases skipped (demo-only; pass --demo to include)');
   }

@@ -293,7 +293,7 @@ export function computeMetricValue(
   return component_1_value / component_2_value;
 }
 
-function bandThresholds(cond: BandCondition, out: number[] = []): number[] {
+export function bandThresholds(cond: BandCondition, out: number[] = []): number[] {
   switch (cond.op) {
     case 'between':
       out.push(cond.min, cond.max);
@@ -452,6 +452,135 @@ export function evaluateBand(cond: BandCondition, value: number): boolean {
     case 'and':
       return cond.conditions.every((c) => evaluateBand(c, value));
   }
+}
+
+const relativeGap = (gap: number, threshold: number): number => gap / (Math.abs(threshold) || 1);
+
+/** How far outside its green band a value sits, as a fraction of the threshold it missed — so a
+ * defect rate and a delivery ratio can be ranked against each other. `0` inside the band. A zero
+ * threshold has no scale to divide by, so the raw gap stands in. */
+export function bandMiss(green_band: BandCondition, value: number): number {
+  switch (green_band.op) {
+    case 'gte':
+    case 'gt':
+      return value >= green_band.value
+        ? 0
+        : relativeGap(green_band.value - value, green_band.value);
+    case 'lte':
+    case 'lt':
+      return value <= green_band.value
+        ? 0
+        : relativeGap(value - green_band.value, green_band.value);
+    case 'eq':
+      return value === green_band.value
+        ? 0
+        : relativeGap(Math.abs(value - green_band.value), green_band.value);
+    case 'between':
+      if (value < green_band.min) return relativeGap(green_band.min - value, green_band.min);
+      if (value > green_band.max) return relativeGap(value - green_band.max, green_band.max);
+      return 0;
+    case 'or':
+      return Math.min(...green_band.conditions.map((c) => bandMiss(c, value)));
+    case 'and':
+      return Math.max(...green_band.conditions.map((c) => bandMiss(c, value)));
+  }
+}
+
+export interface RankableMetric {
+  metric_id: string;
+  sort_order: number;
+  green_band: BandCondition;
+  status: RagStatus | null;
+  computed_value: number | null;
+}
+
+/** The metric dragging the week's health down the most: red outranks yellow because the bands
+ * already declared it worse, then the largest `bandMiss`, then catalogue order so the pick never
+ * flickers between two equal misses. `null` when nothing measured is off norm. */
+export function pickWorstMetric<T extends RankableMetric>(defs: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestRank = -1;
+  let bestMiss = -1;
+  for (const def of defs) {
+    if (def.computed_value === null) continue;
+    const rank = def.status === 'red' ? 2 : def.status === 'yellow' ? 1 : 0;
+    if (rank === 0) continue;
+    const miss = bandMiss(def.green_band, def.computed_value);
+    if (
+      rank > bestRank ||
+      (rank === bestRank &&
+        (miss > bestMiss ||
+          (miss === bestMiss && best !== null && def.sort_order < best.sort_order)))
+    ) {
+      best = def;
+      bestRank = rank;
+      bestMiss = miss;
+    }
+  }
+  return best;
+}
+
+export interface BandedMetric extends KpiEntryRules {
+  green_band: BandCondition;
+  yellow_band: BandCondition;
+  red_band: BandCondition;
+}
+
+export interface KpiFigures {
+  component_1_value: number;
+  component_2_value: number | null;
+}
+
+/** Component figures that score a metric into the wanted band — what a demo seeder needs to put a
+ * project on a known colour. Rather than invert each band shape, it proposes values around the
+ * band's own thresholds and asks the same scoring path the domain uses, so seeded data can never
+ * disagree with what the board computes. `null` when no candidate lands there (a band the entry
+ * rules make unreachable, e.g. a share metric whose green band needs a ratio above 1). */
+export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFigures | null {
+  const precision = kpiValuePrecision(metric.green_band, metric.yellow_band, metric.red_band);
+  const marks = [
+    ...bandThresholds(metric.green_band),
+    ...bandThresholds(metric.yellow_band),
+    ...bandThresholds(metric.red_band),
+  ];
+  const step = 10 ** -precision;
+  const values = new Set<number>([0, step, 1]);
+  for (const mark of marks) {
+    for (const offset of [-2 * step, -step, 0, step, 2 * step]) values.add(mark + offset);
+    for (const factor of [0, 0.2, 0.5, 0.8, 0.9, 1.1, 1.2, 1.5, 2, 3, 5]) values.add(mark * factor);
+  }
+
+  // Negatives are candidates too: a lead-time metric is green precisely when it goes below zero.
+  // Only the entry rules get to reject a value, never a guess about what "sensible" looks like.
+  for (const raw of [...values].sort((a, b) => a - b)) {
+    const value = Math.round(raw * 10 ** precision) / 10 ** precision;
+    if (!Number.isFinite(value)) continue;
+
+    const denominator = metric.component_count === 2 ? 100 : null;
+    const component_1_value =
+      denominator === null
+        ? value
+        : Math.round(value * denominator * 10 ** precision) / 10 ** precision;
+    if (metric.component_1_integer && !Number.isInteger(component_1_value)) continue;
+
+    const issues = validateKpiEntry(metric, component_1_value, denominator);
+    if (issues.component_1 !== null || issues.component_2 !== null) continue;
+
+    const computed = computeScoredValue(
+      metric.component_count,
+      component_1_value,
+      denominator,
+      precision,
+    );
+    const status = computeEntryStatus(
+      computed,
+      metric.green_band,
+      metric.yellow_band,
+      metric.red_band,
+    );
+    if (status === target) return { component_1_value, component_2_value: denominator };
+  }
+  return null;
 }
 
 /** `null` when the metric has no value yet (not entered) — distinct from a real red/yellow/green

@@ -4,6 +4,7 @@
 // keeps the backend-only OHS scoring.
 export {
   type BandCondition,
+  bandMiss,
   computeCategoryHealth,
   computeEntryStatus,
   computeMetricValue,
@@ -11,7 +12,9 @@ export {
   computeScoredValue,
   evaluateBand,
   kpiValuePrecision,
+  pickWorstMetric,
   type RagStatus,
+  type RankableMetric,
   worstStatus,
 } from '../../contracts.ts';
 

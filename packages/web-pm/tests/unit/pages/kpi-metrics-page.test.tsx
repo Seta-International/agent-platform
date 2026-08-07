@@ -270,7 +270,7 @@ describe('KpiMetricsPage — entry actions', () => {
     });
     renderPage();
 
-    expect(await screen.findByText('Acme Billing Revamp · 2026-W-32')).toBeInTheDocument();
+    expect(await screen.findByText('Acme Billing Revamp · 2026-W32')).toBeInTheDocument();
   });
 
   it('points at the row action instead of a banner button when nothing is entered', async () => {

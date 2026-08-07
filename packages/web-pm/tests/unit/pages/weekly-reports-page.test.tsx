@@ -157,3 +157,108 @@ describe('WeeklyReportsPage — detail deep link', () => {
     );
   });
 });
+
+const offNormCard: WeeklyReportCard = {
+  ...card,
+  overall_colour: 'red',
+  category_colours: { quality: 'red', cost_capacity: 'green', delivery: 'red', process: 'yellow' },
+  stats: {
+    applied_count: 14,
+    measured_count: 12,
+    yellow_count: 2,
+    red_count: 3,
+    worst: {
+      metric_id: 'm-pred',
+      name: 'Release Predictability',
+      computed_value: 0.62,
+      component_count: 2,
+      green_band: { op: 'gte', value: 0.85 },
+      status: 'red',
+    },
+  },
+  report_count: 4,
+};
+
+describe('WeeklyReportsPage — norm-check line', () => {
+  beforeEach(() => {
+    routerState.search = { iso_year: 2026, iso_week: 32 };
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  it('names the worst metric with the norm it missed and how many metrics are off', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue([offNormCard]);
+    renderPage();
+
+    expect(await screen.findByText('Release Predictability')).toBeInTheDocument();
+    expect(screen.getByText('62%')).toBeInTheDocument();
+    expect(screen.getByText(/norm ≥ 85%/)).toBeInTheDocument();
+    expect(screen.getByText(/3 red · 2 amber/)).toBeInTheDocument();
+    expect(screen.getByText('12/14 metrics · 4 reports')).toBeInTheDocument();
+  });
+
+  it('stays quiet when every measured metric is on norm', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue([
+      { ...card, stats: { ...card.stats, applied_count: 6, measured_count: 6 }, report_count: 2 },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText('All on norm')).toBeInTheDocument();
+    expect(screen.getByText('6/6 metrics · 2 reports')).toBeInTheDocument();
+  });
+
+  it('says nothing was measured instead of showing a zero', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue([
+      {
+        ...card,
+        overall_colour: null,
+        category_colours: {
+          quality: null,
+          cost_capacity: null,
+          delivery: null,
+          process: null,
+        },
+        stats: { applied_count: 11, measured_count: 0, yellow_count: 0, red_count: 0, worst: null },
+        staffed: 3,
+        team_size: 4,
+        report_count: 0,
+      },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText('No figures this week')).toBeInTheDocument();
+    expect(screen.getByText('Staffed 3/4 · click to write one')).toBeInTheDocument();
+  });
+
+  it('drops the staffing hint when the charter has no team size', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue([
+      {
+        ...card,
+        stats: { applied_count: 11, measured_count: 0, yellow_count: 0, red_count: 0, worst: null },
+        team_size: null,
+        report_count: 0,
+      },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText('click to write one')).toBeInTheDocument();
+  });
+
+  it('does not invite a reader who cannot write the report', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue([
+      {
+        ...card,
+        stats: { applied_count: 11, measured_count: 0, yellow_count: 0, red_count: 0, worst: null },
+        staffed: 3,
+        team_size: 4,
+        report_count: 0,
+        can_manage: false,
+      },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText('Staffed 3/4 · no report yet')).toBeInTheDocument();
+  });
+});

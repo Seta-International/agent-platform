@@ -28,7 +28,12 @@ import {
   type ReportColour,
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import { formatMetricValue, KPI_CATEGORIES, KPI_CATEGORY_LABELS } from './kpi-shared.tsx';
+import {
+  formatBand,
+  formatMetricValue,
+  KPI_CATEGORIES,
+  KPI_CATEGORY_LABELS,
+} from './kpi-shared.tsx';
 import { usePmContext } from './use-pm-context.ts';
 import { WeeklyReportDetailDialog } from './weekly-report-detail-dialog.tsx';
 
@@ -58,6 +63,24 @@ const COLOUR_LABEL: Record<ColourKey, string> = {
   red: 'Red',
   gray: 'No data',
   none: 'Not assessed',
+};
+// Shapes (dots, verdict badge, the accent rule) all paint from the shared --rag-* palette in
+// shared-ui/styles/globals.css, so one red and one amber run across the board, the detail dialog
+// and Astryx's own status dots.
+const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
+  green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
+  yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
+  red: { fill: 'var(--rag-red)', on: 'var(--rag-on-red)' },
+  gray: null,
+  none: null,
+};
+const markStyle = (key: ColourKey) => {
+  const token = RAG_MARK_TOKEN[key];
+  return token ? { backgroundColor: token.fill } : undefined;
+};
+const badgeStyle = (key: ColourKey) => {
+  const token = RAG_MARK_TOKEN[key];
+  return token ? { backgroundColor: token.fill, color: token.on } : undefined;
 };
 // Colour budget: status colour appears only as small marks (dots, one verdict badge per card).
 // Large chromatic surfaces made the board shout — Green is the norm and must stay quiet.
@@ -238,7 +261,11 @@ export function WeeklyReportsPage() {
                   <Card key={key} padding={3} className="min-w-[128px] flex-1">
                     <span className="block text-3xl font-bold text-primary">{summary[key]}</span>
                     <span className="flex items-center gap-1.5">
-                      <StatusDot variant={COLOUR_VARIANT[key]} label={COLOUR_LABEL[key]} />
+                      <StatusDot
+                        variant={COLOUR_VARIANT[key]}
+                        label={COLOUR_LABEL[key]}
+                        style={markStyle(key)}
+                      />
                       <Text type="supporting" color="secondary">
                         {COLOUR_LABEL[key]}
                       </Text>
@@ -264,17 +291,22 @@ export function WeeklyReportsPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {cards.map((card) => {
                   const overall = card.overall_colour;
-                  // Delivery pulse as label/value pairs: staffing first, then the week's
-                  // headline metrics, formatted the same way their norm bands are.
-                  const pulse = [
-                    ...(card.team_size != null
-                      ? [{ label: 'Staffed', value: `${card.staffed}/${card.team_size}` }]
-                      : []),
-                    ...card.headline_metrics.map((m) => ({
-                      label: m.label,
-                      value: formatMetricValue(m.computed_value, m.name, m.component_count),
-                    })),
-                  ];
+                  const { worst, measured_count, applied_count, red_count, yellow_count } =
+                    card.stats;
+                  // Coverage answers "is this week's data in yet", the report count answers "has
+                  // anyone written about it" — a card with neither still says which is missing.
+                  const coverage =
+                    measured_count > 0
+                      ? `${measured_count}/${applied_count} metrics`
+                      : card.team_size != null
+                        ? `Staffed ${card.staffed}/${card.team_size}`
+                        : null;
+                  const reportsPart =
+                    card.report_count > 0
+                      ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
+                      : card.can_manage && !isPastWeek
+                        ? 'click to write one'
+                        : 'no report yet';
                   return (
                     <ClickableCard
                       key={card.project_id}
@@ -297,13 +329,14 @@ export function WeeklyReportsPage() {
                           <Badge
                             variant={COLOUR_VARIANT[colourKey(overall)]}
                             label={COLOUR_LABEL[colourKey(overall)]}
+                            style={badgeStyle(colourKey(overall))}
                           />
                         </span>
                       </div>
 
                       {/* QCDP pillars — full names with a small status dot each; colour stays a
                           mark, not a surface. An off-norm pillar weights its name. */}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1.5">
                         {KPI_CATEGORIES.map((cat) => {
                           const colour = card.category_colours[cat];
                           const key = colourKey(colour);
@@ -319,11 +352,12 @@ export function WeeklyReportsPage() {
                               <StatusDot
                                 variant={COLOUR_VARIANT[key]}
                                 label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
+                                style={markStyle(key)}
                               />
                               <Text
                                 type="supporting"
                                 color={off ? 'primary' : 'secondary'}
-                                weight={off ? 'semibold' : 'normal'}
+                                weight={off ? 'medium' : 'normal'}
                               >
                                 {name}
                               </Text>
@@ -332,42 +366,59 @@ export function WeeklyReportsPage() {
                         })}
                       </div>
 
-                      {/* Delivery pulse — staffing + the week's util / predictability / CSS as
-                          small label-over-value stat cards; replaces the executive summary. */}
-                      {pulse.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {/* Muted tiles: no border inside the bordered ClickableCard, so the
-                              stats read as one quiet band rather than four nested boxes. */}
-                          {pulse.map((m) => (
-                            <div key={m.label} title={m.label}>
-                              <Card variant="muted" padding={2} height="100%">
-                                <Text
-                                  type="supporting"
-                                  color="secondary"
-                                  display="block"
-                                  maxLines={1}
-                                  className="capitalize"
-                                >
-                                  {m.label}
+                      {/* Norm-check line: the metric furthest outside its band and the norm it
+                          missed. A bare value can't be read without the band, so the two always
+                          travel together — and the value leads, because it is what the board is
+                          scanned for. */}
+                      {worst ? (
+                        <div className="flex gap-2.5">
+                          <span
+                            aria-hidden
+                            className="w-[3px] shrink-0 rounded-full"
+                            style={markStyle(worst.status)}
+                          />
+                          <div className="min-w-0">
+                            <span className="flex min-w-0 items-baseline gap-1.5">
+                              {worst.computed_value === null ? null : (
+                                <Text size="lg" weight="bold">
+                                  {formatMetricValue(
+                                    worst.computed_value,
+                                    worst.name,
+                                    worst.component_count,
+                                  )}
                                 </Text>
-                                <Text type="label" weight="semibold" display="block">
-                                  {m.value}
-                                </Text>
-                              </Card>
-                            </div>
-                          ))}
+                              )}
+                              <Text type="label" weight="semibold" maxLines={1} className="min-w-0">
+                                {worst.name}
+                              </Text>
+                            </span>
+                            <Text type="supporting" color="secondary" display="block">
+                              {`norm ${formatBand(worst.name, worst.component_count, worst.green_band)}`}
+                            </Text>
+                          </div>
                         </div>
-                      ) : null}
-
-                      {/* Footer — the report count, or the invitation to write one. */}
-                      <div className="mt-auto flex items-center justify-end pt-3">
-                        <Text type="supporting" color="secondary">
-                          {card.report_count > 0
-                            ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
-                            : card.can_manage && !isPastWeek
-                              ? 'No report yet — click to write one'
-                              : 'No report yet'}
+                      ) : (
+                        <Text type="supporting" color="secondary" display="block">
+                          {measured_count > 0 ? 'All on norm' : 'No figures this week'}
                         </Text>
+                      )}
+
+                      {/* Footer — every count that is about the card rather than the one metric
+                          above: how wide the miss goes, how much of the week is in, and whether
+                          anyone wrote it up. */}
+                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+                        <span className="min-w-0">
+                          {worst ? (
+                            <Text type="supporting" color="secondary" maxLines={1}>
+                              {`${red_count} red · ${yellow_count} amber`}
+                            </Text>
+                          ) : null}
+                        </span>
+                        <span className="shrink-0">
+                          <Text type="supporting" color="secondary">
+                            {coverage ? `${coverage} · ${reportsPart}` : reportsPart}
+                          </Text>
+                        </span>
                       </div>
                     </ClickableCard>
                   );

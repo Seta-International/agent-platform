@@ -36,6 +36,7 @@ import {
   computeCategoryHealth,
   computeOhs,
   computePillarScore,
+  pickWorstMetric,
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
@@ -144,14 +145,16 @@ export interface WeekStats {
   measured_count: number;
   yellow_count: number;
   red_count: number;
-  /** Metric dragging health down the most: first red by sort_order, else first yellow.
-   * component_count rides along so the UI can format the value the same way Explorer does
-   * (percentage vs plain number). */
+  /** Metric dragging health down the most — see `pickWorstMetric`. `green_band` and
+   * `component_count` ride along so the card can print the norm it missed and format the value
+   * the same way Explorer does (percentage vs plain number). */
   worst: {
     metric_id: string;
     name: string;
     computed_value: number | null;
     component_count: 1 | 2;
+    green_band: BandCondition;
+    status: RagStatus;
   } | null;
 }
 
@@ -179,23 +182,18 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
   let measured = 0;
   let yellow = 0;
   let red = 0;
-  let worstRed: ProjectDef | null = null;
-  let worstYellow: ProjectDef | null = null;
+  const rankable: (ProjectDef & { status: RagStatus; computed_value: number | null })[] = [];
   const sorted = [...defs].sort((a, b) => a.sort_order - b.sort_order);
   for (const def of sorted) {
-    const status = entryByMetric.get(def.metric_id)?.status ?? null;
+    const entry = entryByMetric.get(def.metric_id);
+    const status = entry?.status ?? null;
     if (status === null) continue;
     measured += 1;
     byCategory[def.category].push(status);
     if (def.tier === 'core') coreByCategory[def.category].push(status);
-    if (status === 'yellow') {
-      yellow += 1;
-      worstYellow ??= def;
-    }
-    if (status === 'red') {
-      red += 1;
-      worstRed ??= def;
-    }
+    if (status === 'yellow') yellow += 1;
+    if (status === 'red') red += 1;
+    rankable.push({ ...def, status, computed_value: entry?.computed_value ?? null });
   }
   const category_colours = {
     quality: computeCategoryHealth(byCategory.quality),
@@ -206,7 +204,7 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
   const overall_colour = worstColour(
     CATEGORIES.map((c) => category_colours[c]),
   ) as RagStatus | null;
-  const worstDef = worstRed ?? worstYellow;
+  const worstDef = pickWorstMetric(rankable);
   const ohs = computeOhs({
     quality: computePillarScore(coreByCategory.quality),
     cost_capacity: computePillarScore(coreByCategory.cost_capacity),
@@ -225,8 +223,10 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
         ? {
             metric_id: worstDef.metric_id,
             name: worstDef.name,
-            computed_value: entryByMetric.get(worstDef.metric_id)?.computed_value ?? null,
+            computed_value: worstDef.computed_value,
             component_count: worstDef.component_count,
+            green_band: worstDef.green_band,
+            status: worstDef.status,
           }
         : null,
     },

@@ -252,13 +252,17 @@ export function isoWeekOf(date: Date): { iso_year: number; iso_week: number } {
 
 /** Week label with its lifecycle mark (FUT-589 AC4): only the current week is marked —
  * closed weeks stay bare; the warning banner in the entry dialog already says view-only. */
+export function isoWeekBase(iso_year: number, iso_week: number): string {
+  return `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
+}
+
 export function isoWeekLabel(
   iso_year: number,
   iso_week: number,
   current: { iso_year: number; iso_week: number },
 ): string {
   const isCurrent = iso_year === current.iso_year && iso_week === current.iso_week;
-  const base = `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
+  const base = isoWeekBase(iso_year, iso_week);
   return isCurrent ? `${base} (current)` : base;
 }
 
