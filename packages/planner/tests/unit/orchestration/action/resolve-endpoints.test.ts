@@ -35,7 +35,7 @@ describe('resolveTwoEndpoints', () => {
   it('resolves both refs and gates BOTH groups in one call', async () => {
     const port = {
       readEndpoint: vi.fn(async ({ taskId }: { taskId: string }) => snap(taskId, taskId)),
-      assertCanLink: vi.fn(async () => {}),
+      assertCanLink: vi.fn(async (_args: { groupIds: string[] }) => {}),
     };
     const out = await resolveTwoEndpoints({
       port: port as never,
