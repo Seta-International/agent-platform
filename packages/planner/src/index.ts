@@ -105,7 +105,6 @@ export {
   resolvePlanConflicts,
 } from './backend/domain/resolve-plan-conflicts.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
-
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
 export type { CandidateRow } from './backend/domain/search-users-by-skills.ts';
@@ -125,6 +124,7 @@ export { unarchivePlan } from './backend/domain/unarchive-plan.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
 export { unlinkGroupFromM365 } from './backend/domain/unlink-group-from-m365.ts';
 export { unlinkPlanFromM365 } from './backend/domain/unlink-plan-from-m365.ts';
+export { unlinkTasks } from './backend/domain/unlink-tasks.ts';
 export { updateBucket } from './backend/domain/update-bucket.ts';
 export { updateChecklistItem } from './backend/domain/update-checklist-item.ts';
 export { updateComment } from './backend/domain/update-comment.ts';
