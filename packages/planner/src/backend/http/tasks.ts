@@ -32,6 +32,7 @@ import {
   suggestTaskAssignees,
   unapplyLabel,
   unassignTask,
+  unlinkTasks,
   updateChecklistItem,
   updateComment,
   updateTask,
@@ -410,6 +411,16 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
       url: parsed.data.url,
       session,
     });
+    return c.body(null, 204);
+  });
+
+  // A standalone child, addressed by its own id — the convention `DELETE
+  // /comments/:id` and `DELETE /checklist-items/:id` already follow. There is no
+  // task id in the path, because the domain function does not need one and a
+  // redundant segment would need its own consistency check.
+  app.delete('/api/planner/v1/task-links/:linkId', async (c) => {
+    const session = c.get('user');
+    await unlinkTasks({ link_id: c.req.param('linkId'), session });
     return c.body(null, 204);
   });
 
