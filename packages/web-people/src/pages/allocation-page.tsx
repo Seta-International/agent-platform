@@ -88,7 +88,7 @@ function heatStyle(v: number | null | undefined): CSSProperties {
 
 function formatLoad(pct: number): string {
   const frac = pct / 100;
-  return Number.isInteger(frac) ? frac.toFixed(1) : String(frac);
+  return Number.isInteger(frac) ? frac.toFixed(1) : String(Number(frac.toFixed(2)));
 }
 
 const HEAT_LEVELS = [
