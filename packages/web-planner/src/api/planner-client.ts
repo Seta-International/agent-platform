@@ -715,6 +715,12 @@ async function removeTaskReference(input: { task_id: string; url: string }): Pro
   });
 }
 
+/** Addressed by the link's OWN id — the standalone-child convention the API uses
+ *  for comments and checklist items. */
+async function unlinkTask(input: { link_id: string }): Promise<void> {
+  await request<void>(`/api/planner/v1/task-links/${input.link_id}`, { method: 'DELETE' });
+}
+
 async function setTaskAssignees(input: {
   task_id: string;
   assignees: Array<{ user_id: string; order_hint?: string }>;
@@ -1038,6 +1044,7 @@ export const plannerClient = {
   unassignTask,
   addTaskReference,
   removeTaskReference,
+  unlinkTask,
   setTaskAssignees,
   setAssigneePriority,
   listMyTasks,
