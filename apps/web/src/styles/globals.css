@@ -10,3 +10,11 @@
   --fc-event-text-color: inherit;
   --fc-daygrid-event-dot-width: 0px;
 }
+
+/* FUT-830: Display toast notifications above modal dialogs */
+div[popover][role="region"]:not(#\#):not(#\#):not(#\#),
+[role="region"][aria-label*="toast" i]:not(#\#):not(#\#):not(#\#),
+[role="region"][aria-label*="Toast" i]:not(#\#):not(#\#):not(#\#) {
+  z-index: 999999 !important;
+}
+
