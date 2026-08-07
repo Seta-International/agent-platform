@@ -3,13 +3,13 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { plannerDb, taskReferences } from '../../../../../src/backend/db/index.ts';
+import { plannerDb, taskLinks, taskReferences } from '../../../../../src/backend/db/index.ts';
 import { linkToExisting } from '../../../../../src/backend/workflows/dedup-on-create/steps/link-to-existing.ts';
 import { createGroup, createPlan, createTask } from '../../../../../src/index.ts';
 import { seedTenant } from '../../../../helpers.ts';
 
 describe('linkToExisting', () => {
-  it('adds a task_reference on the new task pointing to the existing task', async () => {
+  it('writes a task_link on the new task pointing to the existing task', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -40,19 +40,27 @@ describe('linkToExisting', () => {
             session,
           });
 
+          // The output contract is UNCHANGED, so workflow.ts and its tests need
+          // no reshaping — this is the mandatory regression.
           expect(out.kind).toBe('linked');
           if (out.kind !== 'linked') throw new Error('unreachable');
           expect(out.taskId).toBe(newTask.id);
           expect(out.linkedTo).toEqual([existing.id]);
 
+          const links = await plannerDb()
+            .select()
+            .from(taskLinks)
+            .where(eq(taskLinks.source_task_id, newTask.id));
+          expect(links).toHaveLength(1);
+          expect(links[0]).toMatchObject({ target_task_id: existing.id, kind: 'relates' });
+
+          // No URL is written any more: the identity of a domain relationship is
+          // no longer a route path that rots when the target moves plan.
           const refs = await plannerDb()
             .select()
             .from(taskReferences)
             .where(eq(taskReferences.task_id, newTask.id));
-          expect(refs).toHaveLength(1);
-          expect(refs[0]?.url).toBe(`/planner/plans/${plan.id}/tasks/${existing.id}`);
-          expect(refs[0]?.type).toBe('link');
-          expect(refs[0]?.alias).toContain('Related');
+          expect(refs).toHaveLength(0);
         } finally {
           resetCoreDb();
           await closePools();
