@@ -78,6 +78,20 @@ describe('dayFractionRange', () => {
       end: 1.5,
     });
   });
+
+  it('handles open-ended segments (date_to = null)', () => {
+    const multiMonths = ['2026-08', '2026-09'];
+    // 16 Aug to null -> start 0.4838..., end 2
+    const res = dayFractionRange(multiMonths, '2026-08-16', null);
+    expect(res.start).toBeGreaterThan(0.4);
+    expect(res.end).toBe(2);
+  });
+
+  it('clamps dates outside the chart range', () => {
+    const months = ['2026-09'];
+    expect(dayFractionRange(months, '2020-01-01', '2026-09-15')).toEqual({ start: 0, end: 0.5 });
+    expect(dayFractionRange(months, '2026-09-16', '2030-12-31')).toEqual({ start: 0.5, end: 1 });
+  });
 });
 
 describe('todayFraction', () => {
