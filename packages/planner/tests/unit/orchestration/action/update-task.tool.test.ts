@@ -46,11 +46,19 @@ function build(
       taskIds.map((id) => snapshots.find((s) => s.taskId === id) ?? snap({ taskId: id })),
     ),
   };
+  // The parameters are declared even where the body ignores them: without them
+  // `mock.calls[0][0]` is a zero-length tuple and the assertions below stop
+  // typechecking.
   const taskUpdate = {
-    assertCanUpdateMany: vi.fn(over.assertCanUpdateMany ?? (async () => {})),
+    assertCanUpdateMany: vi.fn(
+      over.assertCanUpdateMany ?? (async (_args: { groupIds: string[] }) => {}),
+    ),
     updateMany: vi.fn(
       over.updateMany ??
-        (async () => ({ taskIds: snapshots.map((s) => s.taskId), replayed: false })),
+        (async (_args: { targets: unknown[] }) => ({
+          taskIds: snapshots.map((s) => s.taskId),
+          replayed: false,
+        })),
     ),
   };
   const tool = makeUpdateTaskTool({
