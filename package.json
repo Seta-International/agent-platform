@@ -46,7 +46,7 @@
     "golden:facts:promote": "tsx scripts/dev/golden-facts.ts promote"
   },
   "devDependencies": {
-    "@astryxdesign/cli": "^0.1.8",
+    "@astryxdesign/cli": "^0.3.0",
     "@biomejs/biome": "^2.5.5",
     "@commitlint/cli": "^21.2.1",
     "@commitlint/config-conventional": "^21.2.0",

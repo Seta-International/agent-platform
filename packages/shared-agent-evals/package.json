@@ -12,8 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mastra/core": "^1.52.1",
-    "@mastra/evals": "^1.6.0",
+    "@mastra/core": "^1.57.0",
+    "@mastra/evals": "^1.7.0",
     "@seta/agent-sdk": "workspace:^",
     "ai": "^7.0.35",
     "zod": "^4.4.3"

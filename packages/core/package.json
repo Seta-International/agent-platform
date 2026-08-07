@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.0",
-    "@mastra/core": "^1.52.1",
+    "@mastra/core": "^1.57.0",
     "@opentelemetry/api": "^1.9.1",
     "@seta/agent-sdk": "workspace:^",
     "@seta/shared-db": "workspace:^",

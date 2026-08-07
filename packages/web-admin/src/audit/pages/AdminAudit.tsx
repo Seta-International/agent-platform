@@ -458,7 +458,7 @@ export function AdminAudit({
           if (!o) setDetailRow(null);
         }}
         purpose="info"
-        position={{ top: 0, right: 0, bottom: 0 }}
+        position={{ top: 0, end: 0, bottom: 0 }}
         width={640}
         maxHeight="100dvh"
         aria-label={detailRow ? `Event detail: ${detailRow.event_type}` : 'Event detail'}

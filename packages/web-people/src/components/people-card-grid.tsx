@@ -108,7 +108,14 @@ export function PeopleCardGrid({
           >
             {/* Header: avatar + name + title */}
             <div className="flex items-start gap-3 min-w-0">
-              <Avatar name={row.full_name} src={row.photo_url ?? undefined} size={36} />
+              {/* Name is spelled out beside the avatar, so Astryx's name-on-hover
+                  tooltip would only duplicate it in the a11y tree. */}
+              <Avatar
+                name={row.full_name}
+                src={row.photo_url ?? undefined}
+                size={36}
+                tooltip={false}
+              />
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm truncate">{row.full_name}</div>
                 {row.job_title && (

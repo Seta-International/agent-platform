@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,12 +29,16 @@ const mockedSignInSocial = vi.mocked(signIn.social);
 // Drives the email step to submission and waits for the next step's heading to
 // land, so tests exercise the real discover → step-dispatch flow rather than
 // rendering PasswordStep/SsoStep in isolation.
+// Returns the render result so alert assertions can scope to the card: Astryx
+// announces through a singleton live region appended to document.body, and the
+// assertive one carries role="alert" just like the Banner and field status do.
 async function goToPasswordStep(user: UserEvent, email: string) {
   mockedDiscoverProvider.mockResolvedValueOnce({ provider_id: 'credential' });
-  render(<LoginCard />);
+  const view = render(<LoginCard />);
   await user.type(screen.getByLabelText(/work email/i), email);
   await user.click(screen.getByRole('button', { name: /continue/i }));
   await screen.findByRole('heading', { level: 1, name: /enter your password/i });
+  return view;
 }
 
 async function goToSsoStep(user: UserEvent, email: string) {
@@ -208,31 +212,33 @@ describe('LoginCard password step', () => {
     // just co-located text on the page.
     const passwordInput = screen.getByLabelText(/^password/i);
     const describedByIds = passwordInput.getAttribute('aria-describedby')?.split(' ') ?? [];
-    const describesError = describedByIds.some((id) =>
-      document.getElementById(id)?.textContent?.includes(message),
-    );
-    expect(describesError).toBe(true);
+    const status = describedByIds
+      .map((id) => document.getElementById(id))
+      .find((el) => el?.textContent?.includes(message));
+    expect(status).toBeDefined();
 
     // A credential mismatch alone must not disable the button (only rate
     // limiting does), and it must render as the field's own status (Astryx
     // `astryx-field-status`), not as a page-level Banner (`astryx-banner`).
+    // The status node itself is no longer role="alert" — Astryx announces
+    // through its body-level live region instead — so assert on the node the
+    // input actually describes.
     expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
-    const alert = screen.getByRole('alert');
-    expect(alert.className).toMatch(/astryx-field-status/);
-    expect(alert.className).not.toMatch(/astryx-banner/);
+    expect(status?.className).toMatch(/astryx-field-status/);
+    expect(document.querySelector('.astryx-banner')).toBeNull();
   });
 
   // Change 4: rate limiting is form-level (not "you typed this wrong"), so it
   // must keep rendering as a Banner and must keep disabling Sign in.
   it('still renders a rate-limit error as a Banner and keeps Sign in disabled', async () => {
     const user = userEvent.setup();
-    await goToPasswordStep(user, 'person@company.com');
+    const { container } = await goToPasswordStep(user, 'person@company.com');
     mockedSignInEmail.mockResolvedValueOnce({ error: { status: 429 } });
     await user.type(screen.getByLabelText(/^password/i), 'hunter2');
     await user.click(screen.getByRole('button', { name: /^sign in$/i }));
 
     const message = 'Too many attempts. Wait a minute, then try again.';
-    const banner = await screen.findByRole('alert');
+    const banner = await within(container).findByRole('alert');
     expect(banner).toHaveTextContent(message);
 
     // Not wired to the field: rate limiting is not a per-field status, so the

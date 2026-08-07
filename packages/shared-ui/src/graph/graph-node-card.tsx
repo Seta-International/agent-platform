@@ -116,7 +116,9 @@ export function GraphNodeCard({
           {icon}
         </div>
       ) : (
-        <Avatar name={title} src={avatarSrc} size={36} />
+        // The card already shows `title` next to the avatar, so Astryx's
+        // name-on-hover tooltip would only duplicate it in the a11y tree.
+        <Avatar name={title} src={avatarSrc} size={36} tooltip={false} />
       )}
       <div className="min-w-0">
         <div className={cn('truncate text-base font-semibold leading-tight', t.title)}>{title}</div>

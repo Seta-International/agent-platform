@@ -37,8 +37,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1094.0",
-    "@mastra/core": "^1.52.1",
-    "@mastra/pg": "^1.17.0",
+    "@mastra/core": "^1.57.0",
+    "@mastra/pg": "^1.19.0",
     "@mastra/rag": "^2.4.2",
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
