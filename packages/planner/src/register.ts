@@ -32,11 +32,13 @@ export const plannerErrorMapper: ErrorMapper = (err) => {
                   ? 409
                   : err.code === 'DUPLICATE_REFERENCE'
                     ? 409
-                    : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
-                      ? 403
-                      : err.code === 'PLAN_NOT_LINKED'
-                        ? 409
-                        : 400;
+                    : err.code === 'DUPLICATE_LINK'
+                      ? 409
+                      : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
+                        ? 403
+                        : err.code === 'PLAN_NOT_LINKED'
+                          ? 409
+                          : 400;
   return { status, body: { error: err.code, message: err.message, details: err.details } };
 };
 
@@ -56,6 +58,7 @@ export function registerPlannerContributions(reg: ContributionRegistry): void {
       { table: 'planner.labels', policy: { kind: 'permanent' } },
       { table: 'planner.task_labels', policy: { kind: 'permanent' } },
       { table: 'planner.task_references', policy: { kind: 'permanent' } },
+      { table: 'planner.task_links', policy: { kind: 'permanent' } },
       { table: 'planner.task_comments', policy: { kind: 'permanent' } },
       { table: 'planner.group_join_requests', policy: { kind: 'permanent' } },
       { table: 'planner.assignee_projection', policy: { kind: 'permanent' } },
