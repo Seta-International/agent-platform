@@ -42,6 +42,8 @@ import type {
   PlannerTaskCompleted,
   PlannerTaskCreated,
   PlannerTaskDeleted,
+  PlannerTaskLinkAdded,
+  PlannerTaskLinkRemoved,
   PlannerTaskMoved,
   PlannerTaskPurged,
   PlannerTaskReferenceAdded,
@@ -1116,6 +1118,68 @@ export async function emitPlannerTaskReferenceRemoved(args: {
       task_id: args.task_id,
       plan_id: args.plan_id,
       url: args.url,
+    },
+  });
+}
+
+export async function emitPlannerTaskLinkAdded(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  link_id: Uuid;
+  source_task_id: Uuid;
+  target_task_id: Uuid;
+  source_plan_id: Uuid;
+  target_plan_id: Uuid;
+  kind: PlannerTaskLinkAdded['payload']['kind'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.task',
+    aggregateId: args.source_task_id,
+    eventType: 'planner.task.link-added',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      group_id: args.group_id,
+      link_id: args.link_id,
+      source_task_id: args.source_task_id,
+      target_task_id: args.target_task_id,
+      source_plan_id: args.source_plan_id,
+      target_plan_id: args.target_plan_id,
+      kind: args.kind,
+    },
+  });
+}
+
+export async function emitPlannerTaskLinkRemoved(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  link_id: Uuid;
+  source_task_id: Uuid;
+  target_task_id: Uuid;
+  source_plan_id: Uuid;
+  target_plan_id: Uuid;
+  kind: PlannerTaskLinkRemoved['payload']['kind'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.task',
+    aggregateId: args.source_task_id,
+    eventType: 'planner.task.link-removed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      group_id: args.group_id,
+      link_id: args.link_id,
+      source_task_id: args.source_task_id,
+      target_task_id: args.target_task_id,
+      source_plan_id: args.source_plan_id,
+      target_plan_id: args.target_plan_id,
+      kind: args.kind,
     },
   });
 }
