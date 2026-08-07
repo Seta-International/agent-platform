@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildBulkApprovalCard,
+  buildLinkApprovalCard,
   buildUpdateApprovalCard,
 } from '../../../../src/backend/orchestration/action/approval-card.ts';
 import type { ActionTaskSnapshot } from '../../../../src/backend/orchestration/action/schemas.ts';
@@ -208,6 +209,51 @@ describe('buildUpdateApprovalCard — one target, batch argsPatch', () => {
     expect(card.decline.argsPatch).toEqual({
       action: 'decline',
       targets: [{ taskId: 'id-a', expectedVersion: 4 }],
+      idempotencyKey: 'key-1',
+    });
+  });
+});
+
+describe('buildLinkApprovalCard', () => {
+  const base = {
+    source: snap({ taskId: 'id-a', title: 'Alpha' }),
+    target: snap({ taskId: 'id-b', title: 'Beta' }),
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  it('shows From / To / Relationship as titles, never ids', () => {
+    const card = buildLinkApprovalCard({ ...base, kind: 'duplicates' });
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    expect(block.rows).toEqual([
+      { k: 'From', v: 'Alpha' },
+      { k: 'To', v: 'Beta' },
+      { k: 'Relationship', v: 'Alpha is a duplicate of Beta' },
+    ]);
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  it('is a write, not a destructive change — nothing is deleted by a link', () => {
+    const card = buildLinkApprovalCard({ ...base, kind: 'relates' });
+    expect(card.riskBadge).toBe('write');
+  });
+
+  it('carries ids and the key on both primary and decline', () => {
+    const card = buildLinkApprovalCard({ ...base, kind: 'blocks' });
+    expect(card.primary.argsPatch).toEqual({
+      action: 'link',
+      sourceTaskId: 'id-a',
+      targetTaskId: 'id-b',
+      kind: 'blocks',
+      idempotencyKey: 'key-1',
+    });
+    expect(card.decline.argsPatch).toEqual({
+      action: 'decline',
+      sourceTaskId: 'id-a',
+      targetTaskId: 'id-b',
+      kind: 'blocks',
       idempotencyKey: 'key-1',
     });
   });

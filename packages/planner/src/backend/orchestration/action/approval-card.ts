@@ -1,6 +1,6 @@
 import type { ApprovalCard } from '@seta/agent-sdk';
 import { PLATFORM_TIMEZONE } from '@seta/agent-sdk';
-import type { ActionTaskSnapshot, UpdateTaskActionPatch } from './schemas.ts';
+import type { ActionTaskSnapshot, ToolTaskLinkKind, UpdateTaskActionPatch } from './schemas.ts';
 
 /** Field order on the card. Stable, so a diff reads the same way every time. */
 const FIELD_ORDER = [
@@ -203,6 +203,64 @@ export function buildBulkApprovalCard(opts: BuildBulkApprovalCardOpts): Approval
       userId,
       agentPath: ['action', 'orchestrator'],
       toolId: 'planner_updateTask',
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
+/** Reads as a sentence about the two titles, not as an enum value the user has
+ *  to decode. Matches the kind-semantics table in the design §3.1. */
+const LINK_SENTENCE: Record<ToolTaskLinkKind, (a: string, b: string) => string> = {
+  relates: (a, b) => `${a} is related to ${b}`,
+  duplicates: (a, b) => `${a} is a duplicate of ${b}`,
+  blocks: (a, b) => `${a} blocks ${b}`,
+};
+
+export interface BuildLinkApprovalCardOpts {
+  source: ActionTaskSnapshot;
+  target: ActionTaskSnapshot;
+  kind: ToolTaskLinkKind;
+  tenantId: string;
+  userId: string;
+  idempotencyKey: string;
+}
+
+/** A link deletes nothing, so `riskBadge` is `write`. Merge, which trashes a
+ *  task, is `destructive` — the badge is the user's one visual cue. */
+export function buildLinkApprovalCard(opts: BuildLinkApprovalCardOpts): ApprovalCard {
+  const { source, target, kind, tenantId, userId, idempotencyKey } = opts;
+  const sourceTitle = clipTitle(source.title);
+  const targetTitle = clipTitle(target.title);
+  const ids = {
+    sourceTaskId: source.taskId,
+    targetTaskId: target.taskId,
+    kind,
+    idempotencyKey,
+  };
+
+  return {
+    toolCallId: `planner.action:${idempotencyKey}`,
+    intent: `Link "${sourceTitle}" to "${targetTitle}"`,
+    riskBadge: 'write',
+    summary: 'These two tasks will be linked.',
+    details: [
+      {
+        kind: 'kvTable',
+        rows: [
+          { k: 'From', v: sourceTitle },
+          { k: 'To', v: targetTitle },
+          { k: 'Relationship', v: LINK_SENTENCE[kind](sourceTitle, targetTitle) },
+        ],
+      },
+    ],
+    primary: { label: 'Link them', argsPatch: { action: 'link', ...ids } },
+    alternates: [],
+    decline: { label: 'Cancel', argsPatch: { action: 'decline', ...ids } },
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      toolId: 'planner_linkTasks',
       ts: new Date().toISOString(),
     },
   };
