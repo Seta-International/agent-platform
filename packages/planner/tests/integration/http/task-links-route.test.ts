@@ -1,5 +1,6 @@
 import type { SessionEnv, SessionScope } from '@seta/core';
 import { Hono } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { describe, expect, it } from 'vitest';
 import { plannerDb, taskLinks } from '../../../src/backend/db/index.ts';
 import { linkTasks } from '../../../src/backend/domain/link-tasks.ts';
@@ -21,7 +22,7 @@ function buildApp(session: SessionScope) {
   app.onError((err, c) => {
     const mapped = plannerErrorMapper(err);
     if (!mapped) throw err;
-    return c.json(mapped.body, mapped.status);
+    return c.json(mapped.body, mapped.status as ContentfulStatusCode);
   });
   return app;
 }

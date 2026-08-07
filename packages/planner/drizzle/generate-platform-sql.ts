@@ -35,6 +35,7 @@ const RLS_TABLES = [
   'labels',
   'task_labels',
   'task_references',
+  'task_links',
   'task_comments',
   'group_join_requests',
   'assignee_projection',
