@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, notInArray, sql } from 'drizzle-orm';
 import {
   emitPlannerBucketCreated,
   emitPlannerChecklistItemAdded,
@@ -27,6 +27,7 @@ import { priorityToNumber, progressToPercent } from '../db/task-enums.ts';
 import type { PlanRow, TaskPreviewType, TaskReferenceType } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
+import { TASK_LINK_KIND_LIST } from './_task-link-row.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 type TaskDbRow = typeof tasks.$inferSelect;
@@ -356,7 +357,15 @@ async function copyTask(args: {
   const sourceRefs = await tx
     .select()
     .from(taskReferences)
-    .where(eq(taskReferences.task_id, sourceTask.id))
+    .where(
+      and(
+        eq(taskReferences.task_id, sourceTask.id),
+        // A copied plan must not link its copies back to the ORIGINALS, and the
+        // target lives inside `url`, so a copied link row would do exactly that
+        // (design §3.1).
+        notInArray(taskReferences.type, TASK_LINK_KIND_LIST),
+      ),
+    )
     .orderBy(asc(taskReferences.created_at));
 
   for (const ref of sourceRefs) {
