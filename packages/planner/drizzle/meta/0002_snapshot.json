@@ -1,5 +1,5 @@
 {
-  "id": "746d9054-5be4-4b23-800b-f079ac390fd2",
+  "id": "d486000f-3010-4378-9e50-f9fdf50d3f4a",
   "prevId": "1760c98e-3a1f-47ea-920f-98b1ddf2d35b",
   "version": "7",
   "dialect": "postgresql",
@@ -1632,158 +1632,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "planner.task_links": {
-      "name": "task_links",
-      "schema": "planner",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_task_id": {
-          "name": "source_task_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_task_id": {
-          "name": "target_task_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "task_links_by_source": {
-          "name": "task_links_by_source",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "source_task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_links_by_target": {
-          "name": "task_links_by_target",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_links_dup_source_uniq": {
-          "name": "task_links_dup_source_uniq",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "source_task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "kind = 'duplicates'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "task_links_source_task_id_tasks_id_fk": {
-          "name": "task_links_source_task_id_tasks_id_fk",
-          "tableFrom": "task_links",
-          "tableTo": "tasks",
-          "schemaTo": "planner",
-          "columnsFrom": ["source_task_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "task_links_target_task_id_tasks_id_fk": {
-          "name": "task_links_target_task_id_tasks_id_fk",
-          "tableFrom": "task_links",
-          "tableTo": "tasks",
-          "schemaTo": "planner",
-          "columnsFrom": ["target_task_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "task_links_no_self": {
-          "name": "task_links_no_self",
-          "value": "source_task_id <> target_task_id"
-        },
-        "task_links_kind_check": {
-          "name": "task_links_kind_check",
-          "value": "kind IN ('relates', 'duplicates', 'blocks')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "planner.task_references": {
       "name": "task_references",
       "schema": "planner",
@@ -1902,6 +1750,50 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "task_references_dup_source_uniq": {
+          "name": "task_references_dup_source_uniq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "type = 'duplicates'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_references_link_by_url": {
+          "name": "task_references_link_by_url",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "url",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "type IN ('relates', 'duplicates', 'blocks')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1920,9 +1812,17 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "task_references_link_url_canonical": {
+          "name": "task_references_link_url_canonical",
+          "value": "type NOT IN ('relates', 'duplicates', 'blocks') OR url ~ '^/planner/tasks/[0-9a-fA-F-]{36}$'"
+        },
+        "task_references_no_self": {
+          "name": "task_references_no_self",
+          "value": "url <> '/planner/tasks/' || task_id::text"
+        },
         "task_references_type_check": {
           "name": "task_references_type_check",
-          "value": "type IN ('word', 'excel', 'powerPoint', 'visio', 'other', 'powerBI', 'oneNote', 'sharePoint', 'web', 'link')"
+          "value": "type IN ('word', 'excel', 'powerPoint', 'visio', 'other', 'powerBI', 'oneNote', 'sharePoint', 'web', 'link', 'relates', 'duplicates', 'blocks')"
         }
       },
       "isRLSEnabled": false

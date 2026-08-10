@@ -45,6 +45,18 @@ export const PREVIEW_TYPES = [
   'reference',
 ] as const;
 
+/** The three task↔task relationship kinds. Spread into TASK_REFERENCE_TYPES
+ *  below, so the vocabulary has ONE definition and the discriminator is
+ *  `TASK_LINK_KINDS.includes(type)` everywhere instead of a hand-copied list. */
+export const TASK_LINK_KINDS = ['relates', 'duplicates', 'blocks'] as const;
+
+/** The column vocabulary: ten BOOKMARK kinds plus the three link kinds. `type`
+ *  is simultaneously the kind and the discriminator — a row is a task link IFF
+ *  its type is in TASK_LINK_KINDS (design §3.1).
+ *
+ *  `'link'` is a BOOKMARK kind and deliberately NOT a link kind: that is what
+ *  leaves the dedup workflow's historical "Related: <title>" rows in the URL
+ *  group with no backfill (§3.4). */
 export const TASK_REFERENCE_TYPES = [
   'word',
   'excel',
@@ -56,9 +68,8 @@ export const TASK_REFERENCE_TYPES = [
   'sharePoint',
   'web',
   'link',
+  ...TASK_LINK_KINDS,
 ] as const;
-
-export const TASK_LINK_KINDS = ['relates', 'duplicates', 'blocks'] as const;
 
 export const groups = plannerSchema.table(
   'groups',
@@ -382,58 +393,31 @@ export const taskReferences = plannerSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
+    // Kind-AGNOSTIC, and that is load-bearing: it sees (task_id, url) and not
+    // `type`, so one pair-direction holds ONE kind at a time (design D8).
     uniqueIndex('task_references_uniq_task_url').on(t.tenant_id, t.task_id, t.url),
     index('task_references_by_task').on(t.task_id),
+    // One canonical `duplicates` TARGET per task. Partial but not an
+    // expression, so drizzle-kit round-trips it.
+    uniqueIndex('task_references_dup_source_uniq')
+      .on(t.tenant_id, t.task_id)
+      .where(sql`type = 'duplicates'`),
+    // The INCOMING direction: url = '/planner/tasks/<me>'. NOT optional —
+    // task_references_uniq_task_url cannot serve a url-leading equality, so
+    // without this every task-detail page seq-scans the tenant's bookmarks.
+    index('task_references_link_by_url')
+      .on(t.tenant_id, t.url)
+      .where(sql`type IN ('relates', 'duplicates', 'blocks')`),
+    // A link row's url is ALWAYS parseable, which is what makes get-task's
+    // ::uuid cast total and lets the read skip a malformed-data branch.
+    check(
+      'task_references_link_url_canonical',
+      sql`type NOT IN ('relates', 'duplicates', 'blocks') OR url ~ '^/planner/tasks/[0-9a-fA-F-]{36}$'`,
+    ),
+    // No self-link, in the storage as well as in the domain. Bookmarks too: a
+    // task referencing its own route is equally meaningless.
+    check('task_references_no_self', sql`url <> '/planner/tasks/' || task_id::text`),
     textEnumCheck('task_references', 'type', TASK_REFERENCE_TYPES),
-  ],
-);
-
-/**
- * Task↔task relationships. Deliberately NOT `task_references`, which stores a
- * URL and whose type enum is document/web kinds — there is no column there that
- * names a second task (design §0.1).
- *
- * No `version` column: a link row has no mutable field. It is created and
- * deleted, never updated, so optimistic concurrency has nothing to protect.
- * (`task_references` carries a `version` that no code reads.)
- *
- * FKs point at `planner.tasks` — the same schema — so the no-cross-schema-FK rule
- * holds, exactly as `task_references` already does.
- *
- * ONE more index lives in raw SQL beside the generated migration:
- * `task_links_pair_kind_uniq` on (tenant_id, least(src,tgt), greatest(src,tgt),
- * kind). It subsumes a plain UNIQUE(tenant, src, tgt, kind) — which is therefore
- * NOT declared here — and is the guard that stops two opposite merges trashing
- * both tasks (design §8.6). drizzle-kit will not round-trip an index whose KEY is
- * an expression, so it cannot live in this file.
- */
-export const taskLinks = plannerSchema.table(
-  'task_links',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    source_task_id: uuid('source_task_id')
-      .notNull()
-      .references(() => tasks.id, { onDelete: 'cascade' }),
-    target_task_id: uuid('target_task_id')
-      .notNull()
-      .references(() => tasks.id, { onDelete: 'cascade' }),
-    kind: textEnum('kind', TASK_LINK_KINDS).notNull(),
-    created_by: uuid('created_by').notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    index('task_links_by_source').on(t.tenant_id, t.source_task_id),
-    index('task_links_by_target').on(t.tenant_id, t.target_task_id),
-    // One canonical duplicate TARGET per task. Partial but not an expression, so
-    // drizzle-kit round-trips it — planner already ships 13 indexes of this shape.
-    uniqueIndex('task_links_dup_source_uniq')
-      .on(t.tenant_id, t.source_task_id)
-      .where(sql`kind = 'duplicates'`),
-    // Belt as well as braces: the domain refuses a self-link with a sentence,
-    // the storage refuses it even if a future caller forgets.
-    check('task_links_no_self', sql`source_task_id <> target_task_id`),
-    textEnumCheck('task_links', 'kind', TASK_LINK_KINDS),
   ],
 );
 
