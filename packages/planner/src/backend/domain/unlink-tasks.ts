@@ -3,10 +3,11 @@ import { withEmit } from '@seta/core/events';
 import type { NodeTx } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
 import { emitPlannerTaskLinkRemoved } from '../../events/emit-helpers.ts';
-import { plans, taskLinks, tasks } from '../db/schema.ts';
+import { plans, taskReferences, tasks } from '../db/schema.ts';
 import type { TaskLinkKind } from '../dto.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isTaskLinkKind, taskIdFromLinkUrl } from './_task-link-row.ts';
 
 /**
  * Reads an endpoint WITHOUT a `deleted_at IS NULL` filter, unlike `linkTasks`.
@@ -27,8 +28,15 @@ async function readPlanGroup(tx: NodeTx, planId: string): Promise<string> {
   return plan.group_id;
 }
 
+/**
+ * Remove a task↔task link BY ROW ID.
+ *
+ * Not by `{task_id, url}` as `removeTaskReference` is, and that is forced: for an
+ * INCOMING link the row belongs to the other task, so a caller on this task's
+ * detail page cannot address it by its own `task_id` (design §3.2).
+ */
 export async function unlinkTasks(input: {
-  link_id: string;
+  reference_id: string;
   session: SessionScope;
 }): Promise<void> {
   return withSpan(
@@ -36,29 +44,39 @@ export async function unlinkTasks(input: {
     {
       'planner.tenant_id': input.session.tenant_id,
       'planner.user_id': input.session.user_id,
-      'planner.link_id': input.link_id,
+      'planner.reference_id': input.reference_id,
     },
     () => unlinkTasksImpl(input),
   );
 }
 
-async function unlinkTasksImpl(input: { link_id: string; session: SessionScope }): Promise<void> {
+async function unlinkTasksImpl(input: {
+  reference_id: string;
+  session: SessionScope;
+}): Promise<void> {
   await withEmit(
     { actor: { userId: input.session.user_id, tenantId: input.session.tenant_id } },
     async (tx) => {
-      const [link] = await tx
+      const [row] = await tx
         .select()
-        .from(taskLinks)
-        .where(eq(taskLinks.id, input.link_id))
+        .from(taskReferences)
+        .where(eq(taskReferences.id, input.reference_id))
         .limit(1);
-      // Same NOT_FOUND for a missing row and a cross-tenant one: the existence of
-      // another tenant's link is not something to confirm.
-      if (!link || link.tenant_id !== input.session.tenant_id) {
-        throw new PlannerError('NOT_FOUND', 'Link not found', { link_id: input.link_id });
+
+      // ONE NOT_FOUND for three cases — absent, another tenant's, and a BOOKMARK
+      // row. The last is §3.11: bookmarks are removed by removeTaskReference,
+      // which gates one endpoint; letting this route touch them would drop a row
+      // the other endpoint has no say in. Same code for all three, because the
+      // existence of a row this route may not address is not something to
+      // confirm.
+      if (!row || row.tenant_id !== input.session.tenant_id || !isTaskLinkKind(row.type)) {
+        throw new PlannerError('NOT_FOUND', 'Link not found', {
+          reference_id: input.reference_id,
+        });
       }
 
-      const source = await readAnyTask(tx, link.source_task_id);
-      const target = await readAnyTask(tx, link.target_task_id);
+      const source = await readAnyTask(tx, row.task_id);
+      const target = await readAnyTask(tx, taskIdFromLinkUrl(row.url));
       const sourceGroup = await readPlanGroup(tx, source.plan_id);
       const targetGroup = await readPlanGroup(tx, target.plan_id);
 
@@ -71,18 +89,18 @@ async function unlinkTasksImpl(input: { link_id: string; session: SessionScope }
       await requirePermission(input.session, 'planner.task.update', targetGroup);
 
       // Hard delete — a link has no trash of its own.
-      await tx.delete(taskLinks).where(eq(taskLinks.id, link.id));
+      await tx.delete(taskReferences).where(eq(taskReferences.id, row.id));
 
       await emitPlannerTaskLinkRemoved({
         actor: { type: 'user', user_id: input.session.user_id },
-        tenant_id: link.tenant_id,
+        tenant_id: row.tenant_id,
         group_id: sourceGroup,
-        link_id: link.id,
-        source_task_id: link.source_task_id,
-        target_task_id: link.target_task_id,
+        reference_id: row.id,
+        source_task_id: source.id,
+        target_task_id: target.id,
         source_plan_id: source.plan_id,
         target_plan_id: target.plan_id,
-        kind: link.kind as TaskLinkKind,
+        kind: row.type as TaskLinkKind,
       });
     },
   );
