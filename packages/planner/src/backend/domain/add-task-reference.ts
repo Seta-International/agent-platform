@@ -7,6 +7,7 @@ import type { TaskReferenceRow, TaskReferenceType } from '../dto.ts';
 import type { AddTaskReferenceInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isTaskLinkKind, TASK_LINK_URL_PREFIX } from './_task-link-row.ts';
 
 type TaskReferenceDbRow = typeof taskReferences.$inferSelect;
 
@@ -57,6 +58,29 @@ export async function addTaskReference(
 async function addTaskReferenceImpl(
   input: AddTaskReferenceInput & { session: SessionScope },
 ): Promise<TaskReferenceRow> {
+  const type: TaskReferenceType = input.type ?? 'other';
+
+  // §3.11. This writer gates ONE endpoint, because a bookmark has one. A link
+  // has two, and that second gate is the whole point of FUT-820 — so a link row
+  // must be unreachable from here, not merely undocumented.
+  if (isTaskLinkKind(type)) {
+    throw new PlannerError(
+      'VALIDATION',
+      'Task relationships are not references. Link the two tasks instead.',
+      { task_id: input.task_id, type },
+    );
+  }
+  // Deliberately a PREFIX test, broader than the storage CHECK's regex: a
+  // near-miss url would show up nowhere as a link, yet still collide on
+  // UNIQUE (tenant_id, task_id, url) and refuse the genuine link.
+  if (input.url.startsWith(TASK_LINK_URL_PREFIX)) {
+    throw new PlannerError(
+      'VALIDATION',
+      'That URL points at a task. Link the two tasks instead of adding a reference.',
+      { task_id: input.task_id, url: input.url },
+    );
+  }
+
   let result!: TaskReferenceDbRow;
 
   await withEmit(
@@ -87,7 +111,6 @@ async function addTaskReferenceImpl(
 
       await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
-      const type: TaskReferenceType = input.type ?? 'other';
       const alias = input.alias ?? null;
 
       let inserted: TaskReferenceDbRow;
