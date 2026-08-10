@@ -205,12 +205,12 @@ describe('TaskDetailReferencesCard — Related tasks', () => {
     expect(screen.getByText(/in trash/i)).toBeInTheDocument();
   });
 
-  it('DELETEs by link id when × is clicked', async () => {
+  it('DELETEs by reference id when × is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     const seen = vi.fn<(path: string) => void>();
     server.use(
-      http.delete('/api/planner/v1/task-links/:linkId', ({ request }) => {
+      http.delete('/api/planner/v1/task-references/:referenceId', ({ request }) => {
         seen(new URL(request.url).pathname);
         return new HttpResponse(null, { status: 204 });
       }),
@@ -222,7 +222,7 @@ describe('TaskDetailReferencesCard — Related tasks', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Remove' }));
-    await waitFor(() => expect(seen).toHaveBeenCalledWith('/api/planner/v1/task-links/l9'));
+    await waitFor(() => expect(seen).toHaveBeenCalledWith('/api/planner/v1/task-references/l9'));
   });
 
   it('disables Remove — with a reason — when can_unlink is false', () => {

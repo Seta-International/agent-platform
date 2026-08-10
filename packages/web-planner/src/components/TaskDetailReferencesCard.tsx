@@ -62,7 +62,7 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
                     type: 'link',
                   }}
                   onOpen={(row) => window.open(row.url, '_blank', 'noopener,noreferrer')}
-                  onRemove={() => unlink.mutate({ link_id: l.id, task_id: task.id })}
+                  onRemove={() => unlink.mutate({ reference_id: l.id, task_id: task.id })}
                   // NOT `!canUpdate`. usePermission reads a FLAT permission list off
                   // the session, so the client cannot evaluate "update on BOTH
                   // groups" — and for a link, the second endpoint living in another
