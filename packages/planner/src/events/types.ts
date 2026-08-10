@@ -661,7 +661,7 @@ export interface PlannerTaskLinkAdded {
     actor: PlannerEventActor;
     tenant_id: Uuid;
     group_id: Uuid;
-    link_id: Uuid;
+    reference_id: Uuid;
     source_task_id: Uuid;
     target_task_id: Uuid;
     source_plan_id: Uuid;
@@ -679,7 +679,7 @@ export interface PlannerTaskLinkRemoved {
     actor: PlannerEventActor;
     tenant_id: Uuid;
     group_id: Uuid;
-    link_id: Uuid;
+    reference_id: Uuid;
     source_task_id: Uuid;
     target_task_id: Uuid;
     source_plan_id: Uuid;

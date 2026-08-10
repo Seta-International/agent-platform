@@ -1126,7 +1126,7 @@ export async function emitPlannerTaskLinkAdded(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
   group_id: Uuid;
-  link_id: Uuid;
+  reference_id: Uuid;
   source_task_id: Uuid;
   target_task_id: Uuid;
   source_plan_id: Uuid;
@@ -1143,7 +1143,7 @@ export async function emitPlannerTaskLinkAdded(args: {
       actor: args.actor,
       tenant_id: args.tenant_id,
       group_id: args.group_id,
-      link_id: args.link_id,
+      reference_id: args.reference_id,
       source_task_id: args.source_task_id,
       target_task_id: args.target_task_id,
       source_plan_id: args.source_plan_id,
@@ -1157,7 +1157,7 @@ export async function emitPlannerTaskLinkRemoved(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
   group_id: Uuid;
-  link_id: Uuid;
+  reference_id: Uuid;
   source_task_id: Uuid;
   target_task_id: Uuid;
   source_plan_id: Uuid;
@@ -1174,7 +1174,7 @@ export async function emitPlannerTaskLinkRemoved(args: {
       actor: args.actor,
       tenant_id: args.tenant_id,
       group_id: args.group_id,
-      link_id: args.link_id,
+      reference_id: args.reference_id,
       source_task_id: args.source_task_id,
       target_task_id: args.target_task_id,
       source_plan_id: args.source_plan_id,

@@ -3,13 +3,13 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { plannerDb, taskLinks, taskReferences } from '../../../../../src/backend/db/index.ts';
+import { plannerDb, taskReferences } from '../../../../../src/backend/db/index.ts';
 import { linkToExisting } from '../../../../../src/backend/workflows/dedup-on-create/steps/link-to-existing.ts';
 import { createGroup, createPlan, createTask } from '../../../../../src/index.ts';
 import { seedTenant } from '../../../../helpers.ts';
 
 describe('linkToExisting', () => {
-  it('writes a task_link on the new task pointing to the existing task', async () => {
+  it('writes a relates link row on the new task pointing to the existing task', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -47,20 +47,18 @@ describe('linkToExisting', () => {
           expect(out.taskId).toBe(newTask.id);
           expect(out.linkedTo).toEqual([existing.id]);
 
+          // ONE typed task_references row, and its url is the PLAN-FREE
+          // canonical path: the identity of a domain relationship is no longer a
+          // plan-scoped route that rots when the target moves plan (design §0.2).
           const links = await plannerDb()
-            .select()
-            .from(taskLinks)
-            .where(eq(taskLinks.source_task_id, newTask.id));
-          expect(links).toHaveLength(1);
-          expect(links[0]).toMatchObject({ target_task_id: existing.id, kind: 'relates' });
-
-          // No URL is written any more: the identity of a domain relationship is
-          // no longer a route path that rots when the target moves plan.
-          const refs = await plannerDb()
             .select()
             .from(taskReferences)
             .where(eq(taskReferences.task_id, newTask.id));
-          expect(refs).toHaveLength(0);
+          expect(links).toHaveLength(1);
+          expect(links[0]).toMatchObject({
+            url: `/planner/tasks/${existing.id}`,
+            type: 'relates',
+          });
         } finally {
           resetCoreDb();
           await closePools();

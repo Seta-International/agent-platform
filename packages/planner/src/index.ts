@@ -51,7 +51,7 @@ export {
 } from './backend/domain/get-user-activity.ts';
 export { linkGroupToM365 } from './backend/domain/link-group-to-m365.ts';
 export { linkPlanToM365 } from './backend/domain/link-plan-to-m365.ts';
-export { linkTasks } from './backend/domain/link-tasks.ts';
+export { linkTasks, markAsDuplicate } from './backend/domain/link-tasks.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listComments } from './backend/domain/list-comments.ts';
