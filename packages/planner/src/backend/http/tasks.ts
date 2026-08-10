@@ -414,13 +414,13 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     return c.body(null, 204);
   });
 
-  // A standalone child, addressed by its own id — the convention `DELETE
-  // /comments/:id` and `DELETE /checklist-items/:id` already follow. There is no
-  // task id in the path, because the domain function does not need one and a
-  // redundant segment would need its own consistency check.
-  app.delete('/api/planner/v1/task-links/:linkId', async (c) => {
+  // A standalone child, addressed by its own id — the same convention as
+  // DELETE /comments/:id and /checklist-items/:id. It cannot be
+  // /tasks/:taskId/links/:id, because an INCOMING link's row belongs to the
+  // other task (design §3.2).
+  app.delete('/api/planner/v1/task-references/:referenceId', async (c) => {
     const session = c.get('user');
-    await unlinkTasks({ link_id: c.req.param('linkId'), session });
+    await unlinkTasks({ reference_id: c.req.param('referenceId'), session });
     return c.body(null, 204);
   });
 
