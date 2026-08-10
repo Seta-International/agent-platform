@@ -175,4 +175,59 @@ describe('action runtime — gated merge', () => {
       );
       expect(link.rows).toHaveLength(1);
     }));
+  it('lets exactly one of two opposite merges win, on two connections', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, tasks } = await seedTasksFixture(pool, {
+        titles: ['Alpha', 'Beta'],
+      });
+      const [a, b] = tasks as [
+        { taskId: string; version: number },
+        { taskId: string; version: number },
+      ];
+      const port = makeActionTaskMerge();
+
+      // Two users, same pair, opposite opinions about which one is the duplicate.
+      const results = await Promise.allSettled([
+        port.merge({
+          tenantId,
+          actorUserId,
+          duplicateTaskId: a.taskId,
+          duplicateExpectedVersion: a.version,
+          keepTaskId: b.taskId,
+          idempotencyKey: 'race-a',
+        }),
+        port.merge({
+          tenantId,
+          actorUserId,
+          duplicateTaskId: b.taskId,
+          duplicateExpectedVersion: b.version,
+          keepTaskId: a.taskId,
+          idempotencyKey: 'race-b',
+        }),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      // Which refusal the loser gets is genuinely nondeterministic, because its
+      // endpoint read happens BEFORE it blocks on the pair lock: DUPLICATE_REFERENCE
+      // from the post-lock pre-check ("already merged the other way round"),
+      // CONFLICT if it read a stale version, or NOT_FOUND if the winner's commit
+      // landed before its own endpoint read and the task was already trashed. All
+      // three are clean refusals. What must NOT happen is both landing.
+      expect(['DUPLICATE_REFERENCE', 'CONFLICT', 'NOT_FOUND']).toContain(
+        (rejected.reason as { code?: string }).code,
+      );
+
+      const links = await pool.query(
+        `SELECT 1 FROM planner.task_references WHERE type IN ('relates','duplicates','blocks')`,
+      );
+      expect(links.rows).toHaveLength(1);
+
+      // The decisive assertion: two tasks, exactly one survives.
+      const live = await pool.query(
+        'SELECT id FROM planner.tasks WHERE id = ANY($1) AND deleted_at IS NULL',
+        [[a.taskId, b.taskId]],
+      );
+      expect(live.rows).toHaveLength(1);
+    }));
 });
