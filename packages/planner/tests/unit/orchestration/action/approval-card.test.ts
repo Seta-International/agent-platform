@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBulkApprovalCard,
   buildLinkApprovalCard,
+  buildMergeApprovalCard,
   buildUpdateApprovalCard,
 } from '../../../../src/backend/orchestration/action/approval-card.ts';
 import type { ActionTaskSnapshot } from '../../../../src/backend/orchestration/action/schemas.ts';
@@ -259,6 +260,59 @@ describe('buildLinkApprovalCard', () => {
   });
 });
 
+describe('buildMergeApprovalCard', () => {
+  const mergeSnap = (over: Partial<ActionTaskSnapshot>): ActionTaskSnapshot => ({
+    ...snapshot,
+    ...over,
+  });
+  const base = {
+    duplicate: mergeSnap({ taskId: 'id-a', title: 'Draft the migration doc', version: 3 }),
+    keep: mergeSnap({ taskId: 'id-b', title: 'Migration doc' }),
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  it('is destructive — a task ends up in the trash', () => {
+    expect(buildMergeApprovalCard(base).riskBadge).toBe('destructive');
+  });
+
+  it('names which task dies and which survives, by title', () => {
+    const card = buildMergeApprovalCard(base);
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    expect(block.rows).toEqual([
+      { k: 'Moved to trash', v: 'Draft the migration doc' },
+      { k: 'Kept', v: 'Migration doc' },
+      {
+        k: 'Also',
+        v: '"Draft the migration doc" will be marked as a duplicate of "Migration doc"',
+      },
+    ]);
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  // Restore brings the task back but the `duplicates` link SURVIVES the restore,
+  // so undo is not a clean unmerge. Saying "reversible" would be a lie.
+  it('promises restore-from-trash and never promises reversibility', () => {
+    const card = buildMergeApprovalCard(base);
+    expect(card.summary).toMatch(/restored from trash/i);
+    expect(JSON.stringify(card)).not.toMatch(/reversible|undo/i);
+  });
+
+  it('carries only the duplicate\u2019s version on primary and decline', () => {
+    const card = buildMergeApprovalCard(base);
+    const expected = {
+      duplicateTaskId: 'id-a',
+      duplicateExpectedVersion: 3,
+      keepTaskId: 'id-b',
+      idempotencyKey: 'key-1',
+    };
+    expect(card.primary.argsPatch).toEqual({ action: 'merge', ...expected });
+    expect(card.decline.argsPatch).toEqual({ action: 'decline', ...expected });
+  });
+});
+
 // FUT-820: the card names the runtime that must resume it. /chat/resume picks the
 // resume BODY SCHEMA off the persisted row's workflow_id, so a card that does not
 // say "planner.action" gets validated against the legacy assignment contract and
@@ -288,6 +342,15 @@ describe('action cards declare their resume runtime', () => {
       source: snap({ taskId: 'id-a', title: 'Alpha' }),
       target: snap({ taskId: 'id-b', title: 'Beta' }),
       kind: 'relates',
+      ...ids,
+    });
+    expect(card.meta.workflowId).toBe('planner.action');
+  });
+
+  it('buildMergeApprovalCard declares planner.action', () => {
+    const card = buildMergeApprovalCard({
+      duplicate: snap({ taskId: 'id-a', title: 'Alpha' }),
+      keep: snap({ taskId: 'id-b', title: 'Beta' }),
       ...ids,
     });
     expect(card.meta.workflowId).toBe('planner.action');

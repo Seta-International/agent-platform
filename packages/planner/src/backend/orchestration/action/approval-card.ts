@@ -269,3 +269,59 @@ export function buildLinkApprovalCard(opts: BuildLinkApprovalCardOpts): Approval
     },
   };
 }
+
+export interface BuildMergeApprovalCardOpts {
+  duplicate: ActionTaskSnapshot;
+  keep: ActionTaskSnapshot;
+  tenantId: string;
+  userId: string;
+  idempotencyKey: string;
+}
+
+/**
+ * The destructive card. Two rules it must never break:
+ *  - it says which task goes to the trash, by TITLE, in the first row;
+ *  - it promises "can be restored from trash" and nothing stronger. Restore
+ *    brings the task back, but the `duplicates` link row survives the restore, so
+ *    "undo" would leave a live task marked as a duplicate of another live task.
+ */
+export function buildMergeApprovalCard(opts: BuildMergeApprovalCardOpts): ApprovalCard {
+  const { duplicate, keep, tenantId, userId, idempotencyKey } = opts;
+  const dupTitle = clipTitle(duplicate.title);
+  const keepTitle = clipTitle(keep.title);
+  const ids = {
+    duplicateTaskId: duplicate.taskId,
+    // Only the duplicate changes state; the keeper merely gains an inbound link.
+    duplicateExpectedVersion: duplicate.version,
+    keepTaskId: keep.taskId,
+    idempotencyKey,
+  };
+
+  return {
+    toolCallId: `planner.action:${idempotencyKey}`,
+    intent: `Merge "${dupTitle}" into "${keepTitle}"`,
+    riskBadge: 'destructive',
+    summary: `"${dupTitle}" will be moved to the trash. It can be restored from trash if this was wrong.`,
+    details: [
+      {
+        kind: 'kvTable',
+        rows: [
+          { k: 'Moved to trash', v: dupTitle },
+          { k: 'Kept', v: keepTitle },
+          { k: 'Also', v: `"${dupTitle}" will be marked as a duplicate of "${keepTitle}"` },
+        ],
+      },
+    ],
+    primary: { label: 'Merge them', argsPatch: { action: 'merge', ...ids } },
+    alternates: [],
+    decline: { label: 'Cancel', argsPatch: { action: 'decline', ...ids } },
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
+      toolId: 'planner_mergeTasks',
+      ts: new Date().toISOString(),
+    },
+  };
+}
