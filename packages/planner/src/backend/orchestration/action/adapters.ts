@@ -4,12 +4,13 @@ import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import { taskReferences, tasks } from '../../db/schema.ts';
 import { TASK_LINK_KIND_LIST, taskLinkUrl } from '../../domain/_task-link-row.ts';
+import { deleteTask } from '../../domain/delete-task.ts';
 import { getTask } from '../../domain/get-task.ts';
-import { linkTasks } from '../../domain/link-tasks.ts';
+import { linkTasks, markAsDuplicate } from '../../domain/link-tasks.ts';
 import { updateTask } from '../../domain/update-task.ts';
 import { PlannerError, requirePermission } from '../../rbac.ts';
 import { getTaskGroupId } from '../../read-helpers.ts';
-import type { TaskLinkPort, TaskReadPort, TaskUpdatePort } from './ports.ts';
+import type { TaskLinkPort, TaskMergePort, TaskReadPort, TaskUpdatePort } from './ports.ts';
 import type { ActionTaskSnapshot, ToolTaskLinkKind } from './schemas.ts';
 
 export function makeActionTaskRead(): TaskReadPort {
@@ -207,6 +208,70 @@ export function makeActionTaskLink(): TaskLinkPort {
         },
       );
       return { linkId: result.linkId, replayed };
+    },
+  };
+}
+
+export function makeActionTaskMerge(): TaskMergePort {
+  return {
+    async assertCanMerge({ actorUserId, duplicateGroupId, keepGroupId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      for (const groupId of new Set([duplicateGroupId, keepGroupId])) {
+        await requirePermission(session, 'planner.task.update', groupId);
+      }
+      // Only the duplicate is deleted, so only its group needs the delete right.
+      await requirePermission(session, 'planner.task.delete', duplicateGroupId);
+    },
+
+    async merge({
+      actorUserId,
+      duplicateTaskId,
+      duplicateExpectedVersion,
+      keepTaskId,
+      idempotencyKey,
+    }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      const { replayed } = await withGatedMutation(
+        session,
+        {
+          idempotencyKey,
+          onBehalfOf: actorUserId,
+          actorKind: 'agent',
+          mutationKind: 'merge_soft_delete',
+          // BY ID ALONE. The gateway calls this once before the body and once
+          // after; after the body the duplicate IS soft-deleted, so an
+          // `isNull(tasks.deleted_at)` filter here would return null and strip
+          // `after` off the audit row — the one field a reviewer needs.
+          snapshot: async (tx) => {
+            const [row] = await tx
+              .select()
+              .from(tasks)
+              .where(eq(tasks.id, duplicateTaskId))
+              .limit(1);
+            return row ?? null;
+          },
+        },
+        // ONE body, both writes. withEmit is reentrant (FUT-808), so both domain
+        // functions join the gateway's transaction instead of opening their own.
+        async () => {
+          // NOT linkTasks({ kind: 'duplicates' }): a pair-direction holds one
+          // kind at a time (spec D8), and the common case is a pair the dedup
+          // workflow already marked `relates`, which linkTasks refuses. This
+          // writer promotes that row in place, keeping its id (§3.7).
+          await markAsDuplicate({
+            duplicate_task_id: duplicateTaskId,
+            keep_task_id: keepTaskId,
+            session,
+          });
+          await deleteTask({
+            task_id: duplicateTaskId,
+            expected_version: duplicateExpectedVersion,
+            session,
+          });
+          return {};
+        },
+      );
+      return { replayed };
     },
   };
 }
