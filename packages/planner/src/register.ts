@@ -58,7 +58,6 @@ export function registerPlannerContributions(reg: ContributionRegistry): void {
       { table: 'planner.labels', policy: { kind: 'permanent' } },
       { table: 'planner.task_labels', policy: { kind: 'permanent' } },
       { table: 'planner.task_references', policy: { kind: 'permanent' } },
-      { table: 'planner.task_links', policy: { kind: 'permanent' } },
       { table: 'planner.task_comments', policy: { kind: 'permanent' } },
       { table: 'planner.group_join_requests', policy: { kind: 'permanent' } },
       { table: 'planner.assignee_projection', policy: { kind: 'permanent' } },

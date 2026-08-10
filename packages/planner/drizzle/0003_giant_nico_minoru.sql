@@ -1,0 +1,6 @@
+ALTER TABLE "planner"."task_references" DROP CONSTRAINT "task_references_type_check";--> statement-breakpoint
+CREATE UNIQUE INDEX "task_references_dup_source_uniq" ON "planner"."task_references" USING btree ("tenant_id","task_id") WHERE type = 'duplicates';--> statement-breakpoint
+CREATE INDEX "task_references_link_by_url" ON "planner"."task_references" USING btree ("tenant_id","url") WHERE type IN ('relates', 'duplicates', 'blocks');--> statement-breakpoint
+ALTER TABLE "planner"."task_references" ADD CONSTRAINT "task_references_link_url_canonical" CHECK (type NOT IN ('relates', 'duplicates', 'blocks') OR url ~ '^/planner/tasks/[0-9a-fA-F-]{36}$');--> statement-breakpoint
+ALTER TABLE "planner"."task_references" ADD CONSTRAINT "task_references_no_self" CHECK (url <> '/planner/tasks/' || task_id::text);--> statement-breakpoint
+ALTER TABLE "planner"."task_references" ADD CONSTRAINT "task_references_type_check" CHECK (type IN ('word', 'excel', 'powerPoint', 'visio', 'other', 'powerBI', 'oneNote', 'sharePoint', 'web', 'link', 'relates', 'duplicates', 'blocks'));
