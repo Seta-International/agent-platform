@@ -1,5 +1,6 @@
 import type { ApprovalCard } from '@seta/agent-sdk';
 import { PLATFORM_TIMEZONE } from '@seta/agent-sdk';
+import { ACTION_WORKFLOW_ID } from './orchestrator-spec.ts';
 import type { ActionTaskSnapshot, ToolTaskLinkKind, UpdateTaskActionPatch } from './schemas.ts';
 
 /** Field order on the card. Stable, so a diff reads the same way every time. */
@@ -147,6 +148,7 @@ export function buildUpdateApprovalCard(opts: BuildUpdateApprovalCardOpts): Appr
       tenantId,
       userId,
       agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_updateTask',
       ts: new Date().toISOString(),
     },
@@ -202,6 +204,7 @@ export function buildBulkApprovalCard(opts: BuildBulkApprovalCardOpts): Approval
       tenantId,
       userId,
       agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_updateTask',
       ts: new Date().toISOString(),
     },
@@ -260,6 +263,7 @@ export function buildLinkApprovalCard(opts: BuildLinkApprovalCardOpts): Approval
       tenantId,
       userId,
       agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_linkTasks',
       ts: new Date().toISOString(),
     },

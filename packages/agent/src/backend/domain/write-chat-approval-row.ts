@@ -31,6 +31,20 @@ import { getPendingAssignRunIdForTask } from './get-pending-assign-run-for-task.
 /** Logical id of the agentic orchestrator run that owns chat-HITL approvals. */
 export const ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID = 'planner.assignment-orchestrator';
 
+/**
+ * The runtime that must resume this card, as the card itself declares it.
+ *
+ * Read off `meta.workflowId` rather than from a tool-id allowlist here: the
+ * agent tier may not import feature modules (`agent-no-feature-imports`), so any
+ * list kept here would need updating by hand for every new action tool — which
+ * is exactly how planner_linkTasks ended up stamped with the assignment contract
+ * and had its Confirm rejected. A card that declares nothing keeps the legacy
+ * assignment behaviour.
+ */
+export function resumeWorkflowIdForCard(card: ApprovalCard): string {
+  return card.meta.workflowId ?? ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID;
+}
+
 export interface WriteChatApprovalRowOpts {
   card: ApprovalCard;
   /** Mastra run id of the suspended agentic run — the resume target (Task 7). */
@@ -46,12 +60,13 @@ export interface WriteChatApprovalRowOpts {
   approvalTtlHours?: number;
   /** Logical workflow id stamped on the synthetic run row. It is the
    *  discriminator /chat/resume dispatches on, so it MUST name the runtime that
-   *  will resume this card. */
+   *  will resume this card. Defaults to whatever the card declares. */
   workflowId?: string;
   /** One-proposal-per-task mutex. Only assignment has that rule: two people
-   *  cannot be proposed for one task at once. An update preview has no such
+   *  cannot be proposed for one task at once. An action preview has no such
    *  conflict, and reusing an assignment's row for it would resume the wrong
-   *  runtime. Defaults to true so the shipped call site is unchanged. */
+   *  runtime. Defaults to "on for assignment cards only", derived from the same
+   *  declaration, so a new runtime cannot silently inherit the mutex. */
   dedupPendingAssignment?: boolean;
 }
 
@@ -85,8 +100,8 @@ export async function writeChatApprovalRow(
     threadId,
     pool,
     approvalTtlHours = 72,
-    workflowId = ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
-    dedupPendingAssignment = true,
+    workflowId = resumeWorkflowIdForCard(card),
+    dedupPendingAssignment = workflowId === ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
   } = opts;
 
   // Mutex: if a pending assignment proposal already exists for this task —

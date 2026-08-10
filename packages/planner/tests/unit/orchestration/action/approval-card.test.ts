@@ -258,3 +258,38 @@ describe('buildLinkApprovalCard', () => {
     });
   });
 });
+
+// FUT-820: the card names the runtime that must resume it. /chat/resume picks the
+// resume BODY SCHEMA off the persisted row's workflow_id, so a card that does not
+// say "planner.action" gets validated against the legacy assignment contract and
+// the user's Confirm is rejected — silently, because the card host renders no error.
+describe('action cards declare their resume runtime', () => {
+  const snap = (over: Partial<ActionTaskSnapshot>): ActionTaskSnapshot => ({
+    ...snapshot,
+    ...over,
+  });
+  const ids = { tenantId: 't1', userId: 'u1', idempotencyKey: 'key-1' };
+
+  it('buildUpdateApprovalCard declares planner.action', () => {
+    expect(build({ percent_complete: 100 }).meta.workflowId).toBe('planner.action');
+  });
+
+  it('buildBulkApprovalCard declares planner.action', () => {
+    const card = buildBulkApprovalCard({
+      ...ids,
+      tasks: [snap({ taskId: 'id-a', title: 'Alpha' })],
+      patch: { percent_complete: 100 },
+    });
+    expect(card.meta.workflowId).toBe('planner.action');
+  });
+
+  it('buildLinkApprovalCard declares planner.action', () => {
+    const card = buildLinkApprovalCard({
+      source: snap({ taskId: 'id-a', title: 'Alpha' }),
+      target: snap({ taskId: 'id-b', title: 'Beta' }),
+      kind: 'relates',
+      ...ids,
+    });
+    expect(card.meta.workflowId).toBe('planner.action');
+  });
+});
