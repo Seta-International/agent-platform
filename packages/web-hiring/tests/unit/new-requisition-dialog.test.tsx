@@ -179,7 +179,7 @@ describe('NewRequisitionDialog', () => {
     );
   });
 
-  it('validates job title max length (100 chars) and shows inline error message (FUT-789)', async () => {
+  it('validates job title max length (100 chars) and shows inline warning/error messages (FUT-789)', async () => {
     const { openRequisition } = await import('../../src/api/hiring-client.ts');
     vi.mocked(openRequisition).mockReset();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -190,14 +190,15 @@ describe('NewRequisitionDialog', () => {
     const titleInput = screen.getByLabelText(/job title/i);
     await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Role details');
 
-    // Fire change directly with a 105 character string (bypassing native keyboard input limit)
-    const longTitle = 'A'.repeat(105);
-    await userEvent.clear(titleInput);
-    fireEvent.change(titleInput, { target: { value: longTitle } });
+    // 100 chars triggers warning status
+    fireEvent.change(titleInput, { target: { value: 'A'.repeat(100) } });
+    expect(screen.getByText('Maximum limit of 100 characters reached.')).toBeInTheDocument();
+
+    // >100 chars triggers error status and blocks submission
+    fireEvent.change(titleInput, { target: { value: 'A'.repeat(105) } });
+    expect(screen.getByText('Job title cannot exceed 100 characters.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
-
-    expect(screen.getByText('Job title cannot exceed 100 characters.')).toBeInTheDocument();
     expect(openRequisition).not.toHaveBeenCalled();
   });
 });

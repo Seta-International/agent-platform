@@ -99,11 +99,20 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
   const titleTooLong = title.length > MAX_JOB_TITLE_LENGTH;
-  const titleError = titleTooLong
-    ? `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`
-    : submitAttempted && !title.trim()
-      ? 'Job title is required.'
-      : null;
+  const titleAtLimit = title.length === MAX_JOB_TITLE_LENGTH;
+  const titleStatus = titleTooLong
+    ? {
+        type: 'error' as const,
+        message: `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`,
+      }
+    : titleAtLimit
+      ? {
+          type: 'warning' as const,
+          message: `Maximum limit of ${MAX_JOB_TITLE_LENGTH} characters reached.`,
+        }
+      : submitAttempted && !title.trim()
+        ? { type: 'error' as const, message: 'Job title is required.' }
+        : undefined;
   const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
   // FUT-559 date bounds: a new requisition can't start in the past, and due must land on or
   // after the start. yyyy-mm-dd ISO strings compare lexically; use local-midnight today.
@@ -272,9 +281,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       isRequired
                       value={title}
                       onChange={(value) => setTitle(value)}
-                      maxLength={MAX_JOB_TITLE_LENGTH}
                       placeholder="e.g. Senior Backend Engineer"
-                      status={titleError ? { type: 'error', message: titleError } : undefined}
+                      status={titleStatus}
                     />
                   </div>
                   <Grid columns={2} gap={4}>
