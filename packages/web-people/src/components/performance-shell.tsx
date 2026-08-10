@@ -18,6 +18,7 @@ import { amTopTabs, isPerformancePathAllowed } from '../nav/performance-nav.ts';
 import { navIdFromPath } from '../nav/performance-path.ts';
 import type { PerformanceScopeSearch } from '../state/performance-scope.ts';
 import { PerformanceScopeProvider } from '../state/performance-scope-context.tsx';
+import { CyclePeriodSelector } from './cycle-period-selector.tsx';
 import { CycleStatusBadgeLoader } from './cycle-status-badge-loader.tsx';
 import { ProjectContextSwitcher } from './project-context-switcher.tsx';
 
@@ -43,7 +44,7 @@ export function PerformanceShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const urlSearch = useSearch({ strict: false }) as PerformanceScopeSearch;
-  const { resolved, search, setCapacity } = usePerformanceScope({
+  const { resolved, search, setCapacity, setSearch } = usePerformanceScope({
     pathname,
     capacities,
     default_capacity_index,
@@ -71,7 +72,15 @@ export function PerformanceShell({
   }, [navigate, pathname, resolved.capacity, role_slugs, linkSearch]);
 
   return (
-    <PerformanceScopeProvider value={{ role_slugs, capacities, resolved, search }}>
+    <PerformanceScopeProvider
+      value={{
+        role_slugs,
+        capacities,
+        resolved,
+        search,
+        setMonth: (month) => setSearch({ month }),
+      }}
+    >
       <Layout
         height="fill"
         header={
@@ -102,10 +111,10 @@ export function PerformanceShell({
         content={
           <LayoutContent padding={4}>
             <VStack gap={4} data-testid="performance-workspace">
-              {tabs.length > 0 ? (
-                // Row wrapper so the control hugs its tabs instead of being
-                // stretched to full width by the surrounding VStack.
-                <HStack>
+              {/* Controls row: section tabs (AM) on the left, cycle-period picker
+                  on the right — same row for every capacity. */}
+              <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+                {tabs.length > 0 ? (
                   <SegmentedControl
                     label="Performance section"
                     value={activeTab === 'configuration' ? 'configuration' : 'reviews'}
@@ -120,8 +129,15 @@ export function PerformanceShell({
                       <SegmentedControlItem key={t.id} value={t.id} label={t.label} />
                     ))}
                   </SegmentedControl>
-                </HStack>
-              ) : null}
+                ) : (
+                  <span />
+                )}
+                <CyclePeriodSelector
+                  anchor={as_of_month}
+                  month={cycleMonth}
+                  onChange={(m) => setSearch({ month: m })}
+                />
+              </HStack>
               {children}
             </VStack>
           </LayoutContent>

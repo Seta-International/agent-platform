@@ -6,7 +6,11 @@ import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { performanceConfigMonthPin } from '../../src/backend/db/schema.ts';
+import {
+  performanceConfigMonthPin,
+  projectProjection,
+  workerAllocationProjection,
+} from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { setMonthClock } from '../../src/backend/domain/month-clock.ts';
 import { readPerformanceConfig, savePerformanceConfig } from '../../src/index.ts';
@@ -240,6 +244,77 @@ describe('performance config (FUT-778)', () => {
         await expect(readPerformanceConfig(noPerm, account_id)).rejects.toMatchObject({
           code: 'FORBIDDEN',
         });
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('participant (TL/member) reads config without pinning the cycle', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const am = await createWorker({ session: t.adminSession, full_name: 'Ada AM' });
+        const lead = await createWorker({ session: t.adminSession, full_name: 'Leo Lead' });
+        await linkUserToPerson(t.tenant_id, am.worker_id, crypto.randomUUID());
+        const leadUser = crypto.randomUUID();
+        await linkUserToPerson(t.tenant_id, lead.worker_id, leadUser);
+        const { account_id } = await createAccount({
+          name: 'Contoso',
+          am_worker_id: am.worker_id,
+          session: pmManagerSession(t.tenant_id),
+        });
+
+        // Leo is a team lead allocated to a project under the AM's account.
+        const projectId = crypto.randomUUID();
+        const db = peopleDb();
+        await db.insert(projectProjection).values({
+          project_id: projectId,
+          tenant_id: t.tenant_id,
+          account_id,
+          name: 'Alpha',
+        });
+        await db.insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: lead.worker_id,
+          project_id: projectId,
+          account_id,
+          lead_person_id: lead.worker_id,
+          active: true,
+        });
+
+        const leadSession = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: leadUser,
+          roles: ['people.viewer'],
+          person_id: lead.worker_id,
+        });
+
+        // Open window: an AM read would pin, but a participant read must not.
+        setMonthClock(() => vn(2026, 7, 26));
+        const cfg = await readPerformanceConfig(leadSession, account_id);
+        expect(cfg.revision_no).toBe(1);
+        expect(cfg.groups).toHaveLength(5);
+        expect(cfg.applies_to_next_cycle).toBe(false);
+
+        const pins = await db
+          .select()
+          .from(performanceConfigMonthPin)
+          .where(
+            and(
+              eq(performanceConfigMonthPin.tenant_id, t.tenant_id),
+              eq(performanceConfigMonthPin.account_id, account_id),
+            ),
+          );
+        expect(pins).toHaveLength(0);
       } finally {
         resetPeopleDb();
         resetPmDb();

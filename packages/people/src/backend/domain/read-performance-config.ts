@@ -14,21 +14,35 @@ import { PeopleError, requirePermission } from '../rbac.ts';
 import { ensurePerformanceGroups } from './ensure-performance-groups.ts';
 import { classifyCycleStatus, monthClockNow, vnYearMonth } from './month-clock.ts';
 import { PERFORMANCE_GROUP_TEMPLATES } from './performance-config-template.ts';
+import { loadPerformanceCapacities } from './read-performance-context.ts';
 
 function weightNumber(raw: string | number): number {
   return typeof raw === 'number' ? raw : Number(raw);
 }
 
-async function assertAmOwnsAccount(session: SessionScope, accountId: string): Promise<void> {
+/**
+ * READ authorization for an account's performance config. The managing AM
+ * always qualifies; so does any performance participant (TL/member) allocated
+ * to a project under the account in the current cycle month — they need the
+ * pillar/weight axis to read their own scorecards. Returns `isAm` so callers
+ * can gate cycle-affecting side effects (month pin) to the owning AM only.
+ */
+async function assertCanReadAccountConfig(
+  session: SessionScope,
+  accountId: string,
+): Promise<{ isAm: boolean }> {
   if (!session.person_id) {
     throw new PeopleError('FORBIDDEN', 'No employee record linked to session');
   }
   const managed = await listAccountIdsManagedBy(session.person_id, session.tenant_id);
-  if (!managed.includes(accountId)) {
-    throw new PeopleError('FORBIDDEN', 'Account is not managed by this user', {
-      account_id: accountId,
-    });
-  }
+  if (managed.includes(accountId)) return { isAm: true };
+
+  const capacities = await loadPerformanceCapacities(session, session.person_id, vnYearMonth());
+  if (capacities.some((c) => c.account_id === accountId)) return { isAm: false };
+
+  throw new PeopleError('FORBIDDEN', 'Account is not managed by this user', {
+    account_id: accountId,
+  });
 }
 
 async function loadRevisionTree(revisionId: string): Promise<PerformanceConfigGroupView[]> {
@@ -210,14 +224,15 @@ export async function readPerformanceConfig(
   accountId: string,
 ): Promise<PerformanceConfigResponse> {
   requirePermission(session, 'people.performance.read');
-  await assertAmOwnsAccount(session, accountId);
+  const { isAm } = await assertCanReadAccountConfig(session, accountId);
 
   const head = await ensureAccountConfigRevision1(session.tenant_id, accountId, session.user_id);
-  const { applies_to_next_cycle } = await ensureMonthPinIfNeeded(
-    session.tenant_id,
-    accountId,
-    head.revision_id,
-  );
+  // Pinning the head revision to the cycle month advances cycle state, so only
+  // the owning AM triggers it; participants read the same config without side
+  // effects (and never see a pin they didn't cause).
+  const { applies_to_next_cycle } = isAm
+    ? await ensureMonthPinIfNeeded(session.tenant_id, accountId, head.revision_id)
+    : { applies_to_next_cycle: false };
   const groups = await loadRevisionTree(head.revision_id);
   return {
     account_id: accountId,
