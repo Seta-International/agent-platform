@@ -160,4 +160,17 @@ describe('RequisitionDetailView editing', () => {
     expect(screen.queryByText('Discard your changes?')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /^edit$/i })).toBeInTheDocument();
   });
+
+  it('validates job title max length (100 chars) and shows inline error message when editing (FUT-789)', async () => {
+    await openEditor();
+
+    const titleInput = screen.getByLabelText(/job title/i);
+    const longTitle = 'B'.repeat(105);
+    fireEvent.change(titleInput, { target: { value: longTitle } });
+
+    await userEvent.click(screen.getByRole('button', { name: /^update$/i }));
+
+    expect(screen.getByText('Job title cannot exceed 100 characters.')).toBeInTheDocument();
+    expect(editRequisition).not.toHaveBeenCalled();
+  });
 });

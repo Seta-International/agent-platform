@@ -19,9 +19,15 @@ export const skillInput = z.object({
 });
 export type SkillInput = z.infer<typeof skillInput>;
 
+export const MAX_JOB_TITLE_LENGTH = 100;
+
 export const openRequisitionInput = z
   .object({
-    title: z.string().min(1),
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Job title is required.')
+      .max(MAX_JOB_TITLE_LENGTH, `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`),
     kind: z.enum(['replacement', 'new']).default('new'),
     role_title: z.string().optional(),
     grade: z.string().optional(),
@@ -43,7 +49,11 @@ export type OpenRequisitionInput = z.input<typeof openRequisitionInput>;
 
 export const editRequisitionPatch = z
   .object({
-    title: z.string().min(1),
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Job title is required.')
+      .max(MAX_JOB_TITLE_LENGTH, `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`),
     role_title: z.string(),
     grade: z.string(),
     account_id: z.string().uuid(),
