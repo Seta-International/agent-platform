@@ -21,7 +21,7 @@ describe('task link events', () => {
         actor: { type: 'user', user_id: 'u' },
         tenant_id: 't',
         group_id: 'g',
-        link_id: 'l',
+        reference_id: 'l',
         source_task_id: 'a',
         target_task_id: 'b',
         source_plan_id: 'p1',
