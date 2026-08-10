@@ -32,13 +32,11 @@ export const plannerErrorMapper: ErrorMapper = (err) => {
                   ? 409
                   : err.code === 'DUPLICATE_REFERENCE'
                     ? 409
-                    : err.code === 'DUPLICATE_LINK'
-                      ? 409
-                      : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
-                        ? 403
-                        : err.code === 'PLAN_NOT_LINKED'
-                          ? 409
-                          : 400;
+                    : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
+                      ? 403
+                      : err.code === 'PLAN_NOT_LINKED'
+                        ? 409
+                        : 400;
   return { status, body: { error: err.code, message: err.message, details: err.details } };
 };
 
