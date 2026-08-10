@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -177,5 +177,27 @@ describe('NewRequisitionDialog', () => {
         headcount: 1,
       }),
     );
+  });
+
+  it('validates job title max length (100 chars) and shows inline error message (FUT-789)', async () => {
+    const { openRequisition } = await import('../../src/api/hiring-client.ts');
+    vi.mocked(openRequisition).mockReset();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+
+    const titleInput = screen.getByLabelText(/job title/i);
+    await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Role details');
+
+    // Fire change directly with a 105 character string (bypassing native keyboard input limit)
+    const longTitle = 'A'.repeat(105);
+    await userEvent.clear(titleInput);
+    fireEvent.change(titleInput, { target: { value: longTitle } });
+
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
+
+    expect(screen.getByText('Job title cannot exceed 100 characters.')).toBeInTheDocument();
+    expect(openRequisition).not.toHaveBeenCalled();
   });
 });

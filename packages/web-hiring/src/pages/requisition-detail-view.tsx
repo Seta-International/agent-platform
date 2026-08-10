@@ -94,6 +94,8 @@ const HEADER_FOOTER_PADDING: CSSProperties = {
   '--layout-padding-inner-y': 'var(--spacing-4)',
 } as CSSProperties;
 
+const MAX_JOB_TITLE_LENGTH = 100;
+
 const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'about', label: 'About the role' },
   { key: 'responsibilities', label: 'Responsibilities' },
@@ -270,7 +272,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const aboutFieldRef = useRef<HTMLDivElement>(null);
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
-  const titleInvalid = submitAttempted && !title.trim();
+  const titleTooLong = title.length > MAX_JOB_TITLE_LENGTH;
+  const titleError = titleTooLong
+    ? `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`
+    : submitAttempted && !title.trim()
+      ? 'Job title is required.'
+      : null;
   const aboutInvalid = submitAttempted && isRichTextEmpty(sections.about);
   // Unsaved-edit guard for the Cancel button (FUT-559: confirm before discarding). Compares the
   // reliably-loaded scalar fields against the stored requisition — enough to catch a real edit
@@ -455,12 +462,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   function submitEdit() {
     setSubmitAttempted(true);
-    if (missingRequired || startInPast || dueBeforeStart || dueInPast || headcountError) {
-      const target = !title.trim()
-        ? titleFieldRef.current
-        : isRichTextEmpty(sections.about)
-          ? aboutFieldRef.current
-          : null;
+    if (
+      missingRequired ||
+      titleTooLong ||
+      startInPast ||
+      dueBeforeStart ||
+      dueInPast ||
+      headcountError
+    ) {
+      const target =
+        !title.trim() || titleTooLong
+          ? titleFieldRef.current
+          : isRichTextEmpty(sections.about)
+            ? aboutFieldRef.current
+            : null;
       target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -631,11 +646,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     isRequired
                     value={title}
                     onChange={(value) => setTitle(value)}
-                    status={
-                      titleInvalid
-                        ? { type: 'error', message: 'Job title is required.' }
-                        : undefined
-                    }
+                    maxLength={MAX_JOB_TITLE_LENGTH}
+                    status={titleError ? { type: 'error', message: titleError } : undefined}
                   />
                 </div>
                 <Grid columns={2} gap={4}>
