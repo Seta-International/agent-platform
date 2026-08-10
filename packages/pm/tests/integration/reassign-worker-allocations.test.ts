@@ -511,7 +511,7 @@ describe('reassignWorkerAllocations', () => {
           session: t.adminSession,
         });
 
-        // AM session with project.read / project.manage restricted to amProject
+        // AM session with project.read / project.manage restricted to self scope
         const amSession = buildSession({
           user_id: crypto.randomUUID(),
           tenant_id: t.tenant_id,
@@ -520,8 +520,8 @@ describe('reassignWorkerAllocations', () => {
           assignments: [
             {
               role_slug: 'pm.manager',
-              scope_kind: 'relationship' as const,
-              scope_id: amProject,
+              scope_kind: 'self',
+              scope_id: null,
             },
           ],
         });
