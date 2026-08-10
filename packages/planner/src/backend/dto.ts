@@ -9,6 +9,16 @@ export type TaskExternalSource = 'native' | 'm365';
 export type TaskPriorityNumber = 1 | 3 | 5 | 9;
 export type TaskPreviewType = 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
 export type TaskLinkKind = 'relates' | 'duplicates' | 'blocks';
+/**
+ * The BOOKMARK vocabulary, and deliberately not the column vocabulary: the
+ * `task_references.type` column also accepts the three TASK_LINK_KINDS
+ * (design §3.1), but a link row never reaches a TaskReferenceRow because
+ * `get-task` filters them out of `references[]` (§3.3).
+ *
+ * Two things fall out of keeping this union narrow. `AddTaskReferenceInput.type`
+ * cannot name a link kind at compile time — §3.11's first guard, for free — and
+ * `shared-ui`'s ReferenceRowData.type, which is its own union, keeps matching.
+ */
 export type TaskReferenceType =
   | 'word'
   | 'excel'
