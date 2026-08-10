@@ -6,13 +6,15 @@ import { createGroup, createPlan, createTask, deleteTask } from '../../../src/in
 import { makeMemberSession, seedTenant } from '../../helpers.ts';
 import { withAgentTestDb } from '../agent-tools-helpers.ts';
 
+type SeedTask = Awaited<ReturnType<typeof createTask>>;
+
 /** tenant + group + plan + N tasks, through the domain, one session. */
 async function seed(pool: Parameters<typeof seedTenant>[0], titles: string[]) {
   const seeded = await seedTenant(pool);
   const session = seeded.adminSession;
   const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
   const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
-  const tasks = [];
+  const tasks: SeedTask[] = [];
   for (const title of titles) {
     tasks.push(await createTask({ plan_id: plan.id, title, session }));
   }
@@ -27,7 +29,7 @@ describe('linkTasks', () => {
   it('writes ONE task_references row whose url is the plan-free canonical path', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
 
       const link = await linkTasks({
         source_task_id: a.id,
@@ -63,7 +65,7 @@ describe('linkTasks', () => {
   it('refuses a self-link with a sentence, before the CHECK ever fires', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha']);
-      const [a] = tasks;
+      const [a] = tasks as [SeedTask];
       await expect(
         linkTasks({ source_task_id: a.id, target_task_id: a.id, kind: 'relates', session }),
       ).rejects.toMatchObject({ code: 'VALIDATION' });
@@ -72,7 +74,7 @@ describe('linkTasks', () => {
   it('refuses linking TO a trashed task', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
       await deleteTask({ task_id: b.id, expected_version: b.version, session });
       await expect(
         linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'relates', session }),
@@ -111,7 +113,7 @@ describe('linkTasks — one relationship per pair (D8)', () => {
   it('refuses the same kind in the same direction', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
       await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'relates', session });
 
       const err = await linkTasks({
@@ -128,7 +130,7 @@ describe('linkTasks — one relationship per pair (D8)', () => {
   it('refuses the same kind in the opposite direction — one symmetric fact', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
       await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'relates', session });
 
       const err = await linkTasks({
@@ -144,7 +146,7 @@ describe('linkTasks — one relationship per pair (D8)', () => {
   it('refuses a mutual block', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
       await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'blocks', session });
 
       await expect(
@@ -155,7 +157,7 @@ describe('linkTasks — one relationship per pair (D8)', () => {
   it('refuses the inverse duplicates row with its own sentence', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
       await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'duplicates', session });
 
       const err = await linkTasks({
@@ -173,7 +175,7 @@ describe('linkTasks — one relationship per pair (D8)', () => {
   it('refuses a different kind, naming the kind that is already there', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta']);
-      const [a, b] = tasks;
+      const [a, b] = tasks as [SeedTask, SeedTask];
       await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'blocks', session });
 
       const err = await linkTasks({
@@ -193,7 +195,7 @@ describe('linkTasks — one relationship per pair (D8)', () => {
   it('refuses a second duplicates row out of the same source, naming the existing target', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Alpha', 'Beta', 'Gamma']);
-      const [a, b, c] = tasks;
+      const [a, b, c] = tasks as [SeedTask, SeedTask, SeedTask];
       await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'duplicates', session });
 
       const err = await linkTasks({
@@ -215,7 +217,7 @@ describe('markAsDuplicate', () => {
   it('promotes an existing relates row in place, keeping its id', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Dup', 'Keep']);
-      const [dup, keep] = tasks;
+      const [dup, keep] = tasks as [SeedTask, SeedTask];
       const related = await linkTasks({
         source_task_id: dup.id,
         target_task_id: keep.id,
@@ -243,7 +245,7 @@ describe('markAsDuplicate', () => {
   it('promotes an INVERSE relates row into the canonical direction, same id', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Dup', 'Keep']);
-      const [dup, keep] = tasks;
+      const [dup, keep] = tasks as [SeedTask, SeedTask];
       // The user linked keep → dup last week; today they merge dup INTO keep.
       const related = await linkTasks({
         source_task_id: keep.id,
@@ -271,7 +273,7 @@ describe('markAsDuplicate', () => {
   it('inserts when the pair is clean', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Dup', 'Keep']);
-      const [dup, keep] = tasks;
+      const [dup, keep] = tasks as [SeedTask, SeedTask];
       await markAsDuplicate({ duplicate_task_id: dup.id, keep_task_id: keep.id, session });
       const rows = await linkRows();
       expect(rows).toHaveLength(1);
@@ -281,7 +283,7 @@ describe('markAsDuplicate', () => {
   it('refuses a pair carrying blocks, and one already merged', () =>
     withAgentTestDb(async ({ pool }) => {
       const { session, tasks } = await seed(pool, ['Dup', 'Keep', 'Other']);
-      const [dup, keep, other] = tasks;
+      const [dup, keep, other] = tasks as [SeedTask, SeedTask, SeedTask];
       await linkTasks({ source_task_id: dup.id, target_task_id: keep.id, kind: 'blocks', session });
       await expect(
         markAsDuplicate({ duplicate_task_id: dup.id, keep_task_id: keep.id, session }),

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { linkTasks } from '../../../src/backend/domain/link-tasks.ts';
-import { createGroup, createPlan, createTask, deleteTask, getTask } from '../../../src/index.ts';
+import {
+  addTaskReference,
+  createGroup,
+  createPlan,
+  createTask,
+  deleteTask,
+  duplicatePlan,
+  duplicateTask,
+  getTask,
+} from '../../../src/index.ts';
 import { buildSession, makeMemberSession, seedTenant } from '../../helpers.ts';
 import { withAgentTestDb } from '../agent-tools-helpers.ts';
 
@@ -148,5 +157,92 @@ describe('getTask — links', () => {
       const byOther = new Map(asReader.links.map((l) => [l.other_task_id, l.can_unlink]));
       expect(byOther.get(sibling.id)).toBe(true);
       expect(byOther.get(far.id)).toBe(false);
+    }));
+
+  // Spec §6.2 test 17 — MANDATORY regression. The one pre-existing read D1
+  // changes, and the one place §3.4's no-backfill promise is visible.
+  it('splits link rows from bookmark rows, including a legacy "Related:" one', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const seeded = await seedTenant(pool);
+      const session = seeded.adminSession;
+      const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+      const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
+      const a = await createTask({ plan_id: plan.id, title: 'Alpha', session });
+      const b = await createTask({ plan_id: plan.id, title: 'Beta', session });
+      await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'relates', session });
+      // Exactly what the dedup workflow used to write, and what no backfill
+      // rewrites: type 'link' (a BOOKMARK kind) and a plan-scoped url.
+      await addTaskReference({
+        task_id: a.id,
+        url: `/planner/plans/${plan.id}/tasks/${b.id}`,
+        alias: 'Related: Beta',
+        type: 'link',
+        session,
+      });
+      await addTaskReference({
+        task_id: a.id,
+        url: 'https://example.test/spec',
+        type: 'web',
+        session,
+      });
+
+      const detail = await getTask({ task_id: a.id, session });
+      expect(detail.links).toHaveLength(1);
+      expect(detail.links[0]).toMatchObject({ kind: 'relates', other_task_id: b.id });
+      expect(detail.references.map((r) => r.url)).toEqual([
+        `/planner/plans/${plan.id}/tasks/${b.id}`,
+        'https://example.test/spec',
+      ]);
+      expect(detail.references.some((r) => r.url.startsWith('/planner/tasks/'))).toBe(false);
+    }));
+
+  it('does not copy link rows when a task is duplicated', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const seeded = await seedTenant(pool);
+      const session = seeded.adminSession;
+      const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+      const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
+      const a = await createTask({ plan_id: plan.id, title: 'Alpha', session });
+      const b = await createTask({ plan_id: plan.id, title: 'Beta', session });
+      await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'duplicates', session });
+      await addTaskReference({
+        task_id: a.id,
+        url: 'https://example.test/spec',
+        type: 'web',
+        session,
+      });
+
+      const copy = await duplicateTask({
+        task_id: a.id,
+        options: { include_references: true },
+        session,
+      });
+
+      // A copy of "Duplicate of Beta" is not itself a duplicate of Beta, and the
+      // copy's reference previews must not show a link row either.
+      const copied = await getTask({ task_id: copy.id, session });
+      expect(copied.links).toHaveLength(0);
+      expect(copied.references.map((r) => r.url)).toEqual(['https://example.test/spec']);
+    }));
+
+  it('does not copy link rows when a plan is duplicated', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const seeded = await seedTenant(pool);
+      const session = seeded.adminSession;
+      const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+      const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
+      const a = await createTask({ plan_id: plan.id, title: 'Alpha', session });
+      const b = await createTask({ plan_id: plan.id, title: 'Beta', session });
+      await linkTasks({ source_task_id: a.id, target_task_id: b.id, kind: 'relates', session });
+
+      const copy = await duplicatePlan({ plan_id: plan.id, session });
+
+      const rows = await pool.query(
+        `SELECT tr.type FROM planner.task_references tr
+           JOIN planner.tasks t ON t.id = tr.task_id
+          WHERE t.plan_id = $1`,
+        [copy.id],
+      );
+      expect(rows.rows).toHaveLength(0);
     }));
 });

@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { checklistItems, plans, taskLinks, taskReferences, tasks } from '../db/schema.ts';
+import { checklistItems, plans, taskReferences, tasks } from '../db/schema.ts';
 import type {
   ChecklistItemRow,
   TaskDetailRow,
@@ -14,6 +14,7 @@ import type {
 import { isTenantWide, PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor, listMemberGroupIds } from '../read-helpers.ts';
 import { taskRowToDto } from './_task-dto.ts';
+import { TASK_LINK_KIND_LIST, taskLinkUrl } from './_task-link-row.ts';
 import { fetchAssigneesAndLabels } from './list-tasks.ts';
 
 export async function getTask(input: {
@@ -66,38 +67,68 @@ export async function getTask(input: {
       db
         .select()
         .from(taskReferences)
-        .where(eq(taskReferences.task_id, row.id))
+        .where(
+          and(
+            eq(taskReferences.task_id, row.id),
+            // A link row's url is /planner/tasks/<uuid>; rendering it beside real
+            // bookmarks in the URL group is the regression test 17 exists to
+            // prevent (design §3.3).
+            notInArray(taskReferences.type, TASK_LINK_KIND_LIST),
+          ),
+        )
         .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
+      // OUTGOING: this task is the link's source. Reads task_references_by_task;
+      // the ::uuid cast is total because of the
+      // task_references_link_url_canonical CHECK, so there is no malformed-data
+      // branch to write.
       db
         .select({
-          id: taskLinks.id,
-          kind: taskLinks.kind,
-          created_at: taskLinks.created_at,
+          id: taskReferences.id,
+          type: taskReferences.type,
+          created_at: taskReferences.created_at,
           other_id: tasks.id,
           other_title: tasks.title,
           other_plan_id: tasks.plan_id,
           other_deleted_at: tasks.deleted_at,
           other_group_id: plans.group_id,
         })
-        .from(taskLinks)
-        .innerJoin(tasks, eq(tasks.id, taskLinks.target_task_id))
+        .from(taskReferences)
+        .innerJoin(
+          tasks,
+          sql`${tasks.id} = substring(${taskReferences.url} from '^/planner/tasks/(.+)$')::uuid`,
+        )
         .innerJoin(plans, eq(plans.id, tasks.plan_id))
-        .where(and(eq(taskLinks.tenant_id, row.tenant_id), eq(taskLinks.source_task_id, row.id))),
+        .where(
+          and(
+            eq(taskReferences.tenant_id, row.tenant_id),
+            eq(taskReferences.task_id, row.id),
+            inArray(taskReferences.type, TASK_LINK_KIND_LIST),
+          ),
+        ),
+      // INCOMING: url = '/planner/tasks/<me>'. Reads the new partial
+      // (tenant_id, url) index — without it this seq-scans the tenant's whole
+      // bookmark list on every detail page.
       db
         .select({
-          id: taskLinks.id,
-          kind: taskLinks.kind,
-          created_at: taskLinks.created_at,
+          id: taskReferences.id,
+          type: taskReferences.type,
+          created_at: taskReferences.created_at,
           other_id: tasks.id,
           other_title: tasks.title,
           other_plan_id: tasks.plan_id,
           other_deleted_at: tasks.deleted_at,
           other_group_id: plans.group_id,
         })
-        .from(taskLinks)
-        .innerJoin(tasks, eq(tasks.id, taskLinks.source_task_id))
+        .from(taskReferences)
+        .innerJoin(tasks, eq(tasks.id, taskReferences.task_id))
         .innerJoin(plans, eq(plans.id, tasks.plan_id))
-        .where(and(eq(taskLinks.tenant_id, row.tenant_id), eq(taskLinks.target_task_id, row.id))),
+        .where(
+          and(
+            eq(taskReferences.tenant_id, row.tenant_id),
+            eq(taskReferences.url, taskLinkUrl(row.id)),
+            inArray(taskReferences.type, TASK_LINK_KIND_LIST),
+          ),
+        ),
     ]);
 
   const checklist: ChecklistItemRow[] = checklistRows.map((r) => ({
@@ -153,7 +184,7 @@ export async function getTask(input: {
 
   const toLinkRow = (r: LinkQueryRow, direction: 'outgoing' | 'incoming'): TaskLinkRow => ({
     id: r.id,
-    kind: r.kind as TaskLinkKind,
+    kind: r.type as TaskLinkKind,
     direction,
     other_task_id: r.other_id,
     other_task_title: r.other_title,
