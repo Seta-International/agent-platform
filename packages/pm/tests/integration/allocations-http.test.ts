@@ -59,8 +59,9 @@ describe('pm allocations HTTP', () => {
             role: 'Developer',
             planned_pct: 80,
             status: 'committed',
-            date_from: '2026-07-01',
-            date_to: '2026-12-31',
+            // FUT-876: delete requires a not-yet-started allocation, so start in the future.
+            date_from: '2099-07-01',
+            date_to: '2099-12-31',
           }),
         });
         expect(post.status).toBe(201);
