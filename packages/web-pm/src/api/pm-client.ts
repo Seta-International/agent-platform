@@ -666,6 +666,12 @@ export interface ReassignWorkerAllocationsResult {
   warnings: ReassignWarning[];
 }
 
+export interface RestrictedSegment {
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+}
+
 export interface ReassignGroupPreviewResult {
   worker_name: string | null;
   sources: ReassignPreviewSegment[];
@@ -674,6 +680,8 @@ export interface ReassignGroupPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  has_restricted_allocations?: boolean;
+  restricted_segments?: RestrictedSegment[];
 }
 
 export interface ReassignWorkerAllocationsBody {

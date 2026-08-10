@@ -1012,6 +1012,14 @@ function ReviewStep({
       date_to: t.date_to,
       planned_pct: t.planned_pct,
     })) ?? []),
+    ...(preview?.restricted_segments?.map((r, i) => ({
+      key: `restricted-${i}`,
+      label: 'Restricted projects',
+      date_from: r.date_from,
+      date_to: r.date_to,
+      planned_pct: r.planned_pct,
+      isRestricted: true,
+    })) ?? []),
   ];
 
   return (
@@ -1037,18 +1045,29 @@ function ReviewStep({
             </>
           }
           description={
-            preview.peak_from ? (
-              <>
-                They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
-                <strong>{preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}</strong>
-                {preview.peak_to
-                  ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
-                  : ''}
-                . You can still confirm below.
-              </>
-            ) : (
-              'Over 100%. You can still confirm below.'
-            )
+            <>
+              {preview.peak_from ? (
+                <>
+                  They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
+                  <strong>
+                    {preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}
+                  </strong>
+                  {preview.peak_to
+                    ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
+                    : ''}
+                  .
+                </>
+              ) : (
+                'Over 100%.'
+              )}
+              {preview.has_restricted_allocations ? (
+                <span className="mt-1 block font-medium">
+                  Additional allocations from restricted projects are included in this calculation
+                  but are hidden due to your permissions.
+                </span>
+              ) : null}{' '}
+              You can still confirm below.
+            </>
           }
         />
       ) : null}
