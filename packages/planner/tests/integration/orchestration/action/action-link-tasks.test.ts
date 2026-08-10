@@ -67,11 +67,15 @@ describe('action runtime — link port', () => {
       expect(out.replayed).toBe(false);
 
       const rows = await pool.query(
-        'SELECT kind FROM planner.task_links WHERE source_task_id = $1',
-        [tasks[0]!.taskId],
+        `SELECT task_id, url, type FROM planner.task_references
+          WHERE type IN ('relates','duplicates','blocks')`,
       );
       expect(rows.rows).toHaveLength(1);
-      expect(rows.rows[0].kind).toBe('relates');
+      expect(rows.rows[0]).toMatchObject({
+        task_id: tasks[0]!.taskId,
+        url: `/planner/tasks/${tasks[1]!.taskId}`,
+        type: 'relates',
+      });
 
       const keys = await pool.query(
         'SELECT mutation_kind FROM core.mutation_idempotency WHERE key = $1',
@@ -93,25 +97,45 @@ describe('action runtime — link port', () => {
       const { tenantId, actorUserId, tasks } = await seedTasksFixture(pool, {
         titles: ['Alpha', 'Beta'],
       });
+      const [a, b] = tasks as [(typeof tasks)[number], (typeof tasks)[number]];
       const port = makeActionTaskLink();
-      const args = {
+
+      expect(
+        await port.readPairLink({
+          tenantId,
+          actorUserId,
+          sourceTaskId: a.taskId,
+          targetTaskId: b.taskId,
+        }),
+      ).toBeNull();
+
+      await port.link({
         tenantId,
         actorUserId,
-        sourceTaskId: tasks[0]!.taskId,
-        targetTaskId: tasks[1]!.taskId,
-        kind: 'relates' as const,
-      };
-      expect(await port.linkExists(args)).toBe(false);
-      await port.link({ ...args, idempotencyKey: 'k' });
-      expect(await port.linkExists(args)).toBe(true);
-      // The pair index treats the two directions as one fact.
+        sourceTaskId: a.taskId,
+        targetTaskId: b.taskId,
+        kind: 'blocks',
+        idempotencyKey: 'pair-1',
+      });
+
       expect(
-        await port.linkExists({
-          ...args,
-          sourceTaskId: args.targetTaskId,
-          targetTaskId: args.sourceTaskId,
+        await port.readPairLink({
+          tenantId,
+          actorUserId,
+          sourceTaskId: a.taskId,
+          targetTaskId: b.taskId,
         }),
-      ).toBe(true);
+      ).toEqual({ kind: 'blocks', direction: 'outgoing' });
+      // The pair is ONE fact: asked from the other side, the same row comes back
+      // as `incoming` rather than as nothing.
+      expect(
+        await port.readPairLink({
+          tenantId,
+          actorUserId,
+          sourceTaskId: b.taskId,
+          targetTaskId: a.taskId,
+        }),
+      ).toEqual({ kind: 'blocks', direction: 'incoming' });
     }));
 });
 
@@ -142,7 +166,10 @@ describe('planner_linkTasks — the two-endpoint gate, through the tool', () => 
 
       expect(out.linked).toBe(false);
       expect(suspend).not.toHaveBeenCalled();
-      const rows = await pool.query('SELECT 1 FROM planner.task_links');
+      const rows = await pool.query(
+        `SELECT 1 FROM planner.task_references
+          WHERE type IN ('relates','duplicates','blocks')`,
+      );
       expect(rows.rows).toHaveLength(0);
     }));
 

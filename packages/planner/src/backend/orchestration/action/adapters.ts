@@ -2,14 +2,15 @@ import { withGatedMutation } from '@seta/core/events';
 import { buildActorSession } from '@seta/identity';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
-import { taskLinks, tasks } from '../../db/schema.ts';
+import { taskReferences, tasks } from '../../db/schema.ts';
+import { TASK_LINK_KIND_LIST, taskLinkUrl } from '../../domain/_task-link-row.ts';
 import { getTask } from '../../domain/get-task.ts';
 import { linkTasks } from '../../domain/link-tasks.ts';
 import { updateTask } from '../../domain/update-task.ts';
 import { PlannerError, requirePermission } from '../../rbac.ts';
 import { getTaskGroupId } from '../../read-helpers.ts';
 import type { TaskLinkPort, TaskReadPort, TaskUpdatePort } from './ports.ts';
-import type { ActionTaskSnapshot } from './schemas.ts';
+import type { ActionTaskSnapshot, ToolTaskLinkKind } from './schemas.ts';
 
 export function makeActionTaskRead(): TaskReadPort {
   return {
@@ -140,33 +141,35 @@ export function makeActionTaskLink(): TaskLinkPort {
       }
     },
 
-    async linkExists({ tenantId, sourceTaskId, targetTaskId, kind }) {
-      const rows = await plannerDb()
-        .select({ id: taskLinks.id })
-        .from(taskLinks)
+    async readPairLink({ tenantId, sourceTaskId, targetTaskId }) {
+      const [row] = await plannerDb()
+        .select({ type: taskReferences.type, task_id: taskReferences.task_id })
+        .from(taskReferences)
         .where(
           and(
-            eq(taskLinks.tenant_id, tenantId),
-            eq(taskLinks.kind, kind),
-            // Either direction: `task_links_pair_kind_uniq` normalises the pair,
-            // so the storage would refuse the inverse too.
+            eq(taskReferences.tenant_id, tenantId),
+            inArray(taskReferences.type, TASK_LINK_KIND_LIST),
             or(
               and(
-                eq(taskLinks.source_task_id, sourceTaskId),
-                eq(taskLinks.target_task_id, targetTaskId),
+                eq(taskReferences.task_id, sourceTaskId),
+                eq(taskReferences.url, taskLinkUrl(targetTaskId)),
               ),
               and(
-                eq(taskLinks.source_task_id, targetTaskId),
-                eq(taskLinks.target_task_id, sourceTaskId),
+                eq(taskReferences.task_id, targetTaskId),
+                eq(taskReferences.url, taskLinkUrl(sourceTaskId)),
               ),
             ),
           ),
         )
         .limit(1);
-      return rows.length > 0;
+      if (!row) return null;
+      return {
+        kind: row.type as ToolTaskLinkKind,
+        direction: row.task_id === sourceTaskId ? 'outgoing' : 'incoming',
+      };
     },
 
-    async link({ actorUserId, sourceTaskId, targetTaskId, kind, idempotencyKey }) {
+    async link({ tenantId, actorUserId, sourceTaskId, targetTaskId, kind, idempotencyKey }) {
       const session = await buildActorSession({ user_id: actorUserId });
       const { result, replayed } = await withGatedMutation(
         session,
@@ -181,12 +184,12 @@ export function makeActionTaskLink(): TaskLinkPort {
           snapshot: async (tx) => {
             const [row] = await tx
               .select()
-              .from(taskLinks)
+              .from(taskReferences)
               .where(
                 and(
-                  eq(taskLinks.source_task_id, sourceTaskId),
-                  eq(taskLinks.target_task_id, targetTaskId),
-                  eq(taskLinks.kind, kind),
+                  eq(taskReferences.tenant_id, tenantId),
+                  eq(taskReferences.task_id, sourceTaskId),
+                  eq(taskReferences.url, taskLinkUrl(targetTaskId)),
                 ),
               )
               .limit(1);

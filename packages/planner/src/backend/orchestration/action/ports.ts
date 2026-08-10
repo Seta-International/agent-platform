@@ -63,13 +63,18 @@ export interface TaskLinkPort {
   /** `planner.task.update` on every group given, once per distinct group. */
   assertCanLink(args: ActorRef & { groupIds: string[] }): Promise<void>;
 
-  /** True when this pair already carries a link of this kind, in EITHER
-   *  direction — the pair index treats the two as one fact. Checked before the
-   *  card is built, so "that link already exists" is an answer rather than a
-   *  card that fails at Confirm. */
-  linkExists(
-    args: ActorRef & { sourceTaskId: string; targetTaskId: string; kind: ToolTaskLinkKind },
-  ): Promise<boolean>;
+  /**
+   * What relationship this PAIR already carries, in either direction, or null.
+   *
+   * Not a boolean: a pair-direction holds one kind at a time (design D8), so the
+   * tool has to be able to NAME what is there — "already marked as duplicates,
+   * remove that first" is a different sentence from "already linked that way".
+   * Checked before the card is built, so an existing relationship is an answer
+   * rather than a card that fails at Confirm.
+   */
+  readPairLink(
+    args: ActorRef & { sourceTaskId: string; targetTaskId: string },
+  ): Promise<{ kind: ToolTaskLinkKind; direction: 'outgoing' | 'incoming' } | null>;
 
   /** The governed write: `withGatedMutation('link')` around `linkTasks`. */
   link(

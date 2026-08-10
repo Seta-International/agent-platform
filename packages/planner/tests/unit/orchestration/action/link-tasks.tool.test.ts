@@ -23,7 +23,7 @@ function build(
   over: {
     readEndpoint?: (a: { taskId: string }) => Promise<unknown>;
     assertCanLink?: () => Promise<void>;
-    linkExists?: () => Promise<boolean>;
+    readPairLink?: () => Promise<{ kind: string; direction: 'outgoing' | 'incoming' } | null>;
   } = {},
 ) {
   const taskLink = {
@@ -33,7 +33,7 @@ function build(
           snap(taskId, taskId === TASK_A ? 'Alpha' : 'Beta')),
     ),
     assertCanLink: vi.fn(over.assertCanLink ?? (async () => {})),
-    linkExists: vi.fn(over.linkExists ?? (async () => false)),
+    readPairLink: vi.fn(over.readPairLink ?? (async () => null)),
     link: vi.fn(async () => ({ linkId: 'l1', replayed: false })),
   };
   const tool = makeLinkTasksTool({
@@ -85,16 +85,46 @@ describe('planner_linkTasks — first pass', () => {
   });
 
   // Before the card, not at Confirm: a card that fails on the button is worse
-  // than an answer.
+  // than an answer. Three outcomes, three sentences, none of them suspends.
   it('answers "already linked" instead of building a card that would fail', async () => {
-    const { tool } = build({ linkExists: async () => true });
+    const { tool } = build({
+      readPairLink: async () => ({ kind: 'relates', direction: 'outgoing' }),
+    });
     const suspend = vi.fn(async () => {});
     const out = (await tool.execute!(input as never, firstPassCtx(suspend))) as {
       linked: boolean;
       refusal?: string | null;
     };
     expect(out.linked).toBe(false);
-    expect(out.refusal).toMatch(/already/i);
+    expect(out.refusal).toMatch(/already linked/i);
+    expect(suspend).not.toHaveBeenCalled();
+  });
+
+  it('says so when the same link exists in the other direction', async () => {
+    const { tool } = build({
+      readPairLink: async () => ({ kind: 'relates', direction: 'incoming' }),
+    });
+    const suspend = vi.fn(async () => {});
+    const out = (await tool.execute!(input as never, firstPassCtx(suspend))) as {
+      refusal?: string | null;
+    };
+    expect(out.refusal).toMatch(/other direction/i);
+    expect(suspend).not.toHaveBeenCalled();
+  });
+
+  // D8 through the tool: a pair holds ONE kind, so a kind change is refused
+  // NAMING the relationship that is there — the tool never rewrites one it did
+  // not create.
+  it('names the existing kind when the pair already carries a different one', async () => {
+    const { tool } = build({
+      readPairLink: async () => ({ kind: 'duplicates', direction: 'outgoing' }),
+    });
+    const suspend = vi.fn(async () => {});
+    const out = (await tool.execute!(input as never, firstPassCtx(suspend))) as {
+      refusal?: string | null;
+    };
+    expect(out.refusal).toMatch(/duplicate/i);
+    expect(out.refusal).toMatch(/remove/i);
     expect(suspend).not.toHaveBeenCalled();
   });
 

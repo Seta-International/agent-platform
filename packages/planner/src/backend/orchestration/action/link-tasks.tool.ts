@@ -14,8 +14,16 @@ export interface LinkTasksToolDeps {
   ctx: SpecializedAgentRunCtx;
 }
 
+/** How to say a kind in a refusal, matching the phrasing the task detail page
+ *  uses for the same row (design §3.1). */
+const KIND_PHRASE: Record<'relates' | 'duplicates' | 'blocks', string> = {
+  relates: 'related',
+  duplicates: 'duplicates of each other',
+  blocks: 'blocking each other',
+};
+
 /**
- * A2's link tool: preview → confirm → gated write of ONE `task_links` row.
+ * A2's link tool: preview → confirm → gated write of ONE typed `task_references` row.
  *
  * Kept separate from `planner_mergeTasks` rather than folded into one tool with
  * a `mode` (design D6): merge trashes a task, so a single wrong enum value would
@@ -87,20 +95,22 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
         return { linked: false, linkId: null, refusal: resolved.refusal };
       }
 
-      // BEFORE the card, so "that link already exists" is an answer rather than a
+      // BEFORE the card, so an existing relationship is an answer rather than a
       // card that fails when the user presses Confirm.
-      const exists = await ports.taskLink.linkExists({
+      const pair = await ports.taskLink.readPairLink({
         ...actor,
         sourceTaskId: resolved.source.taskId,
         targetTaskId: resolved.target.taskId,
-        kind,
       });
-      if (exists) {
-        return {
-          linked: false,
-          linkId: null,
-          refusal: `"${resolved.source.title}" and "${resolved.target.title}" are already linked that way.`,
-        };
+      if (pair) {
+        const both = `"${resolved.source.title}" and "${resolved.target.title}"`;
+        const refusal =
+          pair.kind !== kind
+            ? `${both} are already marked as ${KIND_PHRASE[pair.kind]}. Remove that relationship first if you want a different one.`
+            : pair.direction === 'outgoing'
+              ? `${both} are already linked that way.`
+              : `${both} are already linked that way, in the other direction.`;
+        return { linked: false, linkId: null, refusal };
       }
 
       const card = buildLinkApprovalCard({
