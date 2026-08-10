@@ -1,11 +1,8 @@
+import { countWorkingDays } from '../utils/common.ts';
+
 export interface EffortWindow {
   from?: string;
   to?: string;
-}
-
-function ym(date: string): number {
-  const [y, m] = date.split('-');
-  return Number(y) * 12 + (Number(m) - 1);
 }
 
 export function clippedCalendarEffort(
@@ -19,10 +16,10 @@ export function clippedCalendarEffort(
   if (!effectiveTo) return 0;
   const from = win.from && win.from > row.date_from ? win.from : row.date_from;
   const to = win.to && win.to < effectiveTo ? win.to : effectiveTo;
-  const months = ym(to) - ym(from) + 1;
-  if (months <= 0) return 0;
+  if (from > to) return 0;
+  const workingDays = countWorkingDays(from, to);
   const frac = (row.planned_pct ?? 0) / 100;
-  return Math.round(months * frac * 100) / 100;
+  return Math.round(frac * (workingDays / 22) * 100) / 100;
 }
 
 interface CapacityRow {
