@@ -273,11 +273,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
   const titleTooLong = title.length > MAX_JOB_TITLE_LENGTH;
-  const titleError = titleTooLong
-    ? `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`
-    : submitAttempted && !title.trim()
-      ? 'Job title is required.'
-      : null;
+  const titleAtLimit = title.length === MAX_JOB_TITLE_LENGTH;
+  const titleStatus = titleTooLong
+    ? {
+        type: 'error' as const,
+        message: `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`,
+      }
+    : titleAtLimit
+      ? {
+          type: 'warning' as const,
+          message: `Maximum limit of ${MAX_JOB_TITLE_LENGTH} characters reached.`,
+        }
+      : submitAttempted && !title.trim()
+        ? { type: 'error' as const, message: 'Job title is required.' }
+        : undefined;
   const aboutInvalid = submitAttempted && isRichTextEmpty(sections.about);
   // Unsaved-edit guard for the Cancel button (FUT-559: confirm before discarding). Compares the
   // reliably-loaded scalar fields against the stored requisition — enough to catch a real edit
@@ -646,8 +655,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     isRequired
                     value={title}
                     onChange={(value) => setTitle(value)}
-                    maxLength={MAX_JOB_TITLE_LENGTH}
-                    status={titleError ? { type: 'error', message: titleError } : undefined}
+                    status={titleStatus}
                   />
                 </div>
                 <Grid columns={2} gap={4}>
