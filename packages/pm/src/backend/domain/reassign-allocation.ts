@@ -15,6 +15,7 @@ import {
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
+import { buildProjectScope } from './scope.ts';
 
 function tagRangeError(
   err: unknown,
@@ -159,6 +160,8 @@ async function computeCombinedPeak(args: {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  has_restricted_allocations: boolean;
+  restricted_segments: Array<{ date_from: string; date_to: string | null; planned_pct: number }>;
 }> {
   const { worker_id, exclude_allocation_ids, candidates, session } = args;
 
@@ -178,12 +181,45 @@ async function computeCombinedPeak(args: {
 
   const otherRows = await pmDb()
     .select({
+      id: allocation.id,
+      project_id: allocation.project_id,
       date_from: allocation.date_from,
       date_to: allocation.date_to,
       planned_pct: allocation.planned_pct,
     })
     .from(allocation)
     .where(and(...conds));
+
+  // Determine which of the worker's other allocations belong to projects outside the current session's read scope.
+  const projectScope = buildProjectScope(session);
+  const projectIds = Array.from(new Set(otherRows.map((r) => r.project_id)));
+  let visibleProjectSet: Set<string> | null = null;
+  if (projectScope && projectIds.length > 0) {
+    const visibleProjects = await pmDb()
+      .select({ id: project.id })
+      .from(project)
+      .where(
+        and(
+          inArray(project.id, projectIds),
+          tenantScoped(project.tenant_id, session),
+          isNull(project.deleted_at),
+          projectScope,
+        ),
+      );
+    visibleProjectSet = new Set(visibleProjects.map((p) => p.id));
+  }
+  const restrictedOtherRows = visibleProjectSet
+    ? otherRows.filter((r) => !visibleProjectSet.has(r.project_id))
+    : [];
+
+  const restricted_segments = restrictedOtherRows
+    .filter((r) => r.date_from)
+    .map((r) => ({
+      date_from: r.date_from as string,
+      date_to: r.date_to ?? null,
+      planned_pct: r.planned_pct === null ? 0 : Number(r.planned_pct),
+    }));
+  const has_restricted_allocations = restricted_segments.length > 0;
 
   // Bound for any segment with no end date: the latest known finite end across every
   // segment we sweep (candidates AND the worker's other rows), or (rare) a far-future
@@ -275,7 +311,14 @@ async function computeCombinedPeak(args: {
     flushRun();
   }
 
-  return { peak_pct: peak, exceeds: peak > 100, peak_from: peakFrom, peak_to: peakTo };
+  return {
+    peak_pct: peak,
+    exceeds: peak > 100,
+    peak_from: peakFrom,
+    peak_to: peakTo,
+    has_restricted_allocations,
+    restricted_segments,
+  };
 }
 
 async function resolveReassignment(
@@ -549,6 +592,12 @@ export interface ReassignWorkerAllocationsResult {
   warnings: ReassignWarning[];
 }
 
+export interface RestrictedSegment {
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+}
+
 export interface ReassignGroupPreviewResult {
   worker_name: string | null;
   sources: ReassignPreviewSegment[];
@@ -557,6 +606,8 @@ export interface ReassignGroupPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  has_restricted_allocations: boolean;
+  restricted_segments: RestrictedSegment[];
 }
 
 async function resolveGroupReassignment(
@@ -793,7 +844,10 @@ export async function previewReassignWorkerAllocations(
 
   const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
 
-  const [worker_name, { peak_pct, exceeds, peak_from, peak_to }] = await Promise.all([
+  const [
+    worker_name,
+    { peak_pct, exceeds, peak_from, peak_to, has_restricted_allocations, restricted_segments },
+  ] = await Promise.all([
     loadWorkerName(worker_id, session),
     computeCombinedPeak({
       worker_id,
@@ -836,5 +890,7 @@ export async function previewReassignWorkerAllocations(
     exceeds,
     peak_from,
     peak_to,
+    has_restricted_allocations,
+    restricted_segments,
   };
 }
