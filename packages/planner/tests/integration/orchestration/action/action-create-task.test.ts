@@ -1,7 +1,28 @@
-import { describe, expect, it } from 'vitest';
+import { RequestContext } from '@mastra/core/request-context';
+import { describe, expect, it, vi } from 'vitest';
 import { makeActionTaskCreate } from '../../../../src/backend/orchestration/action/adapters.ts';
+import { makeCreateTaskTool } from '../../../../src/backend/orchestration/action/create-task.tool.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 import { seedGroup, seedGroupMembers, seedTasksFixture } from './seed-tasks-fixture.ts';
+
+function rc(tenantId: string, userId: string) {
+  const requestContext = new RequestContext();
+  requestContext.set('tenant_id', tenantId);
+  requestContext.set('actor', { type: 'user', user_id: userId });
+  return requestContext;
+}
+
+/** The real create port, with the vector search stubbed out: pgvector needs a
+ *  live embedding provider, and none of these tests are about similarity. */
+function toolFor(tenantId: string, actorUserId: string) {
+  return makeCreateTaskTool({
+    ports: {
+      taskCreate: makeActionTaskCreate(),
+      similarTasks: { search: async () => [] },
+    } as never,
+    ctx: { tenantId, actorUserId } as never,
+  });
+}
 
 describe('action runtime — create port', () => {
   it('resolves a plan by its exact name to a plan and a group', () =>
@@ -145,5 +166,101 @@ describe('action runtime — create port', () => {
           groupId,
         }),
       ).rejects.toThrow();
+    }));
+});
+
+describe('planner_createTask — through the tool, against a real database', () => {
+  // AC1, end to end: the first pass must leave the database exactly as it found
+  // it. Everything else in this plan is arrangement; this is the promise.
+  it('the preview pass writes no task and no idempotency row', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, planId, planName } = await seedTasksFixture(pool, {
+        titles: [],
+      });
+      const suspend = vi.fn(async () => {});
+      await toolFor(tenantId, actorUserId).execute!(
+        { planRef: planName, title: 'Deploy hiring screen' } as never,
+        {
+          agent: { suspend, resumeData: undefined },
+          requestContext: rc(tenantId, actorUserId),
+        } as never,
+      );
+
+      expect(suspend).toHaveBeenCalledTimes(1);
+      const tasks = await pool.query('SELECT 1 FROM planner.tasks WHERE plan_id = $1', [planId]);
+      expect(tasks.rows).toHaveLength(0);
+      const keys = await pool.query('SELECT 1 FROM core.mutation_idempotency');
+      expect(keys.rows).toHaveLength(0);
+    }));
+
+  it('confirming creates the task; declining afterwards leaves it alone', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, planId, planName } = await seedTasksFixture(pool, {
+        titles: [],
+      });
+      const tool = toolFor(tenantId, actorUserId);
+
+      await tool.execute!(
+        { planRef: planName, title: 'ignored' } as never,
+        {
+          agent: {
+            suspend: vi.fn(async () => {}),
+            resumeData: {
+              action: 'create',
+              planId,
+              draft: { title: 'Deploy hiring screen', labels: ['infra'] },
+              idempotencyKey: 'confirm-1',
+            },
+          },
+          requestContext: rc(tenantId, actorUserId),
+        } as never,
+      );
+
+      const created = await pool.query<{ id: string; title: string }>(
+        'SELECT id, title FROM planner.tasks WHERE plan_id = $1 AND deleted_at IS NULL',
+        [planId],
+      );
+      expect(created.rows).toHaveLength(1);
+      expect(created.rows[0]!.title).toBe('Deploy hiring screen');
+
+      await tool.execute!(
+        { planRef: planName, title: 'ignored' } as never,
+        {
+          agent: {
+            suspend: vi.fn(async () => {}),
+            resumeData: { action: 'decline', idempotencyKey: 'decline-1' },
+          },
+          requestContext: rc(tenantId, actorUserId),
+        } as never,
+      );
+
+      const after = await pool.query(
+        'SELECT 1 FROM planner.tasks WHERE plan_id = $1 AND deleted_at IS NULL',
+        [planId],
+      );
+      expect(after.rows).toHaveLength(1);
+    }));
+
+  it('use_existing writes nothing at all', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, planId, planName } = await seedTasksFixture(pool, {
+        titles: ['Deploy hiring screen v2'],
+      });
+      const tool = toolFor(tenantId, actorUserId);
+      await tool.execute!(
+        { planRef: planName, title: 'ignored' } as never,
+        {
+          agent: {
+            suspend: vi.fn(async () => {}),
+            resumeData: { action: 'use_existing', existingTaskId: 'x', idempotencyKey: 'k' },
+          },
+          requestContext: rc(tenantId, actorUserId),
+        } as never,
+      );
+
+      const tasks = await pool.query('SELECT 1 FROM planner.tasks WHERE plan_id = $1', [planId]);
+      expect(tasks.rows).toHaveLength(1); // the seeded one, and only it
+      const keys = await pool.query('SELECT 1 FROM core.mutation_idempotency');
+      expect(keys.rows).toHaveLength(0);
     }));
 });
