@@ -9,8 +9,13 @@ interface EntityBlock {
   select?: 'none' | 'single' | 'multi';
   items: EntityItem[];
 }
+interface BranchLike {
+  argsPatch?: { assigneeUserIds?: string[] };
+}
 interface CardLike {
   details: { kind: string }[];
+  primary?: BranchLike;
+  alternates?: BranchLike[];
 }
 
 export interface HitlDecision {
@@ -19,12 +24,32 @@ export interface HitlDecision {
   note?: string;
 }
 
+/** WHICH server-authored branch the user picked. The client never supplies a
+ *  value — that is FUT-804 AC5 held by the shape of this type. */
+export type HitlBranch = { chosen: 'primary' } | { chosen: 'alternate'; alternateIndex: number };
+
 function firstEntityBlock(card: CardLike): EntityBlock | undefined {
   return card.details.find((b): b is EntityBlock => b.kind === 'entityList');
 }
 
-/** Selection + decision state for a HITL card. Seeds from the primary entity;
- *  tracks dirty (changed from the seed) to choose approve vs modify. */
+/** The one user a branch assigns, or undefined for a branch that assigns nobody
+ *  (create, update, link, merge — every non-assignment card). */
+function branchUserId(branch: BranchLike | undefined): string | undefined {
+  return branch?.argsPatch?.assigneeUserIds?.[0];
+}
+
+/**
+ * Selection + branch state for a HITL card. Seeds from the primary entity.
+ *
+ * `branch` is DERIVED from the selection rather than stored beside it: the
+ * selection already drives the radio rendering, and a second copy of the same
+ * decision desyncs the first time anything updates one without the other.
+ *
+ * The mapping is by IDENTITY — the branch whose `assigneeUserIds[0]` equals the
+ * selected row id. `details.items` is display order and may be re-sorted, while
+ * `alternateIndex` addresses the persisted `alternates` array; mapping by
+ * position would confirm the wrong person with nothing downstream able to tell.
+ */
 export function useHitlDecision(card: CardLike) {
   const block = firstEntityBlock(card);
   const seed = useMemo(() => block?.items.filter((i) => i.primary).map((i) => i.id) ?? [], [block]);
@@ -38,6 +63,20 @@ export function useHitlDecision(card: CardLike) {
 
   const dirty = selectedIds.length !== seed.length || selectedIds.some((id) => !seed.includes(id));
 
+  const branch = useMemo<HitlBranch | null>(() => {
+    // No rows to pick from: the primary button IS the primary branch, and any
+    // alternates render as their own buttons carrying their own index.
+    if (!block) return { chosen: 'primary' };
+    const id = selectedIds[0];
+    if (id === undefined) return null;
+    if (branchUserId(card.primary) === id) return { chosen: 'primary' };
+    const i = (card.alternates ?? []).findIndex((a) => branchUserId(a) === id);
+    // Not a silent primary: a row matching no branch yields null, and the caller
+    // disables Confirm.
+    return i >= 0 ? { chosen: 'alternate', alternateIndex: i } : null;
+  }, [block, card.primary, card.alternates, selectedIds]);
+
+  // Legacy assignment body. Deleted with the legacy button path in Task 4.
   const toDecision = (kind: 'approve' | 'reject', note?: string): HitlDecision => {
     if (kind === 'reject') return note ? { decision: 'reject', note } : { decision: 'reject' };
     const decision = dirty ? 'modify' : 'approve';
@@ -45,5 +84,5 @@ export function useHitlDecision(card: CardLike) {
     return note ? { ...base, note } : base;
   };
 
-  return { selectedIds, toggle, dirty, reset: () => setSelected(seed), toDecision };
+  return { selectedIds, toggle, dirty, branch, reset: () => setSelected(seed), toDecision };
 }
