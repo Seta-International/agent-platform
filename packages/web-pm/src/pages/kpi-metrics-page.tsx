@@ -56,7 +56,7 @@ export interface KpiMetricsSearch {
 }
 
 const FROZEN_CELL = 'sticky z-10 bg-card transition-colors group-hover:bg-muted';
-const FROZEN_START_WIDTH = 192 + 144 + 96;
+const FROZEN_START_WIDTH = 192;
 const ACTION_COL_WIDTH = 80;
 
 const PIN = {
@@ -65,18 +65,18 @@ const PIN = {
     cell: `${FROZEN_CELL} left-0 w-48 min-w-48 max-w-48`,
   },
   account: {
-    header: 'left-48 z-30 w-36 min-w-36 max-w-36',
-    cell: `${FROZEN_CELL} left-48 w-36 min-w-36 max-w-36`,
+    header: 'w-36 min-w-36 max-w-36',
+    cell: 'w-36 min-w-36 max-w-36',
   },
   health: {
-    header: 'left-84 z-30 w-24 min-w-24 max-w-24 border-r border-border',
-    cell: `${FROZEN_CELL} left-84 w-24 min-w-24 max-w-24 border-r border-border`,
+    header: 'w-24 min-w-24 max-w-24 border-r border-border',
+    cell: 'w-24 min-w-24 max-w-24 border-r border-border',
   },
   actions: {
     header: 'right-0 z-30 w-20 min-w-20 max-w-20 border-l border-border bg-surface',
     cell: `${FROZEN_CELL} right-0 w-20 min-w-20 max-w-20 border-l border-border`,
   },
-  groupLabel: 'left-114',
+  groupLabel: 'left-54',
 };
 
 export function KpiMetricsPage() {

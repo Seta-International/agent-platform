@@ -264,6 +264,7 @@ export interface ProjectListRow {
   status: 'active' | 'on_hold' | 'closed';
   pm_worker_id: string | null;
   can_manage: boolean;
+  can_report: boolean;
 }
 
 export interface ProjectDetail extends ProjectListRow {
@@ -928,6 +929,16 @@ export interface WeekStats {
   } | null;
 }
 
+export interface WeekMetric {
+  metric_id: string;
+  name: string;
+  category: KpiCategory;
+  computed_value: number | null;
+  component_count: 1 | 2;
+  green_band: BandCondition;
+  status: RagStatus | null;
+}
+
 export interface WeeklyHeadlineMetric {
   label: string;
   name: string;
@@ -955,6 +966,7 @@ export interface WeeklyReportCard {
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;
   can_manage: boolean;
+  can_report: boolean;
 }
 
 /** Server-authoritative current reporting week (Asia/Ho_Chi_Minh) — week pickers anchor on
@@ -1026,6 +1038,7 @@ export interface WeeklyReportDetail {
     component_count: 1 | 2;
     status: RagStatus | null;
   }[];
+  metrics: WeekMetric[];
   pm_name: string | null;
   pmo_name: string | null;
   week_editable: boolean;
@@ -1042,6 +1055,7 @@ export interface WeeklyReportDetail {
   trend: { iso_year: number; iso_week: number; colour: ReportColour | null }[];
   reports: WeeklyReportEntry[];
   can_manage: boolean;
+  can_report: boolean;
   my_reporter_id: string | null;
 }
 

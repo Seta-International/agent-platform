@@ -5,7 +5,7 @@ import type { Pool } from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { resetPmDb } from '../../src/backend/db/client.ts';
 import {
-  listWeeklyReports,
+  getWeeklyReportDetail,
   setAppliedMetric,
   setWeeklyReportClock,
   submitCharter,
@@ -86,11 +86,11 @@ async function seedMetric(
   return id;
 }
 
-describe('weekly report card — worst metric', () => {
+describe('weekly report detail — week metrics', () => {
   beforeEach(() => setWeeklyReportClock(() => new Date('2026-07-15T03:00:00Z')));
   afterAll(() => setWeeklyReportClock());
 
-  it('names the metric furthest outside its band, not the first red in catalogue order', async () => {
+  it('lists every applied metric of the week, keeping unmeasured ones with no value', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -116,6 +116,14 @@ describe('weekly report card — worst metric', () => {
           yellow: '{"op":"between","min":0.7,"max":0.84}',
           red: '{"op":"lt","value":0.7}',
         });
+        const satisfaction = await seedMetric(pool, t.tenant_id, normId, {
+          name: 'Customer Satisfaction',
+          category: 'process',
+          sort_order: 40,
+          green: '{"op":"gte","value":0.8}',
+          yellow: '{"op":"between","min":0.6,"max":0.79}',
+          red: '{"op":"lt","value":0.6}',
+        });
         for (const metric_id of [leakage, predictability]) {
           await setAppliedMetric({
             metric_id,
@@ -129,121 +137,56 @@ describe('weekly report card — worst metric', () => {
           project_id: projectId,
           ...WEEK,
           entries: [
-            { metric_id: leakage, component_1_value: 15, component_2_value: 100 },
-            { metric_id: predictability, component_1_value: 20, component_2_value: 100 },
+            { metric_id: leakage, component_1_value: 30, component_2_value: 100 },
+            { metric_id: predictability, component_1_value: 90, component_2_value: 100 },
           ],
           session: t.adminSession,
         });
 
-        const { rows } = await listWeeklyReports({ ...WEEK, session: t.adminSession });
-        const card = rows.find((r) => r.project_id === projectId);
-        expect(card?.stats.worst?.name).toBe('Release Predictability');
-        expect(card?.stats.worst?.status).toBe('red');
-        expect(card?.stats.worst?.computed_value).toBeCloseTo(0.2, 4);
-        expect(card?.stats.worst?.green_band).toEqual({ op: 'gte', value: 0.85 });
-        expect(card?.stats.red_count).toBe(1);
-        expect(card?.stats.yellow_count).toBe(1);
-        expect(card?.stats.measured_count).toBe(2);
-        expect(card?.stats.applied_count).toBe(2);
-      } finally {
-        resetPmDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('leaves worst null when every measured metric is on norm', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPmDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
-        const normId = await seedNorm(pool, t.tenant_id);
-        const metricId = await seedMetric(pool, t.tenant_id, normId, {
-          name: 'Release Predictability',
-          category: 'delivery',
-          sort_order: 26,
-          green: '{"op":"gte","value":0.85}',
-          yellow: '{"op":"between","min":0.7,"max":0.84}',
-          red: '{"op":"lt","value":0.7}',
-        });
         await setAppliedMetric({
-          metric_id: metricId,
+          metric_id: satisfaction,
           applied: true,
           project_ids: [projectId],
           session: t.adminSession,
         });
-        await upsertKpiRecord({
+
+        const detail = await getWeeklyReportDetail({
           project_id: projectId,
           ...WEEK,
-          entries: [{ metric_id: metricId, component_1_value: 98, component_2_value: 100 }],
           session: t.adminSession,
         });
 
-        const { rows } = await listWeeklyReports({ ...WEEK, session: t.adminSession });
-        const card = rows.find((r) => r.project_id === projectId);
-        expect(card?.stats.worst).toBeNull();
-        expect(card?.stats.measured_count).toBe(1);
-      } finally {
-        resetPmDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
+        expect(detail.metrics).toHaveLength(3);
+        expect(detail.metrics.map((m) => m.name)).toEqual([
+          'Defect Leakage',
+          'Release Predictability',
+          'Customer Satisfaction',
+        ]);
 
-  it('falls back to the worst yellow when no metric is red', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPmDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
-        const normId = await seedNorm(pool, t.tenant_id);
-        const near = await seedMetric(pool, t.tenant_id, normId, {
-          name: 'Defect Leakage',
+        const off = detail.metrics[0];
+        expect(off).toMatchObject({
+          metric_id: leakage,
           category: 'quality',
-          sort_order: 1,
-          green: '{"op":"lte","value":0.15}',
-          yellow: '{"op":"between","min":0.15,"max":0.35}',
-          red: '{"op":"gt","value":0.35}',
+          status: 'red',
+          component_count: 2,
+          green_band: { op: 'lte', value: 0.1 },
         });
-        const far = await seedMetric(pool, t.tenant_id, normId, {
+        expect(off?.computed_value).toBeCloseTo(0.3, 4);
+
+        expect(detail.metrics[1]).toMatchObject({
           name: 'Release Predictability',
-          category: 'delivery',
-          sort_order: 26,
-          green: '{"op":"gte","value":0.85}',
-          yellow: '{"op":"between","min":0.4,"max":0.84}',
-          red: '{"op":"lt","value":0.4}',
-        });
-        for (const metric_id of [near, far]) {
-          await setAppliedMetric({
-            metric_id,
-            applied: true,
-            project_ids: [projectId],
-            session: t.adminSession,
-          });
-        }
-        await upsertKpiRecord({
-          project_id: projectId,
-          ...WEEK,
-          entries: [
-            { metric_id: near, component_1_value: 18, component_2_value: 100 },
-            { metric_id: far, component_1_value: 50, component_2_value: 100 },
-          ],
-          session: t.adminSession,
+          status: 'green',
         });
 
-        const { rows } = await listWeeklyReports({ ...WEEK, session: t.adminSession });
-        const card = rows.find((r) => r.project_id === projectId);
-        expect(card?.stats.red_count).toBe(0);
-        expect(card?.stats.yellow_count).toBe(2);
-        expect(card?.stats.worst?.name).toBe('Release Predictability');
-        expect(card?.stats.worst?.status).toBe('yellow');
+        const blank = detail.metrics[2];
+        expect(blank).toMatchObject({
+          name: 'Customer Satisfaction',
+          category: 'process',
+          computed_value: null,
+          status: null,
+        });
+        expect(detail.stats.applied_count).toBe(3);
+        expect(detail.stats.measured_count).toBe(2);
       } finally {
         resetPmDb();
         resetCoreDb();

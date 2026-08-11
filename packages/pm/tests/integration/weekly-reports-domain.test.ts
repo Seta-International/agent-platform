@@ -26,6 +26,7 @@ async function liveProject(
   pool: Pool,
   session: import('@seta/core').SessionScope,
   tenantId: string,
+  pmoPersonId?: string,
 ): Promise<string> {
   const acc = await pool.query(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
@@ -35,6 +36,7 @@ async function liveProject(
     account_id: acc.rows[0].id,
     name: 'P',
     pm_worker_id: session.user_id,
+    pmo_worker_id: pmoPersonId,
     methodology: 'scrum',
     pricing_model: 'fixed_price',
     budget_bmm: 100,
@@ -62,12 +64,12 @@ async function seedMetric(pool: Pool, tenantId: string): Promise<string> {
   return id;
 }
 
-function reporterSession(tenantId: string, userId: string) {
+function reporterSession(tenantId: string, userId: string, personId: string = userId) {
   return buildSession({
     tenant_id: tenantId,
     user_id: userId,
     roles: ['pm.manager'],
-    worker_id: crypto.randomUUID(),
+    worker_id: personId,
   });
 }
 
@@ -564,7 +566,8 @@ describe('weekly reports domain', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const pmoPerson = crypto.randomUUID();
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id, pmoPerson);
         const pmSession = reporterSession(t.tenant_id, t.admin_user_id);
         // A commenter whose login name (display_name) differs from their person record —
         // the thread must show the person's full name, same as PM/PMO names everywhere else.
@@ -573,7 +576,7 @@ describe('weekly reports domain', () => {
           user_id: t.admin_user_id,
           display_name: 'hung.vu',
           roles: ['pm.manager'],
-          worker_id: crypto.randomUUID(),
+          worker_id: pmoPerson,
         });
         await pool.query(
           `INSERT INTO pm.person_projection (person_id, tenant_id, full_name)

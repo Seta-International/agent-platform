@@ -21,17 +21,12 @@ interface Entry {
 
 interface Profile {
   key: string;
-  /** Share of the project's applied metrics that get figures at all. */
   coverage: number;
   reds: number;
   ambers: number;
   report: { summary: string; risk?: string; roadToGreen?: string } | null;
 }
 
-/**
- * One project per card state the board can render: a wide red, an amber with no reds at all, a
- * clean green, a red that is only half reported, and a project nobody has touched this week.
- */
 const PROFILES: Profile[] = [
   {
     key: 'red-wide',
@@ -108,8 +103,6 @@ export async function seedPmWeekly(
       continue;
     }
 
-    // Off-norm metrics are spread across categories first so the four QCDP dots differ, which is
-    // the whole point of having several states on the board.
     const byCategory = new Map<string, KpiNormMetricRow[]>();
     for (const m of applied) {
       byCategory.set(m.category, [...(byCategory.get(m.category) ?? []), m]);

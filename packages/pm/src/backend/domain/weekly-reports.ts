@@ -30,6 +30,7 @@ import {
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
+import { assertProjectReportable, isProjectReporter } from './assert-project-reportable.ts';
 import { isoWeekRange, isWeekEditable } from './iso-week.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
@@ -145,9 +146,6 @@ export interface WeekStats {
   measured_count: number;
   yellow_count: number;
   red_count: number;
-  /** Metric dragging health down the most — see `pickWorstMetric`. `green_band` and
-   * `component_count` ride along so the card can print the norm it missed and format the value
-   * the same way Explorer does (percentage vs plain number). */
   worst: {
     metric_id: string;
     name: string;
@@ -324,6 +322,34 @@ const HEADLINE_METRIC_NAMES: [name: string, label: string][] = [
   ['Release Predictability', 'predictability'],
   ['eNPS / CSS', 'CSS'],
 ];
+export interface WeekMetric {
+  metric_id: string;
+  name: string;
+  category: KpiCategory;
+  computed_value: number | null;
+  component_count: 1 | 2;
+  green_band: BandCondition;
+  status: RagStatus | null;
+}
+
+function buildWeekMetrics(defs: ProjectDef[], entries: EntryRow[]): WeekMetric[] {
+  const entryByMetric = new Map(entries.map((e) => [e.metric_id, e]));
+  return [...defs]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((def) => {
+      const entry = entryByMetric.get(def.metric_id);
+      return {
+        metric_id: def.metric_id,
+        name: def.name,
+        category: def.category,
+        computed_value: entry?.computed_value ?? null,
+        component_count: def.component_count,
+        green_band: def.green_band,
+        status: entry?.status ?? null,
+      };
+    });
+}
+
 export interface HeadlineMetric {
   label: string;
   name: string;
@@ -373,6 +399,7 @@ export interface WeeklyReportCard {
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;
   can_manage: boolean;
+  can_report: boolean;
 }
 
 export async function listWeeklyReports(input: {
@@ -577,6 +604,7 @@ export async function listWeeklyReports(input: {
       })),
       report_count: projectReports.length,
       can_manage: p.can_manage,
+      can_report: isProjectReporter(session, p),
     };
   });
   return { rows };
@@ -632,6 +660,7 @@ export interface WeeklyReportDetail {
     component_count: 1 | 2;
     status: RagStatus | null;
   }[];
+  metrics: WeekMetric[];
   pm_name: string | null;
   pmo_name: string | null;
   iso_year: number;
@@ -648,6 +677,7 @@ export interface WeeklyReportDetail {
   trend: { iso_year: number; iso_week: number; colour: ReportColour | null }[];
   reports: WeeklyReportEntry[];
   can_manage: boolean;
+  can_report: boolean;
   /** The caller's person id — the UI matches it against reports[].reporter_id to find "my"
    * report to prefill/edit. null when the session isn't linked to a worker profile. */
   my_reporter_id: string | null;
@@ -813,16 +843,12 @@ export async function getWeeklyReportDetail(input: {
     ].filter((id): id is string => id !== null),
   );
 
+  const selectedEntries = entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [];
   // Selected-week flags (overrides) + computed fallback.
-  const selectedComputation = computeProjectWeek(
-    defs,
-    entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
-  );
+  const selectedComputation = computeProjectWeek(defs, selectedEntries);
   // Delivery pulse — the same three named metrics the list card surfaces.
-  const headline_metrics = computeHeadlineMetrics(
-    defs,
-    entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
-  );
+  const headline_metrics = computeHeadlineMetrics(defs, selectedEntries);
+  const metrics = buildWeekMetrics(defs, selectedEntries);
 
   const selectedFlags = new Map(
     flagRows
@@ -877,6 +903,7 @@ export async function getWeeklyReportDetail(input: {
     staffed: staffedRow?.staffed ?? 0,
     team_size: proj.team_size,
     headline_metrics,
+    metrics,
     pm_name: proj.pm_person_id ? (names.get(proj.pm_person_id) ?? null) : null,
     pmo_name: proj.pmo_person_id ? (names.get(proj.pmo_person_id) ?? null) : null,
     iso_year,
@@ -923,6 +950,7 @@ export async function getWeeklyReportDetail(input: {
       ];
     }),
     can_manage: proj.can_manage,
+    can_report: isProjectReporter(session, proj),
     my_reporter_id: session.person_id,
     week_editable: isWeekEditable(iso_year, iso_week),
   };
@@ -946,7 +974,7 @@ export async function ensureWeeklyReport(
   created: boolean;
 }> {
   const { project_id, iso_year, iso_week, session } = input;
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
@@ -1002,7 +1030,7 @@ export async function discardWeeklyReport(
   input: DiscardWeeklyReportInput & { session: SessionScope },
 ): Promise<{ discarded: boolean }> {
   const { project_id, iso_year, iso_week, session } = input;
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
@@ -1058,7 +1086,7 @@ export async function upsertWeeklyReport(
   // submitted report DEMOTES it — its contribution is withdrawn from the shared flags and
   // the roll-up recomputes from the remaining submitted reports.
   const save_mode = input.save_mode ?? 'submit';
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {

@@ -456,9 +456,6 @@ export function evaluateBand(cond: BandCondition, value: number): boolean {
 
 const relativeGap = (gap: number, threshold: number): number => gap / (Math.abs(threshold) || 1);
 
-/** How far outside its green band a value sits, as a fraction of the threshold it missed — so a
- * defect rate and a delivery ratio can be ranked against each other. `0` inside the band. A zero
- * threshold has no scale to divide by, so the raw gap stands in. */
 export function bandMiss(green_band: BandCondition, value: number): number {
   switch (green_band.op) {
     case 'gte':
@@ -494,9 +491,6 @@ export interface RankableMetric {
   computed_value: number | null;
 }
 
-/** The metric dragging the week's health down the most: red outranks yellow because the bands
- * already declared it worse, then the largest `bandMiss`, then catalogue order so the pick never
- * flickers between two equal misses. `null` when nothing measured is off norm. */
 export function pickWorstMetric<T extends RankableMetric>(defs: readonly T[]): T | null {
   let best: T | null = null;
   let bestRank = -1;
@@ -531,11 +525,6 @@ export interface KpiFigures {
   component_2_value: number | null;
 }
 
-/** Component figures that score a metric into the wanted band — what a demo seeder needs to put a
- * project on a known colour. Rather than invert each band shape, it proposes values around the
- * band's own thresholds and asks the same scoring path the domain uses, so seeded data can never
- * disagree with what the board computes. `null` when no candidate lands there (a band the entry
- * rules make unreachable, e.g. a share metric whose green band needs a ratio above 1). */
 export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFigures | null {
   const precision = kpiValuePrecision(metric.green_band, metric.yellow_band, metric.red_band);
   const marks = [
@@ -550,8 +539,6 @@ export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFi
     for (const factor of [0, 0.2, 0.5, 0.8, 0.9, 1.1, 1.2, 1.5, 2, 3, 5]) values.add(mark * factor);
   }
 
-  // Negatives are candidates too: a lead-time metric is green precisely when it goes below zero.
-  // Only the entry rules get to reject a value, never a guess about what "sensible" looks like.
   for (const raw of [...values].sort((a, b) => a - b)) {
     const value = Math.round(raw * 10 ** precision) / 10 ** precision;
     if (!Number.isFinite(value)) continue;

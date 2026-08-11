@@ -62,12 +62,12 @@ async function seedMetric(pool: Pool, tenantId: string): Promise<string> {
   return id;
 }
 
-function reporterSession(tenantId: string, userId: string) {
+function reporterSession(tenantId: string, userId: string, personId: string = userId) {
   return buildSession({
     tenant_id: tenantId,
     user_id: userId,
     roles: ['pm.manager'],
-    worker_id: crypto.randomUUID(),
+    worker_id: personId,
   });
 }
 

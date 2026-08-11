@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { CalendarDays } from 'lucide-react';
+import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   addWeeklyReportComment,
@@ -42,6 +42,7 @@ import {
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
 } from './kpi-shared.tsx';
+import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 
 // RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
 type ColourKey = ReportColour | 'none';
@@ -77,6 +78,8 @@ const SEG_TINT: Record<'green' | 'yellow' | 'red', string> = {
 };
 const SEG_COLOURS = ['green', 'yellow', 'red'] as const;
 const QCDP_ORDER: KpiCategory[] = ['quality', 'delivery', 'cost_capacity', 'process'];
+
+const NOT_REPORTER_REASON = "Only this project's EM and PMO can write its weekly report.";
 
 const PRICING_LABEL: Record<string, string> = {
   fixed_price: 'Fixed-price',
@@ -122,9 +125,6 @@ export function colourBadge(colour: ReportColour | null) {
   );
 }
 
-// Every RAG shape in here — trend pip, verdict badge, pillar dot, the Road-to-Green rule — paints
-// from the shared --rag-* palette in shared-ui/styles/globals.css, so one red and one amber run
-// across the dialog, the board and Astryx's own status dots.
 const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
   green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
   yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
@@ -148,17 +148,14 @@ const TREND_FILL: Record<ColourKey, string> = {
   none: 'var(--color-background-gray)',
 };
 
-function reporterRole(detail: WeeklyReportDetail, reporter_id: string): 'PM' | 'PMO' | null {
-  if (reporter_id === detail.pm_person_id) return 'PM';
+function reporterRole(detail: WeeklyReportDetail, reporter_id: string): 'EM' | 'PMO' | null {
+  if (reporter_id === detail.pm_person_id) return 'EM';
   if (reporter_id === detail.pmo_person_id) return 'PMO';
   return null;
 }
 
-// The old line listed three hand-picked headline metrics (util, predictability, CSS) with no band
-// beside them, so a reader could not tell whether any of the numbers was good. This carries the
-// same norm check the board card leads with — worst metric against its norm, then how far the miss
-// spreads — so opening a card continues the sentence it started instead of changing the subject.
 function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
+  const navigate = useNavigate();
   const { worst, measured_count, applied_count, red_count, yellow_count } = detail.stats;
   const seatsShort = detail.team_size != null ? detail.team_size - detail.staffed : 0;
 
@@ -172,18 +169,41 @@ function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
   if (seatsShort > 0) spread.push(`${seatsShort} seat${seatsShort === 1 ? '' : 's'} short`);
 
   return (
-    <p className="text-base text-secondary">
-      {worst && worst.computed_value !== null ? (
-        <>
-          <span className="font-semibold text-primary">{worst.name}</span>{' '}
-          <span className="font-semibold text-primary">
-            {formatMetricValue(worst.computed_value, worst.name, worst.component_count)}
-          </span>
-          {` vs norm ${formatBand(worst.name, worst.component_count, worst.green_band)} · `}
-        </>
+    <div className="space-y-2">
+      <p className="text-base text-secondary">
+        {worst && worst.computed_value !== null ? (
+          <>
+            <span className="font-semibold text-primary">{worst.name}</span>{' '}
+            <span className="font-semibold text-primary">
+              {formatMetricValue(worst.computed_value, worst.name, worst.component_count)}
+            </span>
+            {` vs norm ${formatBand(worst.name, worst.component_count, worst.green_band)} · `}
+          </>
+        ) : null}
+        {spread.join(' · ')}
+      </p>
+      {applied_count > 0 ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-3 gap-1.5 text-secondary"
+          onClick={() =>
+            void navigate({
+              to: '/pm/metrics',
+              search: {
+                tab: 'explorer',
+                project: detail.project_id,
+                iso_year: detail.iso_year,
+                iso_week: detail.iso_week,
+              },
+            })
+          }
+        >
+          {`See all ${applied_count} metrics in KPI Explorer`}
+          <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+        </Button>
       ) : null}
-      {spread.join(' · ')}
-    </p>
+    </div>
   );
 }
 
@@ -278,8 +298,6 @@ function ReportCard({
       ) : null}
 
       <div className="space-y-2 border-t border-border pt-3">
-        {/* The label earns its place only once there is a thread to name — an empty section
-            headed "Comments" above a box that already reads "Write a comment" says it twice. */}
         {entry.comments.length > 0 ? (
           <div className="text-xs uppercase tracking-wide text-secondary">
             Comments ({entry.comments.length})
@@ -319,7 +337,7 @@ function ReportCard({
                 ref={inputRef}
                 value={commentBody}
                 width="100%"
-                placeholder="Write a comment"
+                placeholder="Write a comment — Enter to submit"
                 onChange={setCommentBody}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit();
@@ -390,7 +408,10 @@ export function WeeklyReportDetailDialog({
 
   const alreadyReported =
     detail?.reports.some((r) => r.reporter_id === detail.my_reporter_id) ?? false;
-  const canCompose = Boolean(detail?.can_manage && detail.week_editable && !alreadyReported);
+  const notReporter = Boolean(detail && !detail.can_report);
+  const composeOffered = Boolean(detail?.can_manage && detail.week_editable && !alreadyReported);
+  const composeBlocked = notReporter || WEEKLY_REPORT_COMPOSER_COMING_SOON;
+  const canCompose = composeOffered && !composeBlocked;
 
   const [summary, setSummary] = useState('');
   const [riskIssue, setRiskIssue] = useState('');
@@ -416,7 +437,12 @@ export function WeeklyReportDetailDialog({
   useEffect(() => {
     if (!formOpen || !detail || prefilled.current) return;
     prefilled.current = true;
-    setColours(Object.fromEntries(detail.flags.map((f) => [f.category, f.final_colour])));
+    const declared: Partial<Record<KpiCategory, ReportColour>> = {};
+    for (const f of detail.flags) {
+      declared[f.category] =
+        f.final_colour === 'yellow' || f.final_colour === 'red' ? f.final_colour : 'green';
+    }
+    setColours(declared);
   }, [formOpen, detail]);
 
   const save = useMutation({
@@ -561,6 +587,8 @@ export function WeeklyReportDetailDialog({
   const headerSubtitle = detail
     ? [
         detail.account_name,
+        detail.pm_name ? `EM ${detail.pm_name}` : null,
+        detail.pmo_name ? `PMO ${detail.pmo_name}` : null,
         `${detail.phase.charAt(0).toUpperCase()}${detail.phase.slice(1)}`,
         pricing,
       ]
@@ -703,15 +731,8 @@ export function WeeklyReportDetailDialog({
                         );
                       })}
                     </div>
-                    {/* Trend closes the pillar row on the right: both read the same week, so they
-                        belong on one line — the pillars say where it hurts, the pips say whether
-                        it has been hurting. */}
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs uppercase tracking-wide text-secondary">Trend</span>
-                      {/* One segmented strip, not five dots: a StatusDot on this row means "a
-                          pillar is off", and a run of weeks must not borrow that mark. Oldest
-                          week left, the viewed week last — the title already names it, so the
-                          strip needs no "you are here" mark of its own. */}
                       <span className="flex gap-px overflow-hidden rounded-sm">
                         {[...detail.trend].reverse().map((t, i, arr) => (
                           <span
@@ -745,15 +766,26 @@ export function WeeklyReportDetailDialog({
                         ? `Reports for ${isoWeekBase(iso_year, iso_week)} stay open until Friday 5:00 PM.`
                         : `No one submitted a report for ${isoWeekBase(iso_year, iso_week)}.`}
                     </p>
-                    {canCompose ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
+                    {composeOffered ? (
+                      <DisabledActionTooltip
+                        disabled={composeBlocked}
+                        reason={
+                          WEEKLY_REPORT_COMPOSER_COMING_SOON
+                            ? COMING_SOON_REASON
+                            : NOT_REPORTER_REASON
+                        }
                         className="mt-3"
-                        onClick={() => setFormOpen(true)}
                       >
-                        New weekly report
-                      </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className={composeBlocked ? undefined : 'mt-3'}
+                          isDisabled={composeBlocked}
+                          onClick={() => setFormOpen(true)}
+                        >
+                          New weekly report
+                        </Button>
+                      </DisabledActionTooltip>
                     ) : null}
                   </div>
                 ) : (
@@ -796,9 +828,6 @@ export function WeeklyReportDetailDialog({
                       </div>
                     ) : null}
 
-                    {/* The four pillars read as one row of the QCDP acronym. Custom segmented —
-                        the chosen cell wears its status colour; the header's Overall chip
-                        recomputes live as the worst of the four. */}
                     <div ref={pillarsRef} className="space-y-2">
                       <div className="text-xs uppercase tracking-wide text-secondary">
                         QCDP pillars
@@ -851,9 +880,6 @@ export function WeeklyReportDetailDialog({
                       </div>
                     </div>
 
-                    {/* The one decision that reshapes the rest of the form, so it gets the only
-                        tinted container on the page — and gives it up the moment it is on, when
-                        the banner below takes over that emphasis. */}
                     <div
                       className={hasActiveRisk ? undefined : 'rounded-lg border p-3'}
                       style={
@@ -874,9 +900,6 @@ export function WeeklyReportDetailDialog({
                       />
                     </div>
 
-                    {/* One slot, three states: the rule while a risk is declared, the same rule as
-                        a hard error once submit proves it broken, and the Epic 3 over-norm warning
-                        when the flags contradict the measured week. */}
                     {riskNeedsFlag && submitAttempted ? (
                       <Banner
                         status="error"
@@ -926,7 +949,6 @@ export function WeeklyReportDetailDialog({
                       ) : null}
                     </div>
 
-                    {/* A declared risk owes a recovery plan — it becomes a tracked Recovery item. */}
                     {hasActiveRisk ? (
                       <div className="grid gap-4 md:grid-cols-3">
                         <div className="md:col-span-2">

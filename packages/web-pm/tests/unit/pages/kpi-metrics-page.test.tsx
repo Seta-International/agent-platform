@@ -73,6 +73,7 @@ const weeklyReportDetail = {
   staffed: 4,
   team_size: 4,
   headline_metrics: [],
+  metrics: [],
   pm_name: 'Mai Tran',
   pmo_name: null,
   week_editable: true,

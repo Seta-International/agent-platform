@@ -12,6 +12,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  Pagination,
   Selector,
   Skeleton,
   StatusDot,
@@ -20,7 +21,7 @@ import {
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -34,6 +35,7 @@ import {
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
 } from './kpi-shared.tsx';
+import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 import { usePmContext } from './use-pm-context.ts';
 import { WeeklyReportDetailDialog } from './weekly-report-detail-dialog.tsx';
 
@@ -64,9 +66,6 @@ const COLOUR_LABEL: Record<ColourKey, string> = {
   gray: 'No data',
   none: 'Not assessed',
 };
-// Shapes (dots, verdict badge, the accent rule) all paint from the shared --rag-* palette in
-// shared-ui/styles/globals.css, so one red and one amber run across the board, the detail dialog
-// and Astryx's own status dots.
 const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
   green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
   yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
@@ -88,6 +87,8 @@ const badgeStyle = (key: ColourKey) => {
 // The portfolio-health strip: one tile per outcome, always Green/Amber/Red; "No data" only
 // when a project has no measured entries this week (so it never adds noise on a full board).
 const SUMMARY_ORDER: ColourKey[] = ['green', 'yellow', 'red', 'gray', 'none'];
+
+const PAGE_SIZE = 12;
 
 export function WeeklyReportsPage() {
   const { search, setSearch, weeks, iso_year, iso_week } = usePmContext('/pm/weekly');
@@ -143,7 +144,7 @@ export function WeeklyReportsPage() {
   const manageableOptions = useMemo(
     () =>
       (projectsQuery.data ?? [])
-        .filter((p) => p.can_manage)
+        .filter((p) => p.can_report)
         .map((p) => ({ value: p.project_id, label: p.name })),
     [projectsQuery.data],
   );
@@ -156,10 +157,12 @@ export function WeeklyReportsPage() {
   const isPastWeek =
     currentWeek !== undefined &&
     (currentWeek.iso_year !== iso_year || currentWeek.iso_week !== iso_week);
-  const composeDisabled = cannotReport || isPastWeek;
-  const composeDisabledReason = cannotReport
-    ? 'You do not manage any project, so there is nothing to report on.'
-    : 'Weekly reports can only be created for the current week.';
+  const composeDisabled = WEEKLY_REPORT_COMPOSER_COMING_SOON || cannotReport || isPastWeek;
+  const composeDisabledReason = WEEKLY_REPORT_COMPOSER_COMING_SOON
+    ? COMING_SOON_REASON
+    : cannotReport
+      ? 'Only a project’s EM or PMO can write its weekly report, and you are neither on any project.'
+      : 'Weekly reports can only be created for the current week.';
 
   const cards = listQuery.data ?? [];
 
@@ -172,6 +175,19 @@ export function WeeklyReportsPage() {
   const summaryTiles = SUMMARY_ORDER.filter(
     (k) => (k !== 'gray' && k !== 'none') || summary[k] > 0,
   );
+
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageCards = useMemo(
+    () => cards.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [cards, currentPage],
+  );
+  const boardRef = useRef<HTMLDivElement>(null);
+  const goToPage = (next: number) => {
+    setPage(next);
+    boardRef.current?.scrollIntoView?.({ block: 'start' });
+  };
 
   const openComposer = () => {
     // Straight into the composer — the filtered project when manageable, else the first
@@ -225,7 +241,9 @@ export function WeeklyReportsPage() {
                 value={`${iso_year}-${iso_week}`}
                 onChange={(v) => {
                   const [y, w] = v.split('-').map(Number);
-                  if (y !== undefined && w !== undefined) setSearch({ iso_year: y, iso_week: w });
+                  if (y === undefined || w === undefined) return;
+                  setPage(1);
+                  setSearch({ iso_year: y, iso_week: w });
                 }}
               />
               <Selector
@@ -235,7 +253,10 @@ export function WeeklyReportsPage() {
                 width={208}
                 options={accountOptions}
                 value={search.account ?? ''}
-                onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
+                onChange={(v) => {
+                  setPage(1);
+                  setSearch({ account: v || undefined, project: undefined });
+                }}
               />
               <Selector
                 label="Project"
@@ -244,7 +265,10 @@ export function WeeklyReportsPage() {
                 width={208}
                 options={projectOptions}
                 value={search.project ?? ''}
-                onChange={(v) => setSearch({ project: v || undefined })}
+                onChange={(v) => {
+                  setPage(1);
+                  setSearch({ project: v || undefined });
+                }}
               />
             </div>
           </VStack>
@@ -252,7 +276,7 @@ export function WeeklyReportsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="space-y-4 p-6">
+          <div ref={boardRef} className="space-y-4 p-6">
             {/* Portfolio health at a glance for the selected week — the number a PMO/BoD wants
                 first, before scanning individual cards. */}
             {!listQuery.isLoading && cards.length > 0 ? (
@@ -288,142 +312,149 @@ export function WeeklyReportsPage() {
             ) : cards.length === 0 ? (
               <EmptyState title="No projects for this week" />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {cards.map((card) => {
-                  const overall = card.overall_colour;
-                  const { worst, measured_count, applied_count, red_count, yellow_count } =
-                    card.stats;
-                  // Coverage answers "is this week's data in yet", the report count answers "has
-                  // anyone written about it" — a card with neither still says which is missing.
-                  const coverage =
-                    measured_count > 0
-                      ? `${measured_count}/${applied_count} metrics`
-                      : card.team_size != null
-                        ? `Staffed ${card.staffed}/${card.team_size}`
-                        : null;
-                  const reportsPart =
-                    card.report_count > 0
-                      ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
-                      : card.can_manage && !isPastWeek
-                        ? 'click to write one'
-                        : 'no report yet';
-                  return (
-                    <ClickableCard
-                      key={card.project_id}
-                      label={`Open weekly report for ${card.project_name}`}
-                      onClick={() => setSearch({ detail: card.project_id })}
-                      padding={4}
-                      className="flex h-full flex-col gap-3"
-                    >
-                      {/* Identity (account only) + the overall verdict as a RAG badge. */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <Heading level={3} maxLines={1}>
-                            {card.project_name}
-                          </Heading>
-                          <Text type="supporting" color="secondary" maxLines={1} display="block">
-                            {card.account_name}
-                          </Text>
-                        </div>
-                        <span className="shrink-0">
-                          <Badge
-                            variant={COLOUR_VARIANT[colourKey(overall)]}
-                            label={COLOUR_LABEL[colourKey(overall)]}
-                            style={badgeStyle(colourKey(overall))}
-                          />
-                        </span>
-                      </div>
-
-                      {/* QCDP pillars — full names with a small status dot each; colour stays a
-                          mark, not a surface. An off-norm pillar weights its name. */}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-                        {KPI_CATEGORIES.map((cat) => {
-                          const colour = card.category_colours[cat];
-                          const key = colourKey(colour);
-                          const name =
-                            KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
-                          const off = colour !== null && colour !== 'green' && colour !== 'gray';
-                          return (
-                            <span
-                              key={cat}
-                              className="flex items-center gap-1.5"
-                              title={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
-                            >
-                              <StatusDot
-                                variant={COLOUR_VARIANT[key]}
-                                label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
-                                style={markStyle(key)}
-                              />
-                              <Text
-                                type="supporting"
-                                color={off ? 'primary' : 'secondary'}
-                                weight={off ? 'medium' : 'normal'}
-                              >
-                                {name}
-                              </Text>
-                            </span>
-                          );
-                        })}
-                      </div>
-
-                      {/* Norm-check line: the metric furthest outside its band and the norm it
-                          missed. A bare value can't be read without the band, so the two always
-                          travel together — and the value leads, because it is what the board is
-                          scanned for. */}
-                      {worst ? (
-                        <div className="flex gap-2.5">
-                          <span
-                            aria-hidden
-                            className="w-[3px] shrink-0 rounded-full"
-                            style={markStyle(worst.status)}
-                          />
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {pageCards.map((card) => {
+                    const overall = card.overall_colour;
+                    const { worst, measured_count, applied_count, red_count, yellow_count } =
+                      card.stats;
+                    const coverage =
+                      measured_count > 0
+                        ? `${measured_count}/${applied_count} metrics`
+                        : card.team_size != null
+                          ? `Staffed ${card.staffed}/${card.team_size}`
+                          : null;
+                    const reportsPart =
+                      card.report_count > 0
+                        ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
+                        : 'No reports';
+                    return (
+                      <ClickableCard
+                        key={card.project_id}
+                        label={`Open weekly report for ${card.project_name}`}
+                        onClick={() => setSearch({ detail: card.project_id })}
+                        padding={4}
+                        className="flex h-full flex-col gap-3"
+                      >
+                        {/* Identity (account only) + the overall verdict as a RAG badge. */}
+                        <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="flex min-w-0 items-baseline gap-1.5">
-                              {worst.computed_value === null ? null : (
-                                <Text size="lg" weight="bold">
-                                  {formatMetricValue(
-                                    worst.computed_value,
-                                    worst.name,
-                                    worst.component_count,
-                                  )}
-                                </Text>
-                              )}
-                              <Text type="label" weight="semibold" maxLines={1} className="min-w-0">
-                                {worst.name}
-                              </Text>
-                            </span>
-                            <Text type="supporting" color="secondary" display="block">
-                              {`norm ${formatBand(worst.name, worst.component_count, worst.green_band)}`}
+                            <Heading level={3} maxLines={1}>
+                              {card.project_name}
+                            </Heading>
+                            <Text type="supporting" color="secondary" maxLines={1} display="block">
+                              {card.account_name}
                             </Text>
                           </div>
+                          <span className="shrink-0">
+                            <Badge
+                              variant={COLOUR_VARIANT[colourKey(overall)]}
+                              label={COLOUR_LABEL[colourKey(overall)]}
+                              style={badgeStyle(colourKey(overall))}
+                            />
+                          </span>
                         </div>
-                      ) : (
-                        <Text type="supporting" color="secondary" display="block">
-                          {measured_count > 0 ? 'All on norm' : 'No figures this week'}
-                        </Text>
-                      )}
 
-                      {/* Footer — every count that is about the card rather than the one metric
-                          above: how wide the miss goes, how much of the week is in, and whether
-                          anyone wrote it up. */}
-                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
-                        <span className="min-w-0">
-                          {worst ? (
-                            <Text type="supporting" color="secondary" maxLines={1}>
-                              {`${red_count} red · ${yellow_count} amber`}
-                            </Text>
-                          ) : null}
-                        </span>
-                        <span className="shrink-0">
-                          <Text type="supporting" color="secondary">
-                            {coverage ? `${coverage} · ${reportsPart}` : reportsPart}
+                        {/* QCDP pillars — full names with a small status dot each; colour stays a
+                          mark, not a surface. An off-norm pillar weights its name. */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                          {KPI_CATEGORIES.map((cat) => {
+                            const colour = card.category_colours[cat];
+                            const key = colourKey(colour);
+                            const name =
+                              KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
+                            const off = colour !== null && colour !== 'green' && colour !== 'gray';
+                            return (
+                              <span
+                                key={cat}
+                                className="flex items-center gap-1.5"
+                                title={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
+                              >
+                                <StatusDot
+                                  variant={COLOUR_VARIANT[key]}
+                                  label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
+                                  style={markStyle(key)}
+                                />
+                                <Text
+                                  type="supporting"
+                                  color={off ? 'primary' : 'secondary'}
+                                  weight={off ? 'medium' : 'normal'}
+                                >
+                                  {name}
+                                </Text>
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        {worst ? (
+                          <div className="flex gap-2.5">
+                            <span
+                              aria-hidden
+                              className="w-[3px] shrink-0 rounded-full"
+                              style={markStyle(worst.status)}
+                            />
+                            <div className="min-w-0">
+                              <span className="flex min-w-0 items-baseline gap-1.5">
+                                {worst.computed_value === null ? null : (
+                                  <Text size="lg" weight="bold">
+                                    {formatMetricValue(
+                                      worst.computed_value,
+                                      worst.name,
+                                      worst.component_count,
+                                    )}
+                                  </Text>
+                                )}
+                                <Text
+                                  type="label"
+                                  weight="semibold"
+                                  maxLines={1}
+                                  className="min-w-0"
+                                >
+                                  {worst.name}
+                                </Text>
+                              </span>
+                              <Text type="supporting" color="secondary" display="block">
+                                {`norm ${formatBand(worst.name, worst.component_count, worst.green_band)}`}
+                              </Text>
+                            </div>
+                          </div>
+                        ) : (
+                          <Text type="supporting" color="secondary" display="block">
+                            {measured_count > 0 ? 'All on norm' : 'No figures this week'}
                           </Text>
-                        </span>
-                      </div>
-                    </ClickableCard>
-                  );
-                })}
-              </div>
+                        )}
+
+                        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+                          <span className="min-w-0">
+                            {worst ? (
+                              <Text type="supporting" color="secondary" maxLines={1}>
+                                {`${red_count} red · ${yellow_count} amber`}
+                              </Text>
+                            ) : null}
+                          </span>
+                          <span className="shrink-0">
+                            <Text type="supporting" color="secondary">
+                              {coverage ? `${coverage} · ${reportsPart}` : reportsPart}
+                            </Text>
+                          </span>
+                        </div>
+                      </ClickableCard>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-center">
+                  <Pagination
+                    page={currentPage}
+                    onChange={goToPage}
+                    totalItems={cards.length}
+                    pageSize={PAGE_SIZE}
+                    variant="compact"
+                    size="sm"
+                    label="Weekly report pages"
+                  />
+                </div>
+              </>
             )}
           </div>
 

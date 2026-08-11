@@ -16,7 +16,19 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
+const navigateMock = vi.fn();
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigateMock }));
+
+const comingSoon = vi.hoisted(() => ({ on: false }));
+vi.mock('../../../src/pages/pm-coming-soon.tsx', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/pages/pm-coming-soon.tsx')>();
+  return {
+    ...actual,
+    get WEEKLY_REPORT_COMPOSER_COMING_SOON() {
+      return comingSoon.on;
+    },
+  };
+});
 
 const detail: WeeklyReportDetail = {
   project_id: 'p-1',
@@ -55,9 +67,39 @@ const detail: WeeklyReportDetail = {
     { category: 'process', computed_colour: 'green', final_colour: 'green', overridden: false },
   ],
   stats: { applied_count: 6, measured_count: 6, yellow_count: 0, red_count: 0, worst: null },
+  metrics: [
+    {
+      metric_id: 'm-1',
+      name: 'Utilization Rate',
+      category: 'cost_capacity',
+      computed_value: 0.67,
+      component_count: 2,
+      green_band: { op: 'gte', value: 0.85 },
+      status: 'green',
+    },
+    {
+      metric_id: 'm-2',
+      name: 'Defect Leakage',
+      category: 'quality',
+      computed_value: 0.3,
+      component_count: 2,
+      green_band: { op: 'lte', value: 0.05 },
+      status: 'red',
+    },
+    {
+      metric_id: 'm-3',
+      name: 'Customer Satisfaction',
+      category: 'process',
+      computed_value: null,
+      component_count: 1,
+      green_band: { op: 'gte', value: 4 },
+      status: null,
+    },
+  ],
   trend: [{ iso_year: 2026, iso_week: 32, colour: 'green' }],
   reports: [],
   can_manage: true,
+  can_report: true,
   my_reporter_id: 'per-1',
 };
 
@@ -102,6 +144,7 @@ const field = (name: RegExp) => screen.getByRole('textbox', { name });
 
 describe('WeeklyReportDetailDialog — active risk declaration', () => {
   beforeEach(() => {
+    comingSoon.on = false;
     fetchDetailMock.mockResolvedValue(detail);
     upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
   });
@@ -159,6 +202,197 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
   });
 });
 
+describe('WeeklyReportDetailDialog — a viewer who is not the EM or PMO', () => {
+  const notReporter: WeeklyReportDetail = { ...detail, can_report: false };
+
+  beforeEach(() => {
+    comingSoon.on = false;
+    fetchDetailMock.mockResolvedValue(notReporter);
+    upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    upsertMock.mockReset();
+  });
+
+  it('keeps the composer button visible but disabled, with the reason on hover', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const button = await screen.findByRole('button', { name: /New weekly report/i });
+    expect(button).toBeDisabled();
+
+    const wrapper = button.closest('span[tabindex="0"]');
+    expect(wrapper).not.toBeNull();
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText(/only this project.s EM and PMO/i)).toBeTruthy();
+  });
+
+  it('refuses to open the composer that the server would reject', async () => {
+    renderComposer();
+    await screen.findByText('No reports yet');
+
+    expect(screen.queryByRole('radiogroup', { name: /Q — Quality/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Submit report/i })).toBeNull();
+    expect(upsertMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('WeeklyReportDetailDialog — a week with no KPI figures', () => {
+  const unassessed: WeeklyReportDetail = {
+    ...detail,
+    flags: detail.flags.map((f) => ({ ...f, computed_colour: null, final_colour: null })),
+    overall_colour: null,
+    stats: { applied_count: 6, measured_count: 0, yellow_count: 0, red_count: 0, worst: null },
+  };
+
+  beforeEach(() => {
+    comingSoon.on = false;
+    fetchDetailMock.mockResolvedValue(unassessed);
+    upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    upsertMock.mockReset();
+  });
+
+  it('submits the Green the pillars display instead of an undeclared colour', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.type(field(/Executive summary/), 'First week, no figures yet.');
+    await user.click(submitButton());
+
+    await waitFor(() => expect(upsertMock).toHaveBeenCalled());
+    expect(upsertMock.mock.calls[0]?.[0]).toMatchObject({
+      category_colours: {
+        quality: 'green',
+        cost_capacity: 'green',
+        delivery: 'green',
+        process: 'green',
+      },
+    });
+  });
+
+  it('reads Green overall once the pillars default to Green', async () => {
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    expect(screen.getByText('Green', { selector: 'span' })).toBeTruthy();
+  });
+});
+
+describe('WeeklyReportDetailDialog — composing is held behind coming soon', () => {
+  beforeEach(() => {
+    comingSoon.on = true;
+    fetchDetailMock.mockResolvedValue(detail);
+    upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
+  });
+
+  afterEach(() => {
+    comingSoon.on = false;
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    upsertMock.mockReset();
+  });
+
+  it('disables the empty-state button and says why on hover', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const button = await screen.findByRole('button', { name: /New weekly report/i });
+    expect(button).toBeDisabled();
+
+    const wrapper = button.closest('span[tabindex="0"]');
+    expect(wrapper).not.toBeNull();
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText('Coming soon')).toBeTruthy();
+  });
+
+  it('opens the read view even when asked to start in the composer', async () => {
+    renderComposer();
+    await screen.findByText('No reports yet');
+
+    expect(screen.queryByRole('radiogroup', { name: /Q — Quality/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Submit report/i })).toBeNull();
+    expect(upsertMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('WeeklyReportDetailDialog — the week’s metrics', () => {
+  beforeEach(() => {
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    navigateMock.mockReset();
+  });
+
+  const explorerLink = () =>
+    screen.getByRole('button', { name: /See all 6 metrics in KPI Explorer/i });
+
+  it('hands the week’s figures off to KPI Explorer on the same project and week', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(await screen.findByRole('button', { name: /in KPI Explorer/i }));
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/pm/metrics',
+      search: { tab: 'explorer', project: 'p-1', iso_year: 2026, iso_week: 32 },
+    });
+  });
+
+  it('counts the metrics applied this week in the hand-off', async () => {
+    renderDialog();
+
+    expect(await screen.findByText(/See all 6 metrics in KPI Explorer/)).toBeTruthy();
+    expect(explorerLink()).toBeTruthy();
+  });
+
+  it('offers no hand-off for a week with no applied metric', async () => {
+    fetchDetailMock.mockResolvedValue({
+      ...detail,
+      stats: { ...detail.stats, applied_count: 0, measured_count: 0 },
+      metrics: [],
+    });
+    renderDialog();
+    await screen.findByText('No reports yet');
+
+    expect(screen.queryByRole('button', { name: /in KPI Explorer/i })).toBeNull();
+  });
+});
+
+describe('WeeklyReportDetailDialog — header subtitle', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+  });
+
+  it('names the EM and the PMO beside the client and the phase', async () => {
+    fetchDetailMock.mockResolvedValue({ ...detail, pmo_name: 'Thuy Pham' });
+    renderDialog();
+
+    expect(
+      await screen.findByText('Acme · EM Mai Tran · PMO Thuy Pham · Delivery · Fixed-price'),
+    ).toBeTruthy();
+  });
+
+  it('drops the roles the project has not filled', async () => {
+    fetchDetailMock.mockResolvedValue({ ...detail, pm_name: null, pmo_name: null });
+    renderDialog();
+
+    expect(await screen.findByText('Acme · Delivery · Fixed-price')).toBeTruthy();
+  });
+});
+
 describe('WeeklyReportDetailDialog — a submitted report is final', () => {
   beforeEach(() => {
     fetchDetailMock.mockResolvedValue({ ...detail, reports: [myEntry] });
@@ -175,7 +409,7 @@ describe('WeeklyReportDetailDialog — a submitted report is final', () => {
     renderDialog();
     await screen.findByText('Steady week.');
 
-    expect(screen.getByPlaceholderText('Write a comment')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Write a comment — Enter to submit')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Edit$/i })).toBeNull();
   });
 
@@ -185,6 +419,6 @@ describe('WeeklyReportDetailDialog — a submitted report is final', () => {
 
     expect(screen.queryByRole('radiogroup', { name: /Q — Quality/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Submit report/i })).toBeNull();
-    expect(screen.getByPlaceholderText('Write a comment')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Write a comment — Enter to submit')).toBeTruthy();
   });
 });

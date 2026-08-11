@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WeeklyReportCard, WeeklyReportDetail } from '../../../src/api/pm-client.ts';
 import { WeeklyReportsPage } from '../../../src/pages/weekly-reports-page.tsx';
 
@@ -14,6 +14,18 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => routerState.search,
 }));
 
+const comingSoon = vi.hoisted(() => ({ on: false }));
+vi.mock('../../../src/pages/pm-coming-soon.tsx', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/pages/pm-coming-soon.tsx')>();
+  return {
+    ...actual,
+    get WEEKLY_REPORT_COMPOSER_COMING_SOON() {
+      return comingSoon.on;
+    },
+  };
+});
+
+const projectsState = vi.hoisted(() => ({ canReport: true }));
 const fetchWeeklyReportsMock = vi.fn();
 const fetchDetailMock = vi.fn();
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
@@ -32,6 +44,7 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
           status: 'active' as const,
           pm_worker_id: null,
           can_manage: true,
+          can_report: projectsState.canReport,
         },
       ]),
     fetchWeeklyReports: () => fetchWeeklyReportsMock(),
@@ -61,6 +74,7 @@ const card: WeeklyReportCard = {
   reporters: [],
   report_count: 0,
   can_manage: true,
+  can_report: true,
 };
 
 const detail: WeeklyReportDetail = {
@@ -92,9 +106,11 @@ const detail: WeeklyReportDetail = {
     { category: 'process', computed_colour: 'green', final_colour: 'green', overridden: false },
   ],
   stats: { applied_count: 6, measured_count: 6, yellow_count: 0, red_count: 0, worst: null },
+  metrics: [],
   trend: [{ iso_year: 2026, iso_week: 32, colour: 'green' }],
   reports: [],
   can_manage: true,
+  can_report: true,
   my_reporter_id: 'per-1',
 };
 
@@ -106,6 +122,75 @@ function renderPage() {
     </QueryClientProvider>,
   );
 }
+
+describe('WeeklyReportsPage — who may open the composer', () => {
+  beforeEach(() => {
+    comingSoon.on = false;
+    routerState.search = {};
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchWeeklyReportsMock.mockResolvedValue([card]);
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  afterEach(() => {
+    projectsState.canReport = true;
+  });
+
+  const composeButton = () => screen.getByRole('button', { name: /New weekly report/i });
+
+  it('offers the composer to a project’s EM or PMO', async () => {
+    projectsState.canReport = true;
+    renderPage();
+
+    await screen.findByRole('button', { name: /New weekly report/i });
+    await waitFor(() => expect(composeButton()).toBeEnabled());
+  });
+
+  it('disables it, with the reason, for a reader who is neither', async () => {
+    const user = userEvent.setup();
+    projectsState.canReport = false;
+    renderPage();
+
+    await waitFor(() => expect(composeButton()).toBeDisabled());
+
+    const wrapper = composeButton().closest('span[tabindex="0"]');
+    expect(wrapper).not.toBeNull();
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText(/EM or PMO can write its weekly report/i)).toBeTruthy();
+  });
+});
+
+describe('WeeklyReportsPage — composing is held behind coming soon', () => {
+  beforeEach(() => {
+    comingSoon.on = true;
+    routerState.search = {};
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchWeeklyReportsMock.mockResolvedValue([card]);
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  afterEach(() => {
+    comingSoon.on = false;
+  });
+
+  it('disables New weekly report for an EM who could otherwise write it', async () => {
+    const user = userEvent.setup();
+    projectsState.canReport = true;
+    renderPage();
+
+    const button = () => screen.getByRole('button', { name: /New weekly report/i });
+    await waitFor(() => expect(button()).toBeDisabled());
+
+    const wrapper = button().closest('span[tabindex="0"]');
+    expect(wrapper).not.toBeNull();
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText('Coming soon')).toBeTruthy();
+  });
+});
 
 describe('WeeklyReportsPage — detail deep link', () => {
   beforeEach(() => {
@@ -229,7 +314,7 @@ describe('WeeklyReportsPage — norm-check line', () => {
     renderPage();
 
     expect(await screen.findByText('No figures this week')).toBeInTheDocument();
-    expect(screen.getByText('Staffed 3/4 · click to write one')).toBeInTheDocument();
+    expect(screen.getByText('Staffed 3/4 · No reports')).toBeInTheDocument();
   });
 
   it('drops the staffing hint when the charter has no team size', async () => {
@@ -243,10 +328,10 @@ describe('WeeklyReportsPage — norm-check line', () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText('click to write one')).toBeInTheDocument();
+    expect(await screen.findByText('No reports')).toBeInTheDocument();
   });
 
-  it('does not invite a reader who cannot write the report', async () => {
+  it('reports the same empty state to a reader who cannot write', async () => {
     fetchWeeklyReportsMock.mockResolvedValue([
       {
         ...card,
@@ -259,6 +344,98 @@ describe('WeeklyReportsPage — norm-check line', () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText('Staffed 3/4 · no report yet')).toBeInTheDocument();
+    expect(await screen.findByText('Staffed 3/4 · No reports')).toBeInTheDocument();
+  });
+});
+
+const board = (count: number): WeeklyReportCard[] =>
+  Array.from({ length: count }, (_, i) => ({
+    ...card,
+    project_id: `p-${i + 1}`,
+    project_name: `Project ${String(i + 1).padStart(2, '0')}`,
+  }));
+
+describe('WeeklyReportsPage — pagination', () => {
+  const cardButtons = () => screen.getAllByRole('button', { name: /^Open weekly report for/ });
+  const pager = () => within(screen.getByRole('navigation', { name: 'Weekly report pages' }));
+  const prevButton = () => pager().getByRole('button', { name: /previous page/i });
+  const nextButton = () => pager().getByRole('button', { name: /next page/i });
+
+  beforeEach(() => {
+    routerState.search = { iso_year: 2026, iso_week: 32 };
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchWeeklyReportsMock.mockResolvedValue(board(14));
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  it('shows one page of cards with the prev/next controls and the page indicator', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    expect(cardButtons()).toHaveLength(12);
+    expect(screen.queryByRole('heading', { name: 'Project 13' })).not.toBeInTheDocument();
+    expect(pager().getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(prevButton()).toBeDisabled();
+    expect(nextButton()).toBeEnabled();
+  });
+
+  it('counts every project of the week above the grid, not just the page', async () => {
+    renderPage();
+
+    const totalTile = (await screen.findByText(/projects · 2026-W32/)).closest('div');
+    expect(totalTile).not.toBeNull();
+    expect(within(totalTile as HTMLElement).getByText('14')).toBeInTheDocument();
+  });
+
+  it('walks to the rest of the board and back', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    await user.click(nextButton());
+
+    expect(await screen.findByRole('heading', { name: 'Project 13' })).toBeInTheDocument();
+    expect(cardButtons()).toHaveLength(2);
+    expect(pager().getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(nextButton()).toBeDisabled();
+
+    await user.click(prevButton());
+
+    expect(await screen.findByRole('heading', { name: 'Project 01' })).toBeInTheDocument();
+    expect(pager().getByText('Page 1 of 2')).toBeInTheDocument();
+  });
+
+  it('returns to the first page when the filters change', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    await user.click(nextButton());
+    expect(pager().getByText('Page 2 of 2')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Week' }));
+    await user.click(await screen.findByRole('option', { name: '2026-W31' }));
+
+    expect(pager().getByText('Page 1 of 2')).toBeInTheDocument();
+  });
+
+  it('keeps the controls in reach when a single page holds the whole board', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue(board(3));
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    expect(pager().getByText('Page 1 of 1')).toBeInTheDocument();
+    expect(prevButton()).toBeDisabled();
+    expect(nextButton()).toBeDisabled();
+  });
+
+  it('offers no controls when the week has no project', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue([]);
+    renderPage();
+
+    expect(await screen.findByText('No projects for this week')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /next page/i })).not.toBeInTheDocument();
   });
 });

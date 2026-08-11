@@ -122,9 +122,6 @@ const COMPONENT_BOX_WIDTH = 96;
 
 type FigureGap = 'blank' | 'unreadable';
 
-// A box holding text that isn't a figure yet ("7.", "-") reads as blank everywhere else, so
-// validateKpiEntry has nothing to say about it — without this the metric goes Grey and blocks
-// the save while its box shows no mark at all.
 function figureGap(text: string): FigureGap | null {
   if (text.trim() === '') return 'blank';
   return readFigure(text) === null ? 'unreadable' : null;
