@@ -83,7 +83,7 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
           };
         }
 
-        if (!decision.planId || !decision.draft || !decision.idempotencyKey) {
+        if (!decision.planId || !decision.bucketId || !decision.draft || !decision.idempotencyKey) {
           // A card written before this tool shipped, or a truncated payload.
           return {
             created: false,
@@ -95,6 +95,9 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
         const { taskId } = await ports.taskCreate.create({
           ...actor,
           planId: decision.planId,
+          // Off the card, never re-resolved: the plan's first column may have
+          // changed since the preview, and the user confirmed THIS one.
+          bucketId: decision.bucketId,
           draft: decision.draft,
           idempotencyKey: decision.idempotencyKey,
         });
@@ -122,6 +125,24 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
       // The gate, BEFORE the card AND before the embedding call: a refused actor
       // should not spend a vector search either.
       await ports.taskCreate.assertCanCreate({ ...actor, groupId: plan.groupId });
+
+      // After the gate, before the embedding call — same reason the gate sits
+      // where it does: a request that cannot land should not spend a search.
+      const bucket = await ports.taskCreate.resolveDefaultBucket({
+        ...actor,
+        planId: plan.planId,
+      });
+      if (!bucket) {
+        // Creating the bucket too would need planner.bucket.create and would put
+        // a second thing on the card the user never asked for. And a task with
+        // no column is one they cannot find afterwards, so a plain no is kinder
+        // than a "created" they have to go looking for.
+        return {
+          created: false,
+          taskId: null,
+          refusal: `"${plan.planName}" has no buckets yet. Add a bucket to the plan first, then ask me again.`,
+        };
+      }
 
       const draft: CreateTaskDraft = {
         title: input.title,
@@ -165,6 +186,8 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
       const card = buildCreateTaskApprovalCard({
         planId: plan.planId,
         planName: plan.planName,
+        bucketId: bucket.bucketId,
+        bucketName: bucket.bucketName,
         draft,
         similar,
         tenantId: ctx.tenantId,

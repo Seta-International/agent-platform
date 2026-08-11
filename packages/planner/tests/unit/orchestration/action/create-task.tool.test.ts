@@ -6,6 +6,7 @@ function build(
   over: {
     resolvePlan?: () => Promise<unknown>;
     assertCanCreate?: () => Promise<void>;
+    resolveDefaultBucket?: () => Promise<unknown>;
     search?: () => Promise<Array<{ taskId: string; title: string; score: number }>>;
   } = {},
 ) {
@@ -14,6 +15,9 @@ function build(
       over.resolvePlan ?? (async () => ({ planId: 'p1', groupId: 'g1', planName: 'Sprint 32' })),
     ),
     assertCanCreate: vi.fn(over.assertCanCreate ?? (async () => {})),
+    resolveDefaultBucket: vi.fn(
+      over.resolveDefaultBucket ?? (async () => ({ bucketId: 'b1', bucketName: 'To do' })),
+    ),
     create: vi.fn(async () => ({ taskId: 'new-task', replayed: false })),
   };
   const similarTasks = { search: vi.fn(over.search ?? (async () => [])) };
@@ -57,6 +61,10 @@ describe('planner_createTask — first pass', () => {
     taskCreate.assertCanCreate.mockImplementation(async () => {
       order.push('gate');
     });
+    taskCreate.resolveDefaultBucket.mockImplementation(async () => {
+      order.push('bucket');
+      return { bucketId: 'b1', bucketName: 'To do' };
+    });
     similarTasks.search.mockImplementation(async () => {
       order.push('search');
       return [];
@@ -65,8 +73,28 @@ describe('planner_createTask — first pass', () => {
       order.push('suspend');
     });
     await tool.execute!(input as never, firstPassCtx(suspend));
-    expect(order).toEqual(['resolve', 'gate', 'search', 'suspend']);
+    // The bucket lookup sits after the gate and before the search, for the same
+    // reason the gate sits where it does: a request that cannot land should not
+    // spend an embedding call.
+    expect(order).toEqual(['resolve', 'gate', 'bucket', 'search', 'suspend']);
     expect(taskCreate.create).not.toHaveBeenCalled();
+  });
+
+  // Refusing beats creating an invisible task: with no column to render it in,
+  // a "created" task the user cannot find is worse than a plain no.
+  it('refuses when the plan has no bucket to put the task in', async () => {
+    const { tool, taskCreate, similarTasks } = build({ resolveDefaultBucket: async () => null });
+    const suspend = vi.fn(async () => {});
+    const out = (await tool.execute!(input as never, firstPassCtx(suspend))) as {
+      created: boolean;
+      refusal?: string | null;
+    };
+    expect(out.created).toBe(false);
+    expect(out.refusal).toMatch(/bucket/i);
+    expect(out.refusal).toMatch(/Sprint 32/);
+    expect(suspend).not.toHaveBeenCalled();
+    expect(taskCreate.create).not.toHaveBeenCalled();
+    expect(similarTasks.search).not.toHaveBeenCalled();
   });
 
   it('searches only within the resolved plan', async () => {
@@ -163,16 +191,31 @@ describe('planner_createTask — resume pass', () => {
     const draft = { title: 'Deploy hiring screen', priority: 'urgent' as const };
     const out = (await tool.execute!(
       input as never,
-      resumeCtx({ action: 'create', planId: 'p1', draft, idempotencyKey: 'k1' }),
+      resumeCtx({ action: 'create', planId: 'p1', bucketId: 'b1', draft, idempotencyKey: 'k1' }),
     )) as { created: boolean; taskId: string | null };
     expect(out).toMatchObject({ created: true, taskId: 'new-task' });
     expect(taskCreate.create).toHaveBeenCalledWith({
       tenantId: 't1',
       actorUserId: 'a1',
       planId: 'p1',
+      // Read straight off the card, never re-resolved: the plan's first column
+      // may have changed since the preview, and the user confirmed THIS one.
+      bucketId: 'b1',
       draft,
       idempotencyKey: 'k1',
     });
+  });
+
+  it('refuses a create payload with no bucket rather than writing an invisible task', async () => {
+    const { tool, taskCreate } = build();
+    const out = (await tool.execute!(
+      input as never,
+      // A card minted before FUT-821 added the bucket, or a truncated payload.
+      resumeCtx({ action: 'create', planId: 'p1', draft: { title: 'x' }, idempotencyKey: 'k1' }),
+    )) as { created: boolean; refusal?: string | null };
+    expect(out.created).toBe(false);
+    expect(out.refusal).toMatch(/again/i);
+    expect(taskCreate.create).not.toHaveBeenCalled();
   });
 
   // The branch that makes "on Cancel nothing is left over" true for the
@@ -204,11 +247,13 @@ describe('planner_createTask — resume pass', () => {
       resumeCtx({
         action: 'create',
         planId: 'p1',
+        bucketId: 'b1',
         draft: { title: 'x' },
         idempotencyKey: 'k1',
       }),
     );
     expect(taskCreate.resolvePlan).not.toHaveBeenCalled();
+    expect(taskCreate.resolveDefaultBucket).not.toHaveBeenCalled();
     expect(similarTasks.search).not.toHaveBeenCalled();
   });
 

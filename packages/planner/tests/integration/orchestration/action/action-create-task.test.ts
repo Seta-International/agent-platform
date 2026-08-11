@@ -235,7 +235,7 @@ describe('planner_createTask — through the tool, against a real database', () 
 
   it('confirming creates the task; declining afterwards leaves it alone', () =>
     withAgentTestDb(async ({ pool }) => {
-      const { tenantId, actorUserId, planId, planName } = await seedTasksFixture(pool, {
+      const { tenantId, actorUserId, planId, planName, bucketId } = await seedTasksFixture(pool, {
         titles: [],
       });
       const tool = toolFor(tenantId, actorUserId);
@@ -248,6 +248,7 @@ describe('planner_createTask — through the tool, against a real database', () 
             resumeData: {
               action: 'create',
               planId,
+              bucketId,
               draft: { title: 'Deploy hiring screen', labels: ['infra'] },
               idempotencyKey: 'confirm-1',
             },
@@ -256,12 +257,15 @@ describe('planner_createTask — through the tool, against a real database', () 
         } as never,
       );
 
-      const created = await pool.query<{ id: string; title: string }>(
-        'SELECT id, title FROM planner.tasks WHERE plan_id = $1 AND deleted_at IS NULL',
+      const created = await pool.query<{ id: string; title: string; bucket_id: string | null }>(
+        'SELECT id, title, bucket_id FROM planner.tasks WHERE plan_id = $1 AND deleted_at IS NULL',
         [planId],
       );
       expect(created.rows).toHaveLength(1);
       expect(created.rows[0]!.title).toBe('Deploy hiring screen');
+      // The regression pin for the reported bug: a task created through chat
+      // must land in a column, or the plan board cannot render it at all.
+      expect(created.rows[0]!.bucket_id).toBe(bucketId);
 
       await tool.execute!(
         { planRef: planName, title: 'ignored' } as never,

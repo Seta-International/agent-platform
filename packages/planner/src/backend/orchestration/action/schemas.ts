@@ -341,6 +341,11 @@ export const CreateTaskResumeSchema = z
   .object({
     action: z.enum(['create', 'use_existing', 'decline']),
     planId: z.string().optional(),
+    // Sibling of planId, not part of the draft: both are ids the SERVER
+    // resolved, not fields the user typed. Optional so a card minted before this
+    // shipped still parses and reaches the "incomplete preview" refusal, instead
+    // of throwing a Zod error at the user — .strict() would reject it outright.
+    bucketId: z.string().optional(),
     draft: CreateTaskDraftSchema.optional(),
     existingTaskId: z.string().optional(),
     idempotencyKey: z.string().optional(),
