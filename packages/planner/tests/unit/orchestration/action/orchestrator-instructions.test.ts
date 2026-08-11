@@ -94,4 +94,12 @@ describe('A2 instructions — assigning', () => {
   it('tells the model not to search for duplicates itself', () => {
     expect(instructionsText()).toMatch(/do not search for duplicates/i);
   });
+
+  // The bucket is resolved server-side. Without saying so, a model that knows
+  // plans have columns asks the user which one — a question the tool has already
+  // answered, and whose answer the card shows.
+  it('tells the model the tool picks the column itself', () => {
+    expect(instructionsText()).toMatch(/first column/i);
+    expect(instructionsText()).not.toMatch(/ask[^.]*which bucket/i);
+  });
 });
