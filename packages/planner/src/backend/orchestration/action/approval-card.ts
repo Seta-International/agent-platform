@@ -325,3 +325,75 @@ export function buildMergeApprovalCard(opts: BuildMergeApprovalCardOpts): Approv
     },
   };
 }
+
+export interface BuildAssignTaskApprovalCardOpts {
+  taskId: string;
+  title: string;
+  /** Who owns the task now. Empty is normal and must read as "Nobody". */
+  before: Array<{ userId: string; name: string }>;
+  /** The COMPLETE set after the change — what setAssignees receives. */
+  after: Array<{ userId: string; name: string }>;
+  tenantId: string;
+  userId: string;
+  idempotencyKey: string;
+}
+
+const NOBODY = 'Nobody';
+
+function names(people: Array<{ name: string }>): string {
+  return people.length === 0 ? NOBODY : people.map((p) => p.name).join(', ');
+}
+
+/**
+ * The preview for a user-named assignment. Two rules it must never break:
+ *
+ *  - it shows BOTH sides. This tool replaces the assignee set, so "assign this
+ *    to A" on a task owned by B removes B — and `Now: Bình → After: Tuấn` is the
+ *    only thing that lets the user catch a reading they did not mean (design D5).
+ *  - it proposes NOBODY ELSE (design D11). The user named the people; a card
+ *    that offers alternatives here is a recommendation nobody asked for, and a
+ *    recommend card is what the OTHER runtime builds. `alternates: []` and the
+ *    absence of an entityList block are what make the shared renderer show
+ *    confirm/cancel rather than candidate rows.
+ */
+export function buildAssignTaskApprovalCard(opts: BuildAssignTaskApprovalCardOpts): ApprovalCard {
+  const { taskId, title, before, after, tenantId, userId, idempotencyKey } = opts;
+  const ids = { taskId, idempotencyKey };
+
+  return {
+    toolCallId: `planner.action:${idempotencyKey}`,
+    intent: `Assign "${clipTitle(title)}"`,
+    riskBadge: 'write',
+    summary:
+      after.length === 1
+        ? `${after[0]?.name} will be the only assignee.`
+        : `${after.length} people will be assigned.`,
+    details: [
+      {
+        kind: 'kvTable',
+        rows: [
+          { k: 'Task', v: clipTitle(title) },
+          { k: 'Now', v: names(before) },
+          { k: 'After', v: names(after) },
+        ],
+      },
+    ],
+    primary: {
+      label: `Assign to ${names(after)}`,
+      argsPatch: { action: 'assign', ...ids, assigneeUserIds: after.map((p) => p.userId) },
+    },
+    alternates: [],
+    decline: { label: 'Cancel', argsPatch: { action: 'decline', ...ids } },
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
+      toolId: 'planner_assignTask',
+      // The same string the recommend card declares, so the two cannot both be
+      // pending for one task and confirming either clears the other (design D7).
+      dedupKey: `assign:${taskId}`,
+      ts: new Date().toISOString(),
+    },
+  };
+}

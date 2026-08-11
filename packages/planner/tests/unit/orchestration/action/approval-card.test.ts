@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAssignTaskApprovalCard,
   buildBulkApprovalCard,
   buildLinkApprovalCard,
   buildMergeApprovalCard,
@@ -354,5 +355,74 @@ describe('action cards declare their resume runtime', () => {
       ...ids,
     });
     expect(card.meta.workflowId).toBe('planner.action');
+  });
+});
+
+describe('buildAssignTaskApprovalCard', () => {
+  const base = {
+    taskId: 'id-a',
+    title: 'Deploy hiring screen',
+    before: [{ userId: 'u-b', name: 'B\u00ecnh' }],
+    after: [{ userId: 'u-a', name: 'Tu\u1ea5n' }],
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  it('shows who owns it now and who will own it after, by name', () => {
+    const card = buildAssignTaskApprovalCard(base);
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    expect(block.rows).toEqual([
+      { k: 'Task', v: 'Deploy hiring screen' },
+      { k: 'Now', v: 'B\u00ecnh' },
+      { k: 'After', v: 'Tu\u1ea5n' },
+    ]);
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  it('says "Nobody" rather than showing an empty row', () => {
+    const card = buildAssignTaskApprovalCard({ ...base, before: [] });
+    const block = card.details[0] as { rows: Array<{ k: string; v: string }> };
+    expect(block.rows[1]).toEqual({ k: 'Now', v: 'Nobody' });
+  });
+
+  // D11. THE regression test for "a user-named assign never proposes somebody
+  // else": no alternates, and no entityList, which is what makes the D12
+  // renderer show confirm/cancel instead of candidate rows.
+  it('offers no alternatives and no candidate list', () => {
+    const card = buildAssignTaskApprovalCard(base);
+    expect(card.alternates).toEqual([]);
+    expect(card.details.some((b) => b.kind === 'entityList')).toBe(false);
+  });
+
+  it('carries the final set and the key on primary and decline', () => {
+    const card = buildAssignTaskApprovalCard({
+      ...base,
+      after: [
+        { userId: 'u-a', name: 'Tu\u1ea5n' },
+        { userId: 'u-c', name: 'Chi' },
+      ],
+    });
+    expect(card.primary.argsPatch).toEqual({
+      action: 'assign',
+      taskId: 'id-a',
+      assigneeUserIds: ['u-a', 'u-c'],
+      idempotencyKey: 'key-1',
+    });
+    expect(card.decline.argsPatch).toEqual({
+      action: 'decline',
+      taskId: 'id-a',
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  // Plan 01's mechanism: this card and the recommend card must not coexist.
+  it('declares the assign mutex for its task', () => {
+    expect(buildAssignTaskApprovalCard(base).meta.dedupKey).toBe('assign:id-a');
+  });
+
+  it('is a write, not a destructive change', () => {
+    expect(buildAssignTaskApprovalCard(base).riskBadge).toBe('write');
   });
 });
