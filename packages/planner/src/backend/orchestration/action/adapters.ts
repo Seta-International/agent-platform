@@ -1,5 +1,7 @@
 import { withGatedMutation } from '@seta/core/events';
 import { buildActorSession } from '@seta/identity';
+import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import { resolveReranker } from '@seta/shared-retrieval';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import {
@@ -18,9 +20,12 @@ import { getTask } from '../../domain/get-task.ts';
 import { linkTasks, markAsDuplicate } from '../../domain/link-tasks.ts';
 import { setAssignees } from '../../domain/set-assignees.ts';
 import { updateTask } from '../../domain/update-task.ts';
+import { getPlannerVectorStore } from '../../embeddings/vector-store.ts';
 import { PlannerError, requirePermission } from '../../rbac.ts';
 import { getTaskGroupId, listActiveGroupMemberProfiles } from '../../read-helpers.ts';
+import { searchSimilar } from '../../workflows/dedup-on-create/steps/search-similar.ts';
 import type {
+  SimilarTaskPort,
   TaskAssignPort,
   TaskCreatePort,
   TaskLinkPort,
@@ -294,6 +299,35 @@ export function makeActionTaskMerge(): TaskMergePort {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Both deps are read LAZILY, inside search(): the action runtime is composed at
+ * module load, before any request has a live embedding provider, so a getter
+ * that throws must stay harmless until a create is actually previewed. Same
+ * reason `databaseUrl` is optional and only fails when it is genuinely needed —
+ * `plannerFindSimilarTasksTool` does exactly this.
+ */
+export function makeActionSimilarTasks(deps: {
+  provider: EmbeddingProvider;
+  databaseUrl?: string;
+}): SimilarTaskPort {
+  return {
+    async search({ tenantId, planId, queryText, limit }) {
+      if (!deps.databaseUrl) {
+        throw new Error('makeActionSimilarTasks: databaseUrl must be supplied');
+      }
+      const { candidates } = await searchSimilar(
+        { tenantId, queryText, planIds: [planId], topK: limit ?? 5 },
+        {
+          provider: deps.provider,
+          pgVector: getPlannerVectorStore(deps.databaseUrl),
+          reranker: resolveReranker(),
+        },
+      );
+      return candidates.map((c) => ({ taskId: c.taskId, title: c.title, score: c.score }));
+    },
+  };
+}
 
 export function makeActionTaskCreate(): TaskCreatePort {
   return {
