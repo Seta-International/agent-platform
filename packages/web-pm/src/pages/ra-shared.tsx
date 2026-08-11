@@ -139,8 +139,9 @@ export function existingAllocationErrors(
 // Allocation is entered as a 0–1 fraction in 0.1 steps in the RA Monitoring wizard, but the
 // backend stores and serves it as a 0–100 percentage (`planned_pct`). Convert only at the UI
 // edge so the rest of the app (RA table, People utilization, over-allocation math) keeps %.
+// A 0% allocation is not a valid value (FUT-846), so 0 is not offered as a step — 0.1 is the
+// smallest selectable allocation.
 export const ALLOCATION_FRACTION_STEPS = [
-  '0',
   '0.1',
   '0.2',
   '0.3',
