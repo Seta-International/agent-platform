@@ -6,6 +6,8 @@ export interface SeededTasks {
   tenantId: string;
   actorUserId: string;
   groupId: string;
+  planId: string;
+  planName: string;
   tasks: Array<{ taskId: string; version: number }>;
 }
 
@@ -20,25 +22,46 @@ export interface SeededTasks {
  */
 export async function seedTasksFixture(
   pool: Pool,
-  opts: { titles: string[]; due_at?: string | null },
+  opts: {
+    titles: string[];
+    due_at?: string | null;
+    /** Exact plan name, for the tests that resolve a plan BY name. */
+    planName?: string;
+    /**
+     * Seed a SECOND plan into a tenant that already exists. Both must be given
+     * together: creating a tenant is what mints the admin, so an existing tenant
+     * has to bring its own actor — a second `createUser` would collide on the
+     * email this fixture derives from the tenant id.
+     */
+    tenantId?: string;
+    actorUserId?: string;
+  },
 ): Promise<SeededTasks> {
-  const tenantId = randomUUID();
-  await pool.query('INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)', [
-    tenantId,
-    `Org ${tenantId.slice(0, 8)}`,
-    `org-${tenantId.slice(0, 8)}`,
-  ]);
+  const reuse = opts.tenantId !== undefined && opts.actorUserId !== undefined;
+  const tenantId = opts.tenantId ?? randomUUID();
+  if (!reuse) {
+    await pool.query('INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)', [
+      tenantId,
+      `Org ${tenantId.slice(0, 8)}`,
+      `org-${tenantId.slice(0, 8)}`,
+    ]);
+  }
 
-  const admin = await createUser(
-    {
-      tenant_id: tenantId,
-      email: `admin-${tenantId.slice(0, 8)}@example.test`,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
-  );
+  const adminUserId = reuse
+    ? opts.actorUserId!
+    : (
+        await createUser(
+          {
+            tenant_id: tenantId,
+            email: `admin-${tenantId.slice(0, 8)}@example.test`,
+            name: 'Admin',
+            password: 'correct-horse-battery-staple',
+            initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+          },
+          { type: 'cli', user_id: null },
+        )
+      ).user_id;
+  const admin = { user_id: adminUserId };
 
   const creator = randomUUID();
   const groupId = randomUUID();
@@ -54,10 +77,11 @@ export async function seedTasksFixture(
     [tenantId, groupId, admin.user_id, creator],
   );
   const planId = randomUUID();
+  const planName = opts.planName ?? `Plan ${planId.slice(0, 8)}`;
   await pool.query(
     `INSERT INTO planner.plans (id, tenant_id, group_id, name, external_source, created_by)
      VALUES ($1, $2, $3, $4, 'native', $5)`,
-    [planId, tenantId, groupId, `Plan ${planId.slice(0, 8)}`, creator],
+    [planId, tenantId, groupId, planName, creator],
   );
   const bucketId = randomUUID();
   await pool.query(
@@ -79,7 +103,7 @@ export async function seedTasksFixture(
     tasks.push({ taskId, version: inserted.rows[0]?.version as number });
   }
 
-  return { tenantId, actorUserId: admin.user_id, groupId, tasks };
+  return { tenantId, actorUserId: admin.user_id, groupId, planId, planName, tasks };
 }
 
 /**
