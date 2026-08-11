@@ -243,10 +243,10 @@ describe('getAllocationGrid', () => {
         // Amy (2 rows) sorts before Zoe (1 row); each worker's rows are consecutive.
         expect(grid.rows.map((r) => r.worker_id)).toEqual([amy, amy, zoe]);
 
-        // Search filters rows to the matching worker, but KPIs stay at full scope.
+        // Search filters rows to the matching worker, and KPIs recalculate to the filtered set.
         const filtered = await getAllocationGrid(t.adminSession, { year: 2026, search: 'amy' });
         expect(new Set(filtered.rows.map((r) => r.worker_id))).toEqual(new Set([amy]));
-        expect(filtered.kpis.member_count).toBe(2);
+        expect(filtered.kpis.member_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
@@ -351,8 +351,9 @@ describe('getAllocationGrid', () => {
         expect(acme.effort_by_account).toHaveLength(1);
         expect(acme.effort_by_account[0]!.account_id).toBe(acmeAcc);
         expect(acme.effort_by_account[0]!.total_mm).toBe(acme.rows[0]!.total_mm);
-        // KPIs stay at full scope when filtered.
-        expect(acme.kpis.member_count).toBe(2);
+        // KPIs recalculate based on the filtered account.
+        expect(acme.kpis.member_count).toBe(1);
+        expect(acme.kpis.project_count).toBe(1);
 
         // project filter narrows to a single project's line.
         const proj = await getAllocationGrid(t.adminSession, {
@@ -396,8 +397,8 @@ describe('getAllocationGrid', () => {
         });
         expect(none.rows).toHaveLength(0);
         expect(none.effort_by_account).toEqual([]);
-        // KPIs stay at full scope regardless of the active filter.
-        expect(over.kpis.member_count).toBe(2);
+        // KPIs recalculate based on the active filter.
+        expect(over.kpis.member_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
@@ -538,15 +539,15 @@ describe('getAllocationGrid', () => {
 
         const byAmNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '6885' });
         expect(new Set(byAmNo.rows.map((r) => r.worker_id))).toEqual(new Set([am]));
-        expect(byAmNo.kpis.member_count).toBe(2);
+        expect(byAmNo.kpis.member_count).toBe(1);
 
         const byMemberNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '7001' });
         expect(new Set(byMemberNo.rows.map((r) => r.worker_id))).toEqual(new Set([member]));
-        expect(byMemberNo.kpis.member_count).toBe(2);
+        expect(byMemberNo.kpis.member_count).toBe(1);
 
         const byPartial = await getAllocationGrid(t.adminSession, { year: 2026, search: '688' });
         expect(new Set(byPartial.rows.map((r) => r.worker_id))).toEqual(new Set([am]));
-        expect(byPartial.kpis.member_count).toBe(2);
+        expect(byPartial.kpis.member_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
