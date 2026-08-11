@@ -26,6 +26,7 @@ async function liveProject(
   pool: Pool,
   session: import('@seta/core').SessionScope,
   tenantId: string,
+  pmoPersonId?: string,
 ): Promise<string> {
   const acc = await pool.query(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
@@ -35,6 +36,7 @@ async function liveProject(
     account_id: acc.rows[0].id,
     name: 'P',
     pm_worker_id: session.user_id,
+    pmo_worker_id: pmoPersonId,
     methodology: 'scrum',
     pricing_model: 'fixed_price',
     budget_bmm: 100,
@@ -62,12 +64,12 @@ async function seedMetric(pool: Pool, tenantId: string): Promise<string> {
   return id;
 }
 
-function reporterSession(tenantId: string, userId: string) {
+function reporterSession(tenantId: string, userId: string, personId: string = userId) {
   return buildSession({
     tenant_id: tenantId,
     user_id: userId,
     roles: ['pm.manager'],
-    worker_id: crypto.randomUUID(),
+    worker_id: personId,
   });
 }
 
@@ -128,7 +130,7 @@ describe('weekly reports domain', () => {
     });
   });
 
-  it('requires Road-to-Green when non-Green, then saves with snapshots, flags and rollup', async () => {
+  it('requires Road-to-Green only for a declared risk, then saves with snapshots, flags and rollup', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -152,14 +154,13 @@ describe('weekly reports domain', () => {
         });
 
         const session = reporterSession(t.tenant_id, t.admin_user_id);
-        // Only quality has data — the other three pillars are "No Data = Red", so overall is
-        // non-Green and a report without a Road-to-Green action must be rejected.
         await expect(
           upsertWeeklyReport({
             project_id: projectId,
             iso_year: 2026,
             iso_week: 29,
             executive_summary: 'Shipped the thing',
+            risk_issue: 'Vendor sandbox is down',
             session,
           }),
         ).rejects.toMatchObject({ code: 'VALIDATION' });
@@ -169,11 +170,9 @@ describe('weekly reports domain', () => {
           iso_year: 2026,
           iso_week: 29,
           executive_summary: 'Shipped the thing',
-          road_to_green: 'Measure the other pillars',
-          road_to_green_due: '2026-12-31',
           session,
         });
-        expect(saved.overall_colour).toBe('red');
+        expect(saved.overall_colour).toBe('green');
 
         const mv = await pool.query(
           `SELECT source_entry_id, colour FROM pm.metric_value WHERE report_id = $1`,
@@ -198,20 +197,25 @@ describe('weekly reports domain', () => {
         expect(flags.rowCount).toBe(4);
         const quality = flags.rows.find((r) => r.category === 'quality');
         expect(quality?.computed_colour).toBe('green');
+        for (const other of flags.rows.filter((r) => r.category !== 'quality')) {
+          expect(other.computed_colour).toBeNull();
+          expect(other.final_colour).toBeNull();
+        }
         const audits = await pool.query(
           `SELECT count(*)::int AS n FROM pm.flag_audit_entry WHERE tenant_id = $1`,
           [t.tenant_id],
         );
-        expect(audits.rows[0].n).toBe(4); // one initial entry per flag
+        expect(audits.rows[0].n).toBe(1);
 
         const rollup = await pool.query(
-          `SELECT rag, quality_colour FROM pm.project_week_rollup
+          `SELECT rag, quality_colour, delivery_colour FROM pm.project_week_rollup
              WHERE tenant_id = $1 AND project_id = $2 AND iso_year = 2026 AND iso_week = 29`,
           [t.tenant_id, projectId],
         );
         expect(rollup.rowCount).toBe(1);
-        expect(rollup.rows[0].rag).toBe('red');
+        expect(rollup.rows[0].rag).toBe('green');
         expect(rollup.rows[0].quality_colour).toBe('green');
+        expect(rollup.rows[0].delivery_colour).toBeNull();
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -308,7 +312,10 @@ describe('weekly reports domain', () => {
         const quality = detail.flags.find((f) => f.category === 'quality');
         expect(quality?.final_colour).toBe('gray');
         expect(quality?.overridden).toBe(true);
-        expect(detail.overall_colour).toBe('red'); // other pillars still red
+        for (const f of detail.flags.filter((f) => f.category !== 'quality')) {
+          expect(f.final_colour).toBeNull();
+        }
+        expect(detail.overall_colour).toBe('gray');
 
         const { rows } = await listWeeklyReports({
           iso_year: 2026,
@@ -324,7 +331,7 @@ describe('weekly reports domain', () => {
           [t.tenant_id],
         );
         expect(audit.rowCount).toBe(1);
-        expect(audit.rows[0].from_colour).toBe('red');
+        expect(audit.rows[0].from_colour).toBeNull();
         expect(audit.rows[0].reason).toBe('metrics not applicable during discovery');
         expect(audit.rows[0].actor_user_id).toBe(session.user_id);
       } finally {
@@ -405,24 +412,36 @@ describe('weekly reports domain', () => {
       try {
         const t = await seedTenant(pool);
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const metricId = await seedMetric(pool, t.tenant_id);
+        await setAppliedMetric({
+          metric_id: metricId,
+          applied: true,
+          project_ids: [projectId],
+          session: t.adminSession,
+        });
+        await upsertKpiRecord({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          entries: [{ metric_id: metricId, component_1_value: 50, component_2_value: null }],
+          session: t.adminSession,
+        });
         const session = reporterSession(t.tenant_id, t.admin_user_id);
 
-        // Nothing measured → every pillar computes red, but the reporter declares all four
-        // Green: overall follows the declaration, so no Road-to-Green is required.
         const saved = await upsertWeeklyReport({
           project_id: projectId,
           iso_year: 2026,
           iso_week: 29,
-          executive_summary: 'Declared healthy',
+          executive_summary: 'Declared cautious',
           category_colours: {
-            quality: 'green',
-            cost_capacity: 'green',
-            delivery: 'green',
-            process: 'green',
+            quality: 'yellow',
+            cost_capacity: 'yellow',
+            delivery: 'yellow',
+            process: 'yellow',
           },
           session,
         });
-        expect(saved.overall_colour).toBe('green');
+        expect(saved.overall_colour).toBe('yellow');
 
         const detail = await getWeeklyReportDetail({
           project_id: projectId,
@@ -430,11 +449,11 @@ describe('weekly reports domain', () => {
           iso_week: 29,
           session,
         });
-        expect(detail.overall_colour).toBe('green');
+        expect(detail.overall_colour).toBe('yellow');
         expect(detail.flags).toHaveLength(4);
         for (const f of detail.flags) {
-          expect(f.final_colour).toBe('green');
-          expect(f.computed_colour).toBe('red');
+          expect(f.final_colour).toBe('yellow');
+          expect(f.computed_colour).toBe(f.category === 'quality' ? 'green' : null);
           expect(f.overridden).toBe(true);
         }
 
@@ -451,9 +470,7 @@ describe('weekly reports domain', () => {
           iso_year: 2026,
           iso_week: 29,
           executive_summary: 'Back to computed',
-          road_to_green: 'Measure the pillars',
-          road_to_green_due: '2026-12-31',
-          category_colours: { quality: 'red' },
+          category_colours: { quality: 'green' },
           session,
         });
         const after = await getWeeklyReportDetail({
@@ -463,8 +480,77 @@ describe('weekly reports domain', () => {
           session,
         });
         const quality = after.flags.find((f) => f.category === 'quality');
+        expect(quality?.final_colour).toBe('green');
+        expect(quality?.overridden).toBe(false);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('keeps the reported colour when the KPI moves after submit', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const metricId = await seedMetric(pool, t.tenant_id);
+        await setAppliedMetric({
+          metric_id: metricId,
+          applied: true,
+          project_ids: [projectId],
+          session: t.adminSession,
+        });
+        await upsertKpiRecord({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          entries: [{ metric_id: metricId, component_1_value: 250, component_2_value: null }],
+          session: t.adminSession,
+        });
+        const session = reporterSession(t.tenant_id, t.admin_user_id);
+        const saved = await upsertWeeklyReport({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          executive_summary: 'Quality is over norm',
+          category_colours: { quality: 'red' },
+          session,
+        });
+        expect(saved.overall_colour).toBe('red');
+
+        await upsertKpiRecord({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          entries: [{ metric_id: metricId, component_1_value: 50, component_2_value: null }],
+          session: t.adminSession,
+        });
+
+        const detail = await getWeeklyReportDetail({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          session,
+        });
+        const quality = detail.flags.find((f) => f.category === 'quality');
         expect(quality?.final_colour).toBe('red');
         expect(quality?.overridden).toBe(false);
+        expect(detail.overall_colour).toBe('red');
+        expect(detail.trend[0]?.colour).toBe('red');
+
+        const { rows } = await listWeeklyReports({
+          iso_year: 2026,
+          iso_week: 29,
+          project_id: projectId,
+          session,
+        });
+        expect(rows[0]?.category_colours.quality).toBe('red');
+        expect(rows[0]?.overall_colour).toBe('red');
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -480,7 +566,8 @@ describe('weekly reports domain', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const pmoPerson = crypto.randomUUID();
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id, pmoPerson);
         const pmSession = reporterSession(t.tenant_id, t.admin_user_id);
         // A commenter whose login name (display_name) differs from their person record —
         // the thread must show the person's full name, same as PM/PMO names everywhere else.
@@ -489,7 +576,7 @@ describe('weekly reports domain', () => {
           user_id: t.admin_user_id,
           display_name: 'hung.vu',
           roles: ['pm.manager'],
-          worker_id: crypto.randomUUID(),
+          worker_id: pmoPerson,
         });
         await pool.query(
           `INSERT INTO pm.person_projection (person_id, tenant_id, full_name)

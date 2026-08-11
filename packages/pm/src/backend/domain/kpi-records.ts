@@ -3,6 +3,10 @@ import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
+  computeRecordCategoryColour,
+  computeRecordOverallColour,
+  incompleteRecordMetrics,
+  type KpiRecordColour,
   type UpsertKpiRecordInput as UpsertKpiRecordInputContract,
   validateKpiEntry,
 } from '../../contracts.ts';
@@ -68,7 +72,7 @@ function bandFor(def: AppliedMetricDef, status: RagStatus): BandCondition {
 function categoryHealths(
   defsById: Map<string, AppliedMetricDef>,
   entries: { metric_id: string; status: RagStatus | null }[],
-): Record<KpiCategory, RagStatus> {
+): Record<KpiCategory, RagStatus | null> {
   const byCategory: Record<KpiCategory, RagStatus[]> = {
     quality: [],
     cost_capacity: [],
@@ -87,6 +91,46 @@ function categoryHealths(
     delivery: computeCategoryHealth(byCategory.delivery),
     process: computeCategoryHealth(byCategory.process),
   };
+}
+
+function categoryColours(
+  defs: readonly { metric_id: string; category: KpiCategory }[],
+  statusOf: (metric_id: string) => RagStatus | null,
+): Record<KpiCategory, KpiRecordColour | null> {
+  const byCategory: Record<KpiCategory, (RagStatus | null)[]> = {
+    quality: [],
+    cost_capacity: [],
+    delivery: [],
+    process: [],
+  };
+  for (const def of defs) byCategory[def.category].push(statusOf(def.metric_id));
+  return {
+    quality: computeRecordCategoryColour(byCategory.quality),
+    cost_capacity: computeRecordCategoryColour(byCategory.cost_capacity),
+    delivery: computeRecordCategoryColour(byCategory.delivery),
+    process: computeRecordCategoryColour(byCategory.process),
+  };
+}
+
+const INCOMPLETE_NAMES_SHOWN = 5;
+
+function assertNoUnassessedMetric(
+  defs: readonly { metric_id: string; name: string }[],
+  statusOf: (metric_id: string) => RagStatus | null,
+): void {
+  if (defs.length === 0) {
+    throw new PmError('VALIDATION', 'No KPI metric is applied to this project yet');
+  }
+  const missing = incompleteRecordMetrics(defs, (d) => statusOf(d.metric_id));
+  if (missing.length === 0) return;
+  const shown = missing.slice(0, INCOMPLETE_NAMES_SHOWN).join(', ');
+  const rest = missing.length - INCOMPLETE_NAMES_SHOWN;
+  throw new PmError(
+    'VALIDATION',
+    `Every applied metric needs its figures before saving — still missing: ${shown}${
+      rest > 0 ? ` (+${rest} more)` : ''
+    }`,
+  );
 }
 
 export interface KpiExplorerMetricCell {
@@ -111,8 +155,8 @@ export interface KpiExplorerRow {
   record_id: string | null;
   iso_year: number;
   iso_week: number;
-  overall_health: RagStatus;
-  category_health: Record<KpiCategory, RagStatus>;
+  overall_health: RagStatus | null;
+  category_health: Record<KpiCategory, RagStatus | null>;
   metrics: Record<string, KpiExplorerMetricCell>;
   can_manage: boolean;
 }
@@ -292,8 +336,8 @@ export interface KpiRecordDetail {
   iso_week: number;
   version: number | null;
   metrics: KpiRecordMetricRow[];
-  category_health: Record<KpiCategory, RagStatus>;
-  overall_health: RagStatus;
+  category_health: Record<KpiCategory, KpiRecordColour | null>;
+  overall_health: KpiRecordColour | null;
 }
 
 export async function getKpiRecord(input: {
@@ -376,11 +420,9 @@ export async function getKpiRecord(input: {
     };
   });
 
-  const category_health = categoryHealths(
-    new Map(defs.map((d) => [d.metric_id, d])),
-    metrics.map((m) => ({ metric_id: m.metric_id, status: m.status })),
-  );
-  const overall_health = computeOverallHealth(CATEGORIES.map((c) => category_health[c]));
+  const statusByMetric = new Map(metrics.map((m) => [m.metric_id, m.status]));
+  const category_health = categoryColours(defs, (id) => statusByMetric.get(id) ?? null);
+  const overall_health = computeRecordOverallColour(CATEGORIES.map((c) => category_health[c]));
 
   return {
     record_id: rec?.id ?? null,
@@ -396,7 +438,7 @@ export async function getKpiRecord(input: {
 
 export async function upsertKpiRecord(
   input: UpsertKpiRecordInputContract & { session: SessionScope },
-): Promise<{ record_id: string; version: number; overall_health: RagStatus }> {
+): Promise<{ record_id: string; version: number; overall_health: RagStatus | null }> {
   const { project_id, iso_year, iso_week, expected_version, entries, session } = input;
   await assertProjectManageable(project_id, session);
   if (iso_week < 1 || iso_week > 53) {
@@ -442,12 +484,10 @@ export async function upsertKpiRecord(
       status: statusOf(def, computed_value),
     };
   });
-  const completeCount = computed.filter((e) => e.status !== null).length;
-  if (completeCount === 0) {
-    throw new PmError('VALIDATION', 'Enter at least one metric');
-  }
+  const statusByMetric = new Map(computed.map((e) => [e.metric_id, e.status]));
+  assertNoUnassessedMetric(defs, (id) => statusByMetric.get(id) ?? null);
 
-  let result!: { record_id: string; version: number; overall_health: RagStatus };
+  let result!: { record_id: string; version: number; overall_health: RagStatus | null };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {

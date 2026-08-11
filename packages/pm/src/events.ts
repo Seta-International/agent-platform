@@ -178,7 +178,7 @@ export const kpiRecordSavedPayload = z.object({
   project_id: z.string().uuid(),
   iso_year: z.number().int(),
   iso_week: z.number().int(),
-  overall_health: z.enum(['green', 'yellow', 'red']),
+  overall_health: z.enum(['green', 'yellow', 'red']).nullable(),
 });
 export type KpiRecordSavedPayload = z.infer<typeof kpiRecordSavedPayload>;
 
@@ -190,7 +190,7 @@ export const weeklyReportSavedPayload = z.object({
   iso_year: z.number().int(),
   iso_week: z.number().int(),
   reporter_id: z.string().uuid(),
-  overall_colour: z.enum(['green', 'yellow', 'red', 'gray']),
+  overall_colour: z.enum(['green', 'yellow', 'red', 'gray']).nullable(),
 });
 export type WeeklyReportSavedPayload = z.infer<typeof weeklyReportSavedPayload>;
 
@@ -202,7 +202,7 @@ export const flagOverriddenPayload = z.object({
   iso_year: z.number().int(),
   iso_week: z.number().int(),
   category: z.enum(['quality', 'cost_capacity', 'delivery', 'process']),
-  from_colour: z.enum(['green', 'yellow', 'red', 'gray']),
+  from_colour: z.enum(['green', 'yellow', 'red', 'gray']).nullable(),
   to_colour: z.enum(['green', 'yellow', 'red', 'gray']),
   reason: z.string().nullable(),
   actor_user_id: z.string().uuid(),

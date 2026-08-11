@@ -330,20 +330,25 @@ describe('listAppliedMetrics — entered_count for the queried week (FUT-802 AC5
         const [metricOne, metricTwo] = await seedTwoMetrics(pool, t.tenant_id);
         const projects = [projectA, projectB];
 
-        for (const metric_id of [metricOne, metricTwo]) {
-          await setAppliedMetric({
-            metric_id,
-            applied: true,
-            project_ids: projects,
-            session: t.adminSession,
-          });
-        }
+        await setAppliedMetric({
+          metric_id: metricOne,
+          applied: true,
+          project_ids: projects,
+          session: t.adminSession,
+        });
 
         await upsertKpiRecord({
           project_id: projectA,
           iso_year: 2026,
           iso_week: 29,
           entries: [{ metric_id: metricOne, component_1_value: 42, component_2_value: null }],
+          session: t.adminSession,
+        });
+
+        await setAppliedMetric({
+          metric_id: metricTwo,
+          applied: true,
+          project_ids: projects,
           session: t.adminSession,
         });
 
@@ -413,19 +418,23 @@ describe('listAppliedMetrics — entered_count for the queried week (FUT-802 AC5
         const projectA = await liveProject(pool, t.adminSession, t.tenant_id, 'A');
         const [metricOne, metricTwo] = await seedTwoMetrics(pool, t.tenant_id);
 
-        for (const metric_id of [metricOne, metricTwo]) {
-          await setAppliedMetric({
-            metric_id,
-            applied: true,
-            project_ids: [projectA],
-            session: t.adminSession,
-          });
-        }
+        await setAppliedMetric({
+          metric_id: metricOne,
+          applied: true,
+          project_ids: [projectA],
+          session: t.adminSession,
+        });
         await upsertKpiRecord({
           project_id: projectA,
           iso_year: 2026,
           iso_week: 29,
           entries: [{ metric_id: metricOne, component_1_value: 42, component_2_value: null }],
+          session: t.adminSession,
+        });
+        await setAppliedMetric({
+          metric_id: metricTwo,
+          applied: true,
+          project_ids: [projectA],
           session: t.adminSession,
         });
         await setAppliedMetric({

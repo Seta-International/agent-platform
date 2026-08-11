@@ -1,4 +1,11 @@
-import type { BandCondition, KpiCategory, RagStatus } from '../api/pm-client.ts';
+import { Badge as AstryxBadge } from '@seta/shared-ui';
+import type {
+  BandCondition,
+  KpiCategory,
+  KpiRecordColour,
+  RagStatus,
+  ReportColour,
+} from '../api/pm-client.ts';
 import { Badge, cn, StatusDot, type StatusDotVariant } from './_ui-compat.tsx';
 
 export const KPI_CATEGORY_LABELS: Record<KpiCategory, string> = {
@@ -182,6 +189,26 @@ export function metricValueText(
   );
 }
 
+export function kpiResultValue(
+  value: number | null,
+  status: RagStatus | null,
+  metricName: string,
+  component_count: 1 | 2,
+) {
+  if (value === null) return null;
+  return (
+    <span
+      className={cn(
+        'shrink-0 text-sm font-medium tabular-nums',
+        status === null ? 'text-secondary' : RAG_MARK[status].text,
+      )}
+      title={`${metricName} — computed from the figures above`}
+    >
+      {formatMetricValue(value, metricName, component_count)}
+    </span>
+  );
+}
+
 export function ragBadge(status: RagStatus | null) {
   if (status === null) {
     return (
@@ -199,6 +226,58 @@ export function ragBadge(status: RagStatus | null) {
   );
 }
 
+export function kpiColourBadge(colour: KpiRecordColour | null) {
+  return ragBadge(colour === 'gray' ? null : colour);
+}
+
+export type ColourKey = ReportColour | 'none';
+export const colourKey = (colour: ReportColour | null): ColourKey => colour ?? 'none';
+
+export const COLOUR_LABEL: Record<ColourKey, string> = {
+  green: 'Green',
+  yellow: 'Amber',
+  red: 'Red',
+  gray: 'No data',
+  none: 'Not assessed',
+};
+
+export const COLOUR_VARIANT: Record<ColourKey, 'success' | 'warning' | 'error' | 'neutral'> = {
+  green: 'success',
+  yellow: 'warning',
+  red: 'error',
+  gray: 'neutral',
+  none: 'neutral',
+};
+
+const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
+  green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
+  yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
+  red: { fill: 'var(--rag-red)', on: 'var(--rag-on-red)' },
+  gray: null,
+  none: null,
+};
+
+export const ragFill = (key: ColourKey): string | undefined => RAG_MARK_TOKEN[key]?.fill;
+export const markStyle = (key: ColourKey) => {
+  const token = RAG_MARK_TOKEN[key];
+  return token ? { backgroundColor: token.fill } : undefined;
+};
+export const badgeStyle = (key: ColourKey) => {
+  const token = RAG_MARK_TOKEN[key];
+  return token ? { backgroundColor: token.fill, color: token.on } : undefined;
+};
+
+export function colourBadge(colour: ReportColour | null) {
+  const key = colourKey(colour);
+  return (
+    <AstryxBadge
+      variant={COLOUR_VARIANT[key]}
+      label={colour === null ? '—' : COLOUR_LABEL[key]}
+      style={badgeStyle(key)}
+    />
+  );
+}
+
 // FUT-595 AC4: the live preview runs the EXACT functions the server settles colours with —
 // imported from @seta/pm/contracts (pm's public contract subpath), not a client-side copy,
 // so preview and stored colour can never disagree.
@@ -206,21 +285,69 @@ export {
   computeCategoryHealth,
   computeEntryStatus,
   computeOverallHealth,
+  computeRecordCategoryColour,
+  computeRecordOverallColour,
   computeScoredValue,
   hasKpiEntryIssue,
+  incompleteRecordMetrics,
   kpiComponentIssue,
   kpiValuePrecision,
   validateKpiEntry,
 } from '@seta/pm/contracts';
 
-/** ISO 8601 week (Monday-start, week 1 = week containing the year's first Thursday). */
-export function isoWeekOf(date: Date): { iso_year: number; iso_week: number } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+function isoWeekOfUtc(d: Date): { iso_year: number; iso_week: number } {
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const iso_week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
   return { iso_year: d.getUTCFullYear(), iso_week };
+}
+
+/** ISO 8601 week (Monday-start, week 1 = week containing the year's first Thursday). */
+export function isoWeekOf(date: Date): { iso_year: number; iso_week: number } {
+  return isoWeekOfUtc(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())));
+}
+
+export function isoWeekOfDateString(date: string): { iso_year: number; iso_week: number } {
+  const [y, m, d] = date.split('-').map(Number);
+  return isoWeekOfUtc(new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1)));
+}
+
+export function isoWeekBaseOfDateString(date: string): string {
+  const { iso_year, iso_week } = isoWeekOfDateString(date);
+  return isoWeekBase(iso_year, iso_week);
+}
+
+export function lastIsoWeekOf(iso_year: number): number {
+  const jan1 = new Date(Date.UTC(iso_year, 0, 1)).getUTCDay();
+  const leap = (iso_year % 4 === 0 && iso_year % 100 !== 0) || iso_year % 400 === 0;
+  return jan1 === 4 || (leap && jan1 === 3) ? 53 : 52;
+}
+
+export function isoWeekEndDate(iso_year: number, iso_week: number): string {
+  const jan4 = new Date(Date.UTC(iso_year, 0, 4));
+  const offset = jan4.getUTCDay() || 7;
+  const monday = Date.UTC(iso_year, 0, 4 - (offset - 1) + (iso_week - 1) * 7);
+  return new Date(monday + 6 * 86_400_000).toISOString().slice(0, 10);
+}
+
+export function dueWeekOptions(after: {
+  iso_year: number;
+  iso_week: number;
+}): { value: string; label: string }[] {
+  const weeksFrom = (iso_year: number, first: number) => {
+    const out: { value: string; label: string }[] = [];
+    for (let w = first; w <= lastIsoWeekOf(iso_year); w++) {
+      out.push({ value: isoWeekEndDate(iso_year, w), label: isoWeekBase(iso_year, w) });
+    }
+    return out;
+  };
+  const rest = weeksFrom(after.iso_year, after.iso_week + 1);
+  return rest.length > 0 ? rest : weeksFrom(after.iso_year + 1, 1);
+}
+
+export function isoWeekBase(iso_year: number, iso_week: number): string {
+  return `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
 }
 
 /** Week label with its lifecycle mark (FUT-589 AC4): only the current week is marked —
@@ -231,7 +358,7 @@ export function isoWeekLabel(
   current: { iso_year: number; iso_week: number },
 ): string {
   const isCurrent = iso_year === current.iso_year && iso_week === current.iso_week;
-  const base = `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
+  const base = isoWeekBase(iso_year, iso_week);
   return isCurrent ? `${base} (current)` : base;
 }
 

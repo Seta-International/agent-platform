@@ -293,7 +293,7 @@ export function computeMetricValue(
   return component_1_value / component_2_value;
 }
 
-function bandThresholds(cond: BandCondition, out: number[] = []): number[] {
+export function bandThresholds(cond: BandCondition, out: number[] = []): number[] {
   switch (cond.op) {
     case 'between':
       out.push(cond.min, cond.max);
@@ -454,6 +454,122 @@ export function evaluateBand(cond: BandCondition, value: number): boolean {
   }
 }
 
+const relativeGap = (gap: number, threshold: number): number => gap / (Math.abs(threshold) || 1);
+
+export function bandMiss(green_band: BandCondition, value: number): number {
+  switch (green_band.op) {
+    case 'gte':
+    case 'gt':
+      return value >= green_band.value
+        ? 0
+        : relativeGap(green_band.value - value, green_band.value);
+    case 'lte':
+    case 'lt':
+      return value <= green_band.value
+        ? 0
+        : relativeGap(value - green_band.value, green_band.value);
+    case 'eq':
+      return value === green_band.value
+        ? 0
+        : relativeGap(Math.abs(value - green_band.value), green_band.value);
+    case 'between':
+      if (value < green_band.min) return relativeGap(green_band.min - value, green_band.min);
+      if (value > green_band.max) return relativeGap(value - green_band.max, green_band.max);
+      return 0;
+    case 'or':
+      return Math.min(...green_band.conditions.map((c) => bandMiss(c, value)));
+    case 'and':
+      return Math.max(...green_band.conditions.map((c) => bandMiss(c, value)));
+  }
+}
+
+export interface RankableMetric {
+  metric_id: string;
+  sort_order: number;
+  green_band: BandCondition;
+  status: RagStatus | null;
+  computed_value: number | null;
+}
+
+export function pickWorstMetric<T extends RankableMetric>(defs: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestRank = -1;
+  let bestMiss = -1;
+  for (const def of defs) {
+    if (def.computed_value === null) continue;
+    const rank = def.status === 'red' ? 2 : def.status === 'yellow' ? 1 : 0;
+    if (rank === 0) continue;
+    const miss = bandMiss(def.green_band, def.computed_value);
+    if (
+      rank > bestRank ||
+      (rank === bestRank &&
+        (miss > bestMiss ||
+          (miss === bestMiss && best !== null && def.sort_order < best.sort_order)))
+    ) {
+      best = def;
+      bestRank = rank;
+      bestMiss = miss;
+    }
+  }
+  return best;
+}
+
+export interface BandedMetric extends KpiEntryRules {
+  green_band: BandCondition;
+  yellow_band: BandCondition;
+  red_band: BandCondition;
+}
+
+export interface KpiFigures {
+  component_1_value: number;
+  component_2_value: number | null;
+}
+
+export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFigures | null {
+  const precision = kpiValuePrecision(metric.green_band, metric.yellow_band, metric.red_band);
+  const marks = [
+    ...bandThresholds(metric.green_band),
+    ...bandThresholds(metric.yellow_band),
+    ...bandThresholds(metric.red_band),
+  ];
+  const step = 10 ** -precision;
+  const values = new Set<number>([0, step, 1]);
+  for (const mark of marks) {
+    for (const offset of [-2 * step, -step, 0, step, 2 * step]) values.add(mark + offset);
+    for (const factor of [0, 0.2, 0.5, 0.8, 0.9, 1.1, 1.2, 1.5, 2, 3, 5]) values.add(mark * factor);
+  }
+
+  for (const raw of [...values].sort((a, b) => a - b)) {
+    const value = Math.round(raw * 10 ** precision) / 10 ** precision;
+    if (!Number.isFinite(value)) continue;
+
+    const denominator = metric.component_count === 2 ? 100 : null;
+    const component_1_value =
+      denominator === null
+        ? value
+        : Math.round(value * denominator * 10 ** precision) / 10 ** precision;
+    if (metric.component_1_integer && !Number.isInteger(component_1_value)) continue;
+
+    const issues = validateKpiEntry(metric, component_1_value, denominator);
+    if (issues.component_1 !== null || issues.component_2 !== null) continue;
+
+    const computed = computeScoredValue(
+      metric.component_count,
+      component_1_value,
+      denominator,
+      precision,
+    );
+    const status = computeEntryStatus(
+      computed,
+      metric.green_band,
+      metric.yellow_band,
+      metric.red_band,
+    );
+    if (status === target) return { component_1_value, component_2_value: denominator };
+  }
+  return null;
+}
+
 /** `null` when the metric has no value yet (not entered) — distinct from a real red/yellow/green
  * result. Bands are expected to partition the number line; if none match (malformed norm data)
  * this also returns `null` rather than guessing. */
@@ -477,17 +593,40 @@ export function worstStatus(statuses: readonly RagStatus[]): RagStatus | null {
   return statuses.reduce((worst, s) => (RAG_RANK[s] > RAG_RANK[worst] ? s : worst));
 }
 
-/**
- * Worst-wins over the entries that have a status; 0/N (no entry in this category has a value)
- * defaults to `red` — "No Data = No Management" (functional-analysis.md §4 decision #2, updated
- * 2026-07-14: previously a neutral "not reported" state, now explicitly Red per the business doc).
- */
-export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus {
-  return worstStatus(entryStatuses) ?? 'red';
+export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus | null {
+  return worstStatus(entryStatuses);
 }
 
-export function computeOverallHealth(categoryHealths: readonly RagStatus[]): RagStatus {
-  return worstStatus(categoryHealths) ?? 'red';
+export function computeOverallHealth(
+  categoryHealths: readonly (RagStatus | null)[],
+): RagStatus | null {
+  return worstStatus(categoryHealths.filter((s): s is RagStatus => s !== null));
+}
+
+export type KpiRecordColour = RagStatus | 'gray';
+
+export function computeRecordCategoryColour(
+  metricStatuses: readonly (RagStatus | null)[],
+): KpiRecordColour | null {
+  if (metricStatuses.length === 0) return null;
+  if (metricStatuses.some((s) => s === null)) return 'gray';
+  return worstStatus(metricStatuses as readonly RagStatus[]);
+}
+
+export function computeRecordOverallColour(
+  categoryColours: readonly (KpiRecordColour | null)[],
+): KpiRecordColour | null {
+  const known = categoryColours.filter((c): c is KpiRecordColour => c !== null);
+  if (known.length === 0) return null;
+  if (known.includes('gray')) return 'gray';
+  return worstStatus(known as readonly RagStatus[]);
+}
+
+export function incompleteRecordMetrics<T extends { name: string }>(
+  defs: readonly T[],
+  statusOf: (def: T) => RagStatus | null,
+): string[] {
+  return defs.filter((d) => statusOf(d) === null).map((d) => d.name);
 }
 export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
 

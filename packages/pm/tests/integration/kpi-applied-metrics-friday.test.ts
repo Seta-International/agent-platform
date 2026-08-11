@@ -124,10 +124,13 @@ describe('the current week after its Friday 17:00 deadline', () => {
         const t = await seedTenant(pool);
         const session = t.adminSession;
         const projectId = await liveProject(pool, session, t.tenant_id);
-        const [metricOne, metricTwo] = await seedTwoQualityMetrics(pool, t.tenant_id);
-        for (const metric_id of [metricOne, metricTwo]) {
-          await setAppliedMetric({ metric_id, applied: true, project_ids: [projectId], session });
-        }
+        const [metricOne] = await seedTwoQualityMetrics(pool, t.tenant_id);
+        await setAppliedMetric({
+          metric_id: metricOne,
+          applied: true,
+          project_ids: [projectId],
+          session,
+        });
         await upsertKpiRecord({
           project_id: projectId,
           ...WEEK_29,

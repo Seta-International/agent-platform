@@ -25,6 +25,7 @@ async function liveProject(
   pool: Pool,
   session: import('@seta/core').SessionScope,
   tenantId: string,
+  pmoPersonId?: string,
 ): Promise<string> {
   const acc = await pool.query(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
@@ -34,6 +35,7 @@ async function liveProject(
     account_id: acc.rows[0].id,
     name: 'P',
     pm_worker_id: session.user_id,
+    pmo_worker_id: pmoPersonId,
     methodology: 'scrum',
     pricing_model: 'fixed_price',
     budget_bmm: 100,
@@ -42,12 +44,12 @@ async function liveProject(
   return (await approveCharterTwoStage(charterId, session.tenant_id)).project_id;
 }
 
-function reporterSession(tenantId: string, userId: string) {
+function reporterSession(tenantId: string, userId: string, personId: string = userId) {
   return buildSession({
     tenant_id: tenantId,
     user_id: userId,
     roles: ['pm.manager'],
-    worker_id: crypto.randomUUID(),
+    worker_id: personId,
   });
 }
 
@@ -90,7 +92,7 @@ describe('weekly report draft lifecycle (FUT-591 + FUT-601)', () => {
         });
         expect(mine.reports.map((r) => r.status)).toEqual(['draft']);
 
-        const other = reporterSession(t.tenant_id, t.admin_user_id);
+        const other = reporterSession(t.tenant_id, t.admin_user_id, crypto.randomUUID());
         const theirs = await getWeeklyReportDetail({
           project_id: projectId,
           iso_year: 2026,
@@ -131,9 +133,10 @@ describe('weekly report draft lifecycle (FUT-591 + FUT-601)', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const pmoPerson = crypto.randomUUID();
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id, pmoPerson);
         const pm = reporterSession(t.tenant_id, t.admin_user_id);
-        const pmo = reporterSession(t.tenant_id, t.admin_user_id);
+        const pmo = reporterSession(t.tenant_id, t.admin_user_id, pmoPerson);
 
         // v1 published.
         const v1 = await upsertWeeklyReport({

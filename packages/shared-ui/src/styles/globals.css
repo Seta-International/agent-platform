@@ -7,6 +7,24 @@
 html { color-scheme: dark; }
 html.theme-light { color-scheme: light; }
 
+:root {
+  --rag-red: light-dark(#e33f4a, #ff705d);
+  --rag-amber: #ffce2f;
+  --rag-green: light-dark(#198100, #64af4c);
+
+  --rag-on-red: light-dark(#ffffff, #171717);
+  --rag-on-amber: #171717;
+  --rag-on-green: light-dark(#ffffff, #171717);
+
+  --rag-red-text: var(--color-error);
+  --rag-amber-text: var(--color-warning);
+  --rag-green-text: var(--color-success);
+
+  --rag-red-wash: color-mix(in oklab, var(--rag-red) 18%, transparent);
+  --rag-amber-wash: color-mix(in oklab, var(--rag-amber) 30%, transparent);
+  --rag-green-wash: color-mix(in oklab, var(--rag-green) 18%, transparent);
+}
+
 /* Required-field indicator: Astryx FieldLabel renders required fields as a
    " ∙ Required" suffix in --color-text-secondary, with no prop or dedicated
    token to restyle it — design wants it error-red so required fields read at

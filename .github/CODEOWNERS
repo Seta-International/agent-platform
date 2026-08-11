@@ -2,30 +2,30 @@
 # T3 paths auto-request the tech lead; core changes always ship as their own PR.
 
 # T3 — core business modules
-/packages/core/       @seta-canhta
-/packages/identity/   @seta-canhta
+/packages/core/       @seta-canhta @seta-haile
+/packages/identity/   @seta-canhta @seta-haile
 
 # T3 — design system / component library
-/packages/shared-ui/  @seta-canhta
+/packages/shared-ui/  @seta-canhta @seta-haile
 
 # T3 — CI, tooling, infra
-/.github/             @seta-canhta
-/scripts/             @seta-canhta
-/infra/               @seta-canhta
+/.github/             @seta-canhta @seta-haile
+/scripts/             @seta-canhta @seta-haile
+/infra/               @seta-canhta @seta-haile
 
 # T3 — DB migrations (generated + hand-written)
-drizzle/              @seta-canhta
+drizzle/              @seta-canhta @seta-haile
 
 # T2 — shared surfaces and SDK contracts
-/packages/shared-config/        @seta-canhta
-/packages/shared-crypto/        @seta-canhta
-/packages/shared-db/            @seta-canhta
-/packages/shared-embeddings/    @seta-canhta
-/packages/shared-mailer/        @seta-canhta
-/packages/shared-orchestration/ @seta-canhta
-/packages/shared-rbac/          @seta-canhta
-/packages/shared-retrieval/     @seta-canhta
-/packages/shared-storage/       @seta-canhta
-/packages/shared-testing/       @seta-canhta
-/packages/shared-types/         @seta-canhta
-/sdks/                          @seta-canhta
+/packages/shared-config/        @seta-canhta @seta-haile
+/packages/shared-crypto/        @seta-canhta @seta-haile
+/packages/shared-db/            @seta-canhta @seta-haile
+/packages/shared-embeddings/    @seta-canhta @seta-haile
+/packages/shared-mailer/        @seta-canhta @seta-haile
+/packages/shared-orchestration/ @seta-canhta @seta-haile
+/packages/shared-rbac/          @seta-canhta @seta-haile
+/packages/shared-retrieval/     @seta-canhta @seta-haile
+/packages/shared-storage/       @seta-canhta @seta-haile
+/packages/shared-testing/       @seta-canhta @seta-haile
+/packages/shared-types/         @seta-canhta @seta-haile
+/sdks/                          @seta-canhta @seta-haile
