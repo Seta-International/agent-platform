@@ -7,7 +7,7 @@ export const ASSIGNMENT_WORKFLOW_ID = 'planner.assignment-orchestrator';
 export const ACTION_WORKFLOW_ID = 'planner.action';
 
 /**
- * The payload-free contract every card created after FUT-804 uses. It SELECTS
+ * The payload-free contract every chat card uses. It SELECTS
  * one of the actions the agent already authored and the server already
  * persisted; it never supplies a value.
  *
@@ -31,20 +31,7 @@ export const GenericResumeBody = z
   });
 export type GenericResumeBodyT = z.infer<typeof GenericResumeBody>;
 
-/** The assignment card's shipped contract — byte-identical to today, kept alive
- *  until FUT-806 retrofits assignment onto A2. */
-export const LegacyResumeBody = z.strictObject({
-  approvalId: z.string().min(1),
-  decision: z.enum(['approve', 'reject', 'modify']),
-  overrideUserIds: z.array(z.string()).optional(),
-  alternateIndices: z.array(z.number().int().min(0)).optional(),
-  note: z.string().max(1000).optional(),
-});
-export type LegacyResumeBodyT = z.infer<typeof LegacyResumeBody>;
-
-export type ParsedResumeBody =
-  | { kind: 'generic'; body: GenericResumeBodyT }
-  | { kind: 'legacy'; body: LegacyResumeBodyT };
+export type ParsedResumeBody = { kind: 'generic'; body: GenericResumeBodyT };
 
 function fail(code: 'validation_failed' | 'not_supported', message: string): never {
   throw Object.assign(new Error(`${code}: ${message}`), { code });
@@ -53,22 +40,18 @@ function fail(code: 'validation_failed' | 'not_supported', message: string): nev
 /**
  * Parses the RAW request body with the schema that belongs to `workflowId`.
  *
- * Deliberately not a `z.union` discriminated by the body's own shape: the
- * workflow is already known from the persisted row, and letting the body pick
- * its own contract is what makes a stale client able to steer a new mutation.
+ * Both chat runtimes now use ONE contract. The workflow-id parameter stays
+ * rather than the function becoming a bare parse: the row's workflow_id is still
+ * the authority on whether this approval is chat-resumable at all, and
+ * `not_supported` is what keeps a misrouted evented row out.
  */
 export function parseResumeBodyForWorkflow(workflowId: string, raw: unknown): ParsedResumeBody {
-  if (workflowId === ACTION_WORKFLOW_ID) {
-    const r = GenericResumeBody.safeParse(raw);
-    if (!r.success) fail('validation_failed', 'body does not match this approval');
-    return { kind: 'generic', body: r.data };
+  if (workflowId !== ACTION_WORKFLOW_ID && workflowId !== ASSIGNMENT_WORKFLOW_ID) {
+    fail('not_supported', `no resume contract for workflow ${workflowId}`);
   }
-  if (workflowId === ASSIGNMENT_WORKFLOW_ID) {
-    const r = LegacyResumeBody.safeParse(raw);
-    if (!r.success) fail('validation_failed', 'body does not match this approval');
-    return { kind: 'legacy', body: r.data };
-  }
-  fail('not_supported', `no resume contract for workflow ${workflowId}`);
+  const r = GenericResumeBody.safeParse(raw);
+  if (!r.success) fail('validation_failed', 'body does not match this approval');
+  return { kind: 'generic', body: r.data };
 }
 
 interface CardLike {

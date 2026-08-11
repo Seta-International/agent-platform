@@ -14,25 +14,10 @@ interface CardShape {
   decline: { label: string };
 }
 
-/**
- * Payload-free card (FUT-804 onwards): the client reports WHICH action it picked
- * and never a value, so the whole proposal is read-only. Detected by the absence
- * of an `entityList` block AND of the assignment card's `assigneeUserIds` —
- * assignment is the one card left that carries an editable payload, and it goes
- * away in FUT-806. Both halves matter: an assignment card whose primary has no
- * argsPatch still has candidates to pick from, and must keep the legacy body.
- */
-export function isPayloadFreeCard(card: CardShape): boolean {
-  if ((card.details ?? []).some((b) => b.kind === 'entityList')) return false;
-  return card.primary?.argsPatch?.assigneeUserIds === undefined;
-}
-
 export type HitlCardDecision =
-  // Legacy assignment card. Removed with the legacy button path in FUT-806.
-  | { decision: 'approve' | 'reject' | 'modify'; overrideUserIds?: string[]; note?: string }
   // Payload-free card: WHICH branch, never what. The shape GenericResumeBody
   // already accepts, so no translation layer sits between them.
-  | { chosen: 'primary' | 'alternate' | 'decline'; alternateIndex?: number; note?: string };
+  { chosen: 'primary' | 'alternate' | 'decline'; alternateIndex?: number; note?: string };
 
 export interface HitlCardProps {
   card: CardShape;
@@ -97,9 +82,7 @@ export function HitlCard({
   renderEntity,
   cardRenderers,
 }: HitlCardProps) {
-  const { selectedIds, toggle, branch, toDecision } = useHitlDecision(card);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [note, setNote] = useState('');
+  const { selectedIds, toggle, branch } = useHitlDecision(card);
 
   // The primary button label must reflect the CURRENT selection, not the frozen
   // top-match label the backend baked in. Map each candidate's userId → its own
@@ -137,7 +120,6 @@ export function HitlCard({
   const disabled = !canAct || Boolean(pending) || expired;
 
   const intent = card.intent ?? 'Your input needed';
-  const payloadFree = isPayloadFreeCard(card);
   // Which of D12's two displays this card gets. Rows present → the rows are the
   // selector; rows absent → the alternates are buttons.
   const hasEntityList = (card.details ?? []).some((b) => b.kind === 'entityList');
@@ -188,7 +170,7 @@ export function HitlCard({
           })}
         </fieldset>
 
-        {payloadFree ? (
+        {
           // Read-only by design: in-card editing was dropped in Amendment B2, so
           // there is exactly one way to correct a proposal — ask the agent
           // (FUT-840). Cancel declines outright rather than opening the reason
@@ -233,59 +215,7 @@ export function HitlCard({
               className="ml-auto"
             />
           </div>
-        ) : !rejectOpen ? (
-          <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onDecide(toDecision('approve'))}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent-bg px-3 py-1.5 text-base font-semibold text-on-accent shadow-sm transition hover:bg-accent-bg disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Check className="size-3.5" aria-hidden />
-              {pending ? 'Working…' : primaryLabel}
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => setRejectOpen(true)}
-              className="ml-auto rounded-md px-3 py-1.5 text-base text-error hover:bg-error-muted disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {card.decline.label}
-            </button>
-          </div>
-        ) : (
-          <div className="mt-3.5 rounded-lg border border-border-strong bg-card p-2.5">
-            <label className="block text-sm text-secondary">
-              Reason (optional)
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={2}
-                className="mt-1 w-full resize-none rounded-md border border-border-strong bg-body px-2.5 py-1.5 text-base text-primary placeholder:text-disabled focus:border-accent-bg focus:outline-none focus:ring-2 focus:ring-accent-bg/20"
-              />
-            </label>
-            <div className="mt-2 flex items-center justify-end gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setRejectOpen(false);
-                  setNote('');
-                }}
-                className="rounded-md px-2.5 py-1.5 text-base text-secondary hover:bg-surface hover:text-primary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onDecide(toDecision('reject', note.trim() || undefined))}
-                className="rounded-md bg-error px-3 py-1.5 text-base font-semibold text-on-error shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Confirm decline
-              </button>
-            </div>
-          </div>
-        )}
+        }
 
         {!canAct ? (
           <p className="mt-3 rounded-md bg-surface px-2.5 py-1.5 text-sm text-secondary">

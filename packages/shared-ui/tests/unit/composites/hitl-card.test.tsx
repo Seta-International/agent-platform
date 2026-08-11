@@ -14,7 +14,7 @@ const card = {
       items: [{ id: 'u1', type: 'user', label: 'Alice', primary: true }],
     },
   ],
-  primary: { label: 'Assign to Alice' },
+  primary: { label: 'Assign to Alice', argsPatch: { assigneeUserIds: ['u1'] } },
   alternates: [],
   decline: { label: 'Leave unassigned' },
 };
@@ -33,47 +33,7 @@ describe('HitlCard', () => {
     expect(screen.getByText(/Assign "Infra"/)).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /assign to alice/i }));
-    expect(onDecide).toHaveBeenCalledWith({ decision: 'approve', overrideUserIds: ['u1'] });
-  });
-
-  it('button label follows the selection and sends a modify with the chosen user', async () => {
-    // Single-select card with per-candidate assign patches (the assignment card
-    // shape). Picking a different candidate must relabel the button AND send that
-    // user, not the frozen top match.
-    const assignCard = {
-      intent: 'Assign "Infra"',
-      riskBadge: 'write',
-      details: [
-        {
-          kind: 'entityList',
-          select: 'single',
-          items: [
-            { id: 'u1', type: 'user', label: 'Alice', primary: true },
-            { id: 'u2', type: 'user', label: 'Bob' },
-          ],
-        },
-      ],
-      primary: { label: 'Assign to Alice', argsPatch: { assigneeUserIds: ['u1'] } },
-      alternates: [{ label: 'Assign to Bob', argsPatch: { assigneeUserIds: ['u2'] } }],
-      decline: { label: 'Leave unassigned' },
-    };
-    const onDecide = vi.fn();
-    render(
-      <HitlCard
-        card={assignCard as never}
-        canAct
-        onDecide={onDecide}
-        renderEntity={(e) => <span>{e.label}</span>}
-      />,
-    );
-    // Seeded to the top match.
-    expect(screen.getByRole('button', { name: /assign to alice/i })).toBeInTheDocument();
-    // Pick Bob → label flips, radio replaces the seed.
-    await userEvent.click(screen.getByRole('radio', { name: 'Bob' }));
-    const button = screen.getByRole('button', { name: /assign to bob/i });
-    expect(button).toBeInTheDocument();
-    await userEvent.click(button);
-    expect(onDecide).toHaveBeenCalledWith({ decision: 'modify', overrideUserIds: ['u2'] });
+    expect(onDecide).toHaveBeenCalledWith({ chosen: 'primary' });
   });
 
   // FUT-816. A payload-free card (an A2 preview) carries no entityList: there is
@@ -238,6 +198,87 @@ describe('HitlCard', () => {
         />,
       );
       expect(screen.getAllByRole('button')).toHaveLength(2);
+    });
+  });
+
+  describe('HitlCard — an entityList card is a branch selector (D12, display A)', () => {
+    const assignCard = {
+      intent: 'Assign "Infra"',
+      riskBadge: 'write',
+      details: [
+        {
+          kind: 'entityList',
+          select: 'single',
+          items: [
+            { id: 'u1', type: 'user', label: 'Alice', primary: true },
+            { id: 'u2', type: 'user', label: 'Bob' },
+          ],
+        },
+      ],
+      primary: { label: 'Assign to Alice', argsPatch: { assigneeUserIds: ['u1'] } },
+      alternates: [{ label: 'Assign to Bob', argsPatch: { assigneeUserIds: ['u2'] } }],
+      decline: { label: 'Leave unassigned' },
+    };
+
+    it('confirms the top match as the primary branch', async () => {
+      const onDecide = vi.fn();
+      render(
+        <HitlCard
+          card={assignCard as never}
+          canAct
+          onDecide={onDecide}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /assign to alice/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'primary' });
+    });
+
+    // The behaviour FUT-822's AC promises not to lose: picking the second
+    // candidate assigns the second candidate.
+    it('picking another candidate relabels Confirm and emits that alternate', async () => {
+      const onDecide = vi.fn();
+      render(
+        <HitlCard
+          card={assignCard as never}
+          canAct
+          onDecide={onDecide}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      await userEvent.click(screen.getByRole('radio', { name: 'Bob' }));
+      await userEvent.click(screen.getByRole('button', { name: /assign to bob/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'alternate', alternateIndex: 0 });
+    });
+
+    it('declines without asking for a reason', async () => {
+      const onDecide = vi.fn();
+      render(
+        <HitlCard
+          card={assignCard as never}
+          canAct
+          onDecide={onDecide}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /leave unassigned/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'decline' });
+    });
+
+    // Radios are the only control any card may render. AC5, amended for D12
+    // display A.
+    it('renders radios and no free-text control', () => {
+      const { container } = render(
+        <HitlCard
+          card={assignCard as never}
+          canAct
+          onDecide={vi.fn()}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      expect(container.querySelectorAll('input[type="radio"]').length).toBe(2);
+      expect(container.querySelector('textarea')).toBeNull();
+      expect(container.querySelector('input:not([type="radio"])')).toBeNull();
     });
   });
 
