@@ -369,6 +369,76 @@ describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () 
   });
 });
 
+describe('RaMonitoringPage — Project filter over-allocation calculation (FUT-888)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  it('keeps worker marked as Over-allocated when Project filter is applied', async () => {
+    const p1Allocation = {
+      allocation_id: 'a1',
+      worker_id: 'w1',
+      worker_name: 'Nguyen Thi Phuong',
+      worker_title: 'Senior Engineer',
+      project_id: 'p1',
+      project_name: 'Project A',
+      account_id: 'acc1',
+      account_name: 'Veritone',
+      planned_pct: 100,
+      date_from: '2026-08-01',
+      date_to: '2026-11-30',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    };
+    const p2Allocation = {
+      allocation_id: 'a2',
+      worker_id: 'w1',
+      worker_name: 'Nguyen Thi Phuong',
+      worker_title: 'Senior Engineer',
+      project_id: 'p2',
+      project_name: 'Project B',
+      account_id: 'acc1',
+      account_name: 'Veritone',
+      planned_pct: 100,
+      date_from: '2026-08-01',
+      date_to: '2026-11-30',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    };
+
+    latestSearch = {
+      project: 'p1',
+    };
+
+    fetchAllocationsMock.mockImplementation((params?: unknown) => {
+      const p = params as Record<string, unknown> | undefined;
+      if (p?.project_id === 'p1') {
+        return Promise.resolve([p1Allocation]);
+      }
+      return Promise.resolve([p1Allocation, p2Allocation]);
+    });
+
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    // Only Project A row is displayed in table
+    expect(screen.getByText('Project A')).toBeInTheDocument();
+    expect(screen.queryByText('Project B')).not.toBeInTheDocument();
+
+    // Worker should still be marked with "Over" badge
+    expect(screen.getByText('Over')).toBeInTheDocument();
+  });
+});
+
 describe('RaMonitoringPage — breadcrumb trail (Astryx migration)', () => {
   afterEach(() => {
     vi.restoreAllMocks();

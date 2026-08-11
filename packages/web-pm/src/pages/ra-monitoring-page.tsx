@@ -382,6 +382,14 @@ export function RaMonitoringPage() {
     [accountId, projectId, activeFrom, activeTo, q],
   );
 
+  const windowParams = useMemo(
+    () => ({
+      active_from: activeFrom || undefined,
+      active_to: activeTo || undefined,
+    }),
+    [activeFrom, activeTo],
+  );
+
   const { data: accounts } = useQuery({
     queryKey: pmKeys.accounts(),
     queryFn: fetchAccounts,
@@ -394,8 +402,13 @@ export function RaMonitoringPage() {
     queryKey: pmKeys.allocations(params),
     queryFn: () => fetchAllocations(params),
   });
+  const { data: windowRows } = useQuery({
+    queryKey: pmKeys.allocations(windowParams),
+    queryFn: () => fetchAllocations(windowParams),
+  });
 
   const allocations = useMemo(() => rows ?? [], [rows]);
+  const allAllocations = useMemo(() => windowRows ?? rows ?? [], [windowRows, rows]);
 
   // Always grouped by person (alphabetical); `sort`/`dir` only pick the
   // secondary order of a person's own rows within their group — clicking a
@@ -441,7 +454,21 @@ export function RaMonitoringPage() {
   const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
   const projectSource = useMemo(() => createStaticSource(projectOptions), [projectOptions]);
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
-  const overWorkers = useMemo(() => overAllocatedWorkers(allocations, win), [allocations, win]);
+  const overWorkers = useMemo(
+    () => overAllocatedWorkers(allAllocations, win),
+    [allAllocations, win],
+  );
+  const visibleOverWorkersCount = useMemo(() => {
+    const visibleWorkerIds = new Set(
+      allocations.map((a) => a.worker_id).filter((id): id is string => Boolean(id)),
+    );
+    let count = 0;
+    for (const wid of visibleWorkerIds) {
+      if (overWorkers.has(wid)) count++;
+    }
+    return count;
+  }, [allocations, overWorkers]);
+
   const hasFilters = Boolean(
     search.q || search.account || search.project || search.from || search.to,
   );
@@ -725,7 +752,11 @@ export function RaMonitoringPage() {
                 sub={`${kpis.billable_pct}% of effort`}
               />
               <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
-              <Kpi label="Over-allocated" value={String(overWorkers.size)} sub=">100% in window" />
+              <Kpi
+                label="Over-allocated"
+                value={String(visibleOverWorkersCount)}
+                sub=">100% in window"
+              />
               <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
             </div>
 
