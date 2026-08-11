@@ -95,7 +95,7 @@ const ASSIGN_DEDUP_PREFIX = 'assign:';
  * than silently reusing the assign lookup.
  */
 function assignDedupTaskId(dedupKey: string | null | undefined): string | null {
-  if (!dedupKey || !dedupKey.startsWith(ASSIGN_DEDUP_PREFIX)) return null;
+  if (!dedupKey?.startsWith(ASSIGN_DEDUP_PREFIX)) return null;
   const taskId = dedupKey.slice(ASSIGN_DEDUP_PREFIX.length);
   return taskId.length > 0 ? taskId : null;
 }
