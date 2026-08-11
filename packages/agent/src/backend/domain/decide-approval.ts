@@ -64,6 +64,17 @@ export interface RecordApprovalDecisionOpts {
    *  before any write, so a misrouted evented row never records a decision it
    *  can't resume. */
   requireMastraRun?: boolean;
+  /**
+   * Runs INSIDE the transaction, after the row is read and before any write.
+   * Throw to reject without consuming the approval.
+   *
+   * Same discipline as `requireMastraRun` above: a check that has to see the
+   * persisted row, and whose failure must leave that row untouched. The
+   * /chat/resume route uses it to reject a body that does not match the card's
+   * workflow — otherwise an invalid request would permanently burn a valid
+   * pending decision.
+   */
+  validate?: (row: { workflow_id: string; proposed_payload: unknown; status: string }) => void;
 }
 
 interface ApprovalCardLike {
@@ -177,6 +188,12 @@ export async function recordApprovalDecision(
     const rows = (res as unknown as { rows: Row[] }).rows ?? (res as unknown as Row[]);
     const row = rows[0];
     if (!row) throw Object.assign(new Error('not_found'), { code: 'not_found' });
+    if (row.status === 'expired') {
+      // A distinct code: the user never decided this one, so "already decided"
+      // is a misleading thing to tell them. The sweeper owns this transition,
+      // which is why expiry is a persisted state, not a computed one.
+      throw Object.assign(new Error('expired'), { code: 'expired' });
+    }
     if (row.status !== 'pending') {
       throw Object.assign(new Error('already_decided'), { code: 'already_decided' });
     }
@@ -197,6 +214,14 @@ export async function recordApprovalDecision(
 
     if (opts.requireMastraRun && row.mastra_run_id == null) {
       throw Object.assign(new Error('not_resumable'), { code: 'not_resumable' });
+    }
+
+    if (opts.validate) {
+      opts.validate({
+        workflow_id: row.workflow_id,
+        proposed_payload: row.proposed_payload,
+        status: row.status,
+      });
     }
 
     const decisionStatus =

@@ -3,13 +3,13 @@ import { Agent, type MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { TokenLimiterProcessor } from '@mastra/core/processors';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
 import {
   type AgentResult,
+  buildAgentRequestContext,
   type Citation,
-  RC_THREAD_ID,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
   withTemporalContext,
@@ -260,11 +260,7 @@ async function buildOrchestrator(
   ctx: SpecializedAgentRunCtx,
   cap: number,
 ): Promise<BuiltOrchestrator> {
-  const rc = new RequestContext();
-  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-  rc.set('tenant_id', ctx.tenantId);
-  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
-  if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
+  const rc = buildAgentRequestContext(ctx);
 
   const tools: Record<string, unknown> = makeOrchestratorTools({
     taskAnalyzer: deps.taskAnalyzer,

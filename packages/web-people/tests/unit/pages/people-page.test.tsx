@@ -33,6 +33,7 @@ const mockRows = [
     manager_name: null,
     accounts: [],
     skills: [],
+    photo_url: '/api/people/v1/workers/w1/photo',
   },
   {
     worker_id: 'w2',
@@ -48,6 +49,7 @@ const mockRows = [
     manager_name: null,
     accounts: [],
     skills: [],
+    photo_url: null,
   },
 ];
 
@@ -70,13 +72,26 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(within(table).getByText('Grace Hopper')).toBeInTheDocument();
   });
 
+  it('renders the M365 photo in the Employee cell, and initials for a person without one', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const ada = within(table).getByRole('img', { name: 'Ada Lovelace' });
+    expect(ada.querySelector('img')).toHaveAttribute('src', '/api/people/v1/workers/w1/photo');
+
+    const grace = within(table).getByRole('img', { name: 'Grace Hopper' });
+    expect(grace.querySelector('img')).toBeNull();
+    expect(grace).toHaveTextContent('GH');
+  });
+
   it('clicking a sort header rewrites the sort query param (server-mode mapper)', async () => {
     const user = userEvent.setup();
     mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
     renderPage();
 
     const table = await screen.findByRole('table');
-    await user.click(within(table).getByRole('button', { name: /sort by employee/i }));
+    await user.click(within(table).getByRole('button', { name: /sort by name/i }));
 
     await waitFor(() =>
       expect(mockFetchWorkers).toHaveBeenCalledWith(
@@ -112,6 +127,37 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(within(table).queryByText('Work email')).not.toBeInTheDocument();
   });
 
+  // FUT-856: Re-enabling a hidden column must restore it to its canonical (default) position,
+  // not append it per the re-enable order. Hide Name + Work email, re-enable Work email first
+  // then Name — the table must still show Name before Work email.
+  it('restores re-enabled columns to their default position', async () => {
+    const user = userEvent.setup();
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Name' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Work email' }));
+    expect(headerNames()).not.toContain('Name');
+    expect(headerNames()).not.toContain('Work email');
+
+    // Re-enable (picker stays open; all checkboxes remain present) in the WRONG order:
+    // Work email first, then Name.
+    await user.click(screen.getByRole('checkbox', { name: 'Work email' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Name' }));
+
+    expect(headerNames()).toContain('Name');
+    expect(headerNames()).toContain('Work email');
+    // Canonical order restored: Name stays before Work email regardless of re-enable order.
+    expect(headerNames().indexOf('Name')).toBeLessThan(headerNames().indexOf('Work email'));
+  });
+
   it('renders the "no matching people" empty state while a search is active', async () => {
     const user = userEvent.setup();
     mockFetchWorkers.mockResolvedValue({ rows: [], total: 0 });
@@ -123,12 +169,7 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(await screen.findByText('No matching people')).toBeInTheDocument();
   });
 
-  // Astryx breadcrumb trail (Astryx migration, FUT-668). The current crumb reads "Employees" —
-  // a deliberate exception to the title-wins rule, since the page's own h1 ("People") collides
-  // with the app root crumb. "Employees" is the manifest nav label for /people/employees, and
-  // matches worker-profile-page's middle crumb. Root and current no longer share text, so the
-  // current crumb is queried directly (exact match) instead of via `aria-current` alone.
-  it('renders the breadcrumb trail with the Employees current crumb (title-wins exception)', async () => {
+  it('renders the breadcrumb trail and page title', async () => {
     mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
     renderPage();
 
@@ -142,6 +183,49 @@ describe('PeoplePage (Astryx Table migration)', () => {
     const currentCrumb = within(nav).getByText('Employees');
     expect(currentCrumb).toHaveAttribute('aria-current', 'page');
     expect(currentCrumb.closest('a')).toBeNull();
-    expect(screen.getByRole('heading', { level: 1, name: 'People' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Employees' })).toBeInTheDocument();
+  });
+
+  it('renders Account column with CounterBadgePopover limiting to 2 tags and showing +N indicator with hover popover', async () => {
+    const user = userEvent.setup();
+    const rowsWithMultipleAccounts = [
+      {
+        ...mockRows[0],
+        accounts: [
+          { id: 'a1', name: 'Motion Global' },
+          { id: 'a2', name: 'AVIA' },
+          { id: 'a3', name: 'Commerce Canal' },
+        ],
+      },
+    ];
+    mockFetchWorkers.mockResolvedValue({ rows: rowsWithMultipleAccounts, total: 1 });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getAllByText('Motion Global')[0]).toBeInTheDocument();
+    expect(within(table).getAllByText('AVIA')[0]).toBeInTheDocument();
+    const overflowBtn = within(table).getByRole('button', { name: '+1' });
+    expect(overflowBtn).toBeInTheDocument();
+
+    await user.hover(overflowBtn);
+    expect(await screen.findByText('Commerce Canal')).toBeInTheDocument();
+  });
+
+  it('hides pagination in List view when total items is <= 25', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 20 });
+    renderPage();
+
+    await screen.findByRole('table');
+    expect(screen.queryByRole('navigation', { name: /table pagination/i })).not.toBeInTheDocument();
+  });
+
+  it('retains pagination controls in List view when total = 50 and pageSize = 100', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 50 });
+    renderPage();
+
+    await screen.findByRole('table');
+    const pager = await screen.findByRole('navigation', { name: /table pagination/i });
+    expect(pager).toBeInTheDocument();
+    expect(within(pager).getByRole('combobox', { name: /items per page/i })).toBeInTheDocument();
   });
 });

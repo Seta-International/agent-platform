@@ -4,7 +4,16 @@ import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } 
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, LIFECYCLE_STAGES, person, personHistory } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
+import { personPhotoUrl } from './photo.ts';
 import { buildWorkerScope } from './worker-scope.ts';
+
+/** Swaps the raw storage key for the app path clients render — the key never leaves the module. */
+function withPhotoUrl<T extends { worker_id: string; photo_storage_key: string | null }>(
+  row: T,
+): Omit<T, 'photo_storage_key'> & { photo_url: string | null } {
+  const { photo_storage_key, ...rest } = row;
+  return { ...rest, photo_url: personPhotoUrl(row.worker_id, photo_storage_key) };
+}
 
 export interface WorkerRow {
   worker_id: string;
@@ -25,6 +34,8 @@ export interface WorkerRow {
   projects: Array<{ id: string; name: string }>;
   skills: Array<{ id: string; name: string }>;
   employee_no: string | null;
+  /** App path to the M365 photo, or null when there is none — see `personPhotoUrl`. */
+  photo_url: string | null;
 }
 
 export interface ListWorkersQuery {
@@ -209,6 +220,7 @@ export async function listWorkers(
     projects: projectsAgg,
     skills: skillsAgg,
     employee_no: person.employee_no,
+    photo_storage_key: person.photo_storage_key,
   };
 
   const baseQuery = peopleDb()
@@ -223,7 +235,7 @@ export async function listWorkers(
   // ids resolve path: return every match, unpaginated (picker chip resolution).
   if (ids && ids.length > 0) {
     const rows = await baseQuery.orderBy(asc(person.full_name));
-    return { rows: rows as WorkerRow[], total: rows.length };
+    return { rows: rows.map(withPhotoUrl) as WorkerRow[], total: rows.length };
   }
 
   const sortColumn =
@@ -248,7 +260,7 @@ export async function listWorkers(
     )
     .where(where);
 
-  return { rows: rows as WorkerRow[], total: countRows[0]?.value ?? 0 };
+  return { rows: rows.map(withPhotoUrl) as WorkerRow[], total: countRows[0]?.value ?? 0 };
 }
 
 export async function getWorker({
@@ -279,6 +291,7 @@ export async function getWorker({
   accounts: Array<{ id: string; name: string }>;
   skills: Array<{ id: string; name: string; level: number | null }>;
   employee_no: string | null;
+  photo_url: string | null;
 }> {
   requirePermission(session, 'people.worker.read');
   const tenantId = session.tenant_id;
@@ -331,6 +344,7 @@ export async function getWorker({
       accounts: accountsAgg,
       skills: skillsAgg,
       employee_no: person.employee_no,
+      photo_storage_key: person.photo_storage_key,
     })
     .from(person)
     .leftJoin(
@@ -342,7 +356,7 @@ export async function getWorker({
     )
     .limit(1);
   if (!row) throw new PeopleError('NOT_FOUND', 'worker not found');
-  return row;
+  return withPhotoUrl(row);
 }
 
 export async function getWorkerHistory({

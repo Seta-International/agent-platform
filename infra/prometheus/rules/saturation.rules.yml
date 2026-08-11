@@ -12,6 +12,20 @@ groups:
           summary: "Disk fills within 24h ({{ $labels.env }}/{{ $labels.mountpoint }})"
           description: "Linear projection of free space crosses zero within 24h."
 
+      # Disk early warning — every env, and the gap the rules either side leave open:
+      # the projection above only fires on a 24h trend, DiskCritical below only at 5%.
+      # Written as % USED rather than the free-ratio the others use, so $value is the
+      # number the alert has to report.
+      - alert: DiskHighUsage
+        expr: |
+          100 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|ramfs"}
+                 / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|ramfs"} * 100) >= 85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Disk {{ $value | printf "%.0f" }}% used ({{ $labels.env }}/{{ $labels.mountpoint }})'
+          description: 'Filesystem {{ $labels.mountpoint }} at {{ $value | printf "%.1f" }}% used — warns from 85%.'
+
       - alert: DiskCritical
         expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|ramfs"} / node_filesystem_size_bytes < 0.05
         for: 10m

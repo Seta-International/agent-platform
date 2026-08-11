@@ -4,6 +4,7 @@ import {
   BookOpen,
   FileClock,
   Mail,
+  RefreshCw,
   Settings,
   Shield,
   ShieldCheck,
@@ -37,6 +38,13 @@ export const adminAppManifest: AppManifest = {
           label: 'Mail',
           to: '/admin/mail',
           requires: ['integrations.mail.read'],
+        },
+        {
+          id: 'admin.m365-directory',
+          icon: RefreshCw,
+          label: 'Directory sync',
+          to: '/admin/m365-directory',
+          requires: ['integrations.m365.read'],
         },
         {
           id: 'admin.notifications',

@@ -62,6 +62,9 @@ const STATUS_LABEL: Record<string, string> = {
   filled: 'Filled',
   cancelled: 'Cancelled',
 };
+// Lifecycle status order for the Stage column sort — non-open statuses group before open ones,
+// in the order the cell displays them (On hold → Filled → Cancelled).
+const STATUS_ORDER: Array<'on_hold' | 'filled' | 'cancelled'> = ['on_hold', 'filled', 'cancelled'];
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
 // signature, so alias locally (do not touch the shared DTO).
@@ -116,18 +119,14 @@ export function RequisitionsPage() {
   const [pageSize, setPageSize] = useState(25);
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_REQ_COLUMN_KEYS);
 
-  // FUT-771: the board hides cancelled reqs by default, but the status filter still offers
-  // "Cancelled". Selecting it widens the board fetch to include them (keyed separately so the
-  // default board stays cached); the client-side filter below then narrows to just cancelled.
-  const boardIncludesCancelled = statusFilter === 'cancelled';
+  // Both views load the full lifecycle (incl. cancelled, FUT-878) so switching between Board
+  // and List preserves the dataset and dashboard stats. List additionally loads account/project
+  // pickers via fetchRequisitions (AC3: FUT-325).
   const boardQuery = useQuery<OpenRequisitionsBoard>({
-    queryKey: hiringKeys.requisitions(boardIncludesCancelled),
-    queryFn: () => fetchOpenRequisitions({ includeCancelled: boardIncludesCancelled }),
+    queryKey: hiringKeys.requisitions(),
+    queryFn: fetchOpenRequisitions,
     enabled: view === 'board',
   });
-  // List view loads ALL requisitions including filled/cancelled (AC3: FUT-325) so the table
-  // can show lifecycle terminal states instead of a ghost "Sourcing" column — the board still
-  // filters to open/on_hold on the backend.
   const listQuery = useQuery<RequisitionListRow[]>({
     queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
@@ -195,6 +194,17 @@ export function RequisitionsPage() {
         const frac = (r: Row) =>
           r.openings_total > 0 ? (r.openings_total - r.openings_open) / r.openings_total : -1;
         return frac(a) - frac(b);
+      },
+      // The Stage cell shows the pipeline stage for open reqs and the lifecycle word
+      // (On hold / Filled / Cancelled) for non-open ones. Sort by pipeline position so open
+      // reqs read in the stage sequence the cell displays (Sourcing → … → Offer); non-open
+      // reqs group AFTER all open ones, ordered by STATUS_ORDER.
+      stage: (a, b) => {
+        const stageIdx = (r: Row) =>
+          r.status === 'open'
+            ? STAGES.indexOf(r.stage)
+            : STAGES.length + STATUS_ORDER.indexOf(r.status);
+        return stageIdx(a) - stageIdx(b);
       },
     },
   });

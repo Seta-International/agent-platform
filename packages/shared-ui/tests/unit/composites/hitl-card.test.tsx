@@ -76,6 +76,86 @@ describe('HitlCard', () => {
     expect(onDecide).toHaveBeenCalledWith({ decision: 'modify', overrideUserIds: ['u2'] });
   });
 
+  // FUT-816. A payload-free card (an A2 preview) carries no entityList: there is
+  // nothing to choose, only a change to confirm. Its confirm body says WHICH
+  // action was picked and never a value, so it cannot reuse the assignment
+  // card's `{ decision, overrideUserIds }` — the server parses the body with the
+  // schema belonging to the approval's workflow and 400s on a mismatch.
+  describe('payload-free preview card', () => {
+    const updateCard = {
+      intent: 'Update "AWS migration"',
+      riskBadge: 'write',
+      summary: 'Due will change.',
+      details: [
+        {
+          kind: 'kvTable',
+          rows: [
+            { k: 'Due', v: '12 Aug 2026 23:59 → 15 Aug 2026 23:59' },
+            { k: 'Priority', v: 'Medium → Urgent' },
+          ],
+        },
+      ],
+      primary: { label: 'Apply the change', argsPatch: { action: 'update' } },
+      alternates: [],
+      decline: { label: 'Cancel' },
+    };
+
+    function renderCard(card: unknown) {
+      const onDecide = vi.fn();
+      const utils = render(
+        <HitlCard card={card as never} canAct onDecide={onDecide} renderEntity={() => null} />,
+      );
+      return { onDecide, ...utils };
+    }
+
+    it('renders every old → new row', () => {
+      renderCard(updateCard);
+      expect(screen.getByText('Due')).toBeInTheDocument();
+      expect(screen.getByText('12 Aug 2026 23:59 → 15 Aug 2026 23:59')).toBeInTheDocument();
+      expect(screen.getByText('Priority')).toBeInTheDocument();
+      expect(screen.getByText('Medium → Urgent')).toBeInTheDocument();
+    });
+
+    it('Confirm reports the primary choice, with no payload', async () => {
+      const { onDecide } = renderCard(updateCard);
+      await userEvent.click(screen.getByRole('button', { name: /apply the change/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'primary' });
+    });
+
+    it('Cancel reports the decline choice without asking for a reason', async () => {
+      const { onDecide } = renderCard(updateCard);
+      await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'decline' });
+    });
+
+    it('AC5 — the card is a review surface, not a form', async () => {
+      const { container } = renderCard(updateCard);
+      // Also after clicking decline, which is where the note textarea used to live.
+      await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      expect(container.querySelector('input')).toBeNull();
+      expect(container.querySelector('select')).toBeNull();
+      expect(container.querySelector('textarea')).toBeNull();
+    });
+
+    it('renders a diff block', () => {
+      renderCard({
+        ...updateCard,
+        details: [{ kind: 'diff', before: ['alpha', 'beta'], after: ['alpha', 'gamma'] }],
+      });
+      expect(screen.getByText(/beta/)).toBeInTheDocument();
+      expect(screen.getByText(/gamma/)).toBeInTheDocument();
+    });
+
+    it('a long value wraps instead of widening the card', () => {
+      renderCard({
+        ...updateCard,
+        details: [{ kind: 'kvTable', rows: [{ k: 'Description', v: 'x'.repeat(400) }] }],
+      });
+      const cell = screen.getByText(/^x+$/);
+      expect(cell.className).toMatch(/break-words|truncate|line-clamp|overflow/);
+    });
+  });
+
   it('does not throw on an unknown block kind', () => {
     const weird = { ...card, details: [{ kind: 'no-such-block' }] };
     expect(() =>

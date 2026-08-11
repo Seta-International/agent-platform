@@ -51,6 +51,7 @@ export function OrgGraphNode({ data }: NodeProps<Node<OrgGraphNodeData>>) {
         title={data.title}
         subtitle={data.subtitle}
         tone={data.tone}
+        avatarSrc={data.avatarSrc}
         avatarShape={data.avatarShape}
         icon={icon}
         accent={accent}

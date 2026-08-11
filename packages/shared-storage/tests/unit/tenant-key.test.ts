@@ -32,6 +32,17 @@ describe('buildTenantKey', () => {
     ).toBe('tenants/t1/people-cv/w1/cv.docx');
   });
 
+  it('supports the people-photo domain', () => {
+    expect(
+      buildTenantKey({
+        tenant_id: 't1',
+        domain: 'people-photo',
+        file_id: 'p1',
+        filename: 'avatar.jpg',
+      }),
+    ).toBe('tenants/t1/people-photo/p1/avatar.jpg');
+  });
+
   it('throws when filename is empty', () => {
     expect(() =>
       buildTenantKey({

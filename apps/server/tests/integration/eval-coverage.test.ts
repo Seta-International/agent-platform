@@ -12,6 +12,7 @@ const MANIFESTS: EvalManifest[] = [plannerEvalManifest];
 // Each entry MUST have a reason; Phase 2 (judge scorers) removes them.
 const KNOWN_UNCOVERED = new Map<string, string>([
   // e.g. ['planner.assignment-orchestrator', 'LLM-backed; judge coverage in Phase 2'],
+  ['planner.action', 'FUT-813 registers the A2 agent; its mutation corpus lands with FUT-807'],
 ]);
 
 // This gate only sees specialists that composeRegistries() builds. DB-bound

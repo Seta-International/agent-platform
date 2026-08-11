@@ -1,6 +1,7 @@
 import { Check, Clock, Sparkles } from 'lucide-react';
 import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useHitlDecision } from '../hooks/use-hitl-decision';
+import { Button } from '../primitives/button';
 import { type BlockProps, blockRenderers, type EntityRef } from './hitl-blocks';
 
 interface CardShape {
@@ -13,16 +14,31 @@ interface CardShape {
   decline: { label: string };
 }
 
+/**
+ * Payload-free card (FUT-804 onwards): the client reports WHICH action it picked
+ * and never a value, so the whole proposal is read-only. Detected by the absence
+ * of an `entityList` block AND of the assignment card's `assigneeUserIds` —
+ * assignment is the one card left that carries an editable payload, and it goes
+ * away in FUT-806. Both halves matter: an assignment card whose primary has no
+ * argsPatch still has candidates to pick from, and must keep the legacy body.
+ */
+export function isPayloadFreeCard(card: CardShape): boolean {
+  if ((card.details ?? []).some((b) => b.kind === 'entityList')) return false;
+  return card.primary?.argsPatch?.assigneeUserIds === undefined;
+}
+
+export type HitlCardDecision =
+  // Legacy assignment card. Removed in FUT-806 with the candidate multi-select.
+  | { decision: 'approve' | 'reject' | 'modify'; overrideUserIds?: string[]; note?: string }
+  // Payload-free card: which action, never what.
+  | { chosen: 'primary' | 'decline' };
+
 export interface HitlCardProps {
   card: CardShape;
   canAct: boolean;
   pending?: boolean;
   expiresAt?: string;
-  onDecide: (decision: {
-    decision: 'approve' | 'reject' | 'modify';
-    overrideUserIds?: string[];
-    note?: string;
-  }) => void;
+  onDecide: (decision: HitlCardDecision) => void;
   renderEntity: (entity: EntityRef) => ReactNode;
   cardRenderers?: Record<string, ComponentType<BlockProps>>;
 }
@@ -120,6 +136,7 @@ export function HitlCard({
   const disabled = !canAct || Boolean(pending) || expired;
 
   const intent = card.intent ?? 'Your input needed';
+  const payloadFree = isPayloadFreeCard(card);
 
   return (
     <section
@@ -167,7 +184,32 @@ export function HitlCard({
           })}
         </fieldset>
 
-        {!rejectOpen ? (
+        {payloadFree ? (
+          // Read-only by design: in-card editing was dropped in Amendment B2, so
+          // there is exactly one way to correct a proposal — ask the agent
+          // (FUT-840). Cancel declines outright rather than opening the reason
+          // note: a rejected preview writes nothing, so there is nothing to
+          // explain. No input, select or textarea may appear on this path; the
+          // component test asserts it, because it is FUT-804 AC5 made visible.
+          <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              variant="primary"
+              isDisabled={disabled}
+              onClick={() => onDecide({ chosen: 'primary' })}
+              icon={<Check className="size-3.5" aria-hidden />}
+              label={pending ? 'Applying…' : card.primary.label}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              isDisabled={disabled}
+              onClick={() => onDecide({ chosen: 'decline' })}
+              label={card.decline.label}
+              className="ml-auto"
+            />
+          </div>
+        ) : !rejectOpen ? (
           <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
             <button
               type="button"

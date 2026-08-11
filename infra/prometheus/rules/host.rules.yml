@@ -37,18 +37,37 @@ groups:
           summary: "[PROD] prod is not reporting metrics"
           description: "No node-exporter series for env=prod for 5m — box down, Alloy dead, or network cut."
 
+      # Saturation is two-tier: ≥85% is the early warning on every env, ≥90% on prod
+      # escalates the same signal to critical (faster Alertmanager route). A prod box
+      # past 90 matches both, so alertmanager.yml inhibits the warning twin.
       - alert: HostHighCpu
-        expr: 100 - (avg by (env, instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        expr: 100 - (avg by (env, instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) >= 85
         for: 10m
         labels: { severity: warning }
         annotations:
-          summary: "High CPU ({{ $labels.env }}/{{ $labels.instance }})"
-          description: "CPU >90% for 10m."
+          summary: 'High CPU {{ $value | printf "%.0f" }}% ({{ $labels.env }}/{{ $labels.instance }})'
+          description: 'CPU at {{ $value | printf "%.1f" }}% for 10m — warns from 85%.'
+
+      - alert: HostHighCpu
+        expr: 100 - (avg by (env, instance) (rate(node_cpu_seconds_total{mode="idle", env="prod"}[5m])) * 100) >= 90
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: '[PROD] High CPU {{ $value | printf "%.0f" }}% ({{ $labels.instance }})'
+          description: 'CPU at {{ $value | printf "%.1f" }}% for 10m — critical from 90%.'
 
       - alert: HostHighMemory
-        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 >= 85
         for: 10m
         labels: { severity: warning }
         annotations:
-          summary: "High memory ({{ $labels.env }}/{{ $labels.instance }})"
-          description: "Memory >90% for 10m."
+          summary: 'High memory {{ $value | printf "%.0f" }}% ({{ $labels.env }}/{{ $labels.instance }})'
+          description: 'Memory at {{ $value | printf "%.1f" }}% for 10m — warns from 85%.'
+
+      - alert: HostHighMemory
+        expr: (1 - node_memory_MemAvailable_bytes{env="prod"} / node_memory_MemTotal_bytes{env="prod"}) * 100 >= 90
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: '[PROD] High memory {{ $value | printf "%.0f" }}% ({{ $labels.instance }})'
+          description: 'Memory at {{ $value | printf "%.1f" }}% for 10m — critical from 90%.'

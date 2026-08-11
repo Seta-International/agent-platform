@@ -1,5 +1,5 @@
 import type { MemoryConfig } from '@mastra/core/memory';
-import type { RequestContext } from '@mastra/core/request-context';
+import { RequestContext } from '@mastra/core/request-context';
 import type { Memory } from '@mastra/memory';
 import { z } from 'zod';
 
@@ -34,6 +34,37 @@ export interface AgentRequestContext {
  * tool state (entity recorder, task-ref resolver) keys on this.
  */
 export const RC_THREAD_ID = 'thread_id' as const;
+
+/**
+ * The one place a sub-agent RequestContext is built.
+ *
+ * Every orchestrator and specialized agent needs the same four entries, and
+ * `thread_id` is the one that is invisible when missing: `recordEntityExposure`
+ * and `resolveTaskRef` both read it and both silently no-op without it, so
+ * conversation-scoped task references ("the first one", a task's name) stop
+ * resolving with nothing logged anywhere. Eleven of the fifteen hand-rolled
+ * construction sites had dropped it, which is why that bug kept returning one
+ * call site at a time (FUT-859). `request-context-gate.test.ts` holds the line.
+ *
+ * Shaped to accept a `SpecializedAgentRunCtx` structurally, so a call site reads
+ * `buildAgentRequestContext(ctx)`.
+ */
+export function buildAgentRequestContext(ctx: {
+  actorUserId: string;
+  tenantId: string;
+  effectivePermissions?: ReadonlySet<string>;
+  threadId?: string;
+}): RequestContext {
+  const rc = new RequestContext();
+  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
+  rc.set('tenant_id', ctx.tenantId);
+  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+  // Conditional because workflow and cron runs have no conversation: writing a
+  // blank would shard entity state under a junk key instead of no-opping. When a
+  // thread DOES exist it must travel — that is what the gate enforces.
+  if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
+  return rc;
+}
 
 export interface AgentMemoryHandle {
   memory: Memory;

@@ -2,6 +2,7 @@ import { Link } from '@tiptap/extension-link';
 import { Underline } from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
+import { useEffect } from 'react';
 import { RichTextToolbar } from './RichTextToolbar';
 
 interface Props {
@@ -11,6 +12,16 @@ interface Props {
   onCancel?: () => void;
   className?: string;
   placeholder?: string;
+}
+
+function isHtmlEmpty(html: string | null | undefined): boolean {
+  if (!html?.trim()) return true;
+  if (html === '<p></p>') return true;
+  if (typeof DOMParser !== 'undefined') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return (doc.body.textContent ?? '').trim().length === 0;
+  }
+  return false;
 }
 
 export function RichTextEditor({ value, onChange, onSave, onCancel, className }: Props) {
@@ -39,6 +50,24 @@ export function RichTextEditor({ value, onChange, onSave, onCancel, className }:
       },
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const currentHtml = editor.getHTML();
+    if (value !== currentHtml) {
+      const isValueEmpty = isHtmlEmpty(value);
+      const isCurrentEmpty = editor.isEmpty || isHtmlEmpty(currentHtml);
+
+      if (isValueEmpty && isCurrentEmpty) {
+        if (currentHtml !== '<p></p>') {
+          editor.commands.setContent(value || '');
+        }
+        return;
+      }
+
+      editor.commands.setContent(value || '');
+    }
+  }, [editor, value]);
 
   if (!editor) return null;
 

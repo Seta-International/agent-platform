@@ -13,6 +13,10 @@ const TOUCH_TABLES = [
   'm365_resource_etags',
   'm365_tenant_config',
   'mail_transport_config',
+  // M365/Entra directory sync (FUT-842 Task 2).
+  'm365_person_links',
+  'm365_org_unit_links',
+  'm365_directory_conflict',
 ];
 
 // Every integrations table is tenant-scoped (all carry tenant_id) and gets the RLS backstop
@@ -24,6 +28,10 @@ const RLS_TABLES = [
   'm365_resource_etags',
   'm365_tenant_config',
   'mail_transport_config',
+  // M365/Entra directory sync (FUT-842 Task 2).
+  'm365_person_links',
+  'm365_org_unit_links',
+  'm365_directory_conflict',
 ];
 
 const lines: string[] = [];

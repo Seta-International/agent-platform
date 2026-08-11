@@ -61,7 +61,9 @@ async function buildGraph(pool: Pool): Promise<Graph> {
         tenant_id: t.tenant_id,
         project_id,
         person_id: crypto.randomUUID(),
-        date_from: '2026-01-01',
+        // FUT-876: a started allocation is no longer removable, so scope tests that exercise
+        // remove must allocate a future start.
+        date_from: '2099-01-01',
         status: 'committed',
       })
       .returning({ id: allocation.id });

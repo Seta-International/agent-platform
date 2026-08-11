@@ -168,6 +168,64 @@ describe('CandidatesPage', () => {
     expect(screen.getAllByText(/Zed Zephyr|Ada Lovelace/)[0]).toHaveTextContent('Ada Lovelace');
   });
 
+  // FUT-834: Candidate Stage column sorts by pipeline stage order (New → Screening → Interview → Offer),
+  // not by the raw string alphabetically (Interview, New, Offer, Screening).
+  it('sorting by Stage orders candidates in pipeline sequence', async () => {
+    const user = userEvent.setup();
+    const candidateRows: CandidateListItem[] = [
+      {
+        ...rows[0]!,
+        application_id: 'a1',
+        candidate_id: 'c1',
+        name: 'Cand Interview',
+        stage: 'interview',
+      },
+      {
+        ...rows[0]!,
+        application_id: 'a2',
+        candidate_id: 'c2',
+        name: 'Cand Screening',
+        stage: 'screening',
+      },
+      { ...rows[0]!, application_id: 'a3', candidate_id: 'c3', name: 'Cand New', stage: 'new' },
+      { ...rows[0]!, application_id: 'a4', candidate_id: 'c4', name: 'Cand Offer', stage: 'offer' },
+    ];
+    fetchCandidates.mockResolvedValue(candidateRows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Cand Interview')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    const header = within(table).getByRole('button', { name: /sort by stage/i });
+
+    // First click: ascending pipeline order → New, Screening, Interview, Offer.
+    await user.click(header);
+    let dataRows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(dataRows.map((t) => t.match(/Cand (New|Screening|Interview|Offer)/)?.[0])).toEqual([
+      'Cand New',
+      'Cand Screening',
+      'Cand Interview',
+      'Cand Offer',
+    ]);
+
+    // Second click: descending pipeline order → Offer, Interview, Screening, New.
+    await user.click(header);
+    dataRows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent ?? '');
+    expect(dataRows.map((t) => t.match(/Cand (New|Screening|Interview|Offer)/)?.[0])).toEqual([
+      'Cand Offer',
+      'Cand Interview',
+      'Cand Screening',
+      'Cand New',
+    ]);
+  });
+
   it('hiding the Seniority column via the Columns toggle removes it from the table', async () => {
     const user = userEvent.setup();
     fetchCandidates.mockResolvedValue(twoRows);
@@ -185,6 +243,40 @@ describe('CandidatesPage', () => {
     expect(
       within(table).queryByRole('columnheader', { name: /seniority/i }),
     ).not.toBeInTheDocument();
+  });
+
+  // FUT-801: Re-enabling a hidden column must restore it to its canonical (default) position,
+  // not append it per the re-enable order. Hide Candidate + Position, re-enable Position first
+  // then Candidate — the table must still show Candidate before Position.
+  it('restores re-enabled columns to their default position', async () => {
+    const user = userEvent.setup();
+    fetchCandidates.mockResolvedValue(rows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Candidate' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Position' }));
+    expect(headerNames()).not.toContain('Candidate');
+    expect(headerNames()).not.toContain('Position');
+
+    // Re-enable (picker stays open; all checkboxes remain present) in the WRONG order:
+    // Position first, then Candidate.
+    await user.click(screen.getByRole('checkbox', { name: 'Position' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Candidate' }));
+
+    expect(headerNames()).toContain('Candidate');
+    expect(headerNames()).toContain('Position');
+    // Canonical order restored: Candidate stays before Position regardless of re-enable order.
+    expect(headerNames().indexOf('Candidate')).toBeLessThan(headerNames().indexOf('Position'));
   });
 
   it('paginates client-side at 25/page', async () => {

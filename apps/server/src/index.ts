@@ -155,26 +155,30 @@ const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
 // The assignment orchestrator's DB-bound ports/repo/store are real adapters
 // here; tests/helpers/compose.ts's testComposeDeps() wires fakes instead, so
 // the eval-coverage and registry-integrity gates see this specialist too.
-const { plannerQueryOrchestration, weeklyPlanOrchestration, assignmentOrchestration } =
-  composeRegistries({
-    resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-    embeddingProvider: resolveEmbeddingProvider(),
-    databaseUrl: env.DATABASE_URL,
-    assignmentPorts: {
-      taskReader: makeTaskReader(),
-      taskSearch: makeTaskSearch(),
-      skillSearch: makeSkillSearch({
-        provider: identityEmbeddingProvider,
-        pgVector: getPeopleVectorStore(env.DATABASE_URL),
-      }),
-      availability: makeAvailability(),
-      userProfileLookup: makeUserProfileLookup(),
-      assign: makeAssign(),
-      taskAssignees: makeTaskAssignees(),
-    },
-    assignmentRepo: new AgentRunStateRepository(),
-    mastraStorage,
-  });
+const {
+  plannerQueryOrchestration,
+  weeklyPlanOrchestration,
+  assignmentOrchestration,
+  actionOrchestration,
+} = composeRegistries({
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  embeddingProvider: resolveEmbeddingProvider(),
+  databaseUrl: env.DATABASE_URL,
+  assignmentPorts: {
+    taskReader: makeTaskReader(),
+    taskSearch: makeTaskSearch(),
+    skillSearch: makeSkillSearch({
+      provider: identityEmbeddingProvider,
+      pgVector: getPeopleVectorStore(env.DATABASE_URL),
+    }),
+    availability: makeAvailability(),
+    userProfileLookup: makeUserProfileLookup(),
+    assign: makeAssign(),
+    taskAssignees: makeTaskAssignees(),
+  },
+  assignmentRepo: new AgentRunStateRepository(),
+  mastraStorage,
+});
 
 // Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;
 // tier-2 assignment vs planner_qna) and dispatch to the matching runtime. Composed
@@ -187,6 +191,8 @@ const chatRouter = makeChatRouter({
   assignment: assignmentOrchestration.runStream,
   plannerQuery: plannerQueryOrchestration.runStream,
   weeklyPlanner: weeklyPlanOrchestration.runStream,
+  // A2: a change request gets a preview card and writes nothing until confirmed.
+  action: actionOrchestration.runStream,
 });
 
 // Build the agent engine up front so subscriberBuilders contributed by
@@ -204,9 +210,21 @@ const agent = registerAgent({
   // which classifies the turn and dispatches to the assignment or planner_qna
   // runtime. apps/server is the only layer that can compose both.
   chatOrchestration: chatRouter,
-  // Native-suspend HITL resume: POST /chat/resume re-enters the suspended
-  // proposeAssignment composite via resumeStream. Same composition-root binding.
-  resumeOrchestration: assignmentOrchestration.runResume,
+  // Native-suspend HITL resume. apps/server is the only layer that can see both
+  // runtimes, so the dispatch lives here rather than in a registry inside
+  // @seta/agent (revisit at the A0 orchestrator split). The card's own
+  // workflow_id — read off the persisted row by the route — picks the runtime.
+  resumeOrchestration: async (resume, ctx) => {
+    if (ctx.workflowId === 'planner.action') {
+      return actionOrchestration.runResume(resume as never, ctx);
+    }
+    if (ctx.workflowId === 'planner.assignment-orchestrator') {
+      return assignmentOrchestration.runResume(resume as never, ctx);
+    }
+    throw Object.assign(new Error(`no resume runtime for ${ctx.workflowId}`), {
+      code: 'not_supported',
+    });
+  },
   // Chat attachments: apps/server is the only layer that can import the
   // @seta/knowledge consume/mark functions into the engine surface.
   consumeThreadAttachments: async ({ tenantId, threadId, query }) => {

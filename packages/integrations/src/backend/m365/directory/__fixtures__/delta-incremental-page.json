@@ -1,0 +1,13 @@
+{
+  "value": [
+    {
+      "id": "OID-1",
+      "manager@delta": [{ "id": "OID-2" }]
+    },
+    {
+      "id": "OID-3",
+      "@removed": { "reason": "deleted" }
+    }
+  ],
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/users/delta?$deltatoken=DELTATOKEN2"
+}

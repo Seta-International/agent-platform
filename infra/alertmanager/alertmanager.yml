@@ -26,6 +26,16 @@ inhibit_rules:
   - source_matchers: [ alertname="GpuNotReporting" ]
     target_matchers: [ alertname=~"GpuHot|GpuVramCritical" ]
     equal: [ env ]
+  # Two-tier saturation: a prod box past its critical threshold still matches the
+  # ≥85% warning it grew out of. Send the critical alone. Keeping alertname in equal
+  # is what stops this from muting an unrelated warning on the same box.
+  - source_matchers: [ severity="critical" ]
+    target_matchers: [ severity="warning" ]
+    equal: [ alertname, env, instance ]
+  # Same pairing for disk, which escalates by alertname instead of by severity tier.
+  - source_matchers: [ alertname="DiskCritical" ]
+    target_matchers: [ alertname="DiskHighUsage" ]
+    equal: [ env, instance, mountpoint ]
 
 receivers:
   - name: teams

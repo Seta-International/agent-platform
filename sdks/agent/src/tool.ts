@@ -14,6 +14,34 @@ export type AgentToolContext<TSuspend = unknown, TResume = unknown> = ToolExecut
   AgentRequestContext
 >;
 
+/**
+ * What `defineAgentTool` hands back: still assignable to Mastra's `ToolsInput`
+ * like any `AgentTool`, but with the authored `execute` signature preserved.
+ *
+ * `AgentTool` is Mastra's whole `ToolsInput[string]` union, and since
+ * @mastra/core 1.57 that union also carries provider-defined members
+ * (`ProviderDefinedTool`, `WebSearchToolPlaceholder`) that have no `execute` at
+ * all. Everything this SDK authors goes through `createTool`, so it always has
+ * one — keeping it on the return type lets callers that drive a tool directly
+ * (agent-tool tests, above all) invoke it without re-narrowing the union.
+ */
+export type ExecutableAgentTool<
+  I extends z.ZodTypeAny,
+  O extends z.ZodTypeAny,
+  S extends z.ZodTypeAny = z.ZodTypeAny,
+  R extends z.ZodTypeAny = z.ZodTypeAny,
+> = AgentTool & {
+  /**
+   * Takes the schema's *input* shape (`z.input`), not the parsed one: fields
+   * carrying `.default()` are filled in by the schema, so a caller may omit
+   * them. The tool body — `AgentToolSpec['execute']` — sees the parsed shape.
+   */
+  execute: (
+    input: z.input<I>,
+    ctx: AgentToolContext<z.infer<S>, z.infer<R>>,
+  ) => Promise<z.infer<O> | undefined>;
+};
+
 export interface AgentToolSpec<
   I extends z.ZodTypeAny,
   O extends z.ZodTypeAny,

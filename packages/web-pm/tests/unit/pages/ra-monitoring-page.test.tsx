@@ -355,7 +355,7 @@ describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () 
       },
     ];
 
-    // Filter by Date Range: 01 Aug 2026 to 31 Dec 2026 (5 months clipped = 5.00 MM)
+    // Filter by Date Range: 01 Aug 2026 to 31 Dec 2026 (109 working days / 22 = 4.95 MM)
     latestSearch = {
       from: '2026-08-01',
       to: '2026-12-31',
@@ -364,8 +364,8 @@ describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () 
     renderTableHarness();
 
     await screen.findByRole('table');
-    // Grid cell displays 5.00 MM (clipped to August-December window)
-    expect(screen.getByText('5.00')).toBeInTheDocument();
+    // Grid cell displays 4.95 MM (clipped to August-December window)
+    expect(screen.getByText('4.95')).toBeInTheDocument();
   });
 });
 

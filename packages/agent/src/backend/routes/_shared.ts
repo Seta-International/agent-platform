@@ -58,21 +58,19 @@ export type AgentRouteDeps = {
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /**
-   * Resumes a suspended native-suspend agentic chat-HITL run. Injected by the
-   * composition root (apps/server) as the staffing runtime's `runResume`. The
-   * structural type avoids an `agent → staffing` import (depcruise-forbidden);
-   * staffing's concrete `runResume` is structurally assignable.
+   * Resumes the suspended agentic run named by `ctx.workflowId`. Payload-agnostic
+   * on purpose: apps/server is the only layer that knows more than one runtime
+   * exists, and the agent package may not import a feature module
+   * (depcruise-forbidden). Both runtimes' concrete `runResume` are structurally
+   * assignable.
    */
   resumeOrchestration?: (
-    resume: {
-      decision: 'approve' | 'reject' | 'modify';
-      overrideUserIds?: string[];
-      alternateIndices?: number[];
-      note?: string;
-    },
+    resume: Record<string, unknown>,
     ctx: import('@seta/shared-orchestration').RunCtx & {
       mastraRunId: string;
       toolCallId?: string;
+      /** The card's workflow_id — the dispatcher branches on this. */
+      workflowId: string;
     },
   ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /** Injected by apps/server from @seta/knowledge (the agent package may not
@@ -232,6 +230,9 @@ export function handleDomainError(c: Context<AgentRouteEnv>, err: unknown): Resp
     const message = typed.message ?? code;
     if (code === 'forbidden') return c.json({ error: 'forbidden', message }, 403);
     if (code === 'not_found') return c.json({ error: 'not_found', message }, 404);
+    if (code === 'expired') return c.json({ error: 'expired', message }, 409);
+    if (code === 'validation_failed') return c.json({ error: 'validation_failed', message }, 400);
+    if (code === 'not_supported') return c.json({ error: 'not_supported', message }, 500);
     if (code === 'already_decided') return c.json({ error: 'already_decided', message }, 409);
     if (code === 'not_resumable') return c.json({ error: 'not_resumable', message }, 409);
     if (code === 'invalid_cursor') return c.json({ error: 'invalid_cursor', message }, 400);

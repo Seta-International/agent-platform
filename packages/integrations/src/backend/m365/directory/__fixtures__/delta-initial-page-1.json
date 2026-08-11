@@ -1,0 +1,21 @@
+{
+  "value": [
+    {
+      "id": "OID-1",
+      "userPrincipalName": "alice@contoso.com",
+      "mail": "alice@contoso.com",
+      "displayName": "Alice Nguyen",
+      "employeeId": "E-100",
+      "employeeType": "Employee",
+      "employeeHireDate": "2022-01-15T00:00:00Z",
+      "jobTitle": "Engineer",
+      "department": "Engineering",
+      "employeeOrgData": { "division": "Product", "costCenter": "CC-10" },
+      "mobilePhone": "+1 555 0100",
+      "businessPhones": ["+1 555 0101"],
+      "accountEnabled": true,
+      "userType": "Member"
+    }
+  ],
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/users/delta?$skiptoken=PAGE2TOKEN"
+}
