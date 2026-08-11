@@ -13,6 +13,9 @@ export async function supersedeStaleAssignApprovals(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const taskId = event.payload.task_id;
+  // The same string the card declared (design D7). Built here rather than
+  // interpolated inside the SQL so the format lives in one expression per file.
+  const dedupKey = `assign:${taskId}`;
 
   // Supersede evented workflow (assignBySkill) approvals
   await ctx.tx.execute(sql`
@@ -30,7 +33,13 @@ export async function supersedeStaleAssignApprovals(
        AND a.status = 'pending'
   `);
 
-  // Supersede native-suspend chat HITL approvals (planner.assignment-orchestrator runs)
+  // Supersede every pending chat card that declared THIS task's assign mutex,
+  // whichever runtime built it. Keyed on the card's own declaration rather than
+  // on r.workflow_id: an A2-authored assign card carries 'planner.action' and
+  // was previously never superseded, so it sat pending until the 72-hour
+  // sweeper expired it (design §0.3). The evented assignBySkill card declares
+  // no dedupKey, so the two statements never touch the same row. No run join is
+  // needed any more — the workflow id was the only column it read from there.
   await ctx.tx.execute(sql`
     UPDATE agent.workflow_approvals AS a
        SET status = 'superseded',
@@ -39,11 +48,10 @@ export async function supersedeStaleAssignApprovals(
              'eventId', ${event.id}::text
            ),
            decided_at = now()
-      FROM agent.workflow_runs AS r
-     WHERE a.run_id = r.run_id
-       AND a.tenant_id = ${event.tenantId}::uuid
-       AND r.workflow_id = 'planner.assignment-orchestrator'
-       AND a.proposed_payload @> jsonb_build_object('primary', jsonb_build_object('argsPatch', jsonb_build_object('taskId', ${taskId}::text)))
+     WHERE a.tenant_id = ${event.tenantId}::uuid
+       AND a.proposed_payload @> jsonb_build_object(
+             'meta', jsonb_build_object('dedupKey', ${dedupKey}::text)
+           )
        AND a.status = 'pending'
   `);
 }
