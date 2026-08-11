@@ -18,6 +18,7 @@ import { createTask } from '../../domain/create-task.ts';
 import { deleteTask } from '../../domain/delete-task.ts';
 import { getTask } from '../../domain/get-task.ts';
 import { linkTasks, markAsDuplicate } from '../../domain/link-tasks.ts';
+import { listBuckets } from '../../domain/list-buckets.ts';
 import { setAssignees } from '../../domain/set-assignees.ts';
 import { updateTask } from '../../domain/update-task.ts';
 import { getPlannerVectorStore } from '../../embeddings/vector-store.ts';
@@ -355,7 +356,18 @@ export function makeActionTaskCreate(): TaskCreatePort {
       await requirePermission(session, 'planner.task.create', groupId);
     },
 
-    async create({ actorUserId, planId, draft, idempotencyKey }) {
+    async resolveDefaultBucket({ actorUserId, planId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      // listBuckets rather than fresh SQL: it already carries the
+      // `planner.bucket.read` check, the cross-tenant refusal, and
+      // `ORDER BY order_hint NULLS LAST` — the very order the board paints its
+      // columns in, which is the whole point of picking the first one.
+      const rows = await listBuckets({ plan_id: planId, session });
+      const first = rows[0];
+      return first ? { bucketId: first.id, bucketName: first.name } : null;
+    },
+
+    async create({ actorUserId, planId, bucketId, draft, idempotencyKey }) {
       const session = await buildActorSession({ user_id: actorUserId });
       const { result, replayed } = await withGatedMutation(
         session,
@@ -375,6 +387,10 @@ export function makeActionTaskCreate(): TaskCreatePort {
           const task = await createTask({
             session,
             plan_id: planId,
+            // Without this the task is invisible on the board, AND its
+            // order_hint is computed against the `bucket_id IS NULL` group
+            // (create-task.ts), so its position would be meaningless too.
+            bucket_id: bucketId,
             title: draft.title,
             description: draft.description,
             due_at: draft.dueAt,

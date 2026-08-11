@@ -169,12 +169,37 @@ export interface TaskCreatePort {
   assertCanCreate(args: ActorRef & { groupId: string }): Promise<void>;
 
   /**
+   * The bucket a new task lands in: the plan's FIRST column by `order_hint`.
+   *
+   * Load-bearing, not cosmetic. `tasks.bucket_id` is nullable, but both plan
+   * views build their rows FROM the buckets — the board renders `buckets.map()`
+   * so a null key has no column at all, and the grid drops the row outright —
+   * which means a bucketless task exists and is invisible. The server picks the
+   * column rather than letting a field the LLM never sees decide whether the
+   * user can see their own task.
+   *
+   * Null when the plan has no live bucket, which the tool turns into prose.
+   */
+  resolveDefaultBucket(
+    args: ActorRef & { planId: string },
+  ): Promise<{ bucketId: string; bucketName: string } | null>;
+
+  /**
    * One `withGatedMutation('create')` transaction around `createTask` AND
    * `applyLabelsByName`, joined by reentrant `withEmit` — a task that exists
    * with none of its labels is not a state the user previewed.
+   *
+   * `bucketId` is required, not optional: "no bucket" is not a neutral default
+   * but a state the board cannot render, so it must not be reachable by
+   * forgetting an argument.
    */
   create(
-    args: ActorRef & { planId: string; draft: CreateTaskDraft; idempotencyKey: string },
+    args: ActorRef & {
+      planId: string;
+      bucketId: string;
+      draft: CreateTaskDraft;
+      idempotencyKey: string;
+    },
   ): Promise<{ taskId: string; replayed: boolean }>;
 }
 

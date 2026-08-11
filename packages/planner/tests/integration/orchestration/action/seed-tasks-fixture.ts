@@ -8,6 +8,11 @@ export interface SeededTasks {
   groupId: string;
   planId: string;
   planName: string;
+  /** The plan's only bucket. Exposed because the create port resolves a task's
+   *  column from the plan, so a test has to be able to name the expected one.
+   *  Inserted with NO order_hint, so a bucket that HAS one sorts ahead of it. */
+  bucketId: string;
+  bucketName: string;
   tasks: Array<{ taskId: string; version: number }>;
 }
 
@@ -84,10 +89,11 @@ export async function seedTasksFixture(
     [planId, tenantId, groupId, planName, creator],
   );
   const bucketId = randomUUID();
+  const bucketName = `Bucket ${bucketId.slice(0, 8)}`;
   await pool.query(
     `INSERT INTO planner.buckets (id, tenant_id, plan_id, name, external_source, created_by)
      VALUES ($1, $2, $3, $4, 'native', $5)`,
-    [bucketId, tenantId, planId, `Bucket ${bucketId.slice(0, 8)}`, creator],
+    [bucketId, tenantId, planId, bucketName, creator],
   );
 
   const tasks: Array<{ taskId: string; version: number }> = [];
@@ -103,7 +109,16 @@ export async function seedTasksFixture(
     tasks.push({ taskId, version: inserted.rows[0]?.version as number });
   }
 
-  return { tenantId, actorUserId: admin.user_id, groupId, planId, planName, tasks };
+  return {
+    tenantId,
+    actorUserId: admin.user_id,
+    groupId,
+    planId,
+    planName,
+    bucketId,
+    bucketName,
+    tasks,
+  };
 }
 
 /**

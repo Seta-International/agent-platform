@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it, vi } from 'vitest';
 import { makeActionTaskCreate } from '../../../../src/backend/orchestration/action/adapters.ts';
@@ -84,23 +85,59 @@ describe('action runtime — create port', () => {
       ).toBeNull();
     }));
 
-  it('creates the task and applies its labels in ONE gated transaction', () =>
+  // The plan board renders its columns from `buckets`, so a task with a null
+  // bucket_id has no column to appear in. The server picks the column rather
+  // than leaving a field the LLM never sees to decide whether the user can see
+  // their own task.
+  it("resolves the plan's first bucket by order_hint", () =>
     withAgentTestDb(async ({ pool }) => {
       const { tenantId, actorUserId, planId } = await seedTasksFixture(pool, { titles: [] });
+      // The fixture's bucket has NO order_hint, and listBuckets orders
+      // `order_hint NULLS LAST` — so a bucket that HAS one sorts ahead of it.
+      const firstId = randomUUID();
+      await pool.query(
+        `INSERT INTO planner.buckets (id, tenant_id, plan_id, name, order_hint, external_source, created_by)
+         VALUES ($1, $2, $3, 'To do', '0100', 'native', $4)`,
+        [firstId, tenantId, planId, actorUserId],
+      );
+      expect(
+        await makeActionTaskCreate().resolveDefaultBucket({ tenantId, actorUserId, planId }),
+      ).toEqual({ bucketId: firstId, bucketName: 'To do' });
+    }));
+
+  it('resolves no bucket when every bucket in the plan is deleted', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, planId, bucketId } = await seedTasksFixture(pool, {
+        titles: [],
+      });
+      await pool.query('UPDATE planner.buckets SET deleted_at = now() WHERE id = $1', [bucketId]);
+      expect(
+        await makeActionTaskCreate().resolveDefaultBucket({ tenantId, actorUserId, planId }),
+      ).toBeNull();
+    }));
+
+  it('creates the task and applies its labels in ONE gated transaction', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, planId, bucketId } = await seedTasksFixture(pool, {
+        titles: [],
+      });
       const { taskId, replayed } = await makeActionTaskCreate().create({
         tenantId,
         actorUserId,
         planId,
+        bucketId,
         draft: { title: 'Deploy hiring screen', priority: 'urgent', labels: ['infra'] },
         idempotencyKey: 'create-key-1',
       });
       expect(replayed).toBe(false);
 
-      const task = await pool.query<{ title: string }>(
-        'SELECT title FROM planner.tasks WHERE id = $1',
+      const task = await pool.query<{ title: string; bucket_id: string | null }>(
+        'SELECT title, bucket_id FROM planner.tasks WHERE id = $1',
         [taskId],
       );
       expect(task.rows[0]!.title).toBe('Deploy hiring screen');
+      // The column the board needs. Null here is the reported bug.
+      expect(task.rows[0]!.bucket_id).toBe(bucketId);
 
       const labelled = await pool.query('SELECT 1 FROM planner.task_labels WHERE task_id = $1', [
         taskId,
@@ -126,12 +163,15 @@ describe('action runtime — create port', () => {
   // produce a second task.
   it('replays instead of creating twice under the same key', () =>
     withAgentTestDb(async ({ pool }) => {
-      const { tenantId, actorUserId, planId } = await seedTasksFixture(pool, { titles: [] });
+      const { tenantId, actorUserId, planId, bucketId } = await seedTasksFixture(pool, {
+        titles: [],
+      });
       const port = makeActionTaskCreate();
       const args = {
         tenantId,
         actorUserId,
         planId,
+        bucketId,
         draft: { title: 'Deploy hiring screen' },
         idempotencyKey: 'same-key',
       };
