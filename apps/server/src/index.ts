@@ -186,7 +186,15 @@ const {
 // agent engine stays import-isolated and receives one chatOrchestration function.
 const chatRouter = makeChatRouter({
   classify: makeIntentClassifier({
-    resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+    // The classifier runs on the deployment's DEFAULT model (AGENT_MODEL_DEFAULT)
+    // — locally the self-hosted llama.cpp box — not on `auto`. `auto` with a
+    // `fast` hint is a lie in this catalog: no entry declares tier `fast`, so
+    // pickAuto falls to `fast ?? first` and every classification silently went to
+    // whichever cloud model happens to be listed first. One word per turn, on the
+    // hot path of every chat message, is exactly the work the local model should
+    // carry. Passing the hint anyway keeps `AGENT_MODEL_DEFAULT=auto`
+    // deployments behaving as they do today.
+    resolveModel: () => resolveModel(undefined, { tierHint: 'fast' }).model,
   }),
   assignment: assignmentOrchestration.runStream,
   plannerQuery: plannerQueryOrchestration.runStream,
