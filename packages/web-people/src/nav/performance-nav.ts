@@ -1,76 +1,71 @@
 import type { PerformanceCapacity } from '../api/people-client.ts';
 
-export type PerformanceNavId =
-  | 'dashboard'
-  | 'scoring'
-  | 'self-assessment'
-  | 'morale'
-  | 'history'
-  | 'configuration'
-  | 'audit'
-  | 'cycle';
+/**
+ * Top-level Performance destinations (no secondary sidebar).
+ * AM gets Reviews + Configuration via SegmentedControl; other roles have a single workspace.
+ */
+export type PerformanceNavId = 'reviews' | 'configuration';
 
-export type PerformanceNavItem = {
+export type PerformanceTopTab = {
   id: PerformanceNavId;
   label: string;
-  /** Path under /people/performance */
-  to: string;
+  to: '/people/performance' | '/people/performance/configuration';
 };
 
-export const PERFORMANCE_NAV: readonly PerformanceNavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', to: '/people/performance' },
-  { id: 'scoring', label: 'Scoring', to: '/people/performance/scoring' },
-  { id: 'self-assessment', label: 'Self-assessment', to: '/people/performance/self-assessment' },
-  { id: 'morale', label: 'Morale', to: '/people/performance/morale' },
-  { id: 'history', label: 'History', to: '/people/performance/history' },
+/** AM-only top tabs. */
+export const AM_TOP_TABS: readonly PerformanceTopTab[] = [
+  { id: 'reviews', label: 'Reviews', to: '/people/performance' },
   { id: 'configuration', label: 'Configuration', to: '/people/performance/configuration' },
-  { id: 'audit', label: 'Audit', to: '/people/performance/audit' },
-  { id: 'cycle', label: 'Cycle', to: '/people/performance/cycle' },
 ] as const;
 
-const STRATEGIC_ROLES = new Set(['pm.pmo', 'pm.bod', 'people.manager']);
-const HR_ROLES = new Set(['people.manager']);
-
-function hasAnyRole(roleSlugs: readonly string[], allowed: ReadonlySet<string>): boolean {
-  return roleSlugs.some((r) => allowed.has(r));
+export function amTopTabs(capacity: PerformanceCapacity | null): readonly PerformanceTopTab[] {
+  return capacity?.kind === 'am' ? AM_TOP_TABS : [];
 }
 
 /**
- * Affordance filter for the Performance secondary sidebar (FE-AD-6).
- * Hidden items are omitted — never disabled. Real authz remains on the server.
+ * Whether the current path is allowed for this capacity / role set.
+ * Deep links to legacy stubs (scoring, morale, …) stay reachable only when they match the role.
  */
-export function filterPerformanceNav(
-  roleSlugs: readonly string[],
-  capacity: PerformanceCapacity | null,
-): PerformanceNavItem[] {
-  const kind = capacity?.kind;
-  return PERFORMANCE_NAV.filter((item) => {
-    switch (item.id) {
-      case 'dashboard':
-      case 'history':
-        return true;
-      case 'scoring':
-        return kind === 'tl' || kind === 'am';
-      case 'self-assessment':
-        return kind === 'member';
-      case 'morale':
-        return kind === 'member' || kind === 'tl' || kind === 'am';
-      case 'configuration':
-        return hasAnyRole(roleSlugs, HR_ROLES);
-      case 'audit':
-      case 'cycle':
-        return hasAnyRole(roleSlugs, STRATEGIC_ROLES);
-      default:
-        return false;
-    }
-  });
-}
-
-/** Whether a nav section path is allowed under the current affordance (for beforeLoad). */
-export function isPerformanceNavAllowed(
-  navId: PerformanceNavId,
+export function isPerformancePathAllowed(
+  pathname: string,
   roleSlugs: readonly string[],
   capacity: PerformanceCapacity | null,
 ): boolean {
-  return filterPerformanceNav(roleSlugs, capacity).some((i) => i.id === navId);
+  const path = pathname.replace(/\/$/, '') || '/';
+  const kind = capacity?.kind;
+  const strategic = roleSlugs.some(
+    (r) => r === 'pm.pmo' || r === 'pm.bod' || r === 'people.manager',
+  );
+
+  if (path === '/people/performance') return true;
+  if (path === '/people/performance/configuration') return kind === 'am';
+  if (path === '/people/performance/scoring') return kind === 'tl' || kind === 'am';
+  if (path === '/people/performance/self-assessment') return kind === 'member';
+  if (path === '/people/performance/morale')
+    return kind === 'member' || kind === 'tl' || kind === 'am';
+  if (path === '/people/performance/history') return true;
+  if (path === '/people/performance/audit' || path === '/people/performance/cycle')
+    return strategic;
+  return false;
+}
+
+/** @deprecated Use isPerformancePathAllowed — kept for call sites during rename. */
+export function isPerformanceNavAllowed(
+  navId: string,
+  roleSlugs: readonly string[],
+  capacity: PerformanceCapacity | null,
+): boolean {
+  const path =
+    navId === 'reviews' || navId === 'dashboard'
+      ? '/people/performance'
+      : `/people/performance/${navId === 'configuration' ? 'configuration' : navId}`;
+  return isPerformancePathAllowed(path, roleSlugs, capacity);
+}
+
+/** @deprecated Sidebar filter removed — AM tabs via amTopTabs. */
+export function filterPerformanceNav(
+  _roleSlugs: readonly string[],
+  capacity: PerformanceCapacity | null,
+): PerformanceTopTab[] {
+  return [...amTopTabs(capacity)];
 }

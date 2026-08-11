@@ -1,12 +1,24 @@
-import { Text } from '@seta/shared-ui';
-import { Link, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
-import { type ReactNode, useEffect } from 'react';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  SegmentedControl,
+  SegmentedControlItem,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
+import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import type { PerformanceCapacity } from '../api/people-client.ts';
 import { usePerformanceScope } from '../hooks/use-performance-scope.ts';
-import { filterPerformanceNav, isPerformanceNavAllowed } from '../nav/performance-nav.ts';
+import { amTopTabs, isPerformancePathAllowed } from '../nav/performance-nav.ts';
 import { navIdFromPath } from '../nav/performance-path.ts';
 import type { PerformanceScopeSearch } from '../state/performance-scope.ts';
 import { PerformanceScopeProvider } from '../state/performance-scope-context.tsx';
+import { CyclePeriodSelector } from './cycle-period-selector.tsx';
 import { CycleStatusBadgeLoader } from './cycle-status-badge-loader.tsx';
 import { ProjectContextSwitcher } from './project-context-switcher.tsx';
 
@@ -19,9 +31,8 @@ export type PerformanceShellProps = {
 };
 
 /**
- * In-page Performance shell (SCR-02): secondary nav (affordance-filtered) +
- * header with cycle-status badge + project-context switcher.
- * Suite AppShell already owns bell/avatar — do not duplicate.
+ * Performance chrome: page header (title + capacity switcher + cycle badge) and
+ * AM top tabs (Reviews | Configuration). No secondary sidebar.
  */
 export function PerformanceShell({
   role_slugs,
@@ -33,77 +44,123 @@ export function PerformanceShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const urlSearch = useSearch({ strict: false }) as PerformanceScopeSearch;
-  const { resolved, search, setCapacity } = usePerformanceScope({
+  const { resolved, search, setCapacity, setSearch } = usePerformanceScope({
     pathname,
     capacities,
     default_capacity_index,
     as_of_month,
   });
 
-  const navItems = filterPerformanceNav(role_slugs, resolved.capacity);
-  const activeId = navIdFromPath(pathname);
-  const linkSearch = { ...urlSearch, ...search };
+  const tabs = amTopTabs(resolved.capacity);
+  const activeTab = navIdFromPath(pathname);
+  const linkSearch = useMemo(() => ({ ...urlSearch, ...search }), [urlSearch, search]);
   const cycleMonth = resolved.month;
 
   useEffect(() => {
-    if (!activeId) return;
-    if (isPerformanceNavAllowed(activeId, role_slugs, resolved.capacity)) return;
-    void navigate({ to: '/403' });
-  }, [activeId, navigate, resolved.capacity, role_slugs]);
+    // Pathname updates before this route unmounts when leaving Performance.
+    // Only enforce access on Performance URLs — never redirect away-navigation to /403.
+    const path = pathname.replace(/\/$/, '') || '/';
+    if (!path.startsWith('/people/performance')) return;
+    // Already on the always-allowed home — nothing to enforce (avoids any loop).
+    if (path === '/people/performance') return;
+    if (!isPerformancePathAllowed(pathname, role_slugs, resolved.capacity)) {
+      // A section that doesn't fit the current capacity (e.g. switching to a
+      // non-AM context while on the Configuration tab) is a navigation concern,
+      // not a permission error: fall back to the Reviews home, keep the context.
+      void navigate({ to: '/people/performance', search: linkSearch, replace: true });
+    }
+  }, [navigate, pathname, resolved.capacity, role_slugs, linkSearch]);
 
   return (
-    <PerformanceScopeProvider value={{ role_slugs, capacities, resolved, search }}>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-        <nav
-          aria-label="Performance sections"
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-hairline pb-2 md:w-48 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r md:pb-0 md:pr-3"
-          data-testid="performance-sidebar"
-        >
-          {navItems.map((item) => {
-            const active = item.id === activeId;
-            return (
-              <Link
-                key={item.id}
-                to={item.to}
-                search={linkSearch}
-                className={
-                  active
-                    ? 'rounded-md bg-surface-secondary px-3 py-2 text-sm font-medium whitespace-nowrap'
-                    : 'rounded-md px-3 py-2 text-sm text-secondary whitespace-nowrap hover:bg-surface-secondary'
-                }
-                data-testid={`performance-nav-${item.id}`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div data-testid="performance-cycle-badge-slot">
-              <CycleStatusBadgeLoader month={cycleMonth} />
-            </div>
-            <ProjectContextSwitcher
-              capacities={capacities}
-              resolved={resolved}
-              onSelect={setCapacity}
-            />
-          </div>
-          <div className="min-w-0 flex-1">{children}</div>
-        </div>
-      </div>
+    <PerformanceScopeProvider
+      value={{
+        role_slugs,
+        capacities,
+        resolved,
+        search,
+        setMonth: (month) => setSearch({ month }),
+      }}
+    >
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/people">People</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Performance</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+                <Text as="h1" size="lg" weight="semibold">
+                  Performance
+                </Text>
+                <HStack gap={3} vAlign="center" wrap="wrap">
+                  <div data-testid="performance-cycle-badge-slot">
+                    <CycleStatusBadgeLoader month={cycleMonth} />
+                  </div>
+                  <ProjectContextSwitcher
+                    capacities={capacities}
+                    resolved={resolved}
+                    onSelect={setCapacity}
+                  />
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={4}>
+            <VStack gap={4} data-testid="performance-workspace">
+              {/* Controls row: section tabs (AM) on the left, cycle-period picker
+                  on the right — same row for every capacity. */}
+              <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+                {tabs.length > 0 ? (
+                  <SegmentedControl
+                    label="Performance section"
+                    value={activeTab === 'configuration' ? 'configuration' : 'reviews'}
+                    onChange={(value) => {
+                      const tab = tabs.find((t) => t.id === value);
+                      if (!tab) return;
+                      void navigate({ to: tab.to, search: linkSearch });
+                    }}
+                    data-testid="performance-top-tabs"
+                  >
+                    {tabs.map((t) => (
+                      <SegmentedControlItem key={t.id} value={t.id} label={t.label} />
+                    ))}
+                  </SegmentedControl>
+                ) : (
+                  <span />
+                )}
+                {/* Configuration is account-scoped and always applies to the current
+                    cycle, so the period picker has no effect there — hide it to avoid
+                    a dead control. Every other section is month-driven. */}
+                {activeTab === 'configuration' ? (
+                  <span />
+                ) : (
+                  <CyclePeriodSelector
+                    anchor={as_of_month}
+                    month={cycleMonth}
+                    onChange={(m) => setSearch({ month: m })}
+                  />
+                )}
+              </HStack>
+              {children}
+            </VStack>
+          </LayoutContent>
+        }
+      />
     </PerformanceScopeProvider>
   );
 }
 
-/** Stub body for sections not yet built (later stories). Cycle badge lives in the shell only. */
+/** Stub body for sections not yet built. */
 export function PerformanceSectionStub({ title }: { title: string }) {
   return (
-    <div className="flex flex-col gap-3">
+    <VStack gap={2}>
       <Text color="secondary" data-testid="performance-section-stub">
         {title} — coming in a later story.
       </Text>
-    </div>
+    </VStack>
   );
 }

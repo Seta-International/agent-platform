@@ -135,9 +135,15 @@ services:
       postgres: { condition: service_healthy, required: false }
       migrator: { condition: service_completed_successfully, required: false }
     healthcheck:
-      test: ["CMD-SHELL", "/entrypoint.sh health || exit 1"]
+      # Probes the *running* worker's own metrics server, so a pass means this
+      # process is alive and serving. The previous `/entrypoint.sh health` forked
+      # a fresh tsx + CLI runtime (~580 MB, ~3.5s) every 30s only to prove a new
+      # process could boot; one such fork wedged in an uninterruptible syscall,
+      # which blocked every /proc walk on the host — including the self-hosted
+      # runner's job-setup process snapshot — until the box was rebooted.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.OTEL_PROMETHEUS_PORT||9464)+'/metrics',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
-      timeout: 20s
+      timeout: 5s
       start_period: 30s
       retries: 3
 

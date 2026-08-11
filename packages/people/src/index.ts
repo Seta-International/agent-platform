@@ -59,9 +59,11 @@ export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { readCycleStatus } from './backend/domain/read-cycle-status.ts';
 export { readMonthTasks } from './backend/domain/read-month-tasks.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
+export { readPerformanceConfig } from './backend/domain/read-performance-config.ts';
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
+export { savePerformanceConfig } from './backend/domain/save-performance-config.ts';
 export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
@@ -107,9 +109,14 @@ export type {
   MonthTasksQuery,
   MonthTasksResponse,
   PerformanceCapacity,
+  PerformanceConfigCriterionView,
+  PerformanceConfigGroupView,
+  PerformanceConfigResponse,
   PerformanceContext,
   PerformanceContextInput,
   ProvisionWorkerInput,
+  SavePerformanceConfigInput,
+  SavePerformanceConfigResponse,
 } from './contracts.ts';
 export {
   cycleStatusEnum,
@@ -121,4 +128,7 @@ export {
   monthTaskCard,
   monthTasksQuery,
   monthTasksResponse,
+  performanceConfigResponse,
+  savePerformanceConfigInput,
+  savePerformanceConfigResponse,
 } from './contracts.ts';
