@@ -302,6 +302,39 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
   });
 
+  it('does not offer 0 as a selectable allocation on a new project (a 0% allocation is invalid)', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    // Open the new project row's Allocation dropdown. 0 is not a valid allocation
+    // (FUT-846), so it must not be offered as an option.
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+
+    expect(screen.queryByRole('option', { name: '0' })).not.toBeInTheDocument();
+    // 0.1 remains the smallest valid step.
+    expect(await screen.findByRole('option', { name: '0.1' })).toBeInTheDocument();
+  });
+
   it('requires both a start and end date on a new project before Review impact enables', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
