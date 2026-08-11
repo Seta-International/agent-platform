@@ -9,6 +9,11 @@ export function validateConfigDraft(
   let groupSum = 0;
   for (const g of groups) {
     groupSum += weightCents(g.weight);
+    // The server requires at least one criterion per group (`criteria.min(1)`);
+    // catch it here so Publish can't send a request that 400s with a raw error.
+    if (g.criteria.length === 0) {
+      return 'Every group needs at least one criterion.';
+    }
     let critSum = 0;
     for (const c of g.criteria) critSum += weightCents(c.weight);
     if (critSum !== weightCents(g.weight)) {

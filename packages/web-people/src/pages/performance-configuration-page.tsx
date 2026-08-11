@@ -102,10 +102,10 @@ export function PerformanceConfigurationPage() {
         groups: draft.map((g) => ({
           group_id: g.group_id,
           weight: g.weight,
-          criteria: g.criteria.map((c, idx) => ({
+          criteria: g.criteria.map((c) => ({
             name: c.name,
             weight: c.weight,
-            sort: c.sort ?? idx,
+            sort: c.sort,
           })),
         })),
       });

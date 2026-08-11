@@ -132,11 +132,18 @@ export function PerformanceShell({
                 ) : (
                   <span />
                 )}
-                <CyclePeriodSelector
-                  anchor={as_of_month}
-                  month={cycleMonth}
-                  onChange={(m) => setSearch({ month: m })}
-                />
+                {/* Configuration is account-scoped and always applies to the current
+                    cycle, so the period picker has no effect there — hide it to avoid
+                    a dead control. Every other section is month-driven. */}
+                {activeTab === 'configuration' ? (
+                  <span />
+                ) : (
+                  <CyclePeriodSelector
+                    anchor={as_of_month}
+                    month={cycleMonth}
+                    onChange={(m) => setSearch({ month: m })}
+                  />
+                )}
               </HStack>
               {children}
             </VStack>

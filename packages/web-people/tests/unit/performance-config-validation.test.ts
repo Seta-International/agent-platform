@@ -20,4 +20,15 @@ describe('validateConfigDraft', () => {
       validateConfigDraft([{ weight: 100, criteria: [{ weight: 40 }, { weight: 40 }] }]),
     ).toMatch(/equal/i);
   });
+
+  it('rejects a group with no criteria (server requires at least one)', () => {
+    // A weight-0 group with zero criteria would otherwise pass the sum checks
+    // (0 === 0) yet 400 on the server's `criteria.min(1)`.
+    expect(
+      validateConfigDraft([
+        { weight: 100, criteria: [{ weight: 100 }] },
+        { weight: 0, criteria: [] },
+      ]),
+    ).toMatch(/at least one criterion/i);
+  });
 });

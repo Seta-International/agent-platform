@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { listAccountIdsManagedBy } from '@seta/pm';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { SavePerformanceConfigInput, SavePerformanceConfigResponse } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
 import {
@@ -121,10 +121,26 @@ export async function savePerformanceConfig(
   const nextNo = head.revision_no + 1;
   const revisionId = crypto.randomUUID();
 
+  // AC5: the config in force for the current cycle is frozen by pinning the
+  // pre-save head, so the new revision applies to the next cycle. Resolve the
+  // window up front so the pin can be written atomically with the new revision.
+  const at = monthClockNow();
+  const month = vnYearMonth(at);
+  const { status } = classifyCycleStatus({ month, at });
+  const applies_to_next_cycle = cycleWindowActive(status);
+
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      // Re-check head inside tx (optimistic lock).
+      // Serialize concurrent publishes for this account. Without it two
+      // overlapping saves both read head=rN under READ COMMITTED, both pass the
+      // re-check below, and both insert revision_no=N+1 — the unique index then
+      // surfaces a raw 500 for the loser instead of a clean CONFLICT. The lock
+      // (released on commit/abort) makes the loser observe the winner's row.
+      const lockKey = `perf-config:${session.tenant_id}:${input.account_id}`;
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}::text, 0))`);
+
+      // Re-check head inside tx (optimistic lock, now serialized by the lock).
       const [locked] = await tx
         .select({ revision_no: performanceConfigRevision.revision_no })
         .from(performanceConfigRevision)
@@ -170,6 +186,22 @@ export async function savePerformanceConfig(
         ),
       );
 
+      // AC5: pin the pre-save head (the config in force for this cycle), not the
+      // new revision — idempotent, never moves an existing pin. Written in the
+      // same transaction so a crash can't leave the current cycle pointing at
+      // the just-published config.
+      if (applies_to_next_cycle) {
+        await tx
+          .insert(performanceConfigMonthPin)
+          .values({
+            tenant_id: session.tenant_id,
+            account_id: input.account_id,
+            review_month: month,
+            revision_id: head.id,
+          })
+          .onConflictDoNothing();
+      }
+
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'people.performance_config',
@@ -185,38 +217,6 @@ export async function savePerformanceConfig(
       });
     },
   );
-
-  // AC5: do not move an existing pin; ensure pin exists if window open (first touch).
-  const at = monthClockNow();
-  const month = vnYearMonth(at);
-  const { status } = classifyCycleStatus({ month, at });
-  let applies_to_next_cycle = false;
-  if (cycleWindowActive(status)) {
-    const [pin] = await db
-      .select({ revision_id: performanceConfigMonthPin.revision_id })
-      .from(performanceConfigMonthPin)
-      .where(
-        and(
-          eq(performanceConfigMonthPin.tenant_id, session.tenant_id),
-          eq(performanceConfigMonthPin.account_id, input.account_id),
-          eq(performanceConfigMonthPin.review_month, month),
-        ),
-      )
-      .limit(1);
-    if (!pin) {
-      // Pin the previous head (config in force for this cycle), not the new revision.
-      await db
-        .insert(performanceConfigMonthPin)
-        .values({
-          tenant_id: session.tenant_id,
-          account_id: input.account_id,
-          review_month: month,
-          revision_id: head.id,
-        })
-        .onConflictDoNothing();
-    }
-    applies_to_next_cycle = true;
-  }
 
   return { revision_no: nextNo, revision_id: revisionId, applies_to_next_cycle };
 }
