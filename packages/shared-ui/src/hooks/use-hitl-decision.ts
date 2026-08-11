@@ -18,12 +18,6 @@ interface CardLike {
   alternates?: BranchLike[];
 }
 
-export interface HitlDecision {
-  decision: 'approve' | 'reject' | 'modify';
-  overrideUserIds?: string[];
-  note?: string;
-}
-
 /** WHICH server-authored branch the user picked. The client never supplies a
  *  value — that is FUT-804 AC5 held by the shape of this type. */
 export type HitlBranch = { chosen: 'primary' } | { chosen: 'alternate'; alternateIndex: number };
@@ -61,8 +55,6 @@ export function useHitlDecision(card: CardLike) {
       multi ? (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]) : [id],
     );
 
-  const dirty = selectedIds.length !== seed.length || selectedIds.some((id) => !seed.includes(id));
-
   const branch = useMemo<HitlBranch | null>(() => {
     // No rows to pick from: the primary button IS the primary branch, and any
     // alternates render as their own buttons carrying their own index.
@@ -76,13 +68,5 @@ export function useHitlDecision(card: CardLike) {
     return i >= 0 ? { chosen: 'alternate', alternateIndex: i } : null;
   }, [block, card.primary, card.alternates, selectedIds]);
 
-  // Legacy assignment body. Deleted with the legacy button path in Task 4.
-  const toDecision = (kind: 'approve' | 'reject', note?: string): HitlDecision => {
-    if (kind === 'reject') return note ? { decision: 'reject', note } : { decision: 'reject' };
-    const decision = dirty ? 'modify' : 'approve';
-    const base: HitlDecision = { decision, overrideUserIds: selectedIds };
-    return note ? { ...base, note } : base;
-  };
-
-  return { selectedIds, toggle, dirty, branch, reset: () => setSelected(seed), toDecision };
+  return { selectedIds, toggle, branch, reset: () => setSelected(seed) };
 }
