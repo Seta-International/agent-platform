@@ -83,6 +83,26 @@ export async function seedTasksFixture(
 }
 
 /**
+ * A second group in an EXISTING tenant, with no members and no plan.
+ *
+ * Exists so a test can place an actor outside the task's group without leaving
+ * the tenant. Passing a bare `randomUUID()` as a group id does not work —
+ * `planner.group_members.group_id` is a real foreign key, so the insert fails
+ * before the code under test runs and the assertion would pass on the wrong
+ * error.
+ */
+export async function seedGroup(pool: Pool, opts: { tenantId: string }): Promise<string> {
+  const groupId = randomUUID();
+  await pool.query(
+    `INSERT INTO planner.groups
+       (id, tenant_id, name, theme, visibility, default_role, external_source, created_by, deleted_at)
+     VALUES ($1, $2, $3, 'blue', 'private', 'member', 'native', $4, NULL)`,
+    [groupId, opts.tenantId, `Group ${groupId.slice(0, 8)}`, randomUUID()],
+  );
+  return groupId;
+}
+
+/**
  * N active members of `groupId`, each with an assigneeProjection row so the
  * assign port can resolve them by name. Returns their user ids in creation
  * order. `displayName` names the FIRST member; the rest get 'Member <n>'.

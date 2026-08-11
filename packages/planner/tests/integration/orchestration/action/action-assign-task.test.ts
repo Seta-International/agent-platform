@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { RequestContext } from '@mastra/core/request-context';
+import { describe, expect, it, vi } from 'vitest';
 import { makeActionTaskAssign } from '../../../../src/backend/orchestration/action/adapters.ts';
+import { makeAssignTaskTool } from '../../../../src/backend/orchestration/action/assign-task.tool.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
-import { seedGroupMembers, seedTasksFixture } from './seed-tasks-fixture.ts';
+import { seedGroup, seedGroupMembers, seedTasksFixture } from './seed-tasks-fixture.ts';
+
+function rc(tenantId: string, userId: string) {
+  const requestContext = new RequestContext();
+  requestContext.set('tenant_id', tenantId);
+  requestContext.set('actor', { type: 'user', user_id: userId });
+  return requestContext;
+}
 
 describe('action runtime — assign port', () => {
   it('reads the task with its current assignees and group', () =>
@@ -138,5 +147,83 @@ describe('action runtime — assign port', () => {
       expect(
         await port.resolveMembers({ tenantId, actorUserId, groupId, query: 'Nobody' }),
       ).toEqual([]);
+    }));
+});
+
+describe('planner_assignTask — through the tool, against a real database', () => {
+  // §6.2 "assign replaces, never merges". The card promised `Trước: B, C → Sau:
+  // A, C`; this proves the write keeps that promise.
+  it('a task owned by B and C, confirmed with A and C, ends owned by exactly A and C', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, actorUserId, groupId, tasks } = await seedTasksFixture(pool, {
+        titles: ['Alpha'],
+      });
+      const [b, c, a] = await seedGroupMembers(pool, { tenantId, groupId, count: 3 });
+      const taskId = tasks[0]!.taskId;
+      const port = makeActionTaskAssign();
+      await port.assign({
+        tenantId,
+        actorUserId,
+        taskId,
+        assigneeUserIds: [b!, c!],
+        idempotencyKey: 'seed',
+      });
+
+      const tool = makeAssignTaskTool({
+        ports: { taskAssign: port } as never,
+        ctx: { tenantId, actorUserId } as never,
+      });
+      await tool.execute!(
+        { taskRef: taskId, assigneeRefs: ['x'] } as never,
+        {
+          agent: {
+            suspend: vi.fn(async () => {}),
+            resumeData: {
+              action: 'assign',
+              taskId,
+              assigneeUserIds: [a!, c!],
+              idempotencyKey: 'confirm-1',
+            },
+          },
+          requestContext: rc(tenantId, actorUserId),
+        } as never,
+      );
+
+      const rows = await pool.query<{ user_id: string }>(
+        'SELECT user_id FROM planner.task_assignments WHERE task_id = $1',
+        [taskId],
+      );
+      expect(rows.rows.map((r) => r.user_id).sort()).toEqual([a!, c!].sort());
+    }));
+
+  it('an actor outside the group gets no card and writes nothing', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const { tenantId, tasks } = await seedTasksFixture(pool, { titles: ['Alpha'] });
+      // Same tenant, DIFFERENT group — so what refuses is the assign gate on the
+      // task's group, not tenant isolation and not a foreign-key error.
+      const otherGroupId = await seedGroup(pool, { tenantId });
+      const [outsider] = await seedGroupMembers(pool, {
+        tenantId,
+        groupId: otherGroupId,
+        count: 1,
+      });
+      const tool = makeAssignTaskTool({
+        ports: { taskAssign: makeActionTaskAssign() } as never,
+        ctx: { tenantId, actorUserId: outsider! } as never,
+      });
+      const suspend = vi.fn(async () => {});
+      const out = (await tool.execute!(
+        { taskRef: tasks[0]!.taskId, assigneeRefs: ['Member 1'] } as never,
+        {
+          agent: { suspend, resumeData: undefined },
+          requestContext: rc(tenantId, outsider!),
+        } as never,
+      ).catch(() => ({ assigned: false }))) as { assigned: boolean };
+      expect(out.assigned).toBe(false);
+      expect(suspend).not.toHaveBeenCalled();
+      const rows = await pool.query('SELECT 1 FROM planner.task_assignments WHERE task_id = $1', [
+        tasks[0]!.taskId,
+      ]);
+      expect(rows.rows).toHaveLength(0);
     }));
 });
