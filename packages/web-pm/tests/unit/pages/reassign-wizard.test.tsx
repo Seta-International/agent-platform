@@ -185,9 +185,9 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByLabelText(/start date for/i)).toBeDisabled();
     expect(screen.getByLabelText(/type for/i)).toBeDisabled();
     expect(screen.getByLabelText(/note for/i)).toBeDisabled();
-    // …but you can still shorten/extend it or remove it entirely.
+    // …but you can still shorten/extend it (FUT-876 disabled delete for past-start allocations).
     expect(screen.getByLabelText(/end date for/i)).not.toBeDisabled();
-    expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).toBeDisabled();
   });
 
   it('lets an existing row be moved to a different account/project, and sends the new project_id on Save', async () => {
@@ -283,6 +283,7 @@ describe('ReassignWizardDialog', () => {
           phase: 'build',
           status: 'active',
           pm_worker_id: null,
+          can_manage: true,
         },
       ],
     );
@@ -530,5 +531,71 @@ describe('ReassignWizardDialog', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Restricted projects')).toBeInTheDocument();
     expect(screen.getAllByText('270%').length).toBeGreaterThan(0);
+  });
+
+  it('displays warnings for all over-allocation periods when multiple exist (FUT-885)', async () => {
+    const user = userEvent.setup({ delay: null });
+    vi.mocked(previewReassignWorkerAllocations).mockResolvedValue({
+      worker_name: 'Phan Văn Hưng',
+      sources: [],
+      targets: [
+        {
+          project_name: 'Motion Global',
+          account_name: 'Motion Global',
+          bucket: 'billable',
+          date_from: '2026-09-24',
+          date_to: '2026-09-30',
+          planned_pct: 100,
+        },
+        {
+          project_name: 'Teacher Zone',
+          account_name: 'Teacher Zone',
+          bucket: 'billable',
+          date_from: '2026-11-01',
+          date_to: '2026-11-30',
+          planned_pct: 100,
+        },
+      ],
+      peak_pct: 200,
+      exceeds: true,
+      peak_from: '2026-09-24',
+      peak_to: '2026-09-30',
+      over_allocation_periods: [
+        { date_from: '2026-09-24', date_to: '2026-09-30', peak_pct: 200 },
+        { date_from: '2026-11-01', date_to: '2026-11-30', peak_pct: 200 },
+      ],
+      has_restricted_allocations: false,
+      restricted_segments: [],
+    });
+
+    renderWizard(
+      [allocation({ date_from: FUTURE_START, date_to: '2026-12-31' })],
+      [{ id: 'acc1', label: 'Motion Global' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Motion Global',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    expect(await screen.findAllByText(/24 Sep 2026/)).not.toHaveLength(0);
+    expect(screen.getAllByText(/30 Sep 2026/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/01 Nov 2026/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/30 Nov 2026/).length).toBeGreaterThan(0);
   });
 });

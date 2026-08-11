@@ -1059,7 +1059,18 @@ function ReviewStep({
           }
           description={
             <>
-              {preview.peak_from ? (
+              {preview.over_allocation_periods && preview.over_allocation_periods.length > 0 ? (
+                preview.over_allocation_periods.map((p, idx) => (
+                  <span
+                    key={`${p.date_from}-${p.date_to ?? 'ongoing'}`}
+                    className={idx > 0 ? 'mt-1 block' : ''}
+                  >
+                    They are over 100% from <strong>{formatDisplayDate(p.date_from)}</strong> to{' '}
+                    <strong>{p.date_to ? formatDisplayDate(p.date_to) : 'Ongoing'}</strong>
+                    {p.date_to ? ` (${daysBetweenInclusive(p.date_from, p.date_to)} days)` : ''}.
+                  </span>
+                ))
+              ) : preview.peak_from ? (
                 <>
                   They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
                   <strong>

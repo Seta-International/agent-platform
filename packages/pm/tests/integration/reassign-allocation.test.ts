@@ -573,6 +573,68 @@ describe('previewReassignAllocation', () => {
         // Overlap window: CRM starts 10-01 (after Automotive's 08-09) and both run through 12-31.
         expect(preview.peak_from).toBe('2026-10-01');
         expect(preview.peak_to).toBe('2026-12-31');
+        expect(preview.over_allocation_periods).toEqual([
+          { date_from: '2026-10-01', date_to: '2026-12-31', peak_pct: 150 },
+        ]);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('reports all separate non-continuous over-allocation periods (FUT-885)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const commerceCanal = await seedProject(t.adminSession, 'Commerce Canal');
+        const motionGlobal = await seedProject(t.adminSession, 'Motion Global');
+        const teacherZone = await seedProject(t.adminSession, 'Teacher Zone');
+        const worker = crypto.randomUUID();
+
+        const { allocation_id } = await createAllocation({
+          project_id: commerceCanal,
+          worker_id: worker,
+          date_from: '2026-08-06',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const preview = await previewReassignAllocation({
+          allocation_id,
+          source: { date_to: '2026-12-31' },
+          targets: [
+            {
+              project_id: motionGlobal,
+              date_from: '2026-09-24',
+              date_to: '2026-09-30',
+              planned_pct: 100,
+              bucket: 'billable',
+            },
+            {
+              project_id: teacherZone,
+              date_from: '2026-11-01',
+              date_to: '2026-11-30',
+              planned_pct: 100,
+              bucket: 'billable',
+            },
+          ],
+          session: t.adminSession,
+        });
+
+        expect(preview.peak_pct).toBe(200);
+        expect(preview.exceeds).toBe(true);
+        expect(preview.over_allocation_periods).toEqual([
+          { date_from: '2026-09-24', date_to: '2026-09-30', peak_pct: 200 },
+          { date_from: '2026-11-01', date_to: '2026-11-30', peak_pct: 200 },
+        ]);
       } finally {
         resetPmDb();
         resetCoreDb();
