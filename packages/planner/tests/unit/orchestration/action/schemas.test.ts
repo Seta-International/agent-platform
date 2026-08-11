@@ -4,6 +4,8 @@ import {
   AssignTaskResumeSchema,
   AssignTaskToolInputSchema,
   BULK_TARGET_CAP,
+  CreateTaskResumeSchema,
+  CreateTaskToolInputSchema,
   LinkTasksResumeSchema,
   LinkTasksToolInputSchema,
   MergeTasksResumeSchema,
@@ -262,6 +264,82 @@ describe('AssignTaskResumeSchema', () => {
         action: 'update',
         targets: [{ taskId: TASK_A, expectedVersion: 1 }],
       }),
+    ).toThrow();
+  });
+});
+
+describe('CreateTaskToolInputSchema', () => {
+  it('takes a plan ref and a title, and nothing else is required', () => {
+    const parsed = CreateTaskToolInputSchema.parse({
+      planRef: 'Sprint 32',
+      title: 'Deploy hiring screen',
+    });
+    expect(parsed).toEqual({ planRef: 'Sprint 32', title: 'Deploy hiring screen' });
+  });
+
+  it('accepts the optional fields the card previews', () => {
+    const parsed = CreateTaskToolInputSchema.parse({
+      planRef: 'Sprint 32',
+      title: 'Deploy hiring screen',
+      description: 'behind the flag',
+      dueAt: '2026-08-14',
+      startAt: '2026-08-12',
+      priority: 'urgent',
+      labels: ['infra', 'hiring'],
+    });
+    expect(parsed.priority).toBe('urgent');
+    expect(parsed.labels).toEqual(['infra', 'hiring']);
+  });
+
+  // D8: each of these is a change the card would have to preview and the user
+  // would have to reason about on top of the task itself.
+  it.each(['bucketRef', 'assigneeRefs', 'status'])('refuses %s', (field) => {
+    expect(() =>
+      CreateTaskToolInputSchema.parse({
+        planRef: 'Sprint 32',
+        title: 'Deploy hiring screen',
+        [field]: 'anything',
+      }),
+    ).toThrow();
+  });
+
+  it('refuses a priority that is not one of the four words', () => {
+    expect(() =>
+      CreateTaskToolInputSchema.parse({ planRef: 'p', title: 't', priority: 3 }),
+    ).toThrow();
+  });
+
+  it('refuses an empty title and one over 280 characters', () => {
+    expect(() => CreateTaskToolInputSchema.parse({ planRef: 'p', title: '' })).toThrow();
+    expect(() =>
+      CreateTaskToolInputSchema.parse({ planRef: 'p', title: 'x'.repeat(281) }),
+    ).toThrow();
+  });
+});
+
+describe('CreateTaskResumeSchema', () => {
+  it('parses the create branch', () => {
+    const parsed = CreateTaskResumeSchema.parse({
+      action: 'create',
+      planId: TASK_A,
+      draft: { title: 'Deploy hiring screen' },
+      idempotencyKey: 'k',
+    });
+    expect(parsed.action).toBe('create');
+  });
+
+  it('parses the use_existing branch', () => {
+    const parsed = CreateTaskResumeSchema.parse({
+      action: 'use_existing',
+      existingTaskId: TASK_A,
+      idempotencyKey: 'k',
+    });
+    expect(parsed.action).toBe('use_existing');
+  });
+
+  it('refuses an unknown field', () => {
+    expect(() =>
+      CreateTaskResumeSchema.parse({ action: 'decline', overrideUserIds: ['u'] }),
     ).toThrow();
   });
 });
