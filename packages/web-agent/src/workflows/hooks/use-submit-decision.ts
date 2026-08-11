@@ -13,7 +13,7 @@ export type SubmitDecisionArgs = { approvalId: string; agentic: boolean } & (
       note?: string;
     }
   // Payload-free card (FUT-804 onwards): which action, never what.
-  | { chosen: 'primary' | 'decline' }
+  | { chosen: 'primary' | 'alternate' | 'decline'; alternateIndex?: number; note?: string }
 );
 
 /**

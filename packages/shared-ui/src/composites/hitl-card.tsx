@@ -28,10 +28,11 @@ export function isPayloadFreeCard(card: CardShape): boolean {
 }
 
 export type HitlCardDecision =
-  // Legacy assignment card. Removed in FUT-806 with the candidate multi-select.
+  // Legacy assignment card. Removed with the legacy button path in FUT-806.
   | { decision: 'approve' | 'reject' | 'modify'; overrideUserIds?: string[]; note?: string }
-  // Payload-free card: which action, never what.
-  | { chosen: 'primary' | 'decline' };
+  // Payload-free card: WHICH branch, never what. The shape GenericResumeBody
+  // already accepts, so no translation layer sits between them.
+  | { chosen: 'primary' | 'alternate' | 'decline'; alternateIndex?: number; note?: string };
 
 export interface HitlCardProps {
   card: CardShape;
@@ -96,7 +97,7 @@ export function HitlCard({
   renderEntity,
   cardRenderers,
 }: HitlCardProps) {
-  const { selectedIds, toggle, toDecision } = useHitlDecision(card);
+  const { selectedIds, toggle, branch, toDecision } = useHitlDecision(card);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [note, setNote] = useState('');
 
@@ -137,6 +138,9 @@ export function HitlCard({
 
   const intent = card.intent ?? 'Your input needed';
   const payloadFree = isPayloadFreeCard(card);
+  // Which of D12's two displays this card gets. Rows present → the rows are the
+  // selector; rows absent → the alternates are buttons.
+  const hasEntityList = (card.details ?? []).some((b) => b.kind === 'entityList');
 
   return (
     <section
@@ -191,15 +195,35 @@ export function HitlCard({
           // note: a rejected preview writes nothing, so there is nothing to
           // explain. No input, select or textarea may appear on this path; the
           // component test asserts it, because it is FUT-804 AC5 made visible.
+          //
+          // Two displays, one mechanism (design D12). A card with an entityList
+          // selects its branch through the rows above; a card without one
+          // renders its alternates here as secondary buttons. Both emit
+          // {chosen, alternateIndex} and neither offers anywhere to type.
           <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
             <Button
               type="button"
               variant="primary"
-              isDisabled={disabled}
-              onClick={() => onDecide({ chosen: 'primary' })}
+              // A null branch means the selected row matches no server-authored
+              // action. Refusing to submit is what stops it silently resolving
+              // to primary.
+              isDisabled={disabled || branch === null}
+              onClick={() => branch && onDecide(branch)}
               icon={<Check className="size-3.5" aria-hidden />}
-              label={pending ? 'Applying…' : card.primary.label}
+              label={pending ? 'Applying…' : primaryLabel}
             />
+            {!hasEntityList
+              ? (card.alternates ?? []).map((alt, i) => (
+                  <Button
+                    key={alt.label}
+                    type="button"
+                    variant="secondary"
+                    isDisabled={disabled}
+                    onClick={() => onDecide({ chosen: 'alternate', alternateIndex: i })}
+                    label={alt.label}
+                  />
+                ))
+              : null}
             <Button
               type="button"
               variant="ghost"

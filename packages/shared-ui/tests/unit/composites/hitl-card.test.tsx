@@ -156,6 +156,91 @@ describe('HitlCard', () => {
     });
   });
 
+  describe('HitlCard — a payload-free card with alternates (D12, display B)', () => {
+    const createCard = {
+      intent: 'Create a task in Sprint 32?',
+      riskBadge: 'write',
+      summary: 'I found 2 similar tasks.',
+      details: [{ kind: 'kvTable', rows: [{ k: 'Title', v: 'Deploy hiring screen' }] }],
+      primary: { label: 'Create it', argsPatch: { action: 'create' } },
+      alternates: [
+        { label: 'Use "Deploy hiring screen v2"', argsPatch: { action: 'use_existing' } },
+        { label: 'Use "Hiring screen deploy"', argsPatch: { action: 'use_existing' } },
+      ],
+      decline: { label: 'Cancel' },
+    };
+
+    it('renders one secondary button per alternate', () => {
+      render(
+        <HitlCard
+          card={createCard as never}
+          canAct
+          onDecide={vi.fn()}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      expect(screen.getByRole('button', { name: /use "deploy hiring screen v2"/i })).toBeVisible();
+      expect(screen.getByRole('button', { name: /use "hiring screen deploy"/i })).toBeVisible();
+    });
+
+    it('emits the alternate index the button carries', async () => {
+      const onDecide = vi.fn();
+      render(
+        <HitlCard
+          card={createCard as never}
+          canAct
+          onDecide={onDecide}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /use "hiring screen deploy"/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'alternate', alternateIndex: 1 });
+    });
+
+    it('still emits primary and decline unchanged', async () => {
+      const onDecide = vi.fn();
+      render(
+        <HitlCard
+          card={createCard as never}
+          canAct
+          onDecide={onDecide}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /create it/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'primary' });
+      await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+      expect(onDecide).toHaveBeenCalledWith({ chosen: 'decline' });
+    });
+
+    // FUT-804 AC5, kept visible: no display of this card may collect a value.
+    it('renders no free-text control on the payload-free path', () => {
+      const { container } = render(
+        <HitlCard
+          card={createCard as never}
+          canAct
+          onDecide={vi.fn()}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      expect(container.querySelector('textarea')).toBeNull();
+      expect(container.querySelector('select')).toBeNull();
+      expect(container.querySelector('input:not([type="radio"])')).toBeNull();
+    });
+
+    it('renders no alternate buttons when the card has none', () => {
+      render(
+        <HitlCard
+          card={{ ...createCard, alternates: [] } as never}
+          canAct
+          onDecide={vi.fn()}
+          renderEntity={(e) => <span>{e.label}</span>}
+        />,
+      );
+      expect(screen.getAllByRole('button')).toHaveLength(2);
+    });
+  });
+
   it('does not throw on an unknown block kind', () => {
     const weird = { ...card, details: [{ kind: 'no-such-block' }] };
     expect(() =>
