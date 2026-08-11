@@ -72,6 +72,9 @@ export function usePerformanceScope({
 
   const bootstrapped = useRef(false);
   useEffect(() => {
+    // Don't rewrite search onto a non-Performance URL while this hook is
+    // briefly still mounted during route exit.
+    if (!pathname.startsWith('/people/performance')) return;
     if (bootstrapped.current) return;
 
     // Bare URL: restore last context first; only then fall back to default capacity.
