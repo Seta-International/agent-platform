@@ -2,15 +2,22 @@ import { withGatedMutation } from '@seta/core/events';
 import { buildActorSession } from '@seta/identity';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
-import { taskReferences, tasks } from '../../db/schema.ts';
+import { assigneeProjection, taskAssignments, taskReferences, tasks } from '../../db/schema.ts';
 import { TASK_LINK_KIND_LIST, taskLinkUrl } from '../../domain/_task-link-row.ts';
 import { deleteTask } from '../../domain/delete-task.ts';
 import { getTask } from '../../domain/get-task.ts';
 import { linkTasks, markAsDuplicate } from '../../domain/link-tasks.ts';
+import { setAssignees } from '../../domain/set-assignees.ts';
 import { updateTask } from '../../domain/update-task.ts';
 import { PlannerError, requirePermission } from '../../rbac.ts';
-import { getTaskGroupId } from '../../read-helpers.ts';
-import type { TaskLinkPort, TaskMergePort, TaskReadPort, TaskUpdatePort } from './ports.ts';
+import { getTaskGroupId, listActiveGroupMemberProfiles } from '../../read-helpers.ts';
+import type {
+  TaskAssignPort,
+  TaskLinkPort,
+  TaskMergePort,
+  TaskReadPort,
+  TaskUpdatePort,
+} from './ports.ts';
 import type { ActionTaskSnapshot, ToolTaskLinkKind } from './schemas.ts';
 
 export function makeActionTaskRead(): TaskReadPort {
@@ -269,6 +276,82 @@ export function makeActionTaskMerge(): TaskMergePort {
             session,
           });
           return {};
+        },
+      );
+      return { replayed };
+    },
+  };
+}
+
+export function makeActionTaskAssign(): TaskAssignPort {
+  return {
+    async readForAssign({ tenantId, taskId, actorUserId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      try {
+        const task = await getTask({ task_id: taskId, session });
+        const groupId = await getTaskGroupId(tenantId, taskId);
+        if (!groupId) return null;
+        const assignees = await plannerDb()
+          .select({
+            userId: taskAssignments.user_id,
+            name: assigneeProjection.display_name,
+          })
+          .from(taskAssignments)
+          .innerJoin(assigneeProjection, eq(assigneeProjection.user_id, taskAssignments.user_id))
+          .where(
+            and(eq(taskAssignments.task_id, taskId), eq(assigneeProjection.tenant_id, tenantId)),
+          );
+        return { title: task.title, groupId, assignees };
+      } catch (err) {
+        // Same normalisation as the link port: an unreadable task and an absent
+        // one must be indistinguishable to the caller.
+        const code = (err as { code?: unknown }).code;
+        if (code === 'NOT_FOUND' || code === 'FORBIDDEN' || code === 'CROSS_TENANT') return null;
+        throw err;
+      }
+    },
+
+    async assertCanAssign({ actorUserId, groupId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      await requirePermission(session, 'planner.task.assign', groupId);
+    },
+
+    async resolveMembers({ tenantId, groupId, query }) {
+      // Group members only, so `inGroup` is true on every row today. The field
+      // exists so the tool can one day tell "nobody by that name" from "that
+      // person is not on this task's team"; assertAssigneesAreGroupMembers
+      // inside setAssignees is the backstop either way.
+      const members = await listActiveGroupMemberProfiles(tenantId, groupId);
+      const needle = query.trim().toLowerCase();
+      return members
+        .filter((m) => m.display_name.toLowerCase().includes(needle))
+        .map((m) => ({ userId: m.user_id, name: m.display_name, inGroup: true }));
+    },
+
+    async assign({ actorUserId, taskId, assigneeUserIds, idempotencyKey }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      const { replayed } = await withGatedMutation(
+        session,
+        {
+          idempotencyKey,
+          onBehalfOf: actorUserId,
+          actorKind: 'agent',
+          mutationKind: 'assign',
+          // Sorted so before/after differ only when the SET differs, not on row
+          // order.
+          snapshot: async (tx) => {
+            const rows = await tx
+              .select({ user_id: taskAssignments.user_id })
+              .from(taskAssignments)
+              .where(eq(taskAssignments.task_id, taskId));
+            return { assigneeUserIds: rows.map((r) => r.user_id).sort() };
+          },
+        },
+        // setAssignees, not a loop over assignTask: this tool makes the named
+        // set TRUE (design D5), and assignTask can only add.
+        async () => {
+          await setAssignees({ task_id: taskId, user_ids: assigneeUserIds, session });
+          return { taskId };
         },
       );
       return { replayed };

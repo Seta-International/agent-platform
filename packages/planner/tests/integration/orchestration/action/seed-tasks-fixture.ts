@@ -81,3 +81,37 @@ export async function seedTasksFixture(
 
   return { tenantId, actorUserId: admin.user_id, groupId, tasks };
 }
+
+/**
+ * N active members of `groupId`, each with an assigneeProjection row so the
+ * assign port can resolve them by name. Returns their user ids in creation
+ * order. `displayName` names the FIRST member; the rest get 'Member <n>'.
+ */
+export async function seedGroupMembers(
+  pool: Pool,
+  opts: { tenantId: string; groupId: string; count: number; displayName?: string },
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (let i = 0; i < opts.count; i++) {
+    const userId = randomUUID();
+    const name = i === 0 && opts.displayName ? opts.displayName : `Member ${i + 1}`;
+    // availability_status and timezone are NOT NULL without defaults on the real
+    // table, and group_members.added_by likewise — match the table, never the
+    // other way round.
+    await pool.query(
+      `INSERT INTO planner.assignee_projection
+         (tenant_id, user_id, display_name, email, availability_status, timezone)
+       VALUES ($1, $2, $3, $4, 'available', 'UTC')
+       ON CONFLICT DO NOTHING`,
+      [opts.tenantId, userId, name, `${userId}@example.test`],
+    );
+    await pool.query(
+      `INSERT INTO planner.group_members (tenant_id, group_id, user_id, role, added_by)
+       VALUES ($1, $2, $3, 'member', $3)
+       ON CONFLICT DO NOTHING`,
+      [opts.tenantId, opts.groupId, userId],
+    );
+    ids.push(userId);
+  }
+  return ids;
+}
