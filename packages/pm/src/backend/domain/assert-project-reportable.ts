@@ -1,19 +1,11 @@
 import type { SessionScope } from '@seta/core';
-import { can, tenantScoped } from '@seta/shared-rbac';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { project } from '../db/schema.ts';
 import { PmError } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
-
-export function isProjectReporter(
-  session: SessionScope,
-  row: { pm_person_id: string | null; pmo_person_id: string | null },
-): boolean {
-  if (session.person_id === null) return false;
-  if (!can(session, 'pm.project.manage')) return false;
-  return row.pm_person_id === session.person_id || row.pmo_person_id === session.person_id;
-}
+import { buildProjectReporterFlag } from './scope.ts';
 
 export async function assertProjectReportable(
   project_id: string,
@@ -22,7 +14,7 @@ export async function assertProjectReportable(
   await assertProjectManageable(project_id, session);
 
   const [row] = await pmDb()
-    .select({ pm_person_id: project.pm_person_id, pmo_person_id: project.pmo_person_id })
+    .select({ can_report: buildProjectReporterFlag(session) })
     .from(project)
     .where(
       and(
@@ -33,7 +25,7 @@ export async function assertProjectReportable(
     )
     .limit(1);
   if (!row) throw new PmError('NOT_FOUND', `project ${project_id} not found`);
-  if (!isProjectReporter(session, row)) {
+  if (!row.can_report) {
     throw new PmError('FORBIDDEN', "only this project's EM and PMO can write its weekly report");
   }
 }

@@ -75,6 +75,7 @@ const card: WeeklyReportCard = {
   report_count: 0,
   can_manage: true,
   can_report: true,
+  reported_by_me: false,
 };
 
 const detail: WeeklyReportDetail = {
@@ -175,6 +176,7 @@ describe('WeeklyReportsPage — composing is held behind coming soon', () => {
 
   afterEach(() => {
     comingSoon.on = false;
+    projectsState.canReport = true;
   });
 
   it('disables New weekly report for an EM who could otherwise write it', async () => {
@@ -189,6 +191,70 @@ describe('WeeklyReportsPage — composing is held behind coming soon', () => {
     expect(wrapper).not.toBeNull();
     await user.hover(wrapper as HTMLElement);
     expect(await screen.findByText('Coming soon')).toBeTruthy();
+  });
+
+  it('still opens the read view of a report you have already written', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-1' };
+    fetchWeeklyReportsMock.mockResolvedValue([{ ...card, reported_by_me: true, report_count: 1 }]);
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /View weekly report/i }));
+
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ search: expect.objectContaining({ detail: 'p-1' }) }),
+    );
+  });
+});
+
+describe('WeeklyReportsPage — the week you have already reported', () => {
+  const mine: WeeklyReportCard = { ...card, reported_by_me: true, report_count: 1 };
+
+  beforeEach(() => {
+    routerState.search = { iso_year: 2026, iso_week: 32 };
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchWeeklyReportsMock.mockResolvedValue([mine]);
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  it('names the action "View weekly report" once that project is the filter', async () => {
+    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-1' };
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /View weekly report/i })).toBeEnabled(),
+    );
+    expect(screen.queryByRole('button', { name: /New weekly report/i })).toBeNull();
+  });
+
+  it('opens that report as a read view rather than a composer', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-1' };
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /View weekly report/i }));
+
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ search: expect.objectContaining({ detail: 'p-1' }) }),
+    );
+  });
+
+  it('keeps "New weekly report" when no single project is filtered', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /New weekly report/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /View weekly report/i })).toBeNull();
+  });
+
+  it('still offers the composer on a filtered project you have not reported', async () => {
+    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-1' };
+    fetchWeeklyReportsMock.mockResolvedValue([card]);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /New weekly report/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /View weekly report/i })).toBeNull();
   });
 });
 
@@ -315,6 +381,8 @@ describe('WeeklyReportsPage — norm-check line', () => {
 
     expect(await screen.findByText('No figures this week')).toBeInTheDocument();
     expect(screen.getByText('Staffed 3/4 · No reports')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('Not assessed')).toBeInTheDocument();
   });
 
   it('drops the staffing hint when the charter has no team size', async () => {

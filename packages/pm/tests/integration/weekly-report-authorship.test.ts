@@ -8,6 +8,8 @@ import { resetPmDb } from '../../src/backend/db/client.ts';
 import {
   addReportComment,
   getWeeklyReportDetail,
+  listWeeklyReports,
+  setProjectAccess,
   setWeeklyReportClock,
   submitCharter,
   upsertWeeklyReport,
@@ -43,6 +45,8 @@ interface Fixture {
   am: SessionScope;
   bod: SessionScope;
   tenantPmo: SessionScope;
+  grantedOwner: SessionScope;
+  grantedEditor: SessionScope;
 }
 
 async function seedProject(pool: Pool): Promise<Fixture> {
@@ -50,6 +54,8 @@ async function seedProject(pool: Pool): Promise<Fixture> {
   const emPerson = crypto.randomUUID();
   const pmoPerson = crypto.randomUUID();
   const amPerson = crypto.randomUUID();
+  const grantedOwnerPerson = crypto.randomUUID();
+  const grantedEditorPerson = crypto.randomUUID();
 
   const acc = await pool.query(
     `INSERT INTO pm.account (tenant_id, name, am_person_id) VALUES ($1,$2,$3) RETURNING id`,
@@ -67,6 +73,16 @@ async function seedProject(pool: Pool): Promise<Fixture> {
   });
   const { project_id } = await approveCharterTwoStage(charterId, tenant_id);
 
+  await setProjectAccess({
+    project_id,
+    grants: [
+      { worker_id: emPerson, level: 'owner' },
+      { worker_id: grantedOwnerPerson, level: 'owner' },
+      { worker_id: grantedEditorPerson, level: 'edit' },
+    ],
+    session: adminSession,
+  });
+
   return {
     project_id,
     em: sessionFor(tenant_id, emPerson, 'pm.manager'),
@@ -74,6 +90,8 @@ async function seedProject(pool: Pool): Promise<Fixture> {
     am: sessionFor(tenant_id, amPerson, 'pm.viewer'),
     bod: sessionFor(tenant_id, crypto.randomUUID(), 'pm.bod', 'tenant'),
     tenantPmo: sessionFor(tenant_id, crypto.randomUUID(), 'pm.pmo', 'tenant'),
+    grantedOwner: sessionFor(tenant_id, grantedOwnerPerson, 'pm.manager'),
+    grantedEditor: sessionFor(tenant_id, grantedEditorPerson, 'pm.manager'),
   };
 }
 
@@ -84,7 +102,7 @@ const report = (project_id: string, session: SessionScope) => ({
   session,
 });
 
-describe('who may author a weekly report (EM + PMO only)', () => {
+describe('who may author a weekly report (the project EM/PMO, of record or by Project Access)', () => {
   beforeEach(() => setWeeklyReportClock(() => new Date('2026-07-15T03:00:00Z')));
   afterAll(() => setWeeklyReportClock());
 
@@ -141,6 +159,39 @@ describe('who may author a weekly report (EM + PMO only)', () => {
     });
   });
 
+  it('lets an owner added through Project Access submit, like the EM of record', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const f = await seedProject(pool);
+
+        const byGrantedOwner = await upsertWeeklyReport(report(f.project_id, f.grantedOwner));
+        expect(byGrantedOwner.report_id).toBeTruthy();
+      } finally {
+        await closePools();
+      }
+    });
+  });
+
+  it("refuses an 'edit' grantee — only owners stand in for the EM/PMO", async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const f = await seedProject(pool);
+
+        await expect(
+          upsertWeeklyReport(report(f.project_id, f.grantedEditor)),
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      } finally {
+        await closePools();
+      }
+    });
+  });
+
   it('tells the reader whether they may author, so no dead-end composer opens', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -153,9 +204,43 @@ describe('who may author a weekly report (EM + PMO only)', () => {
 
         expect((await detailFor(f.em)).can_report).toBe(true);
         expect((await detailFor(f.pmo)).can_report).toBe(true);
+        expect((await detailFor(f.grantedOwner)).can_report).toBe(true);
         expect((await detailFor(f.am)).can_report).toBe(false);
         expect((await detailFor(f.bod)).can_report).toBe(false);
         expect((await detailFor(f.tenantPmo)).can_report).toBe(false);
+
+        const cardFor = async (session: SessionScope) => {
+          const { rows } = await listWeeklyReports({ ...WEEK, session });
+          return rows.find((r) => r.project_id === f.project_id);
+        };
+        expect((await cardFor(f.grantedOwner))?.can_report).toBe(true);
+        expect((await cardFor(f.tenantPmo))?.can_report).toBe(false);
+        expect(await cardFor(f.grantedEditor)).toBeUndefined();
+      } finally {
+        await closePools();
+      }
+    });
+  });
+
+  it('marks the card whose report is the reader’s own — a week is authored once, then read', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const f = await seedProject(pool);
+        const cardFor = async (session: SessionScope) => {
+          const { rows } = await listWeeklyReports({ ...WEEK, session });
+          return rows.find((r) => r.project_id === f.project_id);
+        };
+
+        expect((await cardFor(f.em))?.reported_by_me).toBe(false);
+
+        await upsertWeeklyReport(report(f.project_id, f.em));
+
+        expect((await cardFor(f.em))?.reported_by_me).toBe(true);
+        expect((await cardFor(f.pmo))?.reported_by_me).toBe(false);
+        expect((await cardFor(f.bod))?.reported_by_me).toBe(false);
       } finally {
         await closePools();
       }

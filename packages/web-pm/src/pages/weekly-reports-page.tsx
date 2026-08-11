@@ -1,5 +1,4 @@
 import {
-  Badge,
   BreadcrumbItem,
   Breadcrumbs,
   Button,
@@ -22,18 +21,19 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import {
-  fetchAccounts,
-  fetchProjects,
-  fetchWeeklyReports,
-  type ReportColour,
-} from '../api/pm-client.ts';
+import { fetchAccounts, fetchProjects, fetchWeeklyReports } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import {
+  COLOUR_LABEL,
+  COLOUR_VARIANT,
+  type ColourKey,
+  colourBadge,
+  colourKey,
   formatBand,
   formatMetricValue,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
+  markStyle,
 } from './kpi-shared.tsx';
 import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 import { usePmContext } from './use-pm-context.ts';
@@ -47,40 +47,6 @@ export interface WeeklyReportsSearch {
   detail?: string;
 }
 
-// RAG colour → Astryx status variant (shared by StatusDot and Badge; chromatic = status only).
-type ColourKey = ReportColour | 'none';
-const colourKey = (colour: ReportColour | null): ColourKey => colour ?? 'none';
-
-const COLOUR_VARIANT: Record<ColourKey, 'success' | 'warning' | 'error' | 'neutral'> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'error',
-  gray: 'neutral',
-  none: 'neutral',
-};
-// RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
-const COLOUR_LABEL: Record<ColourKey, string> = {
-  green: 'Green',
-  yellow: 'Amber',
-  red: 'Red',
-  gray: 'No data',
-  none: 'Not assessed',
-};
-const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
-  green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
-  yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
-  red: { fill: 'var(--rag-red)', on: 'var(--rag-on-red)' },
-  gray: null,
-  none: null,
-};
-const markStyle = (key: ColourKey) => {
-  const token = RAG_MARK_TOKEN[key];
-  return token ? { backgroundColor: token.fill } : undefined;
-};
-const badgeStyle = (key: ColourKey) => {
-  const token = RAG_MARK_TOKEN[key];
-  return token ? { backgroundColor: token.fill, color: token.on } : undefined;
-};
 // Colour budget: status colour appears only as small marks (dots, one verdict badge per card).
 // Large chromatic surfaces made the board shout — Green is the norm and must stay quiet.
 
@@ -157,14 +123,19 @@ export function WeeklyReportsPage() {
   const isPastWeek =
     currentWeek !== undefined &&
     (currentWeek.iso_year !== iso_year || currentWeek.iso_week !== iso_week);
-  const composeDisabled = WEEKLY_REPORT_COMPOSER_COMING_SOON || cannotReport || isPastWeek;
+  const cards = listQuery.data ?? [];
+
+  const filteredCard = search.project
+    ? cards.find((c) => c.project_id === search.project)
+    : undefined;
+  const viewProjectId = filteredCard?.reported_by_me ? filteredCard.project_id : null;
+  const composeDisabled =
+    viewProjectId === null && (WEEKLY_REPORT_COMPOSER_COMING_SOON || cannotReport || isPastWeek);
   const composeDisabledReason = WEEKLY_REPORT_COMPOSER_COMING_SOON
     ? COMING_SOON_REASON
     : cannotReport
       ? 'Only a project’s EM or PMO can write its weekly report, and you are neither on any project.'
       : 'Weekly reports can only be created for the current week.';
-
-  const cards = listQuery.data ?? [];
 
   // Portfolio rollup for the strip: how many projects sit at each overall colour this week.
   const summary = useMemo(() => {
@@ -220,10 +191,12 @@ export function WeeklyReportsPage() {
                 <DisabledActionTooltip disabled={composeDisabled} reason={composeDisabledReason}>
                   <Button
                     variant="primary"
-                    label="New weekly report"
-                    icon={<Plus className="size-4" />}
+                    label={viewProjectId ? 'View weekly report' : 'New weekly report'}
+                    icon={viewProjectId ? undefined : <Plus className="size-4" />}
                     isDisabled={composeDisabled}
-                    onClick={openComposer}
+                    onClick={
+                      viewProjectId ? () => setSearch({ detail: viewProjectId }) : openComposer
+                    }
                   />
                 </DisabledActionTooltip>
               </HStack>
@@ -346,13 +319,7 @@ export function WeeklyReportsPage() {
                               {card.account_name}
                             </Text>
                           </div>
-                          <span className="shrink-0">
-                            <Badge
-                              variant={COLOUR_VARIANT[colourKey(overall)]}
-                              label={COLOUR_LABEL[colourKey(overall)]}
-                              style={badgeStyle(colourKey(overall))}
-                            />
-                          </span>
+                          <span className="shrink-0">{colourBadge(overall)}</span>
                         </div>
 
                         {/* QCDP pillars — full names with a small status dot each; colour stays a

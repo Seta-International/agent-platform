@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WeeklyReportDetail, WeeklyReportEntry } from '../../../src/api/pm-client.ts';
@@ -7,12 +7,14 @@ import { WeeklyReportDetailDialog } from '../../../src/pages/weekly-report-detai
 
 const fetchDetailMock = vi.fn();
 const upsertMock = vi.fn();
+const addCommentMock = vi.fn();
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
   return {
     ...actual,
     fetchWeeklyReportDetail: () => fetchDetailMock(),
     upsertWeeklyReport: (body: unknown) => upsertMock(body),
+    addWeeklyReportComment: (body: unknown) => addCommentMock(body),
   };
 });
 
@@ -144,7 +146,6 @@ const field = (name: RegExp) => screen.getByRole('textbox', { name });
 
 describe('WeeklyReportDetailDialog — active risk declaration', () => {
   beforeEach(() => {
-    comingSoon.on = false;
     fetchDetailMock.mockResolvedValue(detail);
     upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
   });
@@ -153,6 +154,18 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
     vi.restoreAllMocks();
     fetchDetailMock.mockReset();
     upsertMock.mockReset();
+  });
+
+  it('lays the pillars out in QCDP order, the order the rest of the product reads them in', async () => {
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    expect(screen.getAllByRole('radiogroup').map((g) => g.getAttribute('aria-label'))).toEqual([
+      'Q — Quality',
+      'C — Cost & Capacity',
+      'D — Delivery',
+      'P — Process',
+    ]);
   });
 
   it('keeps the risk fields out of the form until the switch is on', async () => {
@@ -167,6 +180,18 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
 
     expect(screen.getByRole('textbox', { name: /Risk \/ Issue/ })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: /Road-to-Green action/ })).toBeTruthy();
+  });
+
+  it('asks for the due as a week, starting after the one being reported on', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.click(riskSwitch());
+    await user.click(screen.getByRole('combobox', { name: /Due/ }));
+
+    expect(await screen.findByRole('option', { name: '2026-W33' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: '2026-W32' })).toBeNull();
   });
 
   it('submits summary only, clearing any risk fields, when the switch is off', async () => {
@@ -198,7 +223,44 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
     await user.click(submitButton());
 
     expect(upsertMock).not.toHaveBeenCalled();
-    expect(screen.getByText(/Set Q, D, C, or P to Amber or Red/)).toBeTruthy();
+    expect(screen.getByText(/Set Q, C, D, or P to Amber or Red/)).toBeTruthy();
+  });
+});
+
+describe('WeeklyReportDetailDialog — composing is held behind coming soon', () => {
+  beforeEach(() => {
+    comingSoon.on = true;
+    fetchDetailMock.mockResolvedValue(detail);
+    upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
+  });
+
+  afterEach(() => {
+    comingSoon.on = false;
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    upsertMock.mockReset();
+  });
+
+  it('disables the empty-state button and says why on hover', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const button = await screen.findByRole('button', { name: /New weekly report/i });
+    expect(button).toBeDisabled();
+
+    const wrapper = button.closest('span[tabindex="0"]');
+    expect(wrapper).not.toBeNull();
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText('Coming soon')).toBeTruthy();
+  });
+
+  it('opens the read view even when asked to start in the composer', async () => {
+    renderComposer();
+    await screen.findByText('No reports yet');
+
+    expect(screen.queryByRole('radiogroup', { name: /Q — Quality/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Submit report/i })).toBeNull();
+    expect(upsertMock).not.toHaveBeenCalled();
   });
 });
 
@@ -206,7 +268,6 @@ describe('WeeklyReportDetailDialog — a viewer who is not the EM or PMO', () =>
   const notReporter: WeeklyReportDetail = { ...detail, can_report: false };
 
   beforeEach(() => {
-    comingSoon.on = false;
     fetchDetailMock.mockResolvedValue(notReporter);
     upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
   });
@@ -249,7 +310,6 @@ describe('WeeklyReportDetailDialog — a week with no KPI figures', () => {
   };
 
   beforeEach(() => {
-    comingSoon.on = false;
     fetchDetailMock.mockResolvedValue(unassessed);
     upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
   });
@@ -287,43 +347,6 @@ describe('WeeklyReportDetailDialog — a week with no KPI figures', () => {
   });
 });
 
-describe('WeeklyReportDetailDialog — composing is held behind coming soon', () => {
-  beforeEach(() => {
-    comingSoon.on = true;
-    fetchDetailMock.mockResolvedValue(detail);
-    upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'green' });
-  });
-
-  afterEach(() => {
-    comingSoon.on = false;
-    vi.restoreAllMocks();
-    fetchDetailMock.mockReset();
-    upsertMock.mockReset();
-  });
-
-  it('disables the empty-state button and says why on hover', async () => {
-    const user = userEvent.setup();
-    renderDialog();
-
-    const button = await screen.findByRole('button', { name: /New weekly report/i });
-    expect(button).toBeDisabled();
-
-    const wrapper = button.closest('span[tabindex="0"]');
-    expect(wrapper).not.toBeNull();
-    await user.hover(wrapper as HTMLElement);
-    expect(await screen.findByText('Coming soon')).toBeTruthy();
-  });
-
-  it('opens the read view even when asked to start in the composer', async () => {
-    renderComposer();
-    await screen.findByText('No reports yet');
-
-    expect(screen.queryByRole('radiogroup', { name: /Q — Quality/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Submit report/i })).toBeNull();
-    expect(upsertMock).not.toHaveBeenCalled();
-  });
-});
-
 describe('WeeklyReportDetailDialog — the week’s metrics', () => {
   beforeEach(() => {
     fetchDetailMock.mockResolvedValue(detail);
@@ -335,14 +358,13 @@ describe('WeeklyReportDetailDialog — the week’s metrics', () => {
     navigateMock.mockReset();
   });
 
-  const explorerLink = () =>
-    screen.getByRole('button', { name: /See all 6 metrics in KPI Explorer/i });
+  const explorerLink = () => screen.getByRole('button', { name: /KPI Explorer/i });
 
   it('hands the week’s figures off to KPI Explorer on the same project and week', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.click(await screen.findByRole('button', { name: /in KPI Explorer/i }));
+    await user.click(await screen.findByRole('button', { name: /KPI Explorer/i }));
 
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/pm/metrics',
@@ -350,10 +372,10 @@ describe('WeeklyReportDetailDialog — the week’s metrics', () => {
     });
   });
 
-  it('counts the metrics applied this week in the hand-off', async () => {
+  it('offers the hand-off on a week that has applied metrics', async () => {
     renderDialog();
+    await screen.findByText('No reports yet');
 
-    expect(await screen.findByText(/See all 6 metrics in KPI Explorer/)).toBeTruthy();
     expect(explorerLink()).toBeTruthy();
   });
 
@@ -366,7 +388,7 @@ describe('WeeklyReportDetailDialog — the week’s metrics', () => {
     renderDialog();
     await screen.findByText('No reports yet');
 
-    expect(screen.queryByRole('button', { name: /in KPI Explorer/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /KPI Explorer/i })).toBeNull();
   });
 });
 
@@ -409,7 +431,7 @@ describe('WeeklyReportDetailDialog — a submitted report is final', () => {
     renderDialog();
     await screen.findByText('Steady week.');
 
-    expect(screen.getByPlaceholderText('Write a comment — Enter to submit')).toBeTruthy();
+    expect(screen.getByLabelText('Write a comment')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Edit$/i })).toBeNull();
   });
 
@@ -419,6 +441,72 @@ describe('WeeklyReportDetailDialog — a submitted report is final', () => {
 
     expect(screen.queryByRole('radiogroup', { name: /Q — Quality/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Submit report/i })).toBeNull();
-    expect(screen.getByPlaceholderText('Write a comment — Enter to submit')).toBeTruthy();
+    expect(screen.getByLabelText('Write a comment')).toBeTruthy();
+  });
+});
+
+const comment = (
+  id: string,
+  body: string,
+  created_at: string,
+  parent_comment_id: string | null = null,
+) => ({ id, parent_comment_id, author_user_id: 'u-1', author_name: 'Mai Tran', body, created_at });
+
+const precedes = (a: Element, b: Element) =>
+  Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+describe('WeeklyReportDetailDialog — comment thread', () => {
+  const discussed: WeeklyReportEntry = {
+    ...myEntry,
+    comments: [
+      comment('c-1', 'Oldest point', '2026-08-06T03:00:00.000Z'),
+      comment('c-2', 'Answering the oldest', '2026-08-06T04:00:00.000Z', 'c-1'),
+      comment('c-3', 'Newest point', '2026-08-06T05:00:00.000Z'),
+    ],
+  };
+
+  beforeEach(() => {
+    fetchDetailMock.mockResolvedValue({ ...detail, reports: [discussed] });
+    addCommentMock.mockResolvedValue({ id: 'c-4' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    addCommentMock.mockReset();
+  });
+
+  it('opens the thread with the composer and leads with the newest comment', async () => {
+    renderDialog();
+    await screen.findByText('Newest point');
+
+    const composer = screen.getByLabelText('Write a comment');
+    expect(precedes(composer, screen.getByText('Newest point'))).toBe(true);
+    expect(precedes(screen.getByText('Newest point'), screen.getByText('Oldest point'))).toBe(true);
+  });
+
+  it('keeps a reply under the comment it answers rather than reversing it above', async () => {
+    renderDialog();
+    await screen.findByText('Answering the oldest');
+
+    expect(
+      precedes(screen.getByText('Oldest point'), screen.getByText('Answering the oldest')),
+    ).toBe(true);
+  });
+
+  it('posts the comment the composer holds when Enter submits it', async () => {
+    renderDialog();
+    await screen.findByText('Newest point');
+
+    const box = screen.getByLabelText('Write a comment');
+    fireEvent.input(box, { target: { textContent: 'Watching the defect trend' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(addCommentMock).toHaveBeenCalledWith({
+        report_id: 'r-1',
+        body: 'Watching the defect trend',
+      }),
+    );
   });
 });

@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import {
+  can,
   decisionPredicate,
   getDefaultRegistry,
   IMPLICIT_PERMISSIONS,
@@ -75,6 +76,15 @@ export function buildProjectReadFlag(session: SessionScope): SQL<boolean> {
   const scope = buildProjectScope(session);
   if (!scope) return sql<boolean>`true`;
   return sql<boolean>`(CASE WHEN ${scope} THEN true ELSE false END)`;
+}
+
+export function buildProjectReporterFlag(session: SessionScope): SQL<boolean> {
+  const w = session.person_id;
+  if (w === null || !can(session, 'pm.project.manage')) return sql<boolean>`false`;
+  return sql<boolean>`(CASE WHEN ${project.pm_person_id} = ${w}
+      OR ${project.pmo_person_id} = ${w}
+      OR ${project.id} IN ${accessOwnerProjectsSubquery(session)}
+    THEN true ELSE false END)`;
 }
 
 function projectPlan(session: SessionScope): ScopePlan {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRight, CalendarDays } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addWeeklyReportComment,
   fetchWeeklyReportDetail,
@@ -15,16 +15,15 @@ import { pmKeys } from '../state/query-keys.ts';
 import {
   Avatar,
   AvatarFallback,
-  Badge,
   Banner,
   Button,
   Card,
-  DateInput,
+  ChatComposer,
+  ChatComposerInput,
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
   HStack,
-  Input,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -36,48 +35,31 @@ import {
   toast,
 } from './_ui-compat.tsx';
 import {
+  COLOUR_LABEL,
+  COLOUR_VARIANT,
+  colourBadge,
+  colourKey,
+  dueWeekOptions,
   formatBand,
   formatMetricValue,
   isoWeekBase,
+  isoWeekBaseOfDateString,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
+  markStyle,
+  ragFill,
 } from './kpi-shared.tsx';
 import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
-
-// RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
-type ColourKey = ReportColour | 'none';
-const colourKey = (colour: ReportColour | null): ColourKey => colour ?? 'none';
-
-const COLOUR_LABEL: Record<ColourKey, string> = {
-  green: 'Green',
-  yellow: 'Amber',
-  red: 'Red',
-  gray: 'Gray',
-  none: 'Not assessed',
-};
-
-// RAG colour → Astryx status variant, same mapping as the list cards.
-const COLOUR_VARIANT: Record<ColourKey, 'success' | 'warning' | 'error' | 'neutral'> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'error',
-  gray: 'neutral',
-  none: 'neutral',
-};
 
 // Same ranking as the backend's worstColour — gray (N/A) dampens but never hides yellow/red.
 const COLOUR_RANK: Record<ReportColour, number> = { green: 0, gray: 1, yellow: 2, red: 3 };
 
-// Composer QCDP segmented — the selected cell wears its status as a soft wash. Astryx's own
-// SegmentedControl paints a neutral thumb (no per-item colour), so the composer hand-builds the
-// group with these Astryx status tokens (FUT-740).
-const SEG_TINT: Record<'green' | 'yellow' | 'red', string> = {
-  green: 'bg-success-muted text-success',
-  yellow: 'bg-warning-muted text-warning',
-  red: 'bg-error-muted text-error',
+const SEG_TINT: Record<'green' | 'yellow' | 'red', CSSProperties> = {
+  green: { backgroundColor: 'var(--rag-green-wash)', color: 'var(--rag-green-text)' },
+  yellow: { backgroundColor: 'var(--rag-amber-wash)', color: 'var(--rag-amber-text)' },
+  red: { backgroundColor: 'var(--rag-red-wash)', color: 'var(--rag-red-text)' },
 };
 const SEG_COLOURS = ['green', 'yellow', 'red'] as const;
-const QCDP_ORDER: KpiCategory[] = ['quality', 'delivery', 'cost_capacity', 'process'];
 
 const NOT_REPORTER_REASON = "Only this project's EM and PMO can write its weekly report.";
 
@@ -102,159 +84,73 @@ function commentWhen(iso: string): string {
     : d.toLocaleDateString();
 }
 
-export function colourBadge(colour: ReportColour | null) {
-  if (colour === null) {
-    return (
-      <Badge variant="secondary" className="font-normal">
-        —
-      </Badge>
-    );
+type ReportComment = WeeklyReportEntry['comments'][number];
+
+function newestFirst(comments: ReportComment[]): ReportComment[] {
+  const byParent = new Map<string | null, ReportComment[]>();
+  const ids = new Set(comments.map((c) => c.id));
+  for (const c of comments) {
+    const parent = c.parent_comment_id && ids.has(c.parent_comment_id) ? c.parent_comment_id : null;
+    byParent.set(parent, [...(byParent.get(parent) ?? []), c]);
   }
-  const variant =
-    colour === 'green'
-      ? 'success'
-      : colour === 'yellow'
-        ? 'warning'
-        : colour === 'red'
-          ? 'destructive'
-          : 'secondary';
-  return (
-    <Badge variant={variant} className="font-normal" style={badgeStyle(colour)}>
-      {COLOUR_LABEL[colour]}
-    </Badge>
-  );
-}
-
-const RAG_MARK_TOKEN: Record<ColourKey, { fill: string; on: string } | null> = {
-  green: { fill: 'var(--rag-green)', on: 'var(--rag-on-green)' },
-  yellow: { fill: 'var(--rag-amber)', on: 'var(--rag-on-amber)' },
-  red: { fill: 'var(--rag-red)', on: 'var(--rag-on-red)' },
-  gray: null,
-  none: null,
-};
-const markStyle = (key: ColourKey) => {
-  const token = RAG_MARK_TOKEN[key];
-  return token ? { backgroundColor: token.fill } : undefined;
-};
-const badgeStyle = (key: ColourKey) => {
-  const token = RAG_MARK_TOKEN[key];
-  return token ? { backgroundColor: token.fill, color: token.on } : undefined;
-};
-const TREND_FILL: Record<ColourKey, string> = {
-  green: 'var(--rag-green)',
-  yellow: 'var(--rag-amber)',
-  red: 'var(--rag-red)',
-  gray: 'var(--color-background-gray)',
-  none: 'var(--color-background-gray)',
-};
-
-function reporterRole(detail: WeeklyReportDetail, reporter_id: string): 'EM' | 'PMO' | null {
-  if (reporter_id === detail.pm_person_id) return 'EM';
-  if (reporter_id === detail.pmo_person_id) return 'PMO';
-  return null;
+  const replies = (id: string): ReportComment[] =>
+    (byParent.get(id) ?? []).flatMap((c) => [c, ...replies(c.id)]);
+  return [...(byParent.get(null) ?? [])].reverse().flatMap((c) => [c, ...replies(c.id)]);
 }
 
 function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
-  const navigate = useNavigate();
   const { worst, measured_count, applied_count, red_count, yellow_count } = detail.stats;
-  const seatsShort = detail.team_size != null ? detail.team_size - detail.staffed : 0;
 
   const spread: string[] = [];
   if (measured_count === 0) spread.push('No figures entered this week');
   else if (red_count + yellow_count === 0) spread.push(`All ${measured_count} on norm`);
-  else spread.push(`${red_count} red and ${yellow_count} amber of ${measured_count} measured`);
+  else spread.push(`${red_count} red and ${yellow_count} amber`);
   if (measured_count > 0 && measured_count < applied_count) {
     spread.push(`${applied_count - measured_count} still blank`);
   }
-  if (seatsShort > 0) spread.push(`${seatsShort} seat${seatsShort === 1 ? '' : 's'} short`);
 
   return (
-    <div className="space-y-2">
-      <p className="text-base text-secondary">
-        {worst && worst.computed_value !== null ? (
-          <>
-            <span className="font-semibold text-primary">{worst.name}</span>{' '}
-            <span className="font-semibold text-primary">
-              {formatMetricValue(worst.computed_value, worst.name, worst.component_count)}
-            </span>
-            {` vs norm ${formatBand(worst.name, worst.component_count, worst.green_band)} · `}
-          </>
-        ) : null}
-        {spread.join(' · ')}
-      </p>
-      {applied_count > 0 ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ml-3 gap-1.5 text-secondary"
-          onClick={() =>
-            void navigate({
-              to: '/pm/metrics',
-              search: {
-                tab: 'explorer',
-                project: detail.project_id,
-                iso_year: detail.iso_year,
-                iso_week: detail.iso_week,
-              },
-            })
-          }
-        >
-          {`See all ${applied_count} metrics in KPI Explorer`}
-          <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-        </Button>
+    <p className="text-base text-secondary">
+      {worst && worst.computed_value !== null ? (
+        <>
+          <span className="font-semibold text-primary">{worst.name}</span>{' '}
+          <span className="font-semibold text-primary">
+            {formatMetricValue(worst.computed_value, worst.name, worst.component_count)}
+          </span>
+          {` vs norm ${formatBand(worst.name, worst.component_count, worst.green_band)} · `}
+        </>
       ) : null}
-    </div>
+      {spread.join(' · ')}
+    </p>
   );
 }
 
 function ReportCard({
-  detail,
   entry,
   onComment,
-  commentPending,
 }: {
-  detail: WeeklyReportDetail;
   entry: WeeklyReportEntry;
   onComment: (report_id: string, body: string) => void;
-  commentPending: boolean;
 }) {
   const [commentBody, setCommentBody] = useState('');
-  const role = reporterRole(detail, entry.reporter_id);
-  // Keep the caret in the box after Enter — the refetch that appends the new comment
-  // re-renders the card and would otherwise drop focus mid-conversation.
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const justSent = useRef(false);
-  // The thread scrolls inside a capped box (input pinned below it) — otherwise every new
-  // comment grows the card and shoves the input further down the dialog.
-  const threadRef = useRef<HTMLDivElement | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies(entry.comments.length): the refocus + scroll-to-latest must fire when the refetched comment list lands — the length IS the signal, not a value the effect reads
-  useEffect(() => {
-    const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
-    if (!justSent.current) return;
-    justSent.current = false;
-    inputRef.current?.focus();
-  }, [entry.comments.length]);
-  const submit = () => {
-    if (commentBody.trim() === '' || commentPending) return;
-    onComment(entry.report_id, commentBody.trim());
-    setCommentBody('');
-    justSent.current = true;
-    inputRef.current?.focus();
-  };
+  const thread = useMemo(() => newestFirst(entry.comments), [entry.comments]);
   return (
     <Card padding={4} className="space-y-3">
       {/* The reporter's name is the card's identity — the only bold element up here. Section
           labels below drop to eyebrows so the written content stays the loudest thing. */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {role ? <Badge variant="secondary">{role}</Badge> : null}
-          <span className="text-base font-semibold text-primary">
+        <div className="flex min-w-0 items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-muted text-sm font-medium">
+              {initials(entry.reporter_name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="truncate text-base font-semibold text-primary">
             {entry.reporter_name ?? 'Unknown'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-secondary">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-sm text-secondary">
             {new Date(entry.updated_at).toLocaleDateString()}
           </span>
           {colourBadge(entry.overall_colour)}
@@ -279,8 +175,7 @@ function ReportCard({
         <div
           className="border-l-2 pl-3 text-base text-secondary"
           style={{
-            borderColor:
-              RAG_MARK_TOKEN[colourKey(entry.overall_colour)]?.fill ?? 'var(--color-border)',
+            borderColor: ragFill(colourKey(entry.overall_colour)) ?? 'var(--color-border)',
           }}
         >
           <span className="font-semibold text-primary">Road to Green</span> ·{' '}
@@ -292,33 +187,52 @@ function ReportCard({
             </>
           ) : null}
           {entry.road_to_green_due ? (
-            <span className="whitespace-nowrap">{` · due ${entry.road_to_green_due}`}</span>
+            <span className="whitespace-nowrap">
+              {` · due ${isoWeekBaseOfDateString(entry.road_to_green_due)}`}
+            </span>
           ) : null}
         </div>
       ) : null}
 
-      <div className="space-y-2 border-t border-border pt-3">
-        {entry.comments.length > 0 ? (
-          <div className="text-xs uppercase tracking-wide text-secondary">
-            Comments ({entry.comments.length})
-          </div>
-        ) : null}
-        {entry.comments.length > 0 ? (
-          <div ref={threadRef} className="max-h-64 space-y-3 overflow-y-auto pr-1">
-            {entry.comments.map((c) => (
+      <div className="space-y-3 border-t border-border pt-3">
+        {entry.published ? (
+          <ChatComposer
+            value={commentBody}
+            onChange={setCommentBody}
+            onSubmit={(body) => onComment(entry.report_id, body)}
+            placeholder="Write a comment — Enter to submit"
+            density="compact"
+            elevation="none"
+            style={
+              {
+                '--_chat-composer-radius': 'var(--radius-element)',
+                '--_button-radius': 'var(--radius-full)',
+              } as CSSProperties
+            }
+            input={<ChatComposerInput label="Write a comment" maxRows={5} hasHistory={false} />}
+          />
+        ) : (
+          <p className="text-xs text-secondary">Comments open once this report is submitted.</p>
+        )}
+        {thread.length > 0 ? (
+          <div className="space-y-3">
+            <div className="text-xs uppercase tracking-wide text-secondary">
+              Comments ({thread.length})
+            </div>
+            {thread.map((c) => (
               // Replies indent by one avatar column so the thread reads at a glance.
               <div key={c.id} className={`flex gap-2.5 ${c.parent_comment_id ? 'pl-9' : ''}`}>
                 <Avatar className="mt-0.5 h-7 w-7">
-                  <AvatarFallback className="bg-muted text-xs font-medium">
+                  <AvatarFallback className="bg-muted text-sm font-medium">
                     {initials(c.author_name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="truncate text-xs font-medium text-primary">
+                    <span className="truncate text-base font-medium text-primary">
                       {c.author_name ?? 'Unknown'}
                     </span>
-                    <span className="shrink-0 text-xs text-secondary">
+                    <span className="shrink-0 text-sm text-secondary">
                       {commentWhen(c.created_at)}
                     </span>
                   </div>
@@ -328,35 +242,6 @@ function ReportCard({
             ))}
           </div>
         ) : null}
-        {entry.published ? (
-          // Explicit Send button so posting never depends on the Enter key (Vietnamese IME can
-          // swallow the submitting keydown behind `isComposing`); Enter stays as a shortcut.
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Input
-                ref={inputRef}
-                value={commentBody}
-                width="100%"
-                placeholder="Write a comment — Enter to submit"
-                onChange={setCommentBody}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit();
-                }}
-                className="bg-card"
-              />
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              isDisabled={commentBody.trim() === '' || commentPending}
-              onClick={submit}
-            >
-              Send
-            </Button>
-          </div>
-        ) : (
-          <p className="text-xs text-secondary">Comments open once this report is submitted.</p>
-        )}
       </div>
     </Card>
   );
@@ -432,7 +317,7 @@ export function WeeklyReportDetailDialog({
   const summaryRef = useRef<HTMLTextAreaElement>(null);
   const riskIssueRef = useRef<HTMLTextAreaElement>(null);
   const roadToGreenRef = useRef<HTMLTextAreaElement>(null);
-  const dueRef = useRef<HTMLInputElement>(null);
+  const dueRef = useRef<HTMLDivElement>(null);
   const pillarsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!formOpen || !detail || prefilled.current) return;
@@ -507,7 +392,7 @@ export function WeeklyReportDetailDialog({
       ? 'A Road-to-Green action is required while a risk is active.'
       : undefined;
   const dueError =
-    submitAttempted && dueMissing ? 'Set a due date for the Road-to-Green action.' : undefined;
+    submitAttempted && dueMissing ? 'Pick the week the Road-to-Green action is due.' : undefined;
 
   const handleSubmit = () => {
     setSubmitAttempted(true);
@@ -525,7 +410,8 @@ export function WeeklyReportDetailDialog({
                 : null;
     if (target) {
       target.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      if (target !== pillarsRef) target.current?.focus();
+      if (target === dueRef) dueRef.current?.querySelector('button')?.focus();
+      else if (target !== pillarsRef) target.current?.focus();
       return;
     }
     save.mutate();
@@ -638,47 +524,72 @@ export function WeeklyReportDetailDialog({
         footer={
           detail ? (
             <LayoutFooter hasDivider>
-              <HStack gap={2} hAlign="end">
-                {composing ? (
-                  <>
-                    <Button variant="ghost" label="Cancel" onClick={() => setFormOpen(false)} />
-                    {/* Always clickable — validation happens on click (inline errors + scroll to
-                        the first gap) rather than a disabled button that never says why. */}
-                    <Button
-                      variant="primary"
-                      label="Submit report"
-                      onClick={handleSubmit}
-                      isDisabled={save.isPending}
-                    />
-                  </>
+              <HStack gap={2} hAlign="between" vAlign="center">
+                {detail.stats.applied_count > 0 ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-secondary"
+                    onClick={() =>
+                      void navigate({
+                        to: '/pm/metrics',
+                        search: {
+                          tab: 'explorer',
+                          project: detail.project_id,
+                          iso_year: detail.iso_year,
+                          iso_week: detail.iso_week,
+                        },
+                      })
+                    }
+                  >
+                    KPI Explorer
+                    <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                  </Button>
                 ) : (
-                  <>
-                    <Button variant="secondary" label="Close" onClick={() => onOpenChange(false)} />
-                    {seatsShort > 0 && detail.can_manage ? (
-                      // A backfill answers this week's seat shortage — a past (locked) week is
-                      // read-only, so composing one there would act on stale numbers. The week
-                      // also closes on Friday at 17:00, so the reason names both gates rather
-                      // than telling a reader on the current week that it is not the current one.
-                      <DisabledActionTooltip
-                        disabled={!detail.week_editable}
-                        reason="Backfills can only be raised for the current week, until Friday 5:00 PM."
-                      >
-                        <Button
-                          variant="primary"
-                          label={`Raise backfill (${seatsShort} seat${seatsShort === 1 ? '' : 's'})`}
-                          isDisabled={!detail.week_editable}
-                          onClick={() => {
-                            onOpenChange(false);
-                            void navigate({
-                              to: '/pm/resourcing',
-                              search: { project: project_id },
-                            });
-                          }}
-                        />
-                      </DisabledActionTooltip>
-                    ) : null}
-                  </>
+                  <span />
                 )}
+                <HStack gap={2} vAlign="center">
+                  {composing ? (
+                    <>
+                      <Button variant="ghost" label="Cancel" onClick={() => setFormOpen(false)} />
+                      {/* Always clickable — validation happens on click (inline errors + scroll to
+                        the first gap) rather than a disabled button that never says why. */}
+                      <Button
+                        variant="primary"
+                        label="Submit report"
+                        onClick={handleSubmit}
+                        isDisabled={save.isPending}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="secondary"
+                        label="Close"
+                        onClick={() => onOpenChange(false)}
+                      />
+                      {seatsShort > 0 && detail.can_manage ? (
+                        <DisabledActionTooltip
+                          disabled={!detail.week_editable}
+                          reason="Backfills can only be raised for the current week, until Friday 5:00 PM."
+                        >
+                          <Button
+                            variant="primary"
+                            label={`Raise backfill (${seatsShort} seat${seatsShort === 1 ? '' : 's'})`}
+                            isDisabled={!detail.week_editable}
+                            onClick={() => {
+                              onOpenChange(false);
+                              void navigate({
+                                to: '/pm/resourcing',
+                                search: { project: project_id },
+                              });
+                            }}
+                          />
+                        </DisabledActionTooltip>
+                      ) : null}
+                    </>
+                  )}
+                </HStack>
               </HStack>
             </LayoutFooter>
           ) : undefined
@@ -738,7 +649,10 @@ export function WeeklyReportDetailDialog({
                           <span
                             key={`${t.iso_year}-${t.iso_week}`}
                             className="inline-block h-2.5 w-4"
-                            style={{ backgroundColor: TREND_FILL[colourKey(t.colour)] }}
+                            style={{
+                              backgroundColor:
+                                ragFill(colourKey(t.colour)) ?? 'var(--color-background-gray)',
+                            }}
                             title={`${isoWeekBase(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[colourKey(t.colour)]}${
                               i === arr.length - 1 ? ' (this week)' : ''
                             }`}
@@ -792,10 +706,8 @@ export function WeeklyReportDetailDialog({
                   detail.reports.map((r) => (
                     <ReportCard
                       key={r.report_id}
-                      detail={detail}
                       entry={r}
                       onComment={(report_id, body) => comment.mutate({ report_id, body })}
-                      commentPending={comment.isPending}
                     />
                   ))
                 )}
@@ -833,7 +745,7 @@ export function WeeklyReportDetailDialog({
                         QCDP pillars
                       </div>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
-                        {QCDP_ORDER.map((cat) => {
+                        {KPI_CATEGORIES.map((cat) => {
                           const current = colours[cat];
                           const value =
                             current === 'yellow' ? 'yellow' : current === 'red' ? 'red' : 'green';
@@ -857,7 +769,8 @@ export function WeeklyReportDetailDialog({
                                       key={sc}
                                       className={`cursor-pointer py-1.5 text-center text-sm transition-colors ${
                                         i > 0 ? 'border-l border-border' : ''
-                                      } ${on ? `${SEG_TINT[sc]} font-semibold` : 'bg-card text-secondary hover:bg-muted'}`}
+                                      } ${on ? 'font-semibold' : 'bg-card text-secondary hover:bg-muted'}`}
+                                      style={on ? SEG_TINT[sc] : undefined}
                                     >
                                       <input
                                         type="radio"
@@ -903,20 +816,20 @@ export function WeeklyReportDetailDialog({
                     {riskNeedsFlag && submitAttempted ? (
                       <Banner
                         status="error"
-                        title="All four flags are Green. Set Q, D, C, or P to Amber or Red to report an active risk."
+                        title="All four flags are Green. Set Q, C, D, or P to Amber or Red to report an active risk."
                       />
                     ) : (
                       <>
                         {hasActiveRisk ? (
                           <Banner
                             status="info"
-                            title="Active risk detected: At least one of the 4 health flags (Q, D, C, P) must be Amber or Red."
+                            title="Active risk detected: At least one of the 4 health flags (Q, C, D, P) must be Amber or Red."
                           />
                         ) : null}
                         {allGreenBlocked ? (
                           <Banner
                             status="warning"
-                            title="KPIs are over norm this week. Set at least one of Q, D, C, or P to Amber or Red."
+                            title="KPIs are over norm this week. Set at least one of Q, C, D, or P to Amber or Red."
                           />
                         ) : null}
                       </>
@@ -967,15 +880,18 @@ export function WeeklyReportDetailDialog({
                             }
                           />
                         </div>
-                        <DateInput
-                          ref={dueRef}
-                          label="Due"
-                          isRequired
-                          value={roadToGreenDue || undefined}
-                          min={new Date().toISOString().slice(0, 10)}
-                          onChange={(v) => setRoadToGreenDue(v ?? '')}
-                          status={dueError ? { type: 'error', message: dueError } : undefined}
-                        />
+                        <div ref={dueRef}>
+                          <Selector
+                            label="Due"
+                            isRequired
+                            width="100%"
+                            options={dueWeekOptions({ iso_year, iso_week })}
+                            value={roadToGreenDue || undefined}
+                            onChange={(v) => setRoadToGreenDue(v ?? '')}
+                            placeholder="Select a week…"
+                            status={dueError ? { type: 'error', message: dueError } : undefined}
+                          />
+                        </div>
                       </div>
                     ) : null}
                   </section>

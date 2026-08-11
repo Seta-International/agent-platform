@@ -975,6 +975,7 @@ export interface WeeklyReportCard {
   report_count: number;
   can_manage: boolean;
   can_report: boolean;
+  reported_by_me: boolean;
 }
 
 /** Server-authoritative current reporting week (Asia/Ho_Chi_Minh) — week pickers anchor on

@@ -30,7 +30,7 @@ import {
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
-import { assertProjectReportable, isProjectReporter } from './assert-project-reportable.ts';
+import { assertProjectReportable } from './assert-project-reportable.ts';
 import { isoWeekRange, isWeekEditable } from './iso-week.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
@@ -42,7 +42,12 @@ import {
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
 import { getReportersAsOf } from './reporter-assignment.ts';
-import { buildProjectManageFlag, buildProjectReadFlag, buildProjectScope } from './scope.ts';
+import {
+  buildProjectManageFlag,
+  buildProjectReadFlag,
+  buildProjectReporterFlag,
+  buildProjectScope,
+} from './scope.ts';
 
 type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
 const CATEGORIES: readonly KpiCategory[] = ['quality', 'cost_capacity', 'delivery', 'process'];
@@ -400,6 +405,7 @@ export interface WeeklyReportCard {
   report_count: number;
   can_manage: boolean;
   can_report: boolean;
+  reported_by_me: boolean;
 }
 
 export async function listWeeklyReports(input: {
@@ -431,6 +437,7 @@ export async function listWeeklyReports(input: {
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
       can_manage: buildProjectManageFlag(session),
+      can_report: buildProjectReporterFlag(session),
       live_readable: buildProjectReadFlag(session),
     })
     .from(project)
@@ -571,6 +578,12 @@ export async function listWeeklyReports(input: {
     reportsByProject.set(r.project_id, list);
   }
 
+  const myReportProjects = new Set(
+    session.person_id === null
+      ? []
+      : reportRows.filter((r) => r.reporter_id === session.person_id).map((r) => r.project_id),
+  );
+
   const staffedByProject = new Map(staffedRows.map((r) => [r.project_id, r.staffed]));
   const rows = projectRows.map((p) => {
     const defs = defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [];
@@ -604,7 +617,8 @@ export async function listWeeklyReports(input: {
       })),
       report_count: projectReports.length,
       can_manage: p.can_manage,
-      can_report: isProjectReporter(session, p),
+      can_report: p.can_report,
+      reported_by_me: myReportProjects.has(p.project_id),
     };
   });
   return { rows };
@@ -707,6 +721,7 @@ export async function getWeeklyReportDetail(input: {
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
       can_manage: buildProjectManageFlag(session),
+      can_report: buildProjectReporterFlag(session),
     })
     .from(project)
     .innerJoin(account, eq(account.id, project.account_id))
@@ -950,7 +965,7 @@ export async function getWeeklyReportDetail(input: {
       ];
     }),
     can_manage: proj.can_manage,
-    can_report: isProjectReporter(session, proj),
+    can_report: proj.can_report,
     my_reporter_id: session.person_id,
     week_editable: isWeekEditable(iso_year, iso_week),
   };
