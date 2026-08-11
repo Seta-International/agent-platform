@@ -32,8 +32,21 @@ const WEEKLY_RE =
 // "đóng các task tagged infra" would be swallowed by assignment instead. The two
 // patterns overlap in both directions; only this guard separates them. Assign
 // moves onto A2 in FUT-806, and this guard goes with it.
+//
+// The second half is the VIETNAMESE recommend intent. It belongs here, ahead of
+// MUTATE_RE, and not in ACTION_RE below — "tìm người phù hợp và thêm vào task"
+// is a request for a PERSON that happens to contain a change verb, and ACTION_RE
+// runs too late to save it. Its English twin ("find someone for this task", "who
+// should do this") has always been caught by ACTION_RE; the Vietnamese side
+// carried exactly one alternative, `tìm task`, so asking for a person in
+// Vietnamese fell through to the LLM fallback — non-deterministic, and defaulting
+// to planner_qna, whose read-only agent answers by refusing.
+//
+// No trailing \b after a diacritic alternative ("có thể", "làm được"): JS \b is
+// ASCII-only, so 'ể' followed by a space is not a boundary and the branch would
+// never match.
 const ASSIGNEE_TARGET_RE =
-  /\b(assignee|owner)\b|người phụ trách|người được giao|giao lại|phụ trách|\b(remove|unassign)\b[^.?!]*\bfrom (this |the )?task\b/i;
+  /\b(assignee|owner)\b|người phụ trách|người được giao|giao lại|phụ trách|\b(remove|unassign)\b[^.?!]*\bfrom (this |the )?task\b|tìm (người|ai|nhân sự|ứng viên)|\bai (nên|phù hợp|thích hợp|có thể|làm được)|(người|nhân sự|ứng viên) (nào )?(phù hợp|thích hợp)|(gợi ý|đề xuất|đề cử) (giúp )?(người|ai|nhân sự|ứng viên)|giao [^.?!]{0,30}cho ai\b/i;
 
 // Change-request intent → mutate (the A2 Action agent). Every change verb EXCEPT
 // assign: assign stays on the assignment runtime until FUT-806 gives A2 an
