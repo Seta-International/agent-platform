@@ -22,7 +22,9 @@ describe('chat intent classifier (tier 2: assignment vs planner_qna)', () => {
     const actions = [
       'who should I assign to this task?',
       'find people with skill react for this task',
-      'reassign this to Bob',
+      // 'reassign this to Bob' used to live here. FUT-806 D1 moved it: the user
+      // NAMED the person, so it is a change request for A2, not a recommend.
+      // Its replacement assertion is in 'intent routing after FUT-806' below.
       'recommend an owner for the launch task',
     ];
     for (const a of actions) {
@@ -223,10 +225,11 @@ describe('mutate intent (FUT-814)', () => {
     expect(await classify(text)).toBe('mutate');
   });
 
-  // D3: the assignment path must not regress. Sentences that literally contain
-  // "assign" prove nothing — ACTION_RE already catches those. The real risk is a
-  // CHANGE VERB plus an ASSIGNMENT NOUN, which matches MUTATE_RE while ACTION_RE
-  // never sees it.
+  // FUT-814's D3 kept every one of these on the assignment runtime, because A2
+  // had no assign tool and routing them there turned a card into a refusal.
+  // FUT-806 D1 gives A2 planner_assignTask and reverses the rule: each row NAMES
+  // the person, so the agent has nothing to choose and the request is a change.
+  // The rows are unchanged on purpose — this block is the record of the reversal.
   it.each([
     'change the assignee to Tuấn',
     'set owner to Tuấn',
@@ -235,8 +238,8 @@ describe('mutate intent (FUT-814)', () => {
     'giao lại task cho Lan',
     'remove Tuấn from this task',
     'assign task này cho Tuấn',
-  ])('keeps %j on the assignment runtime', async (text) => {
-    expect(await classify(text)).toBe('assignment');
+  ])('routes %j to A2 now that a named person is a change request', async (text) => {
+    expect(await classify(text)).toBe('mutate');
   });
 
   it.each(['what is the deadline of the API task?', 'how many open tasks do I have?'])(
@@ -269,9 +272,12 @@ describe('mutate intent (FUT-814)', () => {
     expect(await classify('ừ, làm đi', history)).toBe('mutate');
   });
 
-  it('a bare confirmation after an assignment turn stays on assignment', async () => {
+  // The history inference mirrors the classifier's order, so the reversal above
+  // has to show up here too: the previous turn built an A2 card, and "ok" must
+  // answer THAT card rather than start a recommend turn.
+  it('a bare confirmation after a named-person assign stays on A2', async () => {
     const history = [{ role: 'user' as const, content: 'assign task này cho Tuấn' }];
-    expect(await classify('ok', history)).toBe('assignment');
+    expect(await classify('ok', history)).toBe('mutate');
   });
 });
 
@@ -327,5 +333,56 @@ describe('Vietnamese recommend intent routes to assignment by rules', () => {
     'liên kết task này với task kia',
   ])('leaves %j on mutate', async (text) => {
     expect(await classify(text)).toBe('mutate');
+  });
+});
+
+describe('intent routing after FUT-806', () => {
+  // classifyLlm throws: every row below must be decided by a regex. A row that
+  // reaches the fallback is a routing hole, not a passing test.
+  const classify = makeIntentClassifier({
+    resolveModel: () => ({}) as never,
+    classifyLlm: async () => {
+      throw new Error('LLM fallback must not be reached for these phrasings');
+    },
+  });
+
+  const cases: Array<[string, string]> = [
+    // The agent must CHOOSE → recommend, unchanged.
+    ['who should do this task', 'assignment'],
+    ['ai nên làm task này', 'assignment'],
+    ['recommend someone for the migration task', 'assignment'],
+    ['gợi ý người cho task này', 'assignment'],
+    ['find people with kubernetes skills', 'assignment'],
+    // D10: "assign someone" names nobody, so it is a recommend request.
+    ['assign someone to this', 'assignment'],
+    ['assign anyone to the deploy task', 'assignment'],
+    ['giao cho ai đó', 'assignment'],
+    // The user NAMED the person → mutate (A2).
+    ['assign Tuấn to this task', 'mutate'],
+    ['giao task này cho Tuấn', 'mutate'],
+    ['reassign this to Alice', 'mutate'],
+    ['đổi người phụ trách sang Tuấn', 'mutate'],
+    ['thay Bình bằng Tuấn trên task này', 'mutate'],
+    ['unassign Tuấn from this task', 'mutate'],
+    ['giao thêm cho Tuấn', 'mutate'],
+    // Unchanged intents, kept in the table because the regex edits could steal
+    // them.
+    ['đóng các task tagged infra', 'mutate'],
+    ['close the deploy task', 'mutate'],
+    ['list tasks with the infra label', 'assignment'],
+    ['tìm task về migration', 'assignment'],
+    ['plan my week', 'weekly_planner'],
+    ['lập kế hoạch tuần', 'weekly_planner'],
+    ['what is the deadline for the deploy task', 'planner_qna'],
+  ];
+
+  it.each(cases)('%s → %s', async (text, expected) => {
+    expect(await classify(text)).toBe(expected);
+  });
+
+  // inferIntentFromHistory mirrors the same order, so a bare "ok" continues on
+  // the runtime that produced the card the user is answering.
+  it.each(cases)('confirmation after "%s" stays on %s', async (text, expected) => {
+    expect(await classify('ok', [{ role: 'user', content: text }])).toBe(expected);
   });
 });
