@@ -432,6 +432,8 @@ describe('buildCreateTaskApprovalCard', () => {
   const base = {
     planId: 'plan-1',
     planName: 'Sprint 32',
+    bucketId: 'bucket-1',
+    bucketName: 'To do',
     draft: {
       title: 'Deploy hiring screen',
       description: 'behind the flag',
@@ -452,6 +454,9 @@ describe('buildCreateTaskApprovalCard', () => {
     const keys = block.rows.map((r) => r.k);
     expect(keys).toContain('Title');
     expect(keys).toContain('Plan');
+    // Shown even though the user never asked for it: it is the one field on
+    // this card they did not choose, and it decides where the task appears.
+    expect(keys).toContain('Bucket');
     expect(keys).toContain('Due');
     expect(keys).toContain('Priority');
     expect(keys).toContain('Labels');
@@ -465,6 +470,10 @@ describe('buildCreateTaskApprovalCard', () => {
     expect(card.primary.argsPatch).toEqual({
       action: 'create',
       planId: 'plan-1',
+      // Sibling of planId, not part of the draft: both are ids the SERVER
+      // resolved, not fields the user typed. Resume may run in another process,
+      // so the only way it reaches the write is on the card.
+      bucketId: 'bucket-1',
       draft: base.draft,
       idempotencyKey: 'key-1',
     });

@@ -406,6 +406,10 @@ export function buildAssignTaskApprovalCard(opts: BuildAssignTaskApprovalCardOpt
 export interface BuildCreateTaskApprovalCardOpts {
   planId: string;
   planName: string;
+  /** The column the task will land in, resolved by the server. Required, because
+   *  a task with no bucket is one the plan board cannot render at all. */
+  bucketId: string;
+  bucketName: string;
   draft: CreateTaskDraft;
   /** Ranked, already thresholded. Only the first three become branches. */
   similar: Array<{ taskId: string; title: string; score: number }>;
@@ -426,12 +430,26 @@ const MAX_DUPLICATE_BRANCHES = 3;
  * because no gateway call ever happened.
  */
 export function buildCreateTaskApprovalCard(opts: BuildCreateTaskApprovalCardOpts): ApprovalCard {
-  const { planId, planName, draft, similar, tenantId, userId, idempotencyKey } = opts;
+  const {
+    planId,
+    planName,
+    bucketId,
+    bucketName,
+    draft,
+    similar,
+    tenantId,
+    userId,
+    idempotencyKey,
+  } = opts;
   const shortlist = similar.slice(0, MAX_DUPLICATE_BRANCHES);
 
   const rows: Array<{ k: string; v: string }> = [
     { k: 'Title', v: clipTitle(draft.title) },
     { k: 'Plan', v: planName },
+    // The one row the user did not choose, and the only one that decides
+    // whether they can see the task afterwards. Silence here would mean
+    // confirming a placement they were never shown.
+    { k: 'Bucket', v: bucketName },
   ];
   // Only fields the user actually gave: an empty row is a value they did not
   // choose, presented as if they had.
@@ -460,7 +478,7 @@ export function buildCreateTaskApprovalCard(opts: BuildCreateTaskApprovalCardOpt
     details,
     primary: {
       label: 'Create task',
-      argsPatch: { action: 'create', planId, draft, idempotencyKey },
+      argsPatch: { action: 'create', planId, bucketId, draft, idempotencyKey },
     },
     // Ranked; the same idempotencyKey on every branch, because an approval can
     // be consumed once and the key belongs to the decision, not the branch.
