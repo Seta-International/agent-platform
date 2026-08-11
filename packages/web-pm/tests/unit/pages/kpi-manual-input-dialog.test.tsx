@@ -132,7 +132,7 @@ function renderDialog() {
 function messageUnder(input: HTMLElement): string | null {
   for (const id of (input.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean)) {
     const el = document.getElementById(id);
-    if (el?.getAttribute('role') === 'alert') return el.textContent;
+    if (el?.getAttribute('data-type') === 'error') return el.textContent;
   }
   return null;
 }
