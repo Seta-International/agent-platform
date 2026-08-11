@@ -1,7 +1,12 @@
 import type { ApprovalCard } from '@seta/agent-sdk';
 import { PLATFORM_TIMEZONE } from '@seta/agent-sdk';
 import { ACTION_WORKFLOW_ID } from './orchestrator-spec.ts';
-import type { ActionTaskSnapshot, ToolTaskLinkKind, UpdateTaskActionPatch } from './schemas.ts';
+import type {
+  ActionTaskSnapshot,
+  CreateTaskDraft,
+  ToolTaskLinkKind,
+  UpdateTaskActionPatch,
+} from './schemas.ts';
 
 /** Field order on the card. Stable, so a diff reads the same way every time. */
 const FIELD_ORDER = [
@@ -393,6 +398,85 @@ export function buildAssignTaskApprovalCard(opts: BuildAssignTaskApprovalCardOpt
       // The same string the recommend card declares, so the two cannot both be
       // pending for one task and confirming either clears the other (design D7).
       dedupKey: `assign:${taskId}`,
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
+export interface BuildCreateTaskApprovalCardOpts {
+  planId: string;
+  planName: string;
+  draft: CreateTaskDraft;
+  /** Ranked, already thresholded. Only the first three become branches. */
+  similar: Array<{ taskId: string; title: string; score: number }>;
+  tenantId: string;
+  userId: string;
+  idempotencyKey: string;
+}
+
+const MAX_DUPLICATE_BRANCHES = 3;
+
+/**
+ * The create preview, with the duplicate escape ON THE SAME CARD.
+ *
+ * AC1 falls out of this shape rather than out of prompt text: no task exists
+ * before Confirm because the write lives on the resume pass; the duplicate check
+ * ran before the card because it ran before suspend(); the alternative to
+ * creating is a branch, so it cannot be forgotten; and Cancel leaves nothing
+ * because no gateway call ever happened.
+ */
+export function buildCreateTaskApprovalCard(opts: BuildCreateTaskApprovalCardOpts): ApprovalCard {
+  const { planId, planName, draft, similar, tenantId, userId, idempotencyKey } = opts;
+  const shortlist = similar.slice(0, MAX_DUPLICATE_BRANCHES);
+
+  const rows: Array<{ k: string; v: string }> = [
+    { k: 'Title', v: clipTitle(draft.title) },
+    { k: 'Plan', v: planName },
+  ];
+  // Only fields the user actually gave: an empty row is a value they did not
+  // choose, presented as if they had.
+  if (draft.description) rows.push({ k: 'Description', v: clipTitle(draft.description) });
+  if (draft.startAt) rows.push({ k: 'Start', v: formatInstant(draft.startAt) });
+  if (draft.dueAt) rows.push({ k: 'Due', v: formatInstant(draft.dueAt) });
+  if (draft.priority) rows.push({ k: 'Priority', v: draft.priority });
+  if (draft.labels?.length) rows.push({ k: 'Labels', v: draft.labels.join(', ') });
+
+  const details: ApprovalCard['details'] = [{ kind: 'kvTable', rows }];
+  if (shortlist.length > 0) {
+    details.push({
+      kind: 'text',
+      body:
+        shortlist.length === 1
+          ? 'Found 1 similar task already in this plan — you can use it instead.'
+          : `Found ${shortlist.length} similar tasks already in this plan — you can use one instead.`,
+    });
+  }
+
+  return {
+    toolCallId: `planner.action:${idempotencyKey}`,
+    intent: `Create a task in "${planName}"?`,
+    riskBadge: 'write',
+    summary: clipTitle(draft.title),
+    details,
+    primary: {
+      label: 'Create task',
+      argsPatch: { action: 'create', planId, draft, idempotencyKey },
+    },
+    // Ranked; the same idempotencyKey on every branch, because an approval can
+    // be consumed once and the key belongs to the decision, not the branch.
+    alternates: shortlist.map((s) => ({
+      label: `Use "${clipTitle(s.title)}"`,
+      argsPatch: { action: 'use_existing', existingTaskId: s.taskId, idempotencyKey },
+    })),
+    decline: { label: 'Cancel', argsPatch: { action: 'decline', idempotencyKey } },
+    // No meta.dedupKey: create has no mutex, because there is no task yet to be
+    // the subject of one.
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
+      toolId: 'planner_createTask',
       ts: new Date().toISOString(),
     },
   };
