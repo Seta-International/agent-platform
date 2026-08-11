@@ -93,6 +93,23 @@ function legacyOverrideUserIds(raw: Record<string, unknown>): string[] | undefin
     : undefined;
 }
 
+/** The branch a generic body selected, read off the RAW request for the audit
+ *  row. Safe before validation for the same reason `decisionFor` is: a `validate`
+ *  throw rolls the whole transaction back, so a mis-read value is never
+ *  committed. A legacy body yields {} and records nothing. */
+function chosenBranch(raw: Record<string, unknown>): {
+  chosen?: 'primary' | 'alternate' | 'decline';
+  alternateIndex?: number;
+} {
+  const chosen = raw.chosen;
+  if (chosen !== 'primary' && chosen !== 'alternate' && chosen !== 'decline') return {};
+  const idx = raw.alternateIndex;
+  return {
+    chosen,
+    ...(chosen === 'alternate' && typeof idx === 'number' ? { alternateIndex: idx } : {}),
+  };
+}
+
 export type ResumeDecisionData = {
   decision: 'approve' | 'reject' | 'modify';
   overrideUserIds?: string[];
@@ -197,6 +214,7 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
         approvalId,
         decision: decisionFor(raw),
         overrideUserIds: legacyOverrideUserIds(raw),
+        ...chosenBranch(raw),
         note: typeof raw.note === 'string' ? raw.note : undefined,
         // Reject a misrouted evented/canvas approval INSIDE the transaction
         // (before any write) so a non-resumable row never records a decision.
