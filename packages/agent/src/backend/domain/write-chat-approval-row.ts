@@ -44,6 +44,15 @@ export interface WriteChatApprovalRowOpts {
   pool: Pool;
   /** Hours until the approval expires. Defaults to 72 (matching evented workflows). */
   approvalTtlHours?: number;
+  /** Logical workflow id stamped on the synthetic run row. It is the
+   *  discriminator /chat/resume dispatches on, so it MUST name the runtime that
+   *  will resume this card. */
+  workflowId?: string;
+  /** One-proposal-per-task mutex. Only assignment has that rule: two people
+   *  cannot be proposed for one task at once. An update preview has no such
+   *  conflict, and reusing an assignment's row for it would resume the wrong
+   *  runtime. Defaults to true so the shipped call site is unchanged. */
+  dedupPendingAssignment?: boolean;
 }
 
 export interface WriteChatApprovalRowResult {
@@ -76,13 +85,15 @@ export async function writeChatApprovalRow(
     threadId,
     pool,
     approvalTtlHours = 72,
+    workflowId = ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
+    dedupPendingAssignment = true,
   } = opts;
 
   // Mutex: if a pending assignment proposal already exists for this task —
   // chat-HITL, native-suspend, or an in-flight evented assignBySkill run —
   // reuse it instead of inserting a competing card.
   const taskId = taskIdFromCard(card);
-  if (taskId) {
+  if (dedupPendingAssignment && taskId) {
     const existingRunId = await getPendingAssignRunIdForTask({ taskId, tenantId });
     if (existingRunId) {
       const existing = await pool.query<{
@@ -134,12 +145,7 @@ export async function writeChatApprovalRow(
          (run_id, workflow_id, tenant_id, started_by, started_via, status, input_summary, started_at)
        VALUES (gen_random_uuid(), $1, $2, $3, 'chat', 'paused', $4::jsonb, now())
        RETURNING run_id`,
-      [
-        ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
-        tenantId,
-        userId,
-        JSON.stringify({ taskId, thread_id: threadId }),
-      ],
+      [workflowId, tenantId, userId, JSON.stringify({ taskId, thread_id: threadId })],
     );
     const runId = runRes.rows[0]?.run_id;
     if (!runId) throw new Error('write-chat-approval-row: workflow_runs INSERT returned no row');

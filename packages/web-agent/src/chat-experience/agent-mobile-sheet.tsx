@@ -32,7 +32,7 @@ export function AgentMobileSheet() {
         isOpen={panelOpen}
         onOpenChange={setPanelOpen}
         purpose="info"
-        position={{ left: 0, right: 0, bottom: 0 }}
+        position={{ start: 0, end: 0, bottom: 0 }}
         width="100%"
         maxHeight="85dvh"
         padding={0}

@@ -30,7 +30,19 @@ export interface WorkerHandle {
   addJob(
     identifier: string,
     payload?: unknown,
-    spec?: { jobKey?: string; maxAttempts?: number; queueName?: string; runAt?: Date },
+    spec?: {
+      jobKey?: string;
+      /**
+       * What to do when `jobKey` already names a pending job. Defaults to graphile-worker's
+       * `'replace'`, which overwrites its payload — so a periodic enqueue can silently discard a
+       * one-off someone else queued under the same key. `'unsafe_dedupe'` keeps the existing job
+       * untouched, which is what a cron wants when a user-triggered run may be waiting.
+       */
+      jobKeyMode?: 'replace' | 'preserve_run_at' | 'unsafe_dedupe';
+      maxAttempts?: number;
+      queueName?: string;
+      runAt?: Date;
+    },
   ): Promise<void>;
 }
 

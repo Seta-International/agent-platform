@@ -3,6 +3,7 @@ import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } 
 import type { Hono } from 'hono';
 import { z } from 'zod';
 import {
+  ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
   PendingAssignmentExistsError,
   writeChatApprovalRow,
 } from '../domain/write-chat-approval-row.ts';
@@ -212,8 +213,16 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     // approval read-model row so the pending-approvals poll renders the card.
     const onApproval = async (ev: ApprovalEvent): Promise<void> => {
       try {
+        // The card's own toolId names the runtime that must resume it, so derive
+        // the owning workflow here instead of plumbing a parameter through every
+        // orchestration. Assignment keeps the one-proposal-per-task mutex; an
+        // update preview has no such conflict.
+        const isAction =
+          (ev.card.meta as { toolId?: string } | undefined)?.toolId === 'planner_updateTask';
         await writeChatApprovalRow({
           card: ev.card,
+          workflowId: isAction ? 'planner.action' : ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
+          dedupPendingAssignment: !isAction,
           mastraRunId: ev.mastraRunId,
           toolCallId: ev.toolCallId,
           threadId: orchThreadId ?? null,

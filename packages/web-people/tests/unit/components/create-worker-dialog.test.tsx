@@ -63,7 +63,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('is closed until the trigger is clicked, then opens as an accessible dialog', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDialog();
 
     // Astryx `Dialog` always mounts its children — the native <dialog> just has no
@@ -77,7 +77,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('creates a worker from the filled-in name and closes the dialog', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { onCreated } = renderDialog();
 
     await user.click(screen.getByRole('button', { name: 'Add employee' }));
@@ -96,7 +96,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('cancel closes the dialog without creating a worker', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { onCreated } = renderDialog();
 
     await user.click(screen.getByRole('button', { name: 'Add employee' }));
@@ -111,7 +111,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('renders the CV upload label and format hint visibly, not screen-reader-only', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDialog();
 
     await user.click(screen.getByRole('button', { name: 'Add employee' }));
@@ -129,7 +129,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('blocks submit on an empty name with an inline error instead of a disabled button', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { onCreated } = renderDialog();
 
     await user.click(screen.getByRole('button', { name: 'Add employee' }));
@@ -146,7 +146,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('clears a field error as soon as the user edits that field', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDialog();
 
     await user.click(screen.getByRole('button', { name: 'Add employee' }));
@@ -160,7 +160,7 @@ describe('CreateWorkerDialog', () => {
   });
 
   it('blocks submit on a malformed email with an inline error on that field', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDialog();
 
     await user.click(screen.getByRole('button', { name: 'Add employee' }));

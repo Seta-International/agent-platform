@@ -16,6 +16,14 @@ import { integrationsRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+/**
+ * Nightly M365 directory sync (design §10). The task name is snake_case, not the design's
+ * literal `m365.directory.pull-cron`: graphile-worker's `CRONTAB_COMMAND` allows
+ * `[_a-zA-Z][_a-zA-Z0-9:/_-]*` only, so a dotted task makes the whole crontab unparseable and
+ * `run()` rejects — the worker would fail to boot rather than skip the line.
+ */
+const M365_CRONTAB = '30 2 * * * m365_directory_pull_cron';
+
 export interface IntegrationsRegisterDeps {
   cryptoSvc?: Crypto;
   mailerEnv?: MailerEnv;
@@ -57,6 +65,9 @@ export function registerIntegrationsContributions(
       { table: 'integrations.m365_resource_etags', policy: { kind: 'permanent' } },
       { table: 'integrations.m365_tenant_config', policy: { kind: 'permanent' } },
       { table: 'integrations.mail_transport_config', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_person_links', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_org_unit_links', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_directory_conflict', policy: { kind: 'permanent' } },
     ]);
   }
 
@@ -97,7 +108,10 @@ export function registerIntegrationsContributions(
     rbac: integrationsRbac,
     subscribers: buildM365Subscribers(),
     errorMapper: integrationsErrorMapper,
-    ...(m365Boot ? { jobs: m365Boot.jobs } : {}),
+    // Contributed only alongside the jobs that serve it: graphile-worker does not check a
+    // crontab line against the task list, so a line shipped without its handler would enqueue a
+    // failing job every night forever (design §10).
+    ...(m365Boot ? { jobs: m365Boot.jobs, crontab: M365_CRONTAB } : {}),
     ...(routes ? { routes } : {}),
   });
 }

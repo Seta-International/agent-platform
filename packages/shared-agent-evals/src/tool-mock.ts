@@ -8,7 +8,7 @@ import type { DatasetItemToolMock } from './dataset.ts';
  * model's generation stays real. Schemas are permissive on purpose — the mock
  * just needs to be callable by the loop.
  */
-export function buildMockTools(mocks: DatasetItemToolMock[]): AgentTool[] {
+export function buildMockTools(mocks: DatasetItemToolMock[]) {
   return mocks.map((m) =>
     defineAgentTool({
       id: m.toolId,

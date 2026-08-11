@@ -59,6 +59,37 @@ export type IntegrationsEvent =
       };
     }
   | {
+      /** One directory pull finished (design §11). Payload is the §11 counter set. */
+      type: 'integrations.m365.directory.synced';
+      payload: {
+        tenant_id: string;
+        full: boolean;
+        users_seen: number;
+        users_filtered: number;
+        users_created: number;
+        users_updated: number;
+        users_unchanged: number;
+        users_collided: number;
+        users_removed: number;
+        org_units_created: number;
+        org_units_renamed: number;
+        heads_set: number;
+        manager_ambiguous: number;
+        photos_stored: number;
+        photos_missing: number;
+        mailbox_forbidden: number;
+      };
+    }
+  | {
+      /**
+       * An Entra user vanished from the directory. The link row is soft-removed and a
+       * `user_removed` conflict is raised; the person is deliberately left alone (§8.3 —
+       * offboarding stays a human decision).
+       */
+      type: 'integrations.m365.directory.user.removed';
+      payload: { tenant_id: string; entra_oid: string; person_id: string };
+    }
+  | {
       type: 'integrations.m365.plan.field-conflict';
       payload: {
         tenant_id: string;

@@ -3,6 +3,7 @@ import {
   defineAgentTool,
   recordEntityExposure,
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
@@ -18,15 +19,7 @@ export const plannerAssignTaskTool = defineAgentTool({
     'Use only when the user explicitly wants to ADD a collaborator alongside current owners.\n' +
     'When the user says "assign to X" or "reassign to X", use planner_setAssignees instead.',
   input: z.object({
-    taskRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
-        'Task UUID, or an ordinal reference into your working memory `recentTasks` list: ' +
-          '"#1" / "1" / "first" → most recent, "#2" / "second" → next, "last" → most recent. ' +
-          'Prefer ordinals when the user is referring to something you just discussed.',
-      ),
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
     assigneeUserId: z.string().uuid().describe('The user ID to assign to the task'),
   }),
   output: z.object({

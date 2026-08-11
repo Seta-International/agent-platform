@@ -17,7 +17,7 @@ describe('buildMockTools', () => {
     // fail requestContext-schema validation before the canned respond() ever
     // runs. Use the SDK's own test helper to build a genuine ctx, so this is
     // a real execute call through the real wrapper, not a bypass.
-    const out = await tool.execute!({ q: 'hi' }, makeToolContext({ user_id: 'u1' }));
+    const out = await tool.execute({ q: 'hi' }, makeToolContext({ user_id: 'u1' }));
     expect(out).toEqual({ echoed: { q: 'hi' } });
   });
 });

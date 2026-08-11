@@ -65,7 +65,7 @@ function LifecycleBadge({ stage }: { stage: string | null }) {
 // All columns are toggleable. 'full_name' appears in the Columns menu like
 // every other column — always on by default, but can be hidden.
 const COLUMN_OPTIONS: ColumnSettingsOption[] = [
-  { key: 'full_name', label: 'Employee' },
+  { key: 'full_name', label: 'Name' },
   { key: 'accounts', label: 'Account' },
   { key: 'work_email', label: 'Work email' },
   { key: 'manager_name', label: 'Direct manager' },
@@ -169,7 +169,13 @@ export function PeoplePage() {
   const columnSettingsState = useTableColumnSettingsState({
     columns: COLUMN_OPTIONS,
     activeColumnKeys,
-    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+    // FUT-856: re-enabling a hidden column must restore it to its default slot, not append it in
+    // re-enable order. The library's toggleColumn pushes onto the end of activeColumnKeys; sorting
+    // by the canonical COLUMN_OPTIONS order keeps the layout fixed while toggling visibility.
+    // ponytail: no user column reordering exists yet — if drag-reorder arrives, sort only NEWLY added
+    // keys and preserve manual order for the rest.
+    onChangeActiveColumnKeys: (keys) =>
+      setActiveColumnKeys(COLUMN_OPTIONS.map((c) => c.key).filter((k) => keys.includes(k))),
   });
   const columnSettings = useTableColumnSettings<WorkerRow>(
     columnSettingsState.columnSettingsConfig,
@@ -179,12 +185,14 @@ export function PeoplePage() {
     () => [
       {
         key: 'full_name',
-        header: 'Employee',
+        header: 'Name',
         width: proportional(2),
         sortable: true,
         renderCell: (r) => (
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar name={r.full_name} size={32} />
+            {/* Name is spelled out beside the avatar, so Astryx's name-on-hover
+                tooltip would only duplicate it in the a11y tree. */}
+            <Avatar name={r.full_name} src={r.photo_url ?? undefined} size={32} tooltip={false} />
             <div className="min-w-0">
               <div className="truncate font-medium">{r.full_name}</div>
               {r.job_title && (
@@ -198,21 +206,15 @@ export function PeoplePage() {
         key: 'accounts',
         header: 'Account',
         width: proportional(1),
-        renderCell: (r) =>
-          r.accounts.length > 0 ? (
-            <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
-              {r.accounts.map((a) => (
-                <Badge
-                  key={a.id}
-                  variant="neutral"
-                  className="text-xs px-1.5 py-0 whitespace-nowrap"
-                  label={a.name}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center h-5 text-secondary">—</div>
-          ),
+        renderCell: (r) => (
+          <CounterBadgePopover
+            items={r.accounts}
+            title="Account"
+            limit={2}
+            type="badge"
+            badgeVariant="neutral"
+          />
+        ),
       },
       {
         key: 'work_email',
@@ -302,16 +304,12 @@ export function PeoplePage() {
           <VStack gap={1}>
             <Breadcrumbs variant="supporting">
               <BreadcrumbItem href="/people">People</BreadcrumbItem>
-              {/* Deliberate exception to the title-wins rule: the page's h1 is "People", which
-                  collides with the app root crumb above. "Employees" is the manifest nav label
-                  for /people/employees — the item a user actually clicks to reach this page —
-                  and keeps this trail consistent with worker-profile-page's middle crumb. */}
               <BreadcrumbItem isCurrent>Employees</BreadcrumbItem>
             </Breadcrumbs>
             <HStack hAlign="between" vAlign="center" gap={2}>
               <HStack gap={2} vAlign="center">
                 <Text as="h1" size="lg" weight="semibold">
-                  People
+                  Employees
                 </Text>
               </HStack>
               {actions}

@@ -51,9 +51,7 @@ describe('TransferDialog', () => {
       { wrapper: wrap(qc) },
     );
     const dialog = screen.getByRole('dialog');
-    expect(
-      within(dialog).getByRole('heading', { name: 'Move to another role' }),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Change role' })).toBeInTheDocument();
     // Wait for query to load so effectiveTarget resolves to r2 (excludes current r1)
     await waitFor(() =>
       expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),

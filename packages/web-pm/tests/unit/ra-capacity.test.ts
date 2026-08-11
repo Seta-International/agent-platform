@@ -26,7 +26,7 @@ describe('peakConcurrentPct', () => {
     ).toBe(100);
   });
 
-  it('skips open-ended rows missing a date', () => {
+  it('skips open-ended rows missing a date when no window is provided', () => {
     expect(
       peakConcurrentPct(
         [
@@ -36,6 +36,18 @@ describe('peakConcurrentPct', () => {
         {},
       ),
     ).toBe(0);
+  });
+
+  it('includes open-ended rows missing date_from when window is provided', () => {
+    expect(
+      peakConcurrentPct(
+        [
+          { date_from: null, date_to: '2026-06-30', planned_pct: 60 },
+          { date_from: '2026-01-01', date_to: '2026-06-30', planned_pct: 60 },
+        ],
+        { from: '2026-01-01', to: '2026-12-31' },
+      ),
+    ).toBe(120);
   });
 
   it('clips to the active window', () => {

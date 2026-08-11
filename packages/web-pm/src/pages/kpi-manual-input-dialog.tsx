@@ -12,6 +12,8 @@ import {
   Button,
   Dialog,
   DialogHeader,
+  EmptyState,
+  Heading,
   HStack,
   Layout,
   LayoutContent,
@@ -19,28 +21,27 @@ import {
   NumberInput,
   Selector,
   Skeleton,
-  StatusDot,
   Text,
-  toast,
+  useToast,
 } from './_ui-compat.tsx';
 import {
   computeCategoryHealth,
   computeEntryStatus,
-  computeMetricValue,
   computeOverallHealth,
+  computeScoredValue,
   formatBandTriple,
   hasKpiEntryIssue,
   isReportingWeekOpen,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
-  kpiComponentIssue,
+  kpiValuePrecision,
   metricUnit,
   ragBadge,
   validateKpiEntry,
 } from './kpi-shared.tsx';
 
 function blockNonNumericPaste(e: React.ClipboardEvent<HTMLInputElement>) {
-  if (!/^-?\d*\.?\d*$/.test(e.clipboardData.getData('text'))) e.preventDefault();
+  if (!/^-?\d*[.,]?\d*$/.test(e.clipboardData.getData('text'))) e.preventDefault();
 }
 
 // Number-native, matching Astryx NumberInput: null = not measured yet (an empty box), a number
@@ -48,20 +49,15 @@ function blockNonNumericPaste(e: React.ClipboardEvent<HTMLInputElement>) {
 type Entry = { c1: number | null; c2: number | null };
 type EntryState = Record<string, Entry>;
 const EMPTY_ENTRY: Entry = { c1: null, c2: null };
+const NO_ENTRIES: EntryState = {};
 
 function withSlot(entry: Entry, slot: 'c1' | 'c2', value: number | null): Entry {
   return slot === 'c1' ? { c1: value, c2: entry.c2 } : { c1: entry.c1, c2: value };
 }
 
-const HIDE_STATUS_ICON = '[&>.astryx-icon]:hidden!';
+const COMPONENT_BOX_WIDTH = 96;
 
-// RAG colour → Astryx status variant (chromatic colour is reserved for status, matching the
-// weekly reports page); null (nothing measured yet) reads as neutral.
-const RAG_DOT_VARIANT = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'error',
-} as const;
+const HIDE_STATUS_ICON = '[&>.astryx-icon]:hidden!';
 
 export function KpiManualInputDialog({
   initial,
@@ -75,11 +71,17 @@ export function KpiManualInputDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [projectId, setProjectId] = useState(initial.project_id);
   const [isoYear, setIsoYear] = useState(initial.iso_year);
   const [isoWeek, setIsoWeek] = useState(initial.iso_week);
-  const [entries, setEntries] = useState<EntryState>({});
-  const valueAtFocus = useRef<number | null>(null);
+  const [entriesByRecord, setEntriesByRecord] = useState<Record<string, EntryState>>({});
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  const reloadKeys = useRef(new Set<string>());
+  const formRef = useRef<HTMLDivElement>(null);
+
+  const recordKey = `${projectId}:${isoYear}:${isoWeek}`;
+  const entries = entriesByRecord[recordKey] ?? NO_ENTRIES;
 
   const recordQuery = useQuery({
     queryKey: pmKeys.kpiRecord({ project_id: projectId, iso_year: isoYear, iso_week: isoWeek }),
@@ -90,34 +92,58 @@ export function KpiManualInputDialog({
   // Prefill from the saved record whenever the query resolves for the current project/week —
   // fixes the mockup's own known bug where Edit always opened blank (functional-analysis.md §2b).
   useEffect(() => {
-    if (!recordQuery.data) return;
-    const next: EntryState = {};
-    for (const m of recordQuery.data.metrics) {
-      next[m.metric_id] = { c1: m.component_1_value, c2: m.component_2_value };
-    }
-    setEntries(next);
-  }, [recordQuery.data]);
+    const data = recordQuery.data;
+    if (!data) return;
+    const forced = reloadKeys.current.delete(recordKey);
+    setEntriesByRecord((prev) => {
+      if (prev[recordKey] && !forced) return prev;
+      const next: EntryState = {};
+      for (const m of data.metrics) {
+        next[m.metric_id] = { c1: m.component_1_value, c2: m.component_2_value };
+      }
+      return { ...prev, [recordKey]: next };
+    });
+  }, [recordQuery.data, recordKey]);
+
+  useEffect(() => {
+    const root = formRef.current;
+    if (!root) return;
+    const guard = (e: WheelEvent) => {
+      const el = e.target;
+      if (el instanceof HTMLInputElement && el.type === 'number' && el === document.activeElement) {
+        el.blur();
+      }
+    };
+    root.addEventListener('wheel', guard, true);
+    return () => root.removeEventListener('wheel', guard, true);
+  }, []);
 
   const metrics: KpiRecordMetricRow[] = recordQuery.data?.metrics ?? [];
 
-  const setComponent = (metric_id: string, slot: 'c1' | 'c2', next: number) => {
-    setEntries((prev) => ({
-      ...prev,
-      [metric_id]: withSlot(prev[metric_id] ?? EMPTY_ENTRY, slot, next),
-    }));
+  const orderedMetrics = useMemo(
+    () => KPI_CATEGORIES.flatMap((cat) => metrics.filter((m) => m.category === cat)),
+    [metrics],
+  );
+
+  const fieldRefs = useRef(new Map<string, HTMLInputElement>());
+  const registerField = (key: string) => (el: HTMLInputElement | null) => {
+    if (el) fieldRefs.current.set(key, el);
+    else fieldRefs.current.delete(key);
   };
 
-  const rememberOnFocus = (metric_id: string, slot: 'c1' | 'c2') => {
-    valueAtFocus.current = entries[metric_id]?.[slot] ?? null;
-  };
-
-  const restoreOnBlur = (metric: KpiRecordMetricRow, slot: 'c1' | 'c2') => {
-    const restored = valueAtFocus.current;
-    setEntries((prev) => {
-      const cur = prev[metric.metric_id] ?? EMPTY_ENTRY;
-      if (!kpiComponentIssue(metric, slot === 'c1' ? 1 : 2, cur[slot])) return prev;
-      return { ...prev, [metric.metric_id]: withSlot(cur, slot, restored) };
+  const editEntries = (fn: (cur: EntryState) => EntryState) => {
+    setEntriesByRecord((prev) => {
+      const cur = prev[recordKey] ?? NO_ENTRIES;
+      const next = fn(cur);
+      return next === cur ? prev : { ...prev, [recordKey]: next };
     });
+  };
+
+  const setComponent = (metric_id: string, slot: 'c1' | 'c2', next: number | null) => {
+    editEntries((cur) => ({
+      ...cur,
+      [metric_id]: withSlot(cur[metric_id] ?? EMPTY_ENTRY, slot, next),
+    }));
   };
 
   // FUT-595 AC4: a colour computed from values the user typed but has NOT saved yet is a
@@ -145,7 +171,12 @@ export function KpiManualInputDialog({
       issuesByMetric.set(m.metric_id, issues);
       const value = hasKpiEntryIssue(issues)
         ? null
-        : computeMetricValue(m.component_count, e.c1, e.c2);
+        : computeScoredValue(
+            m.component_count,
+            e.c1,
+            e.c2,
+            kpiValuePrecision(m.green_band, m.yellow_band, m.red_band),
+          );
       statusByMetric.set(
         m.metric_id,
         computeEntryStatus(value, m.green_band, m.yellow_band, m.red_band),
@@ -168,13 +199,34 @@ export function KpiManualInputDialog({
     return { issuesByMetric, statusByMetric, categoryHealth, overall, completeCount, hasIssue };
   }, [metrics, entries]);
 
+  const saveBlock = useMemo(() => {
+    const fields: string[] = [];
+    for (const m of orderedMetrics) {
+      const issues = live.issuesByMetric.get(m.metric_id);
+      if (issues?.component_1) fields.push(`${m.metric_id}:c1`);
+      if (issues?.component_2) fields.push(`${m.metric_id}:c2`);
+    }
+    if (fields.length > 0) {
+      const noun = fields.length === 1 ? 'figure needs' : 'figures need';
+      return { field: fields[0] ?? null, message: `${fields.length} ${noun} fixing` };
+    }
+    if (live.completeCount === 0) {
+      const first = orderedMetrics[0];
+      return {
+        field: first ? `${first.metric_id}:c1` : null,
+        message: 'Enter at least one figure to save',
+      };
+    }
+    return null;
+  }, [orderedMetrics, live]);
+
   const save = useMutation({
     mutationFn: () =>
       upsertKpiRecordApi({
         project_id: projectId,
         iso_year: isoYear,
         iso_week: isoWeek,
-        expected_version: recordQuery.data?.version ?? undefined,
+        expected_version: recordQuery.data ? recordQuery.data.version : undefined,
         entries: metrics.map((m) => {
           const e = entries[m.metric_id] ?? EMPTY_ENTRY;
           return {
@@ -185,7 +237,7 @@ export function KpiManualInputDialog({
         }),
       }),
     onSuccess: () => {
-      toast.success('KPI record saved');
+      toast({ body: 'KPI record saved' });
       queryClient.invalidateQueries({ queryKey: pmKeys.all });
       onOpenChange(false);
     },
@@ -193,6 +245,7 @@ export function KpiManualInputDialog({
       // FUT-594 AC4: a stale save (another tab/reporter saved first) must not overwrite
       // blindly — refetch so the form reloads the latest values before the next attempt.
       if (err.status === 409) {
+        reloadKeys.current.add(recordKey);
         queryClient.invalidateQueries({
           queryKey: pmKeys.kpiRecord({
             project_id: projectId,
@@ -200,12 +253,28 @@ export function KpiManualInputDialog({
             iso_week: isoWeek,
           }),
         });
-        toast.error('Someone saved this record first — reloaded the latest values.');
+        toast({
+          body: 'Someone saved this record first — reloaded the latest values.',
+          type: 'error',
+        });
         return;
       }
-      toast.error(err.message || 'Could not save record');
+      toast({ body: err.message || 'Could not save record', type: 'error' });
     },
   });
+
+  const onSaveClick = () => {
+    if (!saveBlock) {
+      save.mutate();
+      return;
+    }
+    setSaveAttempted(true);
+    const el = saveBlock.field ? fieldRefs.current.get(saveBlock.field) : undefined;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+  };
 
   const isNewRecord = recordQuery.data?.record_id == null;
   // Epic 3 week gate, mirrored client-side: only the current week (before Friday 17:00 VNT)
@@ -213,7 +282,7 @@ export function KpiManualInputDialog({
   const weekOpen = isReportingWeekOpen(isoYear, isoWeek, weeks[0]);
 
   return (
-    <Dialog isOpen onOpenChange={onOpenChange} width={760} maxHeight="85vh">
+    <Dialog isOpen onOpenChange={onOpenChange} width={760} maxHeight="85vh" purpose="form">
       <Layout
         header={
           <DialogHeader
@@ -227,53 +296,19 @@ export function KpiManualInputDialog({
                     Previewing
                   </Badge>
                 ) : null}
-                {isNewRecord ? <span className="text-xs text-secondary">New record</span> : null}
+                {isNewRecord ? (
+                  <Text type="supporting" color="secondary">
+                    New record
+                  </Text>
+                ) : null}
               </div>
             }
           />
         }
         content={
           <LayoutContent>
-            <div className="space-y-4">
-              {projectId && metrics.length > 0 ? (
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {KPI_CATEGORIES.map((cat) => {
-                    const health = live.categoryHealth[cat];
-                    const label =
-                      health === 'green' ? 'Green' : health === 'yellow' ? 'Amber' : 'Red';
-                    const name =
-                      KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
-                    const off = health !== 'green';
-                    return (
-                      <span
-                        key={cat}
-                        className="flex items-center gap-1.5"
-                        title={`${KPI_CATEGORY_LABELS[cat]}: ${label}`}
-                      >
-                        <StatusDot
-                          variant={RAG_DOT_VARIANT[health]}
-                          label={`${KPI_CATEGORY_LABELS[cat]}: ${label}`}
-                        />
-                        <Text
-                          type="supporting"
-                          color={off ? 'primary' : 'secondary'}
-                          weight={off ? 'semibold' : 'normal'}
-                        >
-                          {name}
-                        </Text>
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : null}
-
+            <div ref={formRef} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <Selector
-                  label="Project"
-                  options={projects}
-                  value={projectId}
-                  onChange={setProjectId}
-                />
                 <Selector
                   label="Reporting week"
                   options={weeks.map((w) => ({
@@ -287,12 +322,20 @@ export function KpiManualInputDialog({
                     setIsoWeek(Number(w));
                   }}
                 />
+                <Selector
+                  label="Project"
+                  options={projects}
+                  value={projectId}
+                  onChange={setProjectId}
+                />
               </div>
 
               {!projectId ? (
-                <p className="rounded-lg bg-surface px-3 py-8 text-center text-sm text-secondary">
-                  Pick a project above to enter KPIs — every record is pinned to a Project + Week.
-                </p>
+                <EmptyState
+                  isCompact
+                  title="No project selected"
+                  description="Pick a project above to enter KPIs — every record is pinned to a Project + Week."
+                />
               ) : recordQuery.isLoading ? (
                 <Skeleton className="h-64 w-full" />
               ) : (
@@ -303,7 +346,7 @@ export function KpiManualInputDialog({
                       title="This week is view-only — KPI records lock with the week at Friday 5:00 PM (VNT)."
                     />
                   ) : null}
-                  <div className="rounded-md border border-border">
+                  <div className="rounded-lg border border-border">
                     <div className="grid grid-cols-12 gap-3 border-b border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-secondary">
                       <div className="col-span-6">Metric</div>
                       <div className="col-span-4">Formula components</div>
@@ -315,10 +358,8 @@ export function KpiManualInputDialog({
                         if (catMetrics.length === 0) return null;
                         return (
                           <div key={cat}>
-                            <div className="sticky top-0 z-10 bg-card py-1.5">
-                              <h3 className="text-sm font-semibold text-primary">
-                                {KPI_CATEGORY_LABELS[cat]}
-                              </h3>
+                            <div className="sticky top-0 z-10 bg-surface py-1.5">
+                              <Heading level={3}>{KPI_CATEGORY_LABELS[cat]}</Heading>
                             </div>
                             {catMetrics.map((m) => {
                               const e = entries[m.metric_id] ?? EMPTY_ENTRY;
@@ -336,14 +377,14 @@ export function KpiManualInputDialog({
                                   className="grid grid-cols-12 items-center gap-3 border-b border-border py-3 last:border-0"
                                 >
                                   <div className="col-span-6">
-                                    <div className="flex items-center gap-2 font-medium text-primary">
+                                    <div className="flex items-center gap-2 text-base font-medium text-primary">
                                       {m.name}
                                       <Badge variant="outline" className="font-normal">
                                         {metricUnit(m.name, m.component_count, m.component_1_label)}
                                       </Badge>
                                     </div>
-                                    <div className="text-xs text-secondary">{m.formula_label}</div>
-                                    <div className="text-xs">
+                                    <div className="text-sm text-secondary">{m.formula_label}</div>
+                                    <div className="text-xs tabular-nums">
                                       <span className="text-success">{bands.green}</span>
                                       <span className="text-secondary"> · </span>
                                       <span className="text-warning">{bands.yellow}</span>
@@ -353,10 +394,12 @@ export function KpiManualInputDialog({
                                   </div>
                                   <div className="col-span-4 flex items-start gap-1.5">
                                     <NumberInput
+                                      ref={registerField(`${m.metric_id}:c1`)}
                                       label={m.component_1_label}
                                       isLabelHidden
-                                      width={88}
+                                      width={COMPONENT_BOX_WIDTH}
                                       value={e.c1}
+                                      hasClear
                                       isDisabled={!weekOpen}
                                       className={HIDE_STATUS_ICON}
                                       status={
@@ -366,22 +409,22 @@ export function KpiManualInputDialog({
                                       }
                                       onPaste={blockNonNumericPaste}
                                       onChange={(next) => setComponent(m.metric_id, 'c1', next)}
-                                      onFocus={() => rememberOnFocus(m.metric_id, 'c1')}
-                                      onBlur={() => restoreOnBlur(m, 'c1')}
                                     />
                                     {m.component_count === 2 ? (
                                       <>
                                         <span
-                                          className="flex items-center text-secondary"
+                                          className="flex items-center text-sm text-secondary"
                                           style={{ height: 'var(--size-element-md)' }}
                                         >
                                           /
                                         </span>
                                         <NumberInput
+                                          ref={registerField(`${m.metric_id}:c2`)}
                                           label={m.component_2_label ?? ''}
                                           isLabelHidden
-                                          width={88}
+                                          width={COMPONENT_BOX_WIDTH}
                                           value={e.c2}
+                                          hasClear
                                           isDisabled={!weekOpen}
                                           className={HIDE_STATUS_ICON}
                                           status={
@@ -391,8 +434,6 @@ export function KpiManualInputDialog({
                                           }
                                           onPaste={blockNonNumericPaste}
                                           onChange={(next) => setComponent(m.metric_id, 'c2', next)}
-                                          onFocus={() => rememberOnFocus(m.metric_id, 'c2')}
-                                          onBlur={() => restoreOnBlur(m, 'c2')}
                                         />
                                       </>
                                     ) : null}
@@ -415,20 +456,16 @@ export function KpiManualInputDialog({
         }
         footer={
           <LayoutFooter hasDivider>
-            <HStack gap={2} hAlign="end">
+            <HStack gap={2} hAlign="end" vAlign="center">
+              {saveAttempted && saveBlock ? (
+                <span className="text-sm text-error">{saveBlock.message}</span>
+              ) : null}
               <Button variant="ghost" label="Cancel" onClick={() => onOpenChange(false)} />
               <Button
                 variant="primary"
                 label={save.isPending ? 'Saving…' : 'Save record'}
-                onClick={() => save.mutate()}
-                disabled={
-                  !weekOpen ||
-                  !projectId ||
-                  save.isPending ||
-                  recordQuery.isLoading ||
-                  live.hasIssue ||
-                  live.completeCount === 0
-                }
+                onClick={onSaveClick}
+                disabled={!weekOpen || !projectId || save.isPending || recordQuery.isLoading}
               />
             </HStack>
           </LayoutFooter>

@@ -29,6 +29,8 @@ export interface WorkerListRow {
   employee_no: string | null;
   accounts: { id: string; name: string }[];
   skills: { id: string; name: string; level: number | null }[];
+  /** App path to the person's M365 photo; null when there is none (avatar renders initials). */
+  photo_url: string | null;
 }
 
 export interface WorkerDetail extends WorkerListRow {

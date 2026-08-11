@@ -41,17 +41,22 @@ describe('Astryx useToast under happy-dom', () => {
     expect(await within(viewport).findByText('Saved successfully')).toBeInTheDocument();
   });
 
+  // Scoped to the viewport, not `screen`: Astryx announces through a singleton
+  // visually-hidden live region appended to document.body (useAnnounce), and the
+  // assertive one also carries role="alert". Only the viewport holds real toasts.
   it('shows an error toast as role=alert', async () => {
     const user = userEvent.setup();
     renderHarness();
     await user.click(screen.getByRole('button', { name: 'error' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('It broke');
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent('It broke');
   });
 
   it('does not leak toasts from earlier tests', async () => {
     const user = userEvent.setup();
     renderHarness();
     await user.click(screen.getByRole('button', { name: 'error' }));
-    expect(await screen.findAllByRole('alert')).toHaveLength(1);
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findAllByRole('alert')).toHaveLength(1);
   });
 });

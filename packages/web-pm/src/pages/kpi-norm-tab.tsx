@@ -6,7 +6,7 @@ import {
 } from '@seta/pm/contracts';
 import { useState } from 'react';
 import type { KpiCategory, KpiNormDoc, KpiNormMetricRow } from '../api/pm-client.ts';
-import { Badge, EmptyState, Input, Skeleton } from './_ui-compat.tsx';
+import { Badge, EmptyState, Heading, Input, Skeleton } from './_ui-compat.tsx';
 import {
   formatBandTriple,
   KPI_CATEGORIES,
@@ -15,7 +15,7 @@ import {
   metricUnit,
 } from './kpi-shared.tsx';
 
-const ROW_GRID = 'grid-cols-[3fr_2fr_2fr_2fr_4fr]';
+const ROW_GRID = 'grid-cols-[4fr_2fr_2fr_2fr_4fr]';
 
 const SECTION_HEADING = 'sticky top-0 z-10 flex items-baseline gap-2 bg-card py-2';
 
@@ -29,31 +29,27 @@ function MetricRow({ metric }: { metric: KpiNormMetricRow }) {
   );
   const unit = metricUnit(metric.name, metric.component_count, metric.component_1_label);
   return (
-    <div
-      className={`grid ${ROW_GRID} min-h-16 gap-3 border-b border-border py-3 text-sm last:border-0`}
-    >
+    <div className={`grid ${ROW_GRID} min-h-16 gap-3 border-b border-border py-3 last:border-0`}>
       <div>
-        <div className="flex items-center gap-2 font-medium text-primary">
+        <div className="flex flex-wrap items-center gap-2 text-base font-medium text-primary">
           {metric.name}
           <Badge variant="outline" className="font-normal">
             {unit}
           </Badge>
         </div>
-        <div className="text-xs text-secondary">{metric.formula_label}</div>
+        <div className="text-sm text-secondary">{metric.formula_label}</div>
       </div>
-      <div className="tabular-nums text-success">{bands.green}</div>
-      <div className="tabular-nums text-warning">{bands.yellow}</div>
-      <div className="tabular-nums text-error">{bands.red}</div>
-      <div className="text-xs text-secondary">{metric.insight}</div>
+      <div className="text-sm tabular-nums text-success">{bands.green}</div>
+      <div className="text-sm tabular-nums text-warning">{bands.yellow}</div>
+      <div className="text-sm tabular-nums text-error">{bands.red}</div>
+      <div className="text-sm text-secondary">{metric.insight}</div>
     </div>
   );
 }
 
 function BandColumnHeader() {
   return (
-    <div
-      className={`grid ${ROW_GRID} gap-3 border-b border-border px-3 py-1.5 text-xs uppercase tracking-wide`}
-    >
+    <div className={`grid ${ROW_GRID} gap-3 border-b border-border px-3 py-1.5 text-base`}>
       <div>Metric</div>
       <div className="text-success">Green</div>
       <div className="text-warning">Amber</div>
@@ -75,8 +71,8 @@ function CategorySection({
   return (
     <section className="space-y-2">
       <div className={SECTION_HEADING}>
-        <h3 className="text-base font-semibold text-primary">{KPI_CATEGORY_LABELS[category]}</h3>
-        <span className="text-xs text-secondary">
+        <Heading level={3}>{KPI_CATEGORY_LABELS[category]}</Heading>
+        <span className="text-sm text-secondary">
           {metrics.length} metric{metrics.length === 1 ? '' : 's'} ·{' '}
           {Math.round(KPI_OHS_WEIGHTS[category] * 100)}% of OHS
         </span>
@@ -118,17 +114,15 @@ function CategorySection({
 
 function ReferenceRow({ metric }: { metric: KpiReferenceMetric }) {
   return (
-    <div
-      className={`grid ${ROW_GRID} min-h-16 gap-3 border-b border-border py-3 text-sm last:border-0`}
-    >
+    <div className={`grid ${ROW_GRID} min-h-16 gap-3 border-b border-border py-3 last:border-0`}>
       <div>
-        <div className="font-medium text-primary">{metric.name}</div>
-        <div className="text-xs text-secondary">{metric.formula_label}</div>
+        <div className="text-base font-medium text-primary">{metric.name}</div>
+        <div className="text-sm text-secondary">{metric.formula_label}</div>
       </div>
-      <div className="text-success">{metric.green_label}</div>
-      <div className="text-warning">{metric.yellow_label}</div>
-      <div className="text-error">{metric.red_label}</div>
-      <div className="text-xs text-secondary">{metric.insight}</div>
+      <div className="text-sm tabular-nums text-success">{metric.green_label}</div>
+      <div className="text-sm tabular-nums text-warning">{metric.yellow_label}</div>
+      <div className="text-sm tabular-nums text-error">{metric.red_label}</div>
+      <div className="text-sm text-secondary">{metric.insight}</div>
     </div>
   );
 }
@@ -151,8 +145,8 @@ function MethodologyLensSection({ q }: { q: string }) {
   return (
     <section className="space-y-2">
       <div className={SECTION_HEADING}>
-        <h3 className="text-base font-semibold text-primary">Methodology lens</h3>
-        <span className="text-xs text-secondary">
+        <Heading level={3}>Methodology lens</Heading>
+        <span className="text-sm text-secondary">
           supplementary lens per methodology — does not replace Core
         </span>
       </div>
@@ -184,8 +178,8 @@ function ExecutiveSection({ q }: { q: string }) {
   return (
     <section className="space-y-2">
       <div className={SECTION_HEADING}>
-        <h3 className="text-base font-semibold text-primary">Executive — Engineering Health</h3>
-        <span className="text-xs text-secondary">quarterly · EQI / TDI → Executive Matrix 2×2</span>
+        <Heading level={3}>Executive — Engineering Health</Heading>
+        <span className="text-sm text-secondary">quarterly · EQI / TDI → Executive Matrix 2×2</span>
       </div>
       <div className="rounded-md border border-border">
         <BandColumnHeader />
@@ -210,7 +204,7 @@ export function KpiNormTab({ norm, isLoading }: { norm: KpiNormDoc | null; isLoa
   const [query, setQuery] = useState('');
   if (isLoading) {
     return (
-      <div className="space-y-3 py-4">
+      <div className="space-y-3 pb-4">
         <Skeleton className="h-6 w-64" />
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-40 w-full" />
@@ -232,7 +226,7 @@ export function KpiNormTab({ norm, isLoading }: { norm: KpiNormDoc | null; isLoa
     KPI_EXECUTIVE_METRICS.some((m) => referenceMatches(m, q));
 
   return (
-    <div className="max-w-7xl space-y-6 py-4">
+    <div className="max-w-7xl space-y-6 pb-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Input
           value={query}

@@ -61,7 +61,6 @@ export async function ensureKpiNormSeeded(tx: NodeTx, tenant_id: string): Promis
         yellow_band: m.yellow_band,
         red_band: m.red_band,
         insight: m.insight,
-        is_live_capable: m.is_live_capable,
         sort_order: m.sort_order,
       })),
     )
@@ -129,7 +128,6 @@ export interface KpiNormMetricRow {
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
-  is_live_capable: boolean;
 }
 
 export interface KpiNormDoc {
@@ -174,7 +172,6 @@ export async function getKpiNorm(session: SessionScope): Promise<KpiNormDoc | nu
       yellow_band: kpiNormMetric.yellow_band,
       red_band: kpiNormMetric.red_band,
       insight: kpiNormMetric.insight,
-      is_live_capable: kpiNormMetric.is_live_capable,
     })
     .from(kpiNormMetric)
     .where(and(tenantScoped(kpiNormMetric.tenant_id, session), eq(kpiNormMetric.norm_id, norm.id)))
@@ -203,7 +200,6 @@ export async function getKpiNorm(session: SessionScope): Promise<KpiNormDoc | nu
       yellow_band: r.yellow_band as BandCondition,
       red_band: r.red_band as BandCondition,
       insight: r.insight,
-      is_live_capable: r.is_live_capable,
     })),
   };
 }

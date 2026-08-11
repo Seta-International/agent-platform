@@ -27,6 +27,16 @@ describe('hiring contracts (HIR-2)', () => {
     expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 9 }).success).toBe(true);
     expect(openRequisitionInput.safeParse({ title: 'Dev', headcount: 1 }).success).toBe(true);
   });
+  it('validates title length bounds (1 <= length <= 100) (FUT-789)', () => {
+    expect(openRequisitionInput.safeParse({ title: '' }).success).toBe(false);
+    expect(openRequisitionInput.safeParse({ title: '   ' }).success).toBe(false);
+    expect(openRequisitionInput.safeParse({ title: 'A'.repeat(100) }).success).toBe(true);
+    expect(openRequisitionInput.safeParse({ title: 'A'.repeat(101) }).success).toBe(false);
+
+    expect(editRequisitionPatch.safeParse({ title: '' }).success).toBe(false);
+    expect(editRequisitionPatch.safeParse({ title: 'A'.repeat(100) }).success).toBe(true);
+    expect(editRequisitionPatch.safeParse({ title: 'A'.repeat(101) }).success).toBe(false);
+  });
   it('editRequisitionPatch rejects an unknown status value via stage enum', () => {
     expect(editRequisitionPatch.safeParse({ stage: 'bogus' }).success).toBe(false);
   });

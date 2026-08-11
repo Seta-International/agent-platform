@@ -12,7 +12,7 @@ import {
   reassignWorkerAllocations,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, buildSession, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -480,6 +480,77 @@ describe('reassignWorkerAllocations', () => {
         expect(preview.exceeds).toBe(true);
         expect(preview.peak_from).toBe('2026-07-01');
         expect(preview.peak_to).toBe('2026-12-31');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('flags restricted allocations when the worker has allocations outside the caller permission scope', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const amProject = await seedProject(t.adminSession, 'AM-Project');
+        const restrictedProject = await seedProject(t.adminSession, 'Restricted-Project');
+        const worker = crypto.randomUUID();
+
+        // 100% on restricted project
+        await createAllocation({
+          project_id: restrictedProject,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        // AM session with project.read / project.manage restricted to self scope
+        const amSession = buildSession({
+          user_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          worker_id: crypto.randomUUID(),
+          roles: ['pm.manager'],
+          assignments: [
+            {
+              role_slug: 'pm.manager',
+              scope_kind: 'self',
+              scope_id: null,
+            },
+          ],
+        });
+
+        const preview = await previewReassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' },
+          targets: [
+            {
+              project_id: amProject,
+              date_from: '2026-06-01',
+              date_to: '2026-12-31',
+              planned_pct: 100,
+              bucket: 'billable',
+            },
+          ],
+          session: amSession,
+        });
+
+        expect(preview.peak_pct).toBe(200);
+        expect(preview.exceeds).toBe(true);
+        expect(preview.has_restricted_allocations).toBe(true);
+        expect(preview.restricted_segments).toHaveLength(1);
+        expect(preview.restricted_segments[0]).toMatchObject({
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          planned_pct: 100,
+        });
       } finally {
         resetPmDb();
         resetCoreDb();

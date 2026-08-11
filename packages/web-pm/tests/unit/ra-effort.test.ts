@@ -7,21 +7,34 @@ import {
 } from '../../src/pages/ra-effort';
 
 describe('clippedCalendarEffort', () => {
-  it('computes inclusive month span × planned fraction', () => {
+  it('computes working days ÷ 22 × planned fraction', () => {
+    // 2026-01-01 to 2026-03-31 = 64 working days (22 + 20 + 22).
+    // (50 / 100) * (64 / 22) = 1.4545... -> 1.45
     expect(
       clippedCalendarEffort(
         { date_from: '2026-01-01', date_to: '2026-03-31', planned_pct: 50 },
         {},
       ),
-    ).toBe(1.5);
+    ).toBe(1.45);
+  });
+  it('prorates partial month allocations accurately (FUT-882 example)', () => {
+    // 2026-08-01 to 2026-08-09 = 5 working days (Mon 3 Aug to Fri 7 Aug).
+    // (50 / 100) * (5 / 22) = 0.1136... -> 0.11
+    expect(
+      clippedCalendarEffort(
+        { date_from: '2026-08-01', date_to: '2026-08-09', planned_pct: 50 },
+        {},
+      ),
+    ).toBe(0.11);
   });
   it('clips to the active window', () => {
+    // Jan-Jun 2026 = 129 working days. 1.0 * (129 / 22) = 5.8636... -> 5.86
     expect(
       clippedCalendarEffort(
         { date_from: '2026-01-01', date_to: '2026-12-31', planned_pct: 100 },
         { from: '2026-01-01', to: '2026-06-30' },
       ),
-    ).toBe(6);
+    ).toBe(5.86);
   });
   it('returns 0 for placeholder rows with no dates', () => {
     expect(clippedCalendarEffort({ date_from: null, date_to: null, planned_pct: 50 }, {})).toBe(0);
@@ -35,12 +48,13 @@ describe('clippedCalendarEffort', () => {
     ).toBe(0);
   });
   it('clips an open-ended row (no end date) to the window end instead of returning 0', () => {
+    // 2026-03-01 to 2026-06-30 = 87 working days. 1.0 * (87 / 22) = 3.9545... -> 3.95
     expect(
       clippedCalendarEffort(
         { date_from: '2026-03-01', date_to: null, planned_pct: 100 },
         { from: '2026-01-01', to: '2026-06-30' },
       ),
-    ).toBe(4);
+    ).toBe(3.95);
   });
 });
 
@@ -92,9 +106,11 @@ describe('rollupKpis', () => {
       },
     ];
     const k = rollupKpis(rows, {});
-    expect(k.total_mm).toBe(3);
-    expect(k.billable_mm).toBe(2);
-    expect(k.billable_pct).toBe(67);
+    // w1: 42 working days -> 1.91 MM
+    // w2: 22 working days -> 1.00 MM
+    expect(k.total_mm).toBe(2.91);
+    expect(k.billable_mm).toBe(1.91);
+    expect(k.billable_pct).toBe(66);
     expect(k.people).toBe(2);
   });
 });

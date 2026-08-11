@@ -205,10 +205,11 @@ export function ragBadge(status: RagStatus | null) {
 export {
   computeCategoryHealth,
   computeEntryStatus,
-  computeMetricValue,
   computeOverallHealth,
+  computeScoredValue,
   hasKpiEntryIssue,
   kpiComponentIssue,
+  kpiValuePrecision,
   validateKpiEntry,
 } from '@seta/pm/contracts';
 
@@ -250,7 +251,7 @@ export function isReportingWeekOpen(
   return Date.now() < fridayDeadline;
 }
 
-export const RECENT_WEEK_COUNT = 8;
+export const RECENT_WEEK_COUNT = 5;
 
 export function recentIsoWeeks(
   anchor?: { iso_year: number; iso_week: number } | null,

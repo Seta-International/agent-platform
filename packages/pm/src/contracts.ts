@@ -225,7 +225,11 @@ const commaSeparatedUuids = z.preprocess(
     .pipe(z.array(z.string().uuid()))
     .optional(),
 );
-export const kpiAppliedMetricsQuery = z.object({ project_ids: commaSeparatedUuids });
+export const kpiAppliedMetricsQuery = z.object({
+  project_ids: commaSeparatedUuids,
+  iso_year: z.coerce.number().int().optional(),
+  iso_week: z.coerce.number().int().min(1).max(53).optional(),
+});
 export type KpiAppliedMetricsQuery = z.infer<typeof kpiAppliedMetricsQuery>;
 
 export const kpiExplorerQuery = z.object({
@@ -253,7 +257,7 @@ export const upsertKpiRecordInput = z.object({
   project_id: z.string().uuid(),
   iso_year: z.number().int(),
   iso_week: z.number().int().min(1).max(53),
-  expected_version: z.number().int().positive().optional(),
+  expected_version: z.number().int().positive().nullable().optional(),
   entries: z.array(upsertKpiRecordEntryInput),
 });
 export type UpsertKpiRecordInput = z.infer<typeof upsertKpiRecordInput>;
@@ -287,6 +291,53 @@ export function computeMetricValue(
   if (component_count === 1) return component_1_value;
   if (component_2_value === null || component_2_value === 0) return null;
   return component_1_value / component_2_value;
+}
+
+function bandThresholds(cond: BandCondition, out: number[] = []): number[] {
+  switch (cond.op) {
+    case 'between':
+      out.push(cond.min, cond.max);
+      break;
+    case 'or':
+    case 'and':
+      for (const c of cond.conditions) bandThresholds(c, out);
+      break;
+    default:
+      out.push(cond.value);
+  }
+  return out;
+}
+
+function decimalsOf(value: number): number {
+  const text = String(value);
+  const dot = text.indexOf('.');
+  return dot === -1 ? 0 : text.length - dot - 1;
+}
+
+export function kpiValuePrecision(
+  green_band: BandCondition,
+  yellow_band: BandCondition,
+  red_band: BandCondition,
+): number {
+  const marks = [
+    ...bandThresholds(green_band),
+    ...bandThresholds(yellow_band),
+    ...bandThresholds(red_band),
+  ];
+  return Math.max(...marks.map(decimalsOf));
+}
+
+export function computeScoredValue(
+  component_count: 1 | 2,
+  component_1_value: number | null,
+  component_2_value: number | null,
+  precision: number,
+): number | null {
+  if (component_1_value === null) return null;
+  const scale = 10 ** precision;
+  if (component_count === 1) return Math.round(component_1_value * scale) / scale;
+  if (component_2_value === null || component_2_value === 0) return null;
+  return Math.round((component_1_value * scale) / component_2_value) / scale;
 }
 
 export const KPI_VALUE_MAX_INTEGER_DIGITS = 11;

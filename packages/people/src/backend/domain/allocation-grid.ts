@@ -197,12 +197,15 @@ export async function getAllocationGrid(
     for (let m = 0; m < 12; m++) {
       const [mStart, mEnd] = monthBounds(year, m);
       const active = pct != null && from <= mEnd && to >= mStart;
-      months.push(active ? pct : null);
       if (active && pct != null) {
         const ovStart = from > mStart ? from : mStart;
         const ovEnd = to < mEnd ? to : mEnd;
         const frac = workingDays(ovStart, ovEnd) / Math.max(1, workingDays(mStart, mEnd));
+        const monthPct = Math.round(pct * frac * 100) / 100;
+        months.push(monthPct);
         mm += (pct / 100) * frac;
+      } else {
+        months.push(null);
       }
     }
     return {
@@ -220,12 +223,46 @@ export async function getAllocationGrid(
     };
   });
 
-  // Per-worker month totals (sum across the worker's projects)
+  // Per-worker month totals (peak concurrent load across the worker's projects for each month)
+  const rawByWorker = new Map<string, RawRow[]>();
+  for (const r of raw) {
+    const list = rawByWorker.get(r.worker_id);
+    if (list) list.push(r);
+    else rawByWorker.set(r.worker_id, [r]);
+  }
+
   const byWorker = new Map<string, number[]>();
-  for (const r of rows) {
-    const acc = byWorker.get(r.worker_id) ?? new Array(12).fill(0);
-    for (let m = 0; m < 12; m++) acc[m] += r.months[m] ?? 0;
-    byWorker.set(r.worker_id, acc);
+  for (const [worker_id, wRows] of rawByWorker.entries()) {
+    const totals = new Array<number>(12).fill(0);
+    for (let m = 0; m < 12; m++) {
+      const [mStart, mEnd] = monthBounds(year, m);
+      const mStartStr = mStart.toISOString().slice(0, 10);
+      const mEndStr = mEnd.toISOString().slice(0, 10);
+
+      const segs: Array<{ start: string; end: string; pct: number }> = [];
+      for (const r of wRows) {
+        if (r.planned_pct == null) continue;
+        const pct = Number(r.planned_pct);
+        const rFrom = r.date_from ?? `${year}-01-01`;
+        const rTo = r.date_to ?? `${year}-12-31`;
+        if (rFrom <= mEndStr && rTo >= mStartStr) {
+          const segStart = rFrom > mStartStr ? rFrom : mStartStr;
+          const segEnd = rTo < mEndStr ? rTo : mEndStr;
+          segs.push({ start: segStart, end: segEnd, pct });
+        }
+      }
+
+      let peak = 0;
+      for (const s of segs) {
+        let sum = 0;
+        for (const t of segs) {
+          if (t.start <= s.start && s.start <= t.end) sum += t.pct;
+        }
+        if (sum > peak) peak = sum;
+      }
+      totals[m] = Math.round(peak * 100) / 100;
+    }
+    byWorker.set(worker_id, totals);
   }
   const worker_totals: WorkerMonthTotal[] = [...byWorker.entries()].map(([worker_id, totals]) => ({
     worker_id,

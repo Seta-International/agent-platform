@@ -1,6 +1,6 @@
 // rbac: delegates — internal lookup helper used inside other domain functions that own
 // the rbac check. Not a request entry point.
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { orgUnitProjection, user } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
@@ -27,7 +27,11 @@ export async function requireOrgUnitInTenant(tenantId: string, orgUnitId: string
     .select({ id: orgUnitProjection.org_unit_id })
     .from(orgUnitProjection)
     .where(
-      and(eq(orgUnitProjection.org_unit_id, orgUnitId), eq(orgUnitProjection.tenant_id, tenantId)),
+      and(
+        eq(orgUnitProjection.org_unit_id, orgUnitId),
+        eq(orgUnitProjection.tenant_id, tenantId),
+        isNull(orgUnitProjection.deleted_at),
+      ),
     )
     .limit(1);
   if (!row) throw new IdentityError('unknown_org_unit', `Unknown org unit ${orgUnitId}`);

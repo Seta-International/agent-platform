@@ -1,6 +1,6 @@
 import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +13,13 @@ const requestCandidateCvUpload = vi.fn();
 const putCvToS3 = vi.fn();
 const getCandidateCvDownloadUrl = vi.fn();
 const hireApplication = vi.fn();
+const fetchRequisition = vi.fn().mockResolvedValue({
+  skills: [
+    { skill_id: 's1', skill_name: 'TypeScript', min_level: 4 },
+    { skill_id: 's2', skill_name: 'React', min_level: 3 },
+    { skill_id: 's3', skill_name: 'Node', min_level: 3 },
+  ],
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -20,6 +27,7 @@ beforeEach(() => {
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidate: (id: string) => fetchCandidate(id),
+  fetchRequisition: (id: string) => fetchRequisition(id),
   moveApplicationStage: (id: string, input: unknown) => moveApplicationStage(id, input),
   editCandidate: (...args: unknown[]) => editCandidate(...args),
   requestCandidateCvUpload: (...args: unknown[]) => requestCandidateCvUpload(...args),
@@ -130,7 +138,7 @@ describe('CandidateDetailDrawer', () => {
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
     // Skills live in the CV now — the drawer surfaces the fit summary, not a chip list.
-    expect(screen.getByText('2/3 skills')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/2 of 3/)).toBeInTheDocument());
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
     expect(screen.getByText('1998-05-12')).toBeInTheDocument();
     expect(screen.getByText('Female')).toBeInTheDocument();
@@ -197,7 +205,10 @@ describe('CandidateDetailDrawer', () => {
     const input = screen.getByLabelText('Replace') as HTMLInputElement;
     await userEvent.upload(input, big);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
+    // Scoped to the viewport: Astryx also mirrors the message into a body-level
+    // assertive live region, which carries role="alert" too.
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
   it('shows a CV upload dropzone when cv_storage_key is null', async () => {
@@ -272,7 +283,8 @@ describe('CandidateDetailDrawer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     // Should display exact error message in toast, NOT "This record changed — refreshing."
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent(
       'No vacant openings for this requisition',
     );
     expect(onClose).toHaveBeenCalled();

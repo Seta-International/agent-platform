@@ -6,6 +6,7 @@ import {
   isOverdue,
   recordEntityExposure,
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { eq } from 'drizzle-orm';
@@ -20,15 +21,7 @@ export const plannerGetTaskTool = defineAgentTool({
   name: 'Look Up Task',
   description: 'Get a task by ID with its assignees, labels, and checklist summary.',
   input: z.object({
-    taskRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
-        'Task UUID, or an ordinal reference into your working memory `recentTasks` list: ' +
-          '"#1" / "1" / "first" → most recent, "#2" / "second" → next, "last" → most recent. ' +
-          'Prefer ordinals when the user is referring to something you just discussed.',
-      ),
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
   }),
   output: z.object({
     task: z.object({

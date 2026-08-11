@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -86,6 +86,20 @@ describe('NewRequisitionDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     await userEvent.type(screen.getByLabelText(/job title/i), 'Stale Title');
+    await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Stale About');
+    await userEvent.type(
+      screen.getByPlaceholderText(/write the responsibilities/i),
+      'Stale Responsibilities',
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/write the requirements/i),
+      'Stale Requirements',
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/write the nice to have/i),
+      'Stale Nice to have',
+    );
+
     // Dirty form -> Cancel prompts to confirm; Discard actually closes it.
     await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     await userEvent.click(await screen.findByRole('button', { name: 'Discard' }));
@@ -94,6 +108,10 @@ describe('NewRequisitionDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     expect(screen.getByLabelText(/job title/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the about section/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the responsibilities/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the requirements/i)).toHaveValue('');
+    expect(screen.getByPlaceholderText(/write the nice to have/i)).toHaveValue('');
   });
 
   // Cancel must mirror the close (X) button: with unsaved input it opens the discard confirmation
@@ -159,5 +177,28 @@ describe('NewRequisitionDialog', () => {
         headcount: 1,
       }),
     );
+  });
+
+  it('validates job title max length (100 chars) and shows inline warning/error messages (FUT-789)', async () => {
+    const { openRequisition } = await import('../../src/api/hiring-client.ts');
+    vi.mocked(openRequisition).mockReset();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+
+    const titleInput = screen.getByLabelText(/job title/i);
+    await userEvent.type(screen.getByPlaceholderText(/write the about section/i), 'Role details');
+
+    // 100 chars triggers warning status
+    fireEvent.change(titleInput, { target: { value: 'A'.repeat(100) } });
+    expect(screen.getByText('Maximum limit of 100 characters reached.')).toBeInTheDocument();
+
+    // >100 chars triggers error status and blocks submission
+    fireEvent.change(titleInput, { target: { value: 'A'.repeat(105) } });
+    expect(screen.getByText('Job title cannot exceed 100 characters.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
+    expect(openRequisition).not.toHaveBeenCalled();
   });
 });

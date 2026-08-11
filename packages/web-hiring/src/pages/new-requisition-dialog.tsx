@@ -37,6 +37,8 @@ import { GroupLabel } from './form-group-label.tsx';
 import { isRichTextEmpty } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
+const MAX_JOB_TITLE_LENGTH = 100;
+
 // Mirrors RequisitionDetailView's editing-mode SECTIONS — kept in sync by hand so the
 // create and edit forms read as the same layout (see FUT-404).
 const SECTIONS: { key: JdSectionKey; label: string }[] = [
@@ -96,7 +98,21 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   }, [open]);
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
-  const titleInvalid = submitAttempted && !title.trim();
+  const titleTooLong = title.length > MAX_JOB_TITLE_LENGTH;
+  const titleAtLimit = title.length === MAX_JOB_TITLE_LENGTH;
+  const titleStatus = titleTooLong
+    ? {
+        type: 'error' as const,
+        message: `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`,
+      }
+    : titleAtLimit
+      ? {
+          type: 'warning' as const,
+          message: `Maximum limit of ${MAX_JOB_TITLE_LENGTH} characters reached.`,
+        }
+      : submitAttempted && !title.trim()
+        ? { type: 'error' as const, message: 'Job title is required.' }
+        : undefined;
   const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
   // FUT-559 date bounds: a new requisition can't start in the past, and due must land on or
   // after the start. yyyy-mm-dd ISO strings compare lexically; use local-midnight today.
@@ -216,12 +232,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || startInPast || dueBeforeStart || headcountError) {
-      const target = !title.trim()
-        ? titleFieldRef.current
-        : isRichTextEmpty(jd.about)
-          ? aboutFieldRef.current
-          : null;
+    if (missingRequired || titleTooLong || startInPast || dueBeforeStart || headcountError) {
+      const target =
+        !title.trim() || titleTooLong
+          ? titleFieldRef.current
+          : isRichTextEmpty(jd.about)
+            ? aboutFieldRef.current
+            : null;
       target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -265,11 +282,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       value={title}
                       onChange={(value) => setTitle(value)}
                       placeholder="e.g. Senior Backend Engineer"
-                      status={
-                        titleInvalid
-                          ? { type: 'error', message: 'Job title is required.' }
-                          : undefined
-                      }
+                      status={titleStatus}
                     />
                   </div>
                   <Grid columns={2} gap={4}>

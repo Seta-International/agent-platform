@@ -99,6 +99,13 @@
       "when": 1785747214819,
       "tag": "0030_fut797_kpi_metric_entry_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785828697080,
+      "tag": "0031_kpi_norm_metric_bands_cleanup",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,14 @@ import { allocation, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
 
+/** Local-calendar YYYY-MM-DD (matches the `date` column format and the frontend's todayIso). */
+function todayIso(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export async function removeAllocation(input: {
   allocation_id: string;
   session: SessionScope;
@@ -28,6 +36,18 @@ export async function removeAllocation(input: {
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
   await assertProjectManageable(current.project_id, session);
+
+  // FUT-876: an allocation that has already started (start date strictly before today, matching
+  // the ticket's AC and the frontend's `startLocked` in reassign-wizard) carries an effective
+  // (historical) portion — soft-deleting it would erase realized allocation data from reports
+  // and audit. Direct the operator to shorten the end date (or split) instead, keeping the past
+  // intact. Fully-future allocations (start >= today) remain freely deletable.
+  if (current.date_from && current.date_from < todayIso()) {
+    throw new PmError(
+      'VALIDATION',
+      'This allocation has already started and cannot be deleted. End it early (shorten the end date) or split it instead to keep the historical record intact.',
+    );
+  }
 
   const [proj] = await pmDb()
     .select({ account_id: project.account_id })

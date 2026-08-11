@@ -30,7 +30,7 @@ import {
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
-import { isoWeekRange } from './iso-week.ts';
+import { isoWeekRange, isWeekEditable } from './iso-week.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
   computeCategoryHealth,
@@ -82,39 +82,6 @@ export async function assignedProjectIdsAsOf(
 
 // Weekly-report edit window (Epic 3): flags are set for the CURRENT week only, and the week
 // locks at Friday 17:00 Asia/Ho_Chi_Minh (UTC+7, no DST). Comments stay open after the lock.
-let clock: () => Date = () => new Date();
-/** Test hook — editability depends on the wall clock (current-week check + Friday-5PM lock). */
-export function setWeeklyReportClock(next?: () => Date): void {
-  clock = next ?? (() => new Date());
-}
-
-function currentVnIsoWeek(now: Date): { iso_year: number; iso_week: number } {
-  const vn = new Date(now.getTime() + 7 * 3_600_000);
-  const d = new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const iso_year = d.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(iso_year, 0, 1));
-  const iso_week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-  return { iso_year, iso_week };
-}
-
-/** Server-authoritative "current reporting week" (FUT-589 AC2) — Asia/Ho_Chi_Minh wall
- * clock, so a viewer's browser timezone can never shift which week screens default to. */
-export function getCurrentIsoWeek(): { iso_year: number; iso_week: number } {
-  return currentVnIsoWeek(clock());
-}
-
-function isWeekEditable(iso_year: number, iso_week: number): boolean {
-  const now = clock();
-  const current = currentVnIsoWeek(now);
-  if (current.iso_year !== iso_year || current.iso_week !== iso_week) return false;
-  const monday = new Date(`${isoWeekRange(iso_year, iso_week).from}T00:00:00Z`);
-  // Friday 17:00 VNT = Friday 10:00 UTC.
-  const deadline = monday.getTime() + 4 * 86_400_000 + 10 * 3_600_000;
-  return now.getTime() < deadline;
-}
-
 /** Shared week gate (Epic 3): weekly data — flags, reports AND the KPI records they compute
  * from — is editable for the current week only, until Friday 17:00 VNT. Editing a past
  * week's KPIs would silently rewrite the live-computed history behind already-submitted

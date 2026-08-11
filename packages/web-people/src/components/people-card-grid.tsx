@@ -1,4 +1,12 @@
-import { Avatar, Badge, Card, EmptyState, Pagination, Skeleton } from '@seta/shared-ui';
+import {
+  Avatar,
+  Badge,
+  Card,
+  EmptyState,
+  Pagination,
+  Skeleton,
+  shouldShowPagination,
+} from '@seta/shared-ui';
 import { Users } from 'lucide-react';
 import type { WorkerListRow, WorkersQuery } from '../api/people-client.ts';
 
@@ -39,6 +47,12 @@ export function PeopleCardGrid({
   const pageSize = query.pageSize ?? 25;
   const page = query.page ?? 1;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+
+  const showPagination = shouldShowPagination({
+    totalItems: total,
+    pageSize,
+    pageSizeOptions: [25, 50, 100],
+  });
 
   function goToPage(next: number) {
     setQuery((q) => ({ ...q, page: clampPage(next, pageCount) }));
@@ -94,7 +108,14 @@ export function PeopleCardGrid({
           >
             {/* Header: avatar + name + title */}
             <div className="flex items-start gap-3 min-w-0">
-              <Avatar name={row.full_name} size={36} />
+              {/* Name is spelled out beside the avatar, so Astryx's name-on-hover
+                  tooltip would only duplicate it in the a11y tree. */}
+              <Avatar
+                name={row.full_name}
+                src={row.photo_url ?? undefined}
+                size={36}
+                tooltip={false}
+              />
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm truncate">{row.full_name}</div>
                 {row.job_title && (
@@ -142,17 +163,19 @@ export function PeopleCardGrid({
         ))}
       </div>
 
-      <div className="flex justify-center w-full mt-4">
-        <Pagination
-          page={page}
-          onChange={goToPage}
-          totalItems={total}
-          pageSize={pageSize}
-          pageSizeOptions={[25, 50, 100]}
-          onPageSizeChange={(newSize) => setQuery((q) => ({ ...q, pageSize: newSize, page: 1 }))}
-          style={{ justifyContent: 'center', width: 'auto' }}
-        />
-      </div>
+      {showPagination && (
+        <div className="flex justify-center w-full mt-4">
+          <Pagination
+            page={page}
+            onChange={goToPage}
+            totalItems={total}
+            pageSize={pageSize}
+            pageSizeOptions={[25, 50, 100]}
+            onPageSizeChange={(newSize) => setQuery((q) => ({ ...q, pageSize: newSize, page: 1 }))}
+            style={{ justifyContent: 'center', width: 'auto' }}
+          />
+        </div>
+      )}
     </div>
   );
 }

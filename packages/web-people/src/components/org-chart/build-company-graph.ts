@@ -32,6 +32,7 @@ function toNode(c: CompanyNode): Node<OrgGraphNodeData> {
       title: c.label,
       subtitle: c.sublabel,
       tone,
+      avatarSrc: c.photo_url ?? undefined,
       avatarShape: entity === 'person' ? 'circle' : 'square',
       entity,
       count: c.count,

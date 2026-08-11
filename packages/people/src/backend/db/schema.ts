@@ -58,6 +58,11 @@ export const person = peopleSchema.table(
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     cv_storage_key: text('cv_storage_key'),
+    // M365 directory sync (FUT-842). photo_storage_key mirrors cv_storage_key: an S3 key
+    // via @seta/shared-storage, not a URL. directory_managed drives the field lock in
+    // editWorker — people cannot read the integrations link table across the schema boundary.
+    photo_storage_key: text('photo_storage_key'),
+    directory_managed: boolean('directory_managed').default(false).notNull(),
     // Lazy column-level reference (not table-level foreignKey()): org_unit is
     // declared after person below, so a table-level foreignKey() would evaluate
     // `orgUnit` eagerly and hit the TDZ.

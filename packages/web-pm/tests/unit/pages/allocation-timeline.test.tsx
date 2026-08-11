@@ -55,4 +55,33 @@ describe('AllocationTimeline', () => {
     const { container } = render(<AllocationTimeline rows={[]} todayIso="2026-07-01" />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('renders restricted rows with lock indicator and correctly sums into Total allocation', () => {
+    render(
+      <AllocationTimeline
+        rows={[
+          {
+            key: 'a1',
+            label: 'Sunwest',
+            date_from: '2026-06-01',
+            date_to: '2026-12-31',
+            planned_pct: 100,
+          },
+          {
+            key: 'r1',
+            label: 'Restricted projects',
+            date_from: '2026-06-01',
+            date_to: '2026-12-31',
+            planned_pct: 170,
+            isRestricted: true,
+          },
+        ]}
+        todayIso="2026-07-01"
+      />,
+    );
+    expect(screen.getByText('Sunwest')).toBeTruthy();
+    expect(screen.getByText('Restricted projects')).toBeTruthy();
+    expect(screen.getByLabelText('Restricted')).toBeTruthy();
+    expect(screen.getAllByText('270%').length).toBeGreaterThan(0);
+  });
 });

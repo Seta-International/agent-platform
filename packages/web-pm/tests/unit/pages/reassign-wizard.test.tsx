@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   type ProjectListRow,
+  previewReassignWorkerAllocations,
   type RaMonitoringAllocation,
   removeAllocation,
   updateAllocation,
@@ -16,6 +17,15 @@ vi.mock('../../../src/api/pm-client.ts', async () => {
   );
   return {
     ...actual,
+    previewReassignWorkerAllocations: vi.fn().mockResolvedValue({
+      worker_name: 'Test Worker',
+      sources: [],
+      targets: [],
+      peak_pct: 100,
+      exceeds: false,
+      peak_from: null,
+      peak_to: null,
+    }),
     removeAllocation: vi.fn().mockResolvedValue(undefined),
     updateAllocation: vi.fn().mockResolvedValue({ version: 2 }),
   };
@@ -426,5 +436,66 @@ describe('ReassignWizardDialog', () => {
     // The popover shim renders the popup content, but it isn't necessarily a DOM descendant
     // of the <dialog> element, so assert against the document rather than `within(dialog)`.
     expect(await screen.findByRole('option', { name: 'Aeris' })).toBeInTheDocument();
+  });
+
+  it('displays restricted allocations warning notice and restricted timeline row on Review Impact step', async () => {
+    const user = userEvent.setup({ delay: null });
+    vi.mocked(previewReassignWorkerAllocations).mockResolvedValue({
+      worker_name: 'An Đình Luận',
+      sources: [],
+      targets: [
+        {
+          project_name: 'Aeris - Finch Mobile',
+          account_name: 'Aeris',
+          bucket: 'billable',
+          date_from: FUTURE_START,
+          date_to: NEW_END,
+          planned_pct: 100,
+        },
+      ],
+      peak_pct: 270,
+      exceeds: true,
+      peak_from: FUTURE_START,
+      peak_to: NEW_END,
+      has_restricted_allocations: true,
+      restricted_segments: [
+        {
+          date_from: FUTURE_START,
+          date_to: NEW_END,
+          planned_pct: 170,
+        },
+      ],
+    });
+
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    expect(
+      await screen.findByText((content) => content.includes('restricted projects are included')),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Restricted projects')).toBeInTheDocument();
+    expect(screen.getAllByText('270%').length).toBeGreaterThan(0);
   });
 });

@@ -8,6 +8,13 @@
       "when": 1783059313752,
       "tag": "0000_real_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785491243519,
+      "tag": "0002_deep_frank_castle",
+      "breakpoints": true
     }
   ]
 }

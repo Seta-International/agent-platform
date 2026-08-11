@@ -1,8 +1,9 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import {
   type AgentResult,
+  buildAgentRequestContext,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
   withTemporalContext,
@@ -44,10 +45,7 @@ export function makeWeeklyPlanInsightGenerator(
     inputSchema: InsightInputSchema,
     outputSchema: InsightOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const message = [
         `Plan: ${JSON.stringify(input.plan)}`,

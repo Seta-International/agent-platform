@@ -10,7 +10,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   fetchAccounts,
   fetchKpiExplorer,
@@ -29,6 +29,7 @@ import {
   TabsList,
   TabsTrigger,
 } from './_ui-compat.tsx';
+import { KpiConfigureDialog } from './kpi-configure-dialog.tsx';
 import { type ExplorerColumn, KpiExplorerTable } from './kpi-explorer-table.tsx';
 import { KpiNormTab } from './kpi-norm-tab.tsx';
 import {
@@ -49,6 +50,8 @@ export interface KpiMetricsSearch {
   iso_year?: number;
   iso_week?: number;
 }
+
+const MANUAL_ENTRY_SOON = 'Coming soon — manual KPI entry is not available yet.';
 
 const FROZEN_CELL = 'sticky z-10 bg-card transition-colors group-hover:bg-muted';
 const FROZEN_START_WIDTH = 192 + 144 + 96;
@@ -75,12 +78,22 @@ const PIN = {
 };
 
 export function KpiMetricsPage() {
-  const { search, setSearch, weeks, iso_year, iso_week } = usePmContext('/pm/metrics');
+  const { search, setSearch, weeks, iso_year, iso_week, weekReady } = usePmContext('/pm/metrics');
   const tab = (search as Partial<KpiMetricsSearch>).tab ?? 'explorer';
 
   const accountsQuery = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
   const projectsQuery = useQuery({ queryKey: pmKeys.projects(), queryFn: fetchProjects });
   const normQuery = useQuery({ queryKey: pmKeys.kpiNorm(), queryFn: fetchKpiNorm });
+  const manageableProjects = useMemo(
+    () => (projectsQuery.data ?? []).filter((p) => p.can_manage),
+    [projectsQuery.data],
+  );
+  const managesNothing = manageableProjects.length === 0;
+  const viewingCurrentWeek = weeks[0]?.iso_year === iso_year && weeks[0]?.iso_week === iso_week;
+  const weekIsOpen = isReportingWeekOpen(iso_year, iso_week, weeks[0]);
+  const canConfigure = !managesNothing && weekReady && viewingCurrentWeek && weekIsOpen;
+
+  const [configureOpen, setConfigureOpen] = useState(false);
 
   const explorerQuery = useQuery({
     queryKey: pmKeys.kpiExplorer({
@@ -106,12 +119,14 @@ export function KpiMetricsPage() {
     () => (accountsQuery.data ?? []).map((a) => ({ value: a.account_id, label: a.name })),
     [accountsQuery.data],
   );
-  const projectOptions = useMemo(
+  const projectsInAccount = useMemo(
     () =>
-      (projectsQuery.data ?? [])
-        .filter((p) => !search.account || p.account_id === search.account)
-        .map((p) => ({ value: p.project_id, label: p.name })),
+      (projectsQuery.data ?? []).filter((p) => !search.account || p.account_id === search.account),
     [projectsQuery.data, search.account],
+  );
+  const projectOptions = useMemo(
+    () => projectsInAccount.map((p) => ({ value: p.project_id, label: p.name })),
+    [projectsInAccount],
   );
 
   const appliedIds = explorerQuery.data?.applied_metric_ids ?? [];
@@ -127,7 +142,6 @@ export function KpiMetricsPage() {
   }, [appliedIds, normQuery.data]);
 
   const rows = explorerQuery.data?.rows ?? [];
-  const weekIsOpen = isReportingWeekOpen(iso_year, iso_week, weeks[0]);
   const weekLabel =
     weeks.find((w) => w.iso_year === iso_year && w.iso_week === iso_week)?.label ??
     `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
@@ -140,6 +154,13 @@ export function KpiMetricsPage() {
       ? (projectsQuery.data ?? []).find((p) => p.project_id === search.project)?.account_id
       : undefined) ??
     '';
+  const configurableProjects = useMemo(
+    () =>
+      selectedAccount
+        ? manageableProjects.filter((p) => p.account_id === selectedAccount)
+        : manageableProjects,
+    [manageableProjects, selectedAccount],
+  );
 
   type Ctx = { row: { original: KpiExplorerRow } };
 
@@ -216,16 +237,17 @@ export function KpiMetricsPage() {
           headerClassName: PIN.actions.header,
           cellClassName: PIN.actions.cell,
         },
-        cell: () => (
-          <DisabledActionTooltip disabled reason="Coming soon">
-            <Button size="sm" variant="ghost" disabled>
-              Edit
-            </Button>
-          </DisabledActionTooltip>
-        ),
+        cell: ({ row }: Ctx) =>
+          row.original.can_manage ? (
+            <DisabledActionTooltip disabled reason={MANUAL_ENTRY_SOON}>
+              <Button size="sm" variant="ghost" disabled>
+                {weekIsOpen ? 'Edit' : 'View'}
+              </Button>
+            </DisabledActionTooltip>
+          ) : null,
       },
     ],
-    [metricColumnGroups],
+    [metricColumnGroups, weekIsOpen],
   );
 
   return (
@@ -238,13 +260,33 @@ export function KpiMetricsPage() {
               <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
               <BreadcrumbItem isCurrent>KPI Metrics</BreadcrumbItem>
             </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
+            <HStack
+              hAlign="between"
+              vAlign="center"
+              gap={2}
+              style={{ minHeight: 'var(--size-element-md)' }}
+            >
               <Text as="h1" size="lg" weight="semibold">
                 KPI Metrics
               </Text>
               {tab === 'explorer' ? (
-                <DisabledActionTooltip disabled reason="Coming soon">
-                  <Button variant="secondary" disabled>
+                <DisabledActionTooltip
+                  disabled={!canConfigure}
+                  reason={
+                    managesNothing
+                      ? 'You do not manage any project — configuring applied metrics needs manage rights.'
+                      : !weekReady
+                        ? 'Still loading which week it is. Configuring needs the current week to warn you about figures already entered.'
+                        : !viewingCurrentWeek
+                          ? `You are viewing ${weekLabel}. Applied metrics are configured on the current week — switch to it to change them.`
+                          : `${weekLabel} closed for entry on Friday 17:00 (Asia/Ho_Chi_Minh), so its metric set is frozen. Configuring reopens on Monday and applies from next week.`
+                  }
+                >
+                  <Button
+                    variant="secondary"
+                    disabled={!canConfigure}
+                    onClick={() => setConfigureOpen(true)}
+                  >
                     Configure metrics
                   </Button>
                 </DisabledActionTooltip>
@@ -312,7 +354,7 @@ export function KpiMetricsPage() {
                     }
                     endContent={
                       weekIsOpen && soleEntryTarget ? (
-                        <DisabledActionTooltip disabled reason="Coming soon">
+                        <DisabledActionTooltip disabled reason={MANUAL_ENTRY_SOON}>
                           <Button variant="primary" disabled>
                             Enter weekly KPIs
                           </Button>
@@ -335,20 +377,20 @@ export function KpiMetricsPage() {
                   />
                 </div>
 
-                <p className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-secondary">
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden="true">·</span> No figure entered
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden="true">—</span> Metric not applied to this project
-                  </span>
-                </p>
-
-                <p className="shrink-0 text-xs text-secondary">
-                  {appliedSummary.applied} of {appliedSummary.total} library metrics applied to this
-                  view ({appliedSummary.core} core, {appliedSummary.extended} extended). Full norm
-                  bands live in the KPI Norm tab.
-                </p>
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-1 text-xs text-secondary">
+                  <p>
+                    {appliedSummary.applied} of {appliedSummary.total} library metrics applied to
+                    this view ({appliedSummary.core} core, {appliedSummary.extended} extended).
+                  </p>
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">·</span> No figure entered
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">—</span> Metric not applied to this project
+                    </span>
+                  </p>
+                </div>
               </TabsContent>
 
               <TabsContent value="norm" className="min-h-0 flex-1 overflow-auto">
@@ -356,6 +398,16 @@ export function KpiMetricsPage() {
               </TabsContent>
             </Tabs>
           </div>
+
+          {configureOpen ? (
+            <KpiConfigureDialog
+              open={configureOpen}
+              onOpenChange={setConfigureOpen}
+              projects={configurableProjects}
+              initialProjectId={search.project}
+              currentWeek={weeks[0]}
+            />
+          ) : null}
         </LayoutContent>
       }
     />

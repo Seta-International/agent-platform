@@ -167,16 +167,20 @@ describe('assign_analyzeTasks taskRef resolution', () => {
   it('rejects with the resolver error when the ordinal cannot resolve', async () => {
     const { toolCtx } = memCtx([]); // empty conversation memory
     const { tools, taskAnalyzer } = buildTools();
-    // defineAgentTool's wrapper (sdks/agent/src/wrap-execute.ts) remaps the
-    // TaskRefResolveError into an AgentToolError whose .message is the generic
-    // user-safe text; the resolver's message survives in .internalDetail.
+    // TaskRefResolveError is itself an AgentToolError, so defineAgentTool's
+    // wrapper (sdks/agent/src/wrap-execute.ts) re-throws it untouched and the
+    // model reads the real reason. It used to be remapped to TOOL_ERROR + "An
+    // internal error occurred", which left the model nothing to act on and
+    // dead-ended the turn (FUT-859) — hence the assertion on .message here.
     await expect(
       tools.assign_analyzeTasks.execute!(
         { intent: 'resolve_task_skills', query: 'q', taskRef: 'first' } as never,
         toolCtx,
       ),
     ).rejects.toMatchObject({
-      name: 'AgentToolError',
+      name: 'TaskRefResolveError',
+      code: 'VALIDATION',
+      message: expect.stringMatching(/no recent tasks/i),
       internalDetail: expect.stringMatching(/no recent tasks/i),
     });
     expect(taskAnalyzer.inputs).toHaveLength(0); // sub-agent never invoked

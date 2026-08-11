@@ -19,6 +19,7 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
+  DisabledActionTooltip,
   Input,
   Layout,
   LayoutContent,
@@ -494,8 +495,9 @@ export function ReassignWizardDialog({
                       </div>
                       {futureAllocations.map((a) => {
                         const draft = draftFor(a);
-                        // A row that already started (start date in the past) is locked to end-date and
-                        // delete only — you can shorten/extend or remove it, but not rewrite its terms.
+                        // A row that already started (start date in the past) is locked to
+                        // end-date edits only — shorten/extend it (FUT-876 makes its delete
+                        // impossible: it carries an effective, historical portion).
                         const eff = effectiveRow(a);
                         const startLocked = !!eff.date_from && eff.date_from < todayIso();
                         // Reassign target must be a project the caller manages (FUT-353) — the
@@ -659,14 +661,25 @@ export function ReassignWizardDialog({
                                   }
                                 }}
                               />
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                isIconOnly
-                                icon={<Trash2 className="size-3.5 text-secondary" />}
-                                label={`Delete ${a.project_name}`}
-                                onClick={() => setConfirmTarget(a)}
-                              />
+                              {/* FUT-876: an allocation that has already started carries an
+                                  effective (historical) portion — deleting it would erase realized
+                                  allocation data. The button is disabled and the DisabledActionTooltip
+                                  wrapper (span captures hover/focus even when the button is disabled)
+                                  explains why; shortening the end date above is the supported path. */}
+                              <DisabledActionTooltip
+                                disabled={startLocked}
+                                reason={`"${a.project_name}" has already started and can't be removed — end it early by shortening the end date instead.`}
+                              >
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  isIconOnly
+                                  icon={<Trash2 className="size-3.5 text-secondary" />}
+                                  label={`Delete ${a.project_name}`}
+                                  isDisabled={startLocked}
+                                  onClick={() => setConfirmTarget(a)}
+                                />
+                              </DisabledActionTooltip>
                             </div>
                           </div>
                         );
@@ -1012,6 +1025,14 @@ function ReviewStep({
       date_to: t.date_to,
       planned_pct: t.planned_pct,
     })) ?? []),
+    ...(preview?.restricted_segments?.map((r, i) => ({
+      key: `restricted-${i}`,
+      label: 'Restricted projects',
+      date_from: r.date_from,
+      date_to: r.date_to,
+      planned_pct: r.planned_pct,
+      isRestricted: true,
+    })) ?? []),
   ];
 
   return (
@@ -1037,18 +1058,29 @@ function ReviewStep({
             </>
           }
           description={
-            preview.peak_from ? (
-              <>
-                They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
-                <strong>{preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}</strong>
-                {preview.peak_to
-                  ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
-                  : ''}
-                . You can still confirm below.
-              </>
-            ) : (
-              'Over 100%. You can still confirm below.'
-            )
+            <>
+              {preview.peak_from ? (
+                <>
+                  They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
+                  <strong>
+                    {preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}
+                  </strong>
+                  {preview.peak_to
+                    ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
+                    : ''}
+                  .
+                </>
+              ) : (
+                'Over 100%.'
+              )}
+              {preview.has_restricted_allocations ? (
+                <span className="mt-1 block font-medium">
+                  Additional allocations from restricted projects are included in this calculation
+                  but are hidden due to your permissions.
+                </span>
+              ) : null}{' '}
+              You can still confirm below.
+            </>
           }
         />
       ) : null}
