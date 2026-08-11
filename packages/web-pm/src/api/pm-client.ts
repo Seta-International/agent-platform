@@ -570,6 +570,12 @@ export interface ReassignPreviewSegment {
   planned_pct: number;
 }
 
+export interface OverAllocationPeriod {
+  date_from: string;
+  date_to: string | null;
+  peak_pct: number;
+}
+
 export interface ReassignPreviewResult {
   worker_name: string | null;
   source: ReassignPreviewSegment;
@@ -578,6 +584,7 @@ export interface ReassignPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods?: OverAllocationPeriod[];
 }
 
 export interface ReassignAllocationBody {
@@ -680,6 +687,7 @@ export interface ReassignGroupPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods?: OverAllocationPeriod[];
   has_restricted_allocations?: boolean;
   restricted_segments?: RestrictedSegment[];
 }

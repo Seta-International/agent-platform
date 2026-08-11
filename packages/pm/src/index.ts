@@ -47,6 +47,7 @@ export { getCharter, getCharterSummary, listCharters } from './backend/domain/re
 export type { ProjectListRow } from './backend/domain/read-projects.ts';
 export { getProject, listProjects } from './backend/domain/read-projects.ts';
 export type {
+  OverAllocationPeriod,
   ReassignAllocationResult,
   ReassignGroupPreviewResult,
   ReassignPreviewResult,
