@@ -73,20 +73,29 @@ function makeCard(assigneeUserIds: string[], taskId: string) {
     details: [],
     primary: {
       label: 'Assign',
-      argsPatch: { action: 'assign', assigneeUserIds, taskId },
+      argsPatch: { action: 'assign', assigneeUserIds, taskId, idempotencyKey: 'key-1' },
     },
     alternates: [
       {
         label: 'Alt',
-        argsPatch: { action: 'assign', assigneeUserIds: ['alt-1'], taskId },
+        argsPatch: {
+          action: 'assign',
+          assigneeUserIds: ['alt-1'],
+          taskId,
+          idempotencyKey: 'key-1',
+        },
       },
     ],
-    decline: { label: 'Leave unassigned', argsPatch: { action: 'leave-unassigned' } },
+    decline: {
+      label: 'Leave unassigned',
+      argsPatch: { action: 'decline', taskId, idempotencyKey: 'key-1' },
+    },
     meta: {
       tenantId: 't',
       userId: 'u',
       agentPath: ['planner.assignment-orchestrator'],
       toolId: 'proposeAssignment',
+      dedupKey: `assign:${taskId}`,
       ts: new Date().toISOString(),
     },
   };
@@ -255,7 +264,7 @@ const statusOf = (pool: Pool, approvalId: string): Promise<string> =>
     .then((r) => r.rows[0]!.status);
 
 describe('POST /api/agent/v1/chat/resume', () => {
-  it('approve: records decision + outbox, resumes with overrideUserIds from primary card', async () => {
+  it('approve: records decision + outbox, resumes with the primary branch verbatim', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       const userId = randomUUID();
@@ -277,7 +286,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const res = await app.request('/api/agent/v1/chat/resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approvalId, decision: 'approve' }),
+        body: JSON.stringify({ approvalId, chosen: 'primary' }),
       });
       expect(res.status).toBe(200);
       await res.text(); // drain the SSE so execute() runs to completion
@@ -293,27 +302,33 @@ describe('POST /api/agent/v1/chat/resume', () => {
       // outbox written
       expect(await outboxCount(pool, runId)).toBe(1);
 
-      // resume called with override from primary card + ctx coordinates
+      // resume called with the primary branch's argsPatch + ctx coordinates
       expect(captured).toHaveLength(1);
-      expect(captured[0]!.resume).toEqual({ decision: 'approve', overrideUserIds: ['u1'] });
+      expect(captured[0]!.resume).toEqual({
+        action: 'assign',
+        assigneeUserIds: ['u1'],
+        taskId: card.primary.argsPatch.taskId,
+        idempotencyKey: 'key-1',
+      });
       expect(captured[0]!.ctx.mastraRunId).toBe(mastraRunId);
       expect(captured[0]!.ctx.toolCallId).toBe('tc-1');
       expect(captured[0]!.ctx.threadId).toBe(threadId);
     });
   });
 
-  it('reject: records decision + outbox, resumes with reject and no override', async () => {
+  it('decline: records decision + outbox, resumes with the decline branch', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       const userId = randomUUID();
       const me = sessionWith(tenantId, userId, ['agent.workflow.approve']);
+      const declineTaskId = randomUUID();
       const { approvalId, runId } = await seedAgenticApproval(pool, {
         tenantId,
         approverUserId: userId,
         mastraRunId: randomUUID(),
         toolCallId: 'tc-2',
         threadId: randomUUID(),
-        card: makeCard(['u1'], randomUUID()),
+        card: makeCard(['u1'], declineTaskId),
       });
 
       const captured: CapturedResume[] = [];
@@ -321,7 +336,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const res = await app.request('/api/agent/v1/chat/resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approvalId, decision: 'reject' }),
+        body: JSON.stringify({ approvalId, chosen: 'decline' }),
       });
       expect(res.status).toBe(200);
       await res.text();
@@ -332,7 +347,11 @@ describe('POST /api/agent/v1/chat/resume', () => {
       );
       expect(row.rows[0]!.status).toBe('rejected');
       expect(await outboxCount(pool, runId)).toBe(1);
-      expect(captured[0]!.resume).toEqual({ decision: 'reject' });
+      expect(captured[0]!.resume).toEqual({
+        action: 'decline',
+        taskId: declineTaskId,
+        idempotencyKey: 'key-1',
+      });
     });
   });
 
@@ -359,7 +378,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const res = await app.request('/api/agent/v1/chat/resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approvalId, decision: 'approve' }),
+        body: JSON.stringify({ approvalId, chosen: 'primary' }),
       });
       expect(res.status).toBe(403);
 
@@ -396,7 +415,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const res = await app.request('/api/agent/v1/chat/resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approvalId, decision: 'approve' }),
+        body: JSON.stringify({ approvalId, chosen: 'primary' }),
       });
       expect(res.status).toBe(403);
       expect(await outboxCount(pool, runId)).toBe(0);
@@ -422,7 +441,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const res = await app.request('/api/agent/v1/chat/resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approvalId, decision: 'approve' }),
+        body: JSON.stringify({ approvalId, chosen: 'primary' }),
       });
       expect(res.status).toBe(403);
       expect(captured).toHaveLength(0);
@@ -447,10 +466,10 @@ describe('POST /api/agent/v1/chat/resume', () => {
       });
       const captured: CapturedResume[] = [];
       const app = buildApp(me, makeFakeResume(captured));
-      const first = await post(app, { approvalId, decision: 'approve' });
+      const first = await post(app, { approvalId, chosen: 'primary' });
       expect(first.status).toBe(200);
       await first.text();
-      const second = await post(app, { approvalId, decision: 'reject' });
+      const second = await post(app, { approvalId, chosen: 'decline' });
       expect(second.status).toBe(409);
     });
   });
@@ -485,7 +504,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const res = await app.request('/api/agent/v1/chat/resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ approvalId, decision: 'approve' }),
+        body: JSON.stringify({ approvalId, chosen: 'primary' }),
       });
       expect(res.status).toBe(409);
       // Pre-commit guard: the decision was NOT recorded and nothing was emitted.
@@ -613,45 +632,21 @@ describe('POST /api/agent/v1/chat/resume — generalized confirm', () => {
     });
   });
 
-  // This test protects the central decision of the FUT-804 design: the assignment
-  // path is untouched. If it is red, the dispatch approach is wrong.
-  it("ASSIGNMENT REGRESSION — today's exact confirm still assigns", async () => {
+  // The assignment card now travels the SAME contract as every other chat card.
+  it('ASSIGNMENT — a primary confirm still assigns the top match', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const at = appWithRecorder();
       const approvalId = await seedFor(pool, at, makeCard(['u1'], randomUUID()));
 
-      const res = await post(at.app, {
-        approvalId,
-        decision: 'approve',
-        overrideUserIds: ['u1'],
-      });
+      const res = await post(at.app, { approvalId, chosen: 'primary' });
       expect(res.status).toBe(200);
       await res.text();
       expect(at.calls[0]!.resume).toMatchObject({
-        decision: 'approve',
-        overrideUserIds: ['u1'],
+        action: 'assign',
+        assigneeUserIds: ['u1'],
       });
       expect(at.calls[0]!.ctx.workflowId).toBe('planner.assignment-orchestrator');
       expect(await statusOf(pool, approvalId)).toBe('approved');
-    });
-  });
-
-  // The regression test for the transaction ordering — the denial of service the
-  // first draft of the design allowed.
-  it('a generic body against an assignment card is 400 AND leaves the row pending', async () => {
-    await withAgentTestDb(async ({ pool }) => {
-      const at = appWithRecorder();
-      const approvalId = await seedFor(pool, at, makeCard(['u1'], randomUUID()));
-
-      const bad = await post(at.app, { approvalId, chosen: 'primary' });
-      expect(bad.status).toBe(400);
-      expect(at.calls).toHaveLength(0);
-      expect(await statusOf(pool, approvalId)).toBe('pending');
-
-      // The approval was NOT consumed: the legitimate confirm still works.
-      const ok = await post(at.app, { approvalId, decision: 'approve', overrideUserIds: ['u1'] });
-      expect(ok.status).toBe(200);
-      await ok.text();
     });
   });
 
@@ -750,22 +745,181 @@ describe('POST /api/agent/v1/chat/resume — generalized confirm', () => {
       });
     });
   });
+});
 
-  // A pending row written BEFORE this merge (no `chosen` contract, no
-  // idempotencyKey on the card) must still confirm.
-  it('an assignment card in the pre-merge shape still confirms', async () => {
+describe('POST /api/agent/v1/chat/resume — selecting an alternate', () => {
+  // The AC "picking one of the suggested people assigns THAT person" made
+  // executable. This is the test that fails if the frontend half of the
+  // contract is ever dropped.
+  it('resumes with the chosen alternate and records the branch on the row', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const at = appWithRecorder();
-      const approvalId = await seedFor(pool, at, makeCard(['u1'], randomUUID()));
-
-      const res = await post(at.app, {
-        approvalId,
-        decision: 'approve',
-        overrideUserIds: ['u1'],
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const captured: CapturedResume[] = [];
+      const app = buildApp(
+        sessionWith(tenantId, userId, ['agent.workflow.approve']),
+        makeFakeResume(captured),
+      );
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: 'mr-1',
+        toolCallId: 'tc-1',
+        threadId: 'th-1',
+        card: makeCard(['top-1'], taskId),
       });
+
+      const res = await post(app, { approvalId, chosen: 'alternate', alternateIndex: 0 });
       expect(res.status).toBe(200);
       await res.text();
-      expect(at.calls[0]!.resume.idempotencyKey).toBeUndefined();
+
+      // Verbatim off the card — no mapping step, no client-supplied field.
+      expect(captured[0]!.resume).toEqual({
+        action: 'assign',
+        assigneeUserIds: ['alt-1'],
+        taskId,
+        idempotencyKey: 'key-1',
+      });
+      expect(captured[0]!.ctx.workflowId).toBe('planner.assignment-orchestrator');
+
+      const row = await pool.query<{ status: string; decision_payload: Record<string, unknown> }>(
+        'SELECT status, decision_payload FROM agent.workflow_approvals WHERE approval_id = $1',
+        [approvalId],
+      );
+      expect(row.rows[0]!.status).toBe('approved');
+      // Without these two the transcript would name the top match forever.
+      expect(row.rows[0]!.decision_payload).toMatchObject({
+        chosen: 'alternate',
+        alternate_index: 0,
+      });
+    });
+  });
+
+  it('refuses an out-of-range alternateIndex without consuming the approval', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const captured: CapturedResume[] = [];
+      const app = buildApp(
+        sessionWith(tenantId, userId, ['agent.workflow.approve']),
+        makeFakeResume(captured),
+      );
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: 'mr-1',
+        toolCallId: 'tc-1',
+        threadId: 'th-1',
+        card: makeCard(['top-1'], randomUUID()),
+      });
+
+      const res = await post(app, { approvalId, chosen: 'alternate', alternateIndex: 7 });
+      expect(res.status).toBe(400);
+      expect(await statusOf(pool, approvalId)).toBe('pending');
+      expect(captured).toHaveLength(0);
+    });
+  });
+
+  it('refuses a legacy body against an assignment card, and burns nothing', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const captured: CapturedResume[] = [];
+      const app = buildApp(
+        sessionWith(tenantId, userId, ['agent.workflow.approve']),
+        makeFakeResume(captured),
+      );
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: 'mr-1',
+        toolCallId: 'tc-1',
+        threadId: 'th-1',
+        card: makeCard(['top-1'], randomUUID()),
+      });
+
+      const res = await post(app, { approvalId, decision: 'modify', overrideUserIds: ['x'] });
+      expect(res.status).toBe(400);
+      expect(await statusOf(pool, approvalId)).toBe('pending');
+      expect(captured).toHaveLength(0);
+    });
+  });
+});
+
+describe('POST /api/agent/v1/chat/resume — cards written before the deploy', () => {
+  /** The shipped-before-FUT-806 shape: no decline payload, no key anywhere. */
+  function legacyShapedCard(taskId: string) {
+    return {
+      ...makeCard(['top-1'], taskId),
+      primary: {
+        label: 'Assign',
+        argsPatch: { action: 'assign', assigneeUserIds: ['top-1'], taskId },
+      },
+      alternates: [],
+      decline: { label: 'Leave unassigned' },
+    };
+  }
+
+  // §8.3: cards live 72 hours, so the common path has to keep working across
+  // the deploy.
+  it('still confirms on the primary branch', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const captured: CapturedResume[] = [];
+      const app = buildApp(
+        sessionWith(tenantId, userId, ['agent.workflow.approve']),
+        makeFakeResume(captured),
+      );
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: 'mr-1',
+        toolCallId: 'tc-1',
+        threadId: 'th-1',
+        card: legacyShapedCard(taskId) as never,
+      });
+
+      const res = await post(app, { approvalId, chosen: 'primary' });
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(captured[0]!.resume).toEqual({
+        action: 'assign',
+        assigneeUserIds: ['top-1'],
+        taskId,
+      });
+      expect(await statusOf(pool, approvalId)).toBe('approved');
+    });
+  });
+
+  // The rare path fails CLOSED. selectArgsPatch returns {} for a decline branch
+  // with no argsPatch, and the tool's strict resume schema refuses it. What is
+  // NOT acceptable is an assign.
+  it('never resumes with an assign when declining a card that has no decline payload', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const captured: CapturedResume[] = [];
+      const app = buildApp(
+        sessionWith(tenantId, userId, ['agent.workflow.approve']),
+        makeFakeResume(captured),
+      );
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: 'mr-1',
+        toolCallId: 'tc-1',
+        threadId: 'th-1',
+        card: legacyShapedCard(randomUUID()) as never,
+      });
+
+      const res = await post(app, { approvalId, chosen: 'decline' });
+      expect(res.status).not.toBe(500);
+      await res.text().catch(() => {});
+      expect(captured[0]?.resume ?? {}).not.toMatchObject({ action: 'assign' });
+      expect(await statusOf(pool, approvalId)).toBe('rejected');
     });
   });
 });
