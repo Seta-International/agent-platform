@@ -74,12 +74,15 @@ export const SKILL_ALIASES: Record<string, string[]> = {
   'Node.js': ['node', 'nodejs server'],
   TypeScript: ['ts'],
   JavaScript: ['js'],
+  Go: ['golang', 'go lang'],
   PostgreSQL: ['postgres', 'psql'],
   'REST APIs': ['rest', 'rest api', 'restful'],
   Kubernetes: ['k8s'],
   'CI/CD': ['cicd', 'ci cd'],
   'Test Automation': ['automation testing', 'automated testing'],
   LLMs: ['llm', 'large language models'],
+  'HTML/CSS': ['html', 'css'],
+  'Tailwind CSS': ['tailwind'],
 };
 
 // xlsx Roll (uppercased) → catalog skill names the holder is assumed to have.

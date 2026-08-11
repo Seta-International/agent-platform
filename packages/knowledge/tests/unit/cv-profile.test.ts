@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CvParseError,
   type CvProfileDraft,
+  cvProfileDraft,
   parseCvProfile,
 } from '../../src/backend/parse/cv-profile.ts';
 
@@ -39,6 +40,17 @@ function modelReturning(text: string) {
       }) as never,
   });
 }
+
+describe('cvProfileDraft', () => {
+  it('dob regex avoids \\d so local llama.cpp can compile the grammar', () => {
+    const dob = cvProfileDraft.shape.dob;
+    // Zod stores the regex on the inner string check; walk to the pattern source.
+    const source = JSON.stringify(dob);
+    expect(source).not.toMatch(/\\d/);
+    expect(cvProfileDraft.safeParse({ ...DRAFT, dob: '1994-03-12' }).success).toBe(true);
+    expect(cvProfileDraft.safeParse({ ...DRAFT, dob: '94-03-12' }).success).toBe(false);
+  });
+});
 
 describe('parseCvProfile', () => {
   it('extracts a zod-valid draft from a text CV', async () => {

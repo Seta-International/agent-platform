@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createSkill, createSkillCategory } from '@seta/core';
+import { createSkill, createSkillAlias, createSkillCategory } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -86,6 +86,48 @@ describe('parseCandidateCvDraft', () => {
       expect(draft.seniority).toBe('senior');
       expect(draft.note).toBe('Senior QA engineer.');
       expect(draft.skills).toEqual([{ skill_id: skill.id, skill_name: 'Playwright' }]);
+      expect(draft.skill_suggestions).toEqual(['Fortran']);
+    }));
+
+  it('resolves skill aliases (Golang → Go) and dedupes synonyms to one catalog row', () =>
+    withDb(async ({ t }) => {
+      const catSession = {
+        ...t.adminSession,
+        permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
+      };
+      const cat = await createSkillCategory({ input: { name: 'Lang' }, session: catSession });
+      const go = await createSkill({
+        input: { category_id: cat.id, name: 'Go' },
+        session: catSession,
+      });
+      await createSkillAlias({ input: { skill_id: go.id, alias: 'Golang' }, session: catSession });
+
+      const draft = await parseCandidateCvDraft(
+        { buffer: Buffer.from(CV_TEXT, 'utf-8'), filename: 'cv.txt', session: t.adminSession },
+        {
+          resolveModel: () =>
+            new MockLanguageModelV3({
+              doGenerate: async () =>
+                ({
+                  rawCall: { rawPrompt: null, rawSettings: {} },
+                  finishReason: 'stop',
+                  usage,
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        ...LLM_DRAFT,
+                        skills: ['Golang', 'Go', 'Fortran'],
+                      }),
+                    },
+                  ],
+                  warnings: [],
+                }) as never,
+            }),
+        },
+      );
+
+      expect(draft.skills).toEqual([{ skill_id: go.id, skill_name: 'Go' }]);
       expect(draft.skill_suggestions).toEqual(['Fortran']);
     }));
 });
