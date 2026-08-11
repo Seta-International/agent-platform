@@ -241,9 +241,54 @@ export const MergeTasksResumeSchema = z
   .strict();
 export type MergeTasksResume = z.infer<typeof MergeTasksResumeSchema>;
 
+/** One call may not name more than this many people. A card listing thirty
+ *  names is not a preview anybody reads. */
+export const ASSIGNEE_CAP = 10;
+
+export const AssignTaskToolInputSchema = z
+  .object({
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+    assigneeRefs: z
+      .array(z.string().trim().min(1))
+      .min(1)
+      .max(ASSIGNEE_CAP)
+      .describe(
+        'The COMPLETE list of people who should be assigned after this change — display ' +
+          'names, emails or user UUIDs. This REPLACES the current assignees, so to add ' +
+          'somebody alongside the current owners you must list the current owners too. ' +
+          'Call planner_getTask first whenever the request is relative to whoever owns the ' +
+          'task now ("thay B bằng A", "giao thêm cho A", "bỏ B ra").',
+      ),
+  })
+  .strict();
+
+export const AssignTaskToolOutputSchema = z.object({
+  assigned: z.boolean(),
+  assigneeUserIds: z.array(z.string()),
+  refusal: z.string().nullable().optional(),
+});
+
+export const AssignTaskSuspendSchema = z.object({ card: z.unknown() });
+
+/**
+ * Read off the persisted card, never off the confirm request. `assigneeUserIds`
+ * is the FINAL set — the same array `setAssignees` receives — so the resume pass
+ * never has to work out what "add" or "remove" meant.
+ */
+export const AssignTaskResumeSchema = z
+  .object({
+    action: z.enum(['assign', 'decline']),
+    taskId: z.string(),
+    assigneeUserIds: z.array(z.string()).optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type AssignTaskResume = z.infer<typeof AssignTaskResumeSchema>;
+
 export const ActionResumeSchema = z.union([
   UpdateTaskResumeSchema,
   LinkTasksResumeSchema,
   MergeTasksResumeSchema,
+  AssignTaskResumeSchema,
 ]);
-export type ActionResume = UpdateTaskResume | LinkTasksResume | MergeTasksResume;
+export type ActionResume = UpdateTaskResume | LinkTasksResume | MergeTasksResume | AssignTaskResume;
