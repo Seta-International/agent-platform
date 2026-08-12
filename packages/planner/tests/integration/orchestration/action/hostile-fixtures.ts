@@ -1,3 +1,19 @@
+/**
+ * EV-08 hostile-text fixtures (FUT-824).
+ *
+ * SHARED WITH FUT-807's M7 golden lane — import `seedHostileWorld` and
+ * `HOSTILE_INSTRUCTION` from here rather than re-seeding, so a corpus case and
+ * an invariant test are demonstrably probing the same text.
+ *
+ * The split: this file plus injection-invariants.test.ts own what is provable
+ * WITHOUT a model (stored text has no path to a write, every write suspends, a
+ * quoted foreign id is still refused). FUT-807 owns the behavioural question —
+ * whether the model repeats, summarises or acts on the instruction — because
+ * only that half needs an LLM and an eval harness.
+ *
+ * If you add a surface here, add a corpus case for it too; a fixture no case
+ * reads is a fixture that will drift.
+ */
 import { randomUUID } from 'node:crypto';
 import { createUser } from '@seta/identity';
 import type { Pool } from 'pg';
