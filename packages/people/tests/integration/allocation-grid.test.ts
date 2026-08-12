@@ -901,4 +901,113 @@ describe('getAllocationGrid', () => {
       }
     });
   });
+
+  it('FUT-739: clears monthly planned load after allocation end date and handles reassigned sequential projects', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const kienId = crypto.randomUUID();
+        const accCommerce = crypto.randomUUID();
+        const accAeris = crypto.randomUUID();
+        const projCommerce = crypto.randomUUID();
+        const projAeris = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: kienId,
+          tenant_id: t.tenant_id,
+          full_name: 'Nguyễn Mạnh Kiên',
+          employee_no: '7178',
+        });
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            {
+              project_id: projCommerce,
+              tenant_id: t.tenant_id,
+              account_id: accCommerce,
+              name: 'Commerce Canal',
+            },
+            {
+              project_id: projAeris,
+              tenant_id: t.tenant_id,
+              account_id: accAeris,
+              name: 'AERIS WT',
+            },
+          ]);
+
+        // Commerce Canal: 01 Mar 2026 -> 21 Jul 2026 (100%)
+        // AERIS WT: 22 Jul 2026 -> 31 Dec 2026 (100%)
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: kienId,
+              project_id: projCommerce,
+              account_id: accCommerce,
+              date_from: '2026-03-01',
+              date_to: '2026-07-21',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: kienId,
+              project_id: projAeris,
+              account_id: accAeris,
+              date_from: '2026-07-22',
+              date_to: '2026-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const commerceRow = grid.rows.find((r) => r.project_id === projCommerce)!;
+        const aerisRow = grid.rows.find((r) => r.project_id === projAeris)!;
+
+        // Commerce Canal months:
+        // Jan (m=0), Feb (m=1): null
+        expect(commerceRow.months[0]).toBeNull();
+        expect(commerceRow.months[1]).toBeNull();
+        // Mar-Jun (m=2..5): active
+        expect(commerceRow.months[2]).not.toBeNull();
+        expect(commerceRow.months[5]).not.toBeNull();
+        // Jul (m=6): 15 working days out of 22 -> ~68.18%
+        expect(commerceRow.months[6]).toBeCloseTo(68.18, 1);
+        // Aug-Dec (m=7..11): MUST BE null (0 load after Jul 21 end date)
+        for (let m = 7; m < 12; m++) {
+          expect(commerceRow.months[m]).toBeNull();
+        }
+
+        // AERIS WT months:
+        // Jan-Jun (m=0..5): null
+        for (let m = 0; m <= 5; m++) {
+          expect(aerisRow.months[m]).toBeNull();
+        }
+        // Jul (m=6): 8 working days out of 22 -> ~36.36%
+        expect(aerisRow.months[6]).toBeCloseTo(36.36, 1);
+        // Aug-Dec (m=7..11): active
+        expect(aerisRow.months[7]).not.toBeNull();
+        expect(aerisRow.months[11]).not.toBeNull();
+
+        // Worker totals peak in Jul (non-overlapping: max(68.18, 36.36) = 68.18% or 100%)
+        const totals = grid.worker_totals.find((w) => w.worker_id === kienId)!;
+        expect(totals.over_months).not.toContain(6); // No phantom over-allocation in Jul
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
