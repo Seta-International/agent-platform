@@ -76,6 +76,7 @@ import {
   STAGE_COLOR,
   type StageMove,
 } from './candidate-utils.ts';
+import { exportCandidatesCsv } from './export-candidate-csv.ts';
 import { NewCandidateDialog } from './new-candidate-dialog.tsx';
 import { TalentPoolCard } from './talent-pool-card.tsx';
 import { on409 } from './utils.ts';
@@ -142,44 +143,6 @@ const uniformRowHeight: TablePlugin<Row> = {
     htmlProps: { ...props.htmlProps, style: { ...props.htmlProps.style, height: '2lh' } },
   }),
 };
-
-function toCsvCell(value: string | number): string {
-  const s = String(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function exportCandidatesCsv(rows: CandidateListItem[]) {
-  const header = [
-    'Name',
-    'Position',
-    'Seniority',
-    'Source',
-    'Stage',
-    'Rating',
-    'Fit',
-    'Skills',
-    'Applied at',
-  ];
-  const lines = rows.map((r) => [
-    r.name,
-    r.requisition_title,
-    r.seniority ?? '',
-    r.source ?? '',
-    r.stage,
-    r.rating ?? '',
-    r.fit.required === 0 ? '' : `${Math.round(r.fit.score * 100)}%`,
-    r.skills.map((s) => s.skill_name).join('; '),
-    new Date(r.applied_at).toISOString().slice(0, 10),
-  ]);
-  const csv = [header, ...lines].map((line) => line.map(toCsvCell).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'candidates.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 // Debounce the server-side search needle so keystrokes coalesce into at most one request per pause
 // (FUT-833 moves the search box's matching — name/skills/email/phone — to the backend).
