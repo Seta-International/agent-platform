@@ -15,6 +15,7 @@
     "@seta/module-sdk": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-ui": "workspace:^",
+    "@seta/web-agent": "workspace:*",
     "@seta/web-identity": "workspace:^",
     "lucide-react": "^1.25.0",
     "zod": "^4.4.3"

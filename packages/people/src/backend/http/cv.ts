@@ -15,6 +15,17 @@ function cvParseErrorResponse(e: CvParseError): { status: 400 | 422 | 502; body:
   return { status, body: { error: e.code, message: e.message } };
 }
 
+function resolveCvModel(
+  resolveModel: NonNullable<RouteBuildDeps['resolveModel']>,
+  modelKey: string | undefined,
+): ParseCvProfileDeps['model'] {
+  const key = modelKey?.trim();
+  if (key && key !== 'auto') {
+    return resolveModel({ modelKey: key }) as ParseCvProfileDeps['model'];
+  }
+  return resolveModel({ tierHint: 'fast' }) as ParseCvProfileDeps['model'];
+}
+
 export function registerPeopleCvRoutes(
   app: Hono<SessionEnv>,
   deps: { resolveModel?: RouteBuildDeps['resolveModel'] } = {},
@@ -38,12 +49,14 @@ export function registerPeopleCvRoutes(
     if (file.size > CV_MAX_BYTES) {
       return c.json({ error: 'VALIDATION', message: 'CV exceeds the 10MB limit' }, 413);
     }
+    const modelField = body.model;
+    const modelKey = typeof modelField === 'string' ? modelField : undefined;
     const buffer = Buffer.from(await file.arrayBuffer());
     try {
       const draft = await parseWorkerCvDraft(
         { buffer, filename: file.name, session },
         {
-          resolveModel: () => resolveModel({ tierHint: 'fast' }) as ParseCvProfileDeps['model'],
+          resolveModel: () => resolveCvModel(resolveModel, modelKey),
         },
       );
       return c.json({ draft });
@@ -51,6 +64,9 @@ export function registerPeopleCvRoutes(
       if (e instanceof CvParseError) {
         const { status, body: errBody } = cvParseErrorResponse(e);
         return c.json(errBody as Record<string, unknown>, status);
+      }
+      if (e instanceof Error && e.name === 'ModelNotFoundError') {
+        return c.json({ error: 'unknown_model', message: e.message }, 400);
       }
       throw e;
     }

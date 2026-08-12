@@ -21,7 +21,7 @@ export {
   listSkillCategories,
   type SkillCategoryRow,
 } from './backend/skills/categories.ts';
-export { CoreSkillError } from './backend/skills/error.ts';
+export { CoreSkillError, requireSkillPermission } from './backend/skills/error.ts';
 export {
   CORE_SKILL_ARCHIVED,
   CORE_SKILL_CATEGORY_ARCHIVED,

@@ -27,3 +27,10 @@ export function useModelCatalog() {
     staleTime: 5 * 60_000,
   });
 }
+
+/** First concrete catalog key (skips synthetic `auto`). */
+export function firstConcreteModelKey(
+  models: readonly ModelOption[] | undefined,
+): string | undefined {
+  return models?.find((m) => m.key !== 'auto')?.key;
+}

@@ -1,4 +1,4 @@
-import { canonicalizeSkill, listSkills, type SessionScope } from '@seta/core';
+import { canonicalizeSkill, requireSkillPermission, type SessionScope } from '@seta/core';
 import { type CvProfileDraft, type ParseCvProfileDeps, parseCvProfile } from '@seta/knowledge';
 import { tenantScoped } from '@seta/shared-rbac';
 import { buildTenantKey, presignedDownloadUrl, presignedUploadUrl } from '@seta/shared-storage';
@@ -39,8 +39,10 @@ export async function matchSkillsToCatalog(
   session: SessionScope,
   names: string[],
 ): Promise<{ skills: WorkerCvDraft['skills']; suggestions: string[] }> {
+  // Gate on the catalog-read permission without fetching the whole catalog:
+  // canonicalizeSkill below is a normalization utility that does not re-check it.
   try {
-    await listSkills(session, { activeOnly: true });
+    requireSkillPermission(session, 'core.skill.read');
   } catch {
     const suggestions: string[] = [];
     const seen = new Set<string>();

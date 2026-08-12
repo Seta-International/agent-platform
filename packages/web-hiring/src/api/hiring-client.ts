@@ -656,9 +656,11 @@ export interface CandidateDuplicate {
 export async function parseCandidateCvDraft(
   file: File,
   signal?: AbortSignal,
+  model?: string,
 ): Promise<CandidateCvDraft> {
   const fd = new FormData();
   fd.set('file', file);
+  if (model) fd.set('model', model);
   const res = await fetch('/api/hiring/v1/cv/parse-draft', {
     method: 'POST',
     credentials: 'include',
