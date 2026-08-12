@@ -420,6 +420,15 @@ describe('POST /api/agent/v1/chat/resume', () => {
       expect(res.status).toBe(403);
       expect(await outboxCount(pool, runId)).toBe(0);
       expect(captured).toHaveLength(0);
+      // EV-07: the card must survive a refused confirm as PENDING. A refusal that
+      // consumed the row would leave the person actually entitled to confirm it
+      // with nothing to press — a denial of service on somebody else's card,
+      // reachable by anyone who knows an approval id.
+      const row = await pool.query<{ status: string }>(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [approvalId],
+      );
+      expect(row.rows[0]!.status).toBe('pending');
     });
   });
 
