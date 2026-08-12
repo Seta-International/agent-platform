@@ -40,6 +40,23 @@ vi.mock('../../../src/api/worker-search.ts', () => ({
 
 const fetchAllocationsMock = vi.fn((_params?: unknown) => Promise.resolve<unknown[]>([]));
 
+// `fetchProjectsMock` is a plain vi.fn (not a spy) so it survives the
+// `vi.restoreAllMocks()` in each describe's afterEach; tests that need a
+// different project set override it explicitly and reset it back.
+const fetchProjectsMock = vi.fn(() =>
+  Promise.resolve([
+    {
+      project_id: 'p1',
+      account_id: 'acc1',
+      name: 'Aeris - Watchtower',
+      phase: 'build',
+      status: 'active' as const,
+      pm_worker_id: null,
+      can_manage: true,
+    },
+  ]),
+);
+
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
   return {
@@ -55,18 +72,7 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
           project_count: 0,
         },
       ]),
-    fetchProjects: () =>
-      Promise.resolve([
-        {
-          project_id: 'p1',
-          account_id: 'acc1',
-          name: 'Aeris - Watchtower',
-          phase: 'build',
-          status: 'active' as const,
-          pm_worker_id: null,
-          can_manage: true,
-        },
-      ]),
+    fetchProjects: (...args: unknown[]) => fetchProjectsMock(...args),
     fetchAllocations: (params: unknown) => fetchAllocationsMock(params),
   };
 });
@@ -455,5 +461,97 @@ describe('RaMonitoringPage — breadcrumb trail (Astryx migration)', () => {
     // Current crumb — manifest label and page title agree ("RA Monitoring"), not a link.
     expect(within(nav).getByText('RA Monitoring').closest('a')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'RA Monitoring' })).toBeInTheDocument();
+  });
+});
+
+describe('RaMonitoringPage — Scope card project count (FUT-841)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+    // Reset the project list back to the shared default so later describe
+    // blocks start from a known state (they reset allocations but not projects).
+    fetchProjectsMock.mockReset();
+    fetchProjectsMock.mockResolvedValue([
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'Aeris - Watchtower',
+        phase: 'build',
+        status: 'active' as const,
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ]);
+  });
+
+  it('shows the account project count when only an account filter is set', async () => {
+    fetchProjectsMock.mockResolvedValue([
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'P1',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p2',
+        account_id: 'acc1',
+        name: 'P2',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p3',
+        account_id: 'acc1',
+        name: 'P3',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ]);
+    latestSearch = { account: 'acc1' };
+
+    renderTableHarness();
+    await screen.findByRole('table');
+
+    // account filter only → the account's full project set
+    expect(screen.getByText('3 projects')).toBeInTheDocument();
+  });
+
+  it('shows 1 project when a single project is selected', async () => {
+    fetchProjectsMock.mockResolvedValue([
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'P1',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p2',
+        account_id: 'acc1',
+        name: 'P2',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ]);
+    latestSearch = { account: 'acc1', project: 'p1' };
+
+    renderTableHarness();
+    await screen.findByRole('table');
+
+    // The count must reflect the single selected project, not the account total.
+    expect(screen.getByText('1 project')).toBeInTheDocument();
   });
 });

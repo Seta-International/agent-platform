@@ -697,9 +697,14 @@ export function RaMonitoringPage() {
     [firstInGroup, overWorkers, openReassignGroup, win],
   );
 
+  // The Scope card must reflect the current filter context (FUT-841): the
+  // count is 1 when a single project is selected, otherwise the account (or
+  // all) projects visible through the filter. `visibleProjects` is account-
+  // scoped, so the selected `projectId` has to narrow the count explicitly.
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
     : 'All projects';
+  const scopeProjectCount = projectId ? 1 : visibleProjects.length;
 
   return (
     <Layout
@@ -757,7 +762,11 @@ export function RaMonitoringPage() {
                 value={String(visibleOverWorkersCount)}
                 sub=">100% in window"
               />
-              <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
+              <Kpi
+                label="Scope"
+                value={scopeLabel}
+                sub={`${scopeProjectCount} project${scopeProjectCount === 1 ? '' : 's'}`}
+              />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
