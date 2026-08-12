@@ -4,6 +4,7 @@ import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
 import {
+  makeActionComment,
   makeActionSimilarTasks,
   makeActionTaskAssign,
   makeActionTaskCreate,
@@ -53,6 +54,7 @@ export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): Plann
     taskMerge: makeActionTaskMerge(),
     taskAssign: makeActionTaskAssign(),
     taskCreate: makeActionTaskCreate(),
+    comment: makeActionComment(),
     // The adapter closes over getters, so both deps are read lazily inside
     // search() — a getter that throws stays harmless until a create is actually
     // previewed.

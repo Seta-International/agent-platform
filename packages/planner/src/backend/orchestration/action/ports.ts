@@ -215,6 +215,21 @@ export interface SimilarTaskPort {
   ): Promise<Array<{ taskId: string; title: string; score: number }>>;
 }
 
+export interface CommentPort {
+  /** `planner.task.comment.create` on the task's group, called BEFORE the card
+   *  exists — same reason as every other A2 first-pass gate. The permission is
+   *  granted to `planner.viewer` as well as member and admin, so this gate is
+   *  wider than the other write gates by design: anyone who can see the task may
+   *  comment on it. */
+  assertCanComment(args: ActorRef & { groupId: string }): Promise<void>;
+
+  /** `withGatedMutation('comment')` around the existing `createComment` domain
+   *  function, so a retried confirm cannot post the same note twice. */
+  comment(
+    args: ActorRef & { taskId: string; body: string; idempotencyKey: string },
+  ): Promise<{ commentId: string; replayed: boolean }>;
+}
+
 export interface ActionPorts {
   taskRead: TaskReadPort;
   taskUpdate: TaskUpdatePort;
@@ -223,4 +238,5 @@ export interface ActionPorts {
   taskAssign: TaskAssignPort;
   taskCreate: TaskCreatePort;
   similarTasks: SimilarTaskPort;
+  comment: CommentPort;
 }
