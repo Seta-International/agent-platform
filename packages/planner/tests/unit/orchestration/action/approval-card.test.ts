@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAssignTaskApprovalCard,
   buildBulkApprovalCard,
+  buildCommentTaskApprovalCard,
   buildCreateTaskApprovalCard,
   buildLinkApprovalCard,
   buildMergeApprovalCard,
@@ -521,5 +522,45 @@ describe('buildCreateTaskApprovalCard', () => {
 
   it('is a write, not a destructive change', () => {
     expect(buildCreateTaskApprovalCard(base).riskBadge).toBe('write');
+  });
+});
+
+describe('buildCommentTaskApprovalCard', () => {
+  const base = {
+    taskId: 'id-a',
+    title: 'Deploy hiring screen',
+    body: 'Blocked on the vendor key.',
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  // The user is confirming TEXT. Truncating it in the preview would mean
+  // confirming something they have not read in full.
+  it('shows the comment body verbatim, however long', () => {
+    const body = 'x'.repeat(1200);
+    const card = buildCommentTaskApprovalCard({ ...base, body });
+    expect(JSON.stringify(card.details)).toContain(body);
+  });
+
+  it('names the task it will be posted on', () => {
+    const card = buildCommentTaskApprovalCard(base);
+    expect(JSON.stringify(card.details)).toContain('Deploy hiring screen');
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  it('carries the body and the key on the primary patch', () => {
+    expect(buildCommentTaskApprovalCard(base).primary.argsPatch).toEqual({
+      action: 'comment',
+      taskId: 'id-a',
+      body: 'Blocked on the vendor key.',
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  it('offers no alternatives and is a plain write', () => {
+    const card = buildCommentTaskApprovalCard(base);
+    expect(card.alternates).toEqual([]);
+    expect(card.riskBadge).toBe('write');
   });
 });

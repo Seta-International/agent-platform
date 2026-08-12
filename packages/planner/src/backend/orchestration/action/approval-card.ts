@@ -403,6 +403,52 @@ export function buildAssignTaskApprovalCard(opts: BuildAssignTaskApprovalCardOpt
   };
 }
 
+export interface BuildCommentTaskApprovalCardOpts {
+  taskId: string;
+  title: string;
+  body: string;
+  tenantId: string;
+  userId: string;
+  idempotencyKey: string;
+}
+
+/**
+ * The comment preview. The body is shown VERBATIM and unclipped: the user is
+ * confirming text, and a truncated preview would mean confirming words they have
+ * not read. Only the task title is clipped, because that is a label.
+ *
+ * It rides in its own `text` block rather than as a `kvTable` value, because
+ * `display()` clips every table value at 140 characters.
+ */
+export function buildCommentTaskApprovalCard(opts: BuildCommentTaskApprovalCardOpts): ApprovalCard {
+  const { taskId, title, body, tenantId, userId, idempotencyKey } = opts;
+  return {
+    toolCallId: `planner.action:${idempotencyKey}`,
+    intent: `Comment on "${clipTitle(title)}"`,
+    riskBadge: 'write',
+    summary: 'This comment will be posted as you.',
+    details: [
+      { kind: 'kvTable', rows: [{ k: 'Task', v: clipTitle(title) }] },
+      { kind: 'text', body },
+    ],
+    primary: {
+      label: 'Post comment',
+      argsPatch: { action: 'comment', taskId, body, idempotencyKey },
+    },
+    // The user wrote the words; there is nothing to offer as an alternative.
+    alternates: [],
+    decline: { label: 'Cancel', argsPatch: { action: 'decline', taskId, idempotencyKey } },
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      workflowId: ACTION_WORKFLOW_ID,
+      toolId: 'planner_commentTask',
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
 export interface BuildCreateTaskApprovalCardOpts {
   planId: string;
   planName: string;
