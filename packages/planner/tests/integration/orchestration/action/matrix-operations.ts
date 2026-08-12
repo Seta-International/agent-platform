@@ -98,10 +98,19 @@ function toolCtx(world: MatrixWorld, actorUserId: string, suspend: () => Promise
   } as never;
 }
 
-/** A refusal the PORT layer expresses as a null rather than a throw — the link
- *  and assign read paths collapse FORBIDDEN, NOT_FOUND and CROSS_TENANT into one
- *  `null` on purpose (FUT-805 AC3). The matrix asserts on rejections, so the null
- *  has to become one here rather than silently reading as "allowed". */
+/**
+ * A refusal the PORT layer expresses as a null rather than a throw — the link and
+ * assign read paths collapse FORBIDDEN, NOT_FOUND and CROSS_TENANT into one `null`
+ * on purpose (FUT-805 AC3). The matrix asserts on rejections, so the null has to
+ * become one here rather than silently reading as "allowed".
+ *
+ * Worth being honest about what that means for coverage: for `link`, `merge` and
+ * `assign`, an out-of-reach target is refused by the READ, before the operation's
+ * own gate is ever consulted. Those cells prove nothing reachable is written; they
+ * do not additionally prove `assertCanMerge` would have refused, because the real
+ * path cannot get there. Reaching it would mean feeding the gate a group the read
+ * never returned — an argument the product does not produce.
+ */
 function refused(what: string): never {
   throw new Error(`REFUSED: ${what}`);
 }
