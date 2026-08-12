@@ -164,6 +164,31 @@ describe('EV-07 — A2 write permissions', () => {
   });
 });
 
+// The reviewer's artifact. 98 assertions are unreadable; one table is not. A
+// permission change nobody intended shows up here as a diff in review even when
+// every individual cell still passes its own expectation.
+//
+// The header's "seed roles only; no tenant role overlay" is not decoration:
+// `buildActorSession` resolves seed-role permissions with NO per-tenant overlay
+// (see its own comment), so a tenant that has customised its roles is outside what
+// this table proves. Without the line, the table reads as a complete statement of
+// who can do what.
+it('emits the matrix as a readable table', () => {
+  const header = [
+    '# EV-07 — A2 write permissions (seed roles only; no tenant role overlay)',
+    '',
+    '| operation | role | own group | other group | other tenant |',
+    '| --- | --- | --- | --- | --- |',
+  ];
+  const rows = MATRIX_OPS.flatMap((op) =>
+    MATRIX_ROLES.map(
+      (role) =>
+        `| ${op} | ${role} | ${MATRIX_SCOPES.map((s) => expected(op, role, s)).join(' | ')} |`,
+    ),
+  );
+  expect([...header, ...rows].join('\n')).toMatchSnapshot();
+});
+
 // The AC calls this out explicitly: "Users who belong to several groups are
 // covered, not only single-group users." A second run of ONE role rather than a
 // fourth axis — multiplying all 84 cells by four would buy nothing these two
