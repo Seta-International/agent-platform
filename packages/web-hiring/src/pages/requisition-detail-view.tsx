@@ -1208,6 +1208,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       {selectedCandidate && (
         <CandidateDetailDrawer
           candidateId={selectedCandidate}
+          requisitionId={requisitionId}
           onClose={() => setSelectedCandidate(null)}
         />
       )}

@@ -15,7 +15,6 @@ const putCvToS3 = vi.fn();
 const getCandidateCvDownloadUrl = vi.fn();
 const hireApplication = vi.fn();
 
-
 beforeEach(() => {
   vi.clearAllMocks();
   fetchRequisition.mockResolvedValue({
@@ -292,5 +291,98 @@ describe('CandidateDetailDrawer', () => {
       'No vacant openings for this requisition',
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('selects latest application when no application is active (FUT-902)', async () => {
+    const multiAppDetail: CandidateDetail = {
+      ...detail,
+      applications: [
+        {
+          application_id: 'a1',
+          requisition_id: 'r1',
+          requisition_title: 'QA Manual Test New Ui',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'new',
+          status: 'transferred',
+          rating: null,
+          tags: [],
+          version: 1,
+          applied_at: '2026-07-22T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+        {
+          application_id: 'a2',
+          requisition_id: 'r2',
+          requisition_title: 'Mobile Developer',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'screening',
+          status: 'cancelled',
+          rating: null,
+          tags: [],
+          version: 2,
+          applied_at: '2026-07-30T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+      ],
+    };
+    fetchCandidate.mockResolvedValue(multiAppDetail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    // Should render Mobile Developer (the latest application a2) instead of QA Manual Test New Ui (a1)
+    expect(screen.getByText('Mobile Developer')).toBeInTheDocument();
+    expect(screen.queryByText('QA Manual Test New Ui')).not.toBeInTheDocument();
+  });
+
+  it('selects application matching requisitionId prop when provided', async () => {
+    const multiAppDetail: CandidateDetail = {
+      ...detail,
+      applications: [
+        {
+          application_id: 'a1',
+          requisition_id: 'r1',
+          requisition_title: 'QA Manual Test New Ui',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'new',
+          status: 'transferred',
+          rating: null,
+          tags: [],
+          version: 1,
+          applied_at: '2026-07-22T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+        {
+          application_id: 'a2',
+          requisition_id: 'r2',
+          requisition_title: 'Mobile Developer',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'screening',
+          status: 'active',
+          rating: null,
+          tags: [],
+          version: 2,
+          applied_at: '2026-07-30T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+      ],
+    };
+    fetchCandidate.mockResolvedValue(multiAppDetail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" requisitionId="r1" onClose={() => {}} />, {
+      wrapper: wrap(qc),
+    });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    // Matches requisitionId r1 -> QA Manual Test New Ui
+    expect(screen.getByText('QA Manual Test New Ui')).toBeInTheDocument();
   });
 });
