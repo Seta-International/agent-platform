@@ -9,18 +9,34 @@ import type { CandidateCvDraft } from '../../src/api/hiring-client.ts';
 
 const addCandidate = vi.fn();
 const parseCandidateCvDraft =
-  vi.fn<(file: File, signal?: AbortSignal) => Promise<CandidateCvDraft>>();
+  vi.fn<(file: File, signal?: AbortSignal, model?: string) => Promise<CandidateCvDraft>>();
 const fetchRequisitions = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   addCandidate: (input: unknown) => addCandidate(input),
-  parseCandidateCvDraft: (file: File, signal?: AbortSignal) => parseCandidateCvDraft(file, signal),
+  parseCandidateCvDraft: (file: File, signal?: AbortSignal, model?: string) =>
+    parseCandidateCvDraft(file, signal, model),
   fetchRequisitions: () => fetchRequisitions(),
   fetchSkillCatalog: () =>
     Promise.resolve({
       categories: [{ id: 'cat1', name: 'Backend', sort_order: 0, active: true }],
       skills: [{ id: 's1', name: 'TypeScript', category_id: 'cat1', active: true }],
     }),
+}));
+
+vi.mock('@seta/web-agent', () => ({
+  ModelSelector: ({ value }: { value: string }) => (
+    <div data-testid="model-selector">{value || 'no-model'}</div>
+  ),
+  useModelCatalog: () => ({
+    data: {
+      models: [{ key: 'mock/echo', label: 'mock · echo', tier: 'fast', supportsReasoning: false }],
+      default: 'auto',
+    },
+    isLoading: false,
+  }),
+  firstConcreteModelKey: (models?: Array<{ key: string }>): string | undefined =>
+    models?.find((m) => m.key !== 'auto')?.key,
 }));
 
 import { NewCandidateDialog } from '../../src/pages/new-candidate-dialog.tsx';

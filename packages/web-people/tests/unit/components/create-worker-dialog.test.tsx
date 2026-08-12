@@ -3,6 +3,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@seta/web-agent', () => ({
+  ModelSelector: ({ value }: { value: string }) => (
+    <div data-testid="model-selector">{value || 'no-model'}</div>
+  ),
+  useModelCatalog: () => ({
+    data: {
+      models: [{ key: 'mock/echo', label: 'mock · echo', tier: 'fast', supportsReasoning: false }],
+      default: 'auto',
+    },
+    isLoading: false,
+  }),
+  firstConcreteModelKey: (models?: Array<{ key: string }>): string | undefined =>
+    models?.find((m) => m.key !== 'auto')?.key,
+}));
+
 import { CreateWorkerDialog } from '../../../src/components/create-worker-dialog';
 
 vi.mock('../../../src/api/org-client.ts', () => ({

@@ -289,9 +289,10 @@ export interface WorkerCvDraft {
 }
 
 /** Stateless parse: nothing is stored until the reviewer saves the form. */
-export async function parseWorkerCvDraft(file: File): Promise<WorkerCvDraft> {
+export async function parseWorkerCvDraft(file: File, model?: string): Promise<WorkerCvDraft> {
   const fd = new FormData();
   fd.set('file', file);
+  if (model) fd.set('model', model);
   const res = await fetch('/api/people/v1/cv/parse-draft', {
     method: 'POST',
     credentials: 'include',

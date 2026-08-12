@@ -6,6 +6,8 @@ interface ModelSelectorProps {
   value: string;
   onChange: (next: string) => void;
   variant?: 'bordered' | 'ghost';
+  /** When false, hide the synthetic Auto entry (CV parse requires a concrete model). */
+  includeAuto?: boolean;
 }
 
 const TIER_ICON: Record<ModelTier, typeof Zap> = {
@@ -19,12 +21,17 @@ const TIER_ICON: Record<ModelTier, typeof Zap> = {
 // badges, or per-model blurbs. Just the names, the current one checked.
 const TIER_ORDER: ModelTier[] = ['auto', 'fast', 'balanced', 'reasoning'];
 
-export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelectorProps) {
+export function ModelSelector({
+  value,
+  onChange,
+  variant = 'ghost',
+  includeAuto = true,
+}: ModelSelectorProps) {
   const { data, isLoading } = useModelCatalog();
-  const models = data?.models ?? [];
+  const models = (data?.models ?? []).filter((m) => includeAuto || m.key !== 'auto');
   const ordered = TIER_ORDER.flatMap((tier) => models.filter((m) => m.tier === tier));
   const current = models.find((m) => m.key === value);
-  const CurrentIcon = current ? TIER_ICON[current.tier] : Wand2;
+  const CurrentIcon = current ? TIER_ICON[current.tier] : includeAuto ? Wand2 : Zap;
 
   return (
     <DropdownMenu
