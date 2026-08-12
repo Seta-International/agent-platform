@@ -163,3 +163,47 @@ describe('EV-07 — A2 write permissions', () => {
     });
   });
 });
+
+// The AC calls this out explicitly: "Users who belong to several groups are
+// covered, not only single-group users." A second run of ONE role rather than a
+// fourth axis — multiplying all 84 cells by four would buy nothing these two
+// assertions do not already show.
+describe('EV-07 — a member of two groups', () => {
+  it('covers 14 cells', () => {
+    expect(MATRIX_OPS.length * 2).toBe(14);
+  });
+
+  describe.each(MATRIX_OPS)('%s', (op) => {
+    it('is allowed in BOTH of their own groups', async () => {
+      for (const scope of ['own-group', 'second-group'] as const) {
+        __resetBreakersForTests();
+        let suspended = false;
+        await OPERATIONS[op].viaTool({
+          world,
+          actorUserId: world.multiGroupUserId,
+          scope,
+          suspend: async () => {
+            suspended = true;
+          },
+        });
+        expect(suspended, `${op} in ${scope}`).toBe(true);
+      }
+    });
+
+    it('is refused in a third group they do not belong to', async () => {
+      let suspended = false;
+      await OPERATIONS[op]
+        .viaTool({
+          world,
+          actorUserId: world.multiGroupUserId,
+          scope: 'third-group',
+          suspend: async () => {
+            suspended = true;
+          },
+        })
+        .catch(() => undefined);
+      expect(suspended).toBe(false);
+      expect(await pendingApprovalsFor(world.multiGroupUserId)).toBe(0);
+    });
+  });
+});
