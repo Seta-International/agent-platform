@@ -641,4 +641,129 @@ describe('ReassignWizardDialog', () => {
     expect(targetLabel).toBeInTheDocument();
     expect(targetLabel).toHaveClass('text-error');
   });
+
+  // FUT-847: the existing-row overlap error prefixes the *current* project name from the draft,
+  // not the original DB value. After editing row a2 (Project Beta) to overlap row a1 on the same
+  // project, both messages must reference the new project only.
+  it('FUT-847: shows the edited project name in the overlap validation message', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [
+        // a1 and a2 overlap fully in time but live on different projects — no overlap today.
+        allocation({ allocation_id: 'a1', project_id: 'p1', project_name: 'Project Alpha' }),
+        allocation({
+          allocation_id: 'a2',
+          project_id: 'p2',
+          project_name: 'Project Beta',
+          planned_pct: 40,
+        }),
+      ],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p1',
+          account_id: 'acc1',
+          name: 'Project Alpha',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Project Beta',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+      ],
+    );
+
+    // Move a2 from Project Beta → Project Alpha so the two now overlap on one project.
+    const projectField = screen.getByLabelText(/project for project beta/i);
+    await user.click(projectField);
+    await user.clear(projectField);
+    await user.type(projectField, 'Project Alpha');
+    await user.click(await screen.findByRole('option', { name: 'Project Alpha' }));
+
+    // Both rows now overlap on Project Alpha — every overlap message must reference the
+    // current (edited) project name, never the stale "Project Beta" from before the edit.
+    const overlaps = screen
+      .getAllByRole('alert')
+      .filter((el) => el.textContent?.includes('Overlaps another allocation'));
+    expect(overlaps.length).toBeGreaterThan(0);
+    for (const el of overlaps) {
+      expect(el).toHaveTextContent('Project Alpha: Overlaps another allocation on this project.');
+      expect(el).not.toHaveTextContent('Project Beta');
+    }
+  });
+
+  // FUT-847: the overlap message must also clear (not linger from saved values) once the edit
+  // resolves the overlap — display tracks the draft, not the DB.
+  it('FUT-847: clears the overlap message when the edit resolves the overlap', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [
+        allocation({ allocation_id: 'a1', project_id: 'p1', project_name: 'Project Alpha' }),
+        allocation({
+          allocation_id: 'a2',
+          project_id: 'p2',
+          project_name: 'Project Beta',
+          planned_pct: 40,
+        }),
+      ],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p1',
+          account_id: 'acc1',
+          name: 'Project Alpha',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Project Beta',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+      ],
+    );
+
+    // a2 → Project Alpha first creates an overlap; the message appears, and every overlap
+    // message must reference the current (edited) project — never the stale "Project Beta".
+    const projectField = screen.getByLabelText(/project for project beta/i);
+    await user.click(projectField);
+    await user.clear(projectField);
+    await user.type(projectField, 'Project Alpha');
+    await user.click(await screen.findByRole('option', { name: 'Project Alpha' }));
+    const overlaps = screen
+      .getAllByRole('alert')
+      .filter((el) => el.textContent?.includes('Overlaps another allocation'));
+    expect(overlaps.length).toBeGreaterThan(0);
+    for (const el of overlaps) {
+      expect(el).not.toHaveTextContent('Project Beta');
+    }
+
+    // Now set a1 to a non-overlapping window — the overlap (and the message) must clear.
+    const a1Start = screen.getByLabelText(/start date for project alpha/i);
+    await user.click(a1Start);
+    await user.clear(a1Start);
+    await user.type(a1Start, formatLongDate(isoOffset(200)));
+    const after = screen
+      .getAllByRole('alert')
+      .filter((el) => el.textContent?.includes('Overlaps another allocation'));
+    expect(after).toHaveLength(0);
+  });
 });

@@ -701,7 +701,11 @@ export function ReassignWizardDialog({
                             role="alert"
                             className="text-sm font-medium text-error"
                           >
-                            {a.project_name}: {existingErrors[a.allocation_id]}
+                            {/* FUT-847: the label must track the draft's project, not the
+                                original DB value — validation already runs against the draft. */}
+                            {projects.find((p) => p.project_id === draftFor(a).project_id)?.name ??
+                              a.project_name}
+                            : {existingErrors[a.allocation_id]}
                           </p>
                         ) : null,
                       )}
