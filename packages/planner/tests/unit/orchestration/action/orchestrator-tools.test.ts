@@ -34,3 +34,43 @@ describe('the A2 allowlist', () => {
     expect(Object.keys(tools)).not.toContain('planner_postComment');
   });
 });
+
+// EV-08 invariant 2, and the reason "zero changes without a confirmation" is
+// structural rather than sampled: a write tool that forgot its suspend/resume
+// pair would act on the first pass, which is exactly the shape an injected
+// instruction needs.
+//
+// Deliberately a test over the ALLOWLIST rather than a list of tool names:
+// adding a tenth write tool without a card must fail here, on the day it is
+// added, without anybody remembering to update this file.
+describe('every A2 write tool confirms before it writes', () => {
+  const READ_ONLY = new Set(['planner_getTask', 'planner_queryTasks', 'planner_resolveMember']);
+
+  it('declares suspendSchema and resumeSchema on every write tool', () => {
+    const tools = makeActionTools({ ports: {} as never, ctx: {} as never }) as Record<
+      string,
+      { suspendSchema?: unknown; resumeSchema?: unknown }
+    >;
+    const writeTools = Object.entries(tools).filter(([id]) => !READ_ONLY.has(id));
+
+    // If this number stops matching, either a write tool was added (update the
+    // count and make sure it suspends) or a read tool was added (add it to
+    // READ_ONLY, and justify that in review).
+    expect(writeTools).toHaveLength(6);
+
+    for (const [id, tool] of writeTools) {
+      expect(tool.suspendSchema, `${id} must suspend before it writes`).toBeDefined();
+      expect(tool.resumeSchema, `${id} must read its decision off the card`).toBeDefined();
+    }
+  });
+
+  it('the read tools declare no suspend — they have nothing to confirm', () => {
+    const tools = makeActionTools({ ports: {} as never, ctx: {} as never }) as Record<
+      string,
+      { suspendSchema?: unknown }
+    >;
+    for (const id of READ_ONLY) {
+      expect(tools[id]?.suspendSchema, `${id} should not suspend`).toBeUndefined();
+    }
+  });
+});
