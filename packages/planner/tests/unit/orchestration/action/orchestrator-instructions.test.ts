@@ -102,4 +102,12 @@ describe('A2 instructions — assigning', () => {
     expect(instructionsText()).toMatch(/first column/i);
     expect(instructionsText()).not.toMatch(/ask[^.]*which bucket/i);
   });
+
+  // A comment is the user's own words on the record. A model that "tidies" them
+  // puts words in the user's mouth that they will be seen to have written.
+  it("tells the model to post the user's words rather than a summary", () => {
+    const text = instructionsText();
+    expect(text).toMatch(/comment/i);
+    expect(text).toMatch(/do not summarise/i);
+  });
 });

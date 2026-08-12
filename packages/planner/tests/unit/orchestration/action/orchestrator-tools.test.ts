@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { makeActionTools } from '../../../../src/backend/orchestration/action/orchestrator.tools.ts';
 
 describe('the A2 allowlist', () => {
-  it('is exactly eight tools — three reads to locate, five writes', () => {
+  it('is exactly nine tools — three reads to locate, six writes', () => {
     const tools = makeActionTools({ ports: {} as never, ctx: {} as never });
     expect(Object.keys(tools).sort()).toEqual([
       'planner_assignTask',
+      'planner_commentTask',
       'planner_createTask',
       'planner_getTask',
       'planner_linkTasks',
@@ -24,5 +25,12 @@ describe('the A2 allowlist', () => {
   it('still exposes no purge tool', () => {
     const tools = makeActionTools({ ports: {} as never, ctx: {} as never });
     expect(Object.keys(tools)).not.toContain('planner_purgeTask');
+  });
+
+  // The legacy tool stays where it is; it must not leak into A2, where it would
+  // be the only tool that writes before the card.
+  it('does not expose the legacy postComment tool', () => {
+    const tools = makeActionTools({ ports: {} as never, ctx: {} as never });
+    expect(Object.keys(tools)).not.toContain('planner_postComment');
   });
 });
