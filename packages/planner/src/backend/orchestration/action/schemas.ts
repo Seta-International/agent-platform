@@ -353,16 +353,54 @@ export const CreateTaskResumeSchema = z
   .strict();
 export type CreateTaskResume = z.infer<typeof CreateTaskResumeSchema>;
 
+/** The domain function rejects anything longer, so the schema rejects it first
+ *  and the model gets a usable message instead of a thrown PlannerError. */
+export const COMMENT_MAX_LEN = 4000;
+
+export const CommentTaskToolInputSchema = z
+  .object({
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+    body: z
+      .string()
+      .trim()
+      .min(1)
+      .max(COMMENT_MAX_LEN)
+      .describe('The comment text, exactly as it should appear. Plain text.'),
+  })
+  .strict();
+
+export const CommentTaskToolOutputSchema = z.object({
+  commented: z.boolean(),
+  commentId: z.string().nullable(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const CommentTaskSuspendSchema = z.object({ card: z.unknown() });
+
+/** The body travels on the CARD, not in the confirm request: the user agreed to
+ *  the text they read, and no client gets to substitute another one. */
+export const CommentTaskResumeSchema = z
+  .object({
+    action: z.enum(['comment', 'decline']),
+    taskId: z.string(),
+    body: z.string().optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type CommentTaskResume = z.infer<typeof CommentTaskResumeSchema>;
+
 export const ActionResumeSchema = z.union([
   UpdateTaskResumeSchema,
   LinkTasksResumeSchema,
   MergeTasksResumeSchema,
   AssignTaskResumeSchema,
   CreateTaskResumeSchema,
+  CommentTaskResumeSchema,
 ]);
 export type ActionResume =
   | UpdateTaskResume
   | LinkTasksResume
   | MergeTasksResume
   | AssignTaskResume
-  | CreateTaskResume;
+  | CreateTaskResume
+  | CommentTaskResume;

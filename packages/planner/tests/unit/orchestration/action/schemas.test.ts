@@ -4,6 +4,8 @@ import {
   AssignTaskResumeSchema,
   AssignTaskToolInputSchema,
   BULK_TARGET_CAP,
+  CommentTaskResumeSchema,
+  CommentTaskToolInputSchema,
   CreateTaskResumeSchema,
   CreateTaskToolInputSchema,
   LinkTasksResumeSchema,
@@ -340,6 +342,53 @@ describe('CreateTaskResumeSchema', () => {
   it('refuses an unknown field', () => {
     expect(() =>
       CreateTaskResumeSchema.parse({ action: 'decline', overrideUserIds: ['u'] }),
+    ).toThrow();
+  });
+});
+
+describe('CommentTaskToolInputSchema', () => {
+  it('takes a task ref and a body', () => {
+    const parsed = CommentTaskToolInputSchema.parse({
+      taskRef: TASK_A,
+      body: 'Blocked on the vendor key.',
+    });
+    expect(parsed.body).toBe('Blocked on the vendor key.');
+  });
+
+  it('refuses an empty body and one past the domain limit', () => {
+    expect(() => CommentTaskToolInputSchema.parse({ taskRef: TASK_A, body: '' })).toThrow();
+    expect(() =>
+      CommentTaskToolInputSchema.parse({ taskRef: TASK_A, body: 'x'.repeat(4001) }),
+    ).toThrow();
+  });
+
+  it('refuses a mentions field — the tool posts text, nothing else', () => {
+    expect(() =>
+      CommentTaskToolInputSchema.parse({ taskRef: TASK_A, body: 'hi', mentions: ['u1'] }),
+    ).toThrow();
+  });
+});
+
+describe('CommentTaskResumeSchema', () => {
+  it('parses the comment payload', () => {
+    const parsed = CommentTaskResumeSchema.parse({
+      action: 'comment',
+      taskId: TASK_A,
+      body: 'Blocked on the vendor key.',
+      idempotencyKey: 'k',
+    });
+    expect(parsed.action).toBe('comment');
+  });
+
+  it('refuses an unknown field', () => {
+    expect(() =>
+      CommentTaskResumeSchema.parse({
+        action: 'comment',
+        taskId: TASK_A,
+        body: 'x',
+        idempotencyKey: 'k',
+        authorUserId: 'someone-else',
+      }),
     ).toThrow();
   });
 });
