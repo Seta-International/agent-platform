@@ -349,3 +349,44 @@ export const performanceConfigMonthPin = peopleSchema.table(
     check('perf_config_month_pin_ym', sql`review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
   ],
 );
+
+/** Manual cycle-unlock scopes (FUT-781): a whole month, one project, or one person. */
+export const UNLOCK_SCOPE_KINDS = ['month', 'project', 'person'] as const;
+export const UNLOCK_ACTIONS = ['unlock', 'relock'] as const;
+
+/**
+ * Append-only audit log of PMO manual cycle unlock / re-lock actions (FUT-781, AC1-AC4).
+ * Rows are never updated or deleted — a re-lock is a new `relock` row. The current
+ * unlock state for a (review_month, scope) is the latest row by (created_at, id).
+ * `scope_id` is NULL for the month-wide scope and the project_id / person_id otherwise.
+ */
+export const performanceCycleUnlock = peopleSchema.table(
+  'performance_cycle_unlock',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    review_month: text('review_month').notNull(),
+    scope_kind: textEnum('scope_kind', UNLOCK_SCOPE_KINDS).notNull(),
+    scope_id: uuid('scope_id'),
+    action: textEnum('action', UNLOCK_ACTIONS).notNull(),
+    reason: text('reason').notNull(),
+    actor_person_id: uuid('actor_person_id'),
+    actor_user_id: uuid('actor_user_id').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('perf_cycle_unlock_lookup').on(
+      t.tenant_id,
+      t.review_month,
+      t.scope_kind,
+      t.scope_id,
+      t.created_at,
+    ),
+    textEnumCheck('performance_cycle_unlock', 'scope_kind', UNLOCK_SCOPE_KINDS),
+    textEnumCheck('performance_cycle_unlock', 'action', UNLOCK_ACTIONS),
+    check('perf_cycle_unlock_ym', sql`review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    // The month-wide scope carries no target id; project/person scopes require one.
+    check('perf_cycle_unlock_scope_id', sql`(scope_kind = 'month') = (scope_id IS NULL)`),
+    check('perf_cycle_unlock_reason_present', sql`length(btrim(reason)) > 0`),
+  ],
+);
