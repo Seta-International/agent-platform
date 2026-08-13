@@ -186,6 +186,7 @@ describe('readPerformanceContext', () => {
         const result = await readPerformanceContext(session, { as_of_month: CURRENT_MONTH });
         if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
         expect(result.can_view_org).toBe(true);
+        expect(result.can_unlock).toBe(true);
       } finally {
         resetPeopleDb();
         resetPmDb();
@@ -215,6 +216,7 @@ describe('readPerformanceContext', () => {
         const result = await readPerformanceContext(session, { as_of_month: CURRENT_MONTH });
         if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
         expect(result.can_view_org).toBe(false);
+        expect(result.can_unlock).toBe(false);
       } finally {
         resetPeopleDb();
         resetPmDb();

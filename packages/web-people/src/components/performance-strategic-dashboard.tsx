@@ -6,6 +6,7 @@ import {
   strategicDashboardFixture,
 } from '../mock/performance-strategic-fixture.ts';
 import { formatPerformanceMonth } from '../nav/performance-dashboard.ts';
+import { CycleUnlockPanel } from './cycle-unlock-panel.tsx';
 import { type HeatColumn, PillarHeatmap } from './performance-pillar-heatmap.tsx';
 import { BandLegend, bandTextColor, KpiTile } from './performance-score-bits.tsx';
 
@@ -15,7 +16,14 @@ import { BandLegend, bandTextColor, KpiTile } from './performance-score-bits.tsx
  * axis is the tenant default (no per-account config at this tier — see the
  * fixture). Scores are mock until the scoring/rollup API lands.
  */
-export function PerformanceStrategicDashboard({ month }: { month: string }) {
+export function PerformanceStrategicDashboard({
+  month,
+  canUnlock = false,
+}: {
+  month: string;
+  /** Holder of people.performance.unlock — shows the PMO manual-unlock panel (FUT-781). */
+  canUnlock?: boolean;
+}) {
   const cycleLabel = formatPerformanceMonth(month);
   const data: StrategicDashboardData = useMemo(
     () => strategicDashboardFixture(cycleLabel),
@@ -48,6 +56,8 @@ export function PerformanceStrategicDashboard({ month }: { month: string }) {
 
   return (
     <VStack gap={4} data-testid="performance-home">
+      {canUnlock ? <CycleUnlockPanel month={month} /> : null}
+
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTile

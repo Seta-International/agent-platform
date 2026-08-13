@@ -229,6 +229,8 @@ export type PerformanceContext =
        * fallback for capacity-less users (FUT-781).
        */
       can_view_org: boolean;
+      /** True iff the session holds `people.performance.unlock` — gates the PMO unlock panel. */
+      can_unlock: boolean;
     };
 
 const weightPct = z.number().finite().min(0).max(100);
