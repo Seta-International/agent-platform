@@ -57,6 +57,27 @@
       "when": 1783746653071,
       "tag": "0013_previous_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785490345138,
+      "tag": "0014_foamy_maestro",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786430404944,
+      "tag": "0015_performance_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786600000000,
+      "tag": "0017_backfill_worker_allocation_projection",
+      "breakpoints": true
     }
   ]
 }
