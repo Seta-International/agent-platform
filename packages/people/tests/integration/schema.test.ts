@@ -20,6 +20,7 @@ describe('people schema migration', () => {
         'performance_config_group_weight',
         'performance_config_month_pin',
         'performance_config_revision',
+        'performance_cycle_unlock',
         'performance_evaluation_group',
         'person',
         'person_history',

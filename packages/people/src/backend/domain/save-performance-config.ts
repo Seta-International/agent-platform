@@ -12,6 +12,7 @@ import {
   performanceEvaluationGroup,
 } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
+import { resolveOverrideActive } from './cycle-unlock.ts';
 import { ensurePerformanceGroups } from './ensure-performance-groups.ts';
 import { classifyCycleStatus, monthClockNow, vnYearMonth } from './month-clock.ts';
 import { ensureAccountConfigRevision1 } from './read-performance-config.ts';
@@ -126,7 +127,9 @@ export async function savePerformanceConfig(
   // window up front so the pin can be written atomically with the new revision.
   const at = monthClockNow();
   const month = vnYearMonth(at);
-  const { status } = classifyCycleStatus({ month, at });
+  // A month-wide manual unlock (FUT-781) keeps the config window active.
+  const overrideActive = await resolveOverrideActive(session, { month });
+  const { status } = classifyCycleStatus({ month, at, overrideActive });
   const applies_to_next_cycle = cycleWindowActive(status);
 
   await withEmit(

@@ -1,6 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import type { CycleStatusQuery, CycleStatusResponse } from '../../contracts.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
+import { resolveOverrideActive } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow, vnYearMonth } from './month-clock.ts';
 
 /**
@@ -13,11 +14,16 @@ export async function readCycleStatus(
 ): Promise<CycleStatusResponse> {
   requirePermission(session, 'people.performance.read');
   const at = monthClockNow();
+  // The badge reflects the viewer's own window: a month-wide unlock, or one scoped to
+  // this person, flips it to "override" (FUT-781).
+  const overrideActive = await resolveOverrideActive(session, {
+    month: input.month,
+    person_id: session.person_id,
+  });
   const { status, evaluated_at } = classifyCycleStatus({
     month: input.month,
     at,
-    // Override unlock is Story 5.2 — no entity yet.
-    overrideActive: false,
+    overrideActive,
   });
   return { month: input.month, status, evaluated_at };
 }

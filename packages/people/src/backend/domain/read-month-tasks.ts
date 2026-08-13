@@ -11,6 +11,7 @@ import type {
 import { peopleDb } from '../db/client.ts';
 import { person, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
+import { resolveOverrideActive } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
 import { loadPerformanceCapacities } from './read-performance-context.ts';
 
@@ -128,10 +129,14 @@ export async function readMonthTasks(
   requirePermission(session, 'people.performance.read');
 
   const at = monthClockNow();
+  const overrideActive = await resolveOverrideActive(session, {
+    month: input.month,
+    person_id: session.person_id,
+  });
   const { status: cycle_status } = classifyCycleStatus({
     month: input.month,
     at,
-    overrideActive: false,
+    overrideActive,
   });
 
   if (!session.person_id) {

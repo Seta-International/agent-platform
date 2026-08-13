@@ -11,6 +11,7 @@ import {
   performanceEvaluationGroup,
 } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
+import { resolveOverrideActive } from './cycle-unlock.ts';
 import { ensurePerformanceGroups } from './ensure-performance-groups.ts';
 import { classifyCycleStatus, monthClockNow, vnYearMonth } from './month-clock.ts';
 import { PERFORMANCE_GROUP_TEMPLATES } from './performance-config-template.ts';
@@ -180,13 +181,17 @@ function cycleWindowActive(status: string): boolean {
  * Idempotent — never moves an existing pin.
  */
 async function ensureMonthPinIfNeeded(
-  tenantId: string,
+  session: SessionScope,
   accountId: string,
   headRevisionId: string,
 ): Promise<{ applies_to_next_cycle: boolean }> {
+  const tenantId = session.tenant_id;
   const at = monthClockNow();
   const month = vnYearMonth(at);
-  const { status } = classifyCycleStatus({ month, at });
+  // A month-wide manual unlock (FUT-781) reopens the config window for the whole
+  // tenant; person/project unlocks do not affect account-level config.
+  const overrideActive = await resolveOverrideActive(session, { month });
+  const { status } = classifyCycleStatus({ month, at, overrideActive });
   if (!cycleWindowActive(status)) {
     return { applies_to_next_cycle: false };
   }
@@ -231,7 +236,7 @@ export async function readPerformanceConfig(
   // the owning AM triggers it; participants read the same config without side
   // effects (and never see a pin they didn't cause).
   const { applies_to_next_cycle } = isAm
-    ? await ensureMonthPinIfNeeded(session.tenant_id, accountId, head.revision_id)
+    ? await ensureMonthPinIfNeeded(session, accountId, head.revision_id)
     : { applies_to_next_cycle: false };
   const groups = await loadRevisionTree(head.revision_id);
   return {
