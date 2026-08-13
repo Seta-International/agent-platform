@@ -30,19 +30,50 @@ function round2(n: number): number {
 }
 
 /**
- * Calendar effort (person-months) for one allocation, computed straight from its own
- * start/end dates based on actual working days (Mon–Fri) over 22 standard working days/month.
+ * Calendar effort (person-months) for one allocation, computed month-by-month
+ * based on actual working days (Mon–Fri) in each overlapping month:
+ *
+ *   AllocatedHours = allocation × WorkingDaysCovered × 8
+ *   MM = AllocatedHours / (WorkingDaysOfMonth × 8) = (allocation × WorkingDaysCovered) / WorkingDaysOfMonth
  *
  * @param startDate   allocation start, YYYY-MM-DD
  * @param endDate     allocation end, YYYY-MM-DD
  * @param allocation  planned load as a fraction, 0–1
- *
- *  - effort = allocation × (workingDays / 22), rounded to 2 decimals.
  */
 export function calendarEffort(startDate: string, endDate: string, allocation: number): number {
-  if (!startDate || !endDate || startDate > endDate) return 0;
-  const workingDays = countWorkingDays(startDate, endDate);
-  return Math.max(0, round2(allocation * (workingDays / 22)));
+  if (!startDate || !endDate || startDate > endDate || allocation <= 0) return 0;
+  const [y1, m1] = startDate.split('-').map(Number);
+  const [y2, m2] = endDate.split('-').map(Number);
+  if (!y1 || !m1 || !y2 || !m2) return 0;
+
+  let totalMm = 0;
+  let curY = y1;
+  let curM = m1;
+
+  while (curY < y2 || (curY === y2 && curM <= m2)) {
+    const firstDayStr = `${curY}-${String(curM).padStart(2, '0')}-01`;
+    const lastDayNum = new Date(Date.UTC(curY, curM, 0)).getUTCDate();
+    const lastDayStr = `${curY}-${String(curM).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+
+    const ovStart = startDate > firstDayStr ? startDate : firstDayStr;
+    const ovEnd = endDate < lastDayStr ? endDate : lastDayStr;
+
+    if (ovStart <= ovEnd) {
+      const workingDaysCovered = countWorkingDays(ovStart, ovEnd);
+      const workingDaysOfMonth = countWorkingDays(firstDayStr, lastDayStr);
+      if (workingDaysOfMonth > 0) {
+        totalMm += (allocation * workingDaysCovered) / workingDaysOfMonth;
+      }
+    }
+
+    curM++;
+    if (curM > 12) {
+      curM = 1;
+      curY++;
+    }
+  }
+
+  return Math.max(0, round2(totalMm));
 }
 
 /** Convenience adapter for an allocation row: maps `planned_pct` (0–100) to a 0–1 allocation. */
