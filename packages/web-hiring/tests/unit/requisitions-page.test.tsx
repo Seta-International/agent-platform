@@ -46,6 +46,7 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
     skills: [],
     openings_total: 1,
     openings_open: 1,
+    openings_filled: 0,
     applicants_count: 0,
     applicants_internal: 0,
     applicants_external: 0,
@@ -164,7 +165,7 @@ describe('RequisitionsPage', () => {
 
     // Filtering to Filled leaves one requisition — the tile must follow.
     await user.click(screen.getByRole('combobox', { name: /filter by status/i }));
-    await user.click(await screen.findByRole('option', { name: 'Filled' }));
+    await user.click(await screen.findByRole('option', { name: 'Completed' }));
 
     await waitFor(() => expect(totalValue()).toHaveTextContent('1'));
   });

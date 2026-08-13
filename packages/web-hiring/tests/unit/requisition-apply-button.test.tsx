@@ -134,8 +134,8 @@ describe('RequisitionDetailView fully-staffed actions (FUT-769)', () => {
       wrapper: wrap(qc),
     });
 
-    // Mark filled is the recruiter's one-click close for a fully-staffed req — it must stay live.
-    const markFilledBtn = await screen.findByRole('button', { name: 'Mark filled' });
+    // Mark completed is the recruiter's one-click close for a fully-staffed req — it must stay live.
+    const markFilledBtn = await screen.findByRole('button', { name: 'Mark completed' });
     expect(markFilledBtn).toBeEnabled();
 
     // The other lifecycle actions remain frozen by isFullyStaffed.

@@ -24,7 +24,7 @@ export function MarkFilledDialog({
     mutationFn: () =>
       closeRequisition(requisitionId, { expected_version: version, status: 'filled' }),
     onSuccess: () => {
-      toast({ body: 'Requisition marked as filled' });
+      toast({ body: 'Requisition marked as completed' });
       onOpenChange(false);
       onDone();
     },
@@ -35,10 +35,10 @@ export function MarkFilledDialog({
     <AlertDialog
       isOpen={open}
       onOpenChange={onOpenChange}
-      title="Mark requisition as filled?"
+      title="Mark requisition as completed?"
       description="This closes the requisition for good — it can't be reopened or moved back to a stage afterwards."
       cancelLabel="Back"
-      actionLabel={mutation.isPending ? 'Marking…' : 'Mark filled'}
+      actionLabel={mutation.isPending ? 'Marking…' : 'Mark completed'}
       // Filling a requisition is a positive terminal outcome, not a destructive one — Astryx
       // defaults actionVariant to 'destructive', so primary intent has to be explicit here.
       actionVariant="primary"

@@ -53,6 +53,7 @@ export interface RequisitionListRow {
   skills: RequisitionSkillSummary[];
   openings_total: number;
   openings_open: number;
+  openings_filled: number;
   applicants_count: number;
   applicants_internal: number;
   applicants_external: number;
@@ -90,6 +91,7 @@ const REQUISITION_LIST_COLUMNS = {
   >`(SELECT COALESCE(json_agg(json_build_object('skill_name', rs.skill_name, 'min_level', rs.min_level) ORDER BY rs.skill_name), '[]'::json) FROM hiring.requisition_skill rs WHERE rs.requisition_id = "hiring"."requisition"."id")`,
   openings_total: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status != 'cancelled')`,
   openings_open: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status = 'open')`,
+  openings_filled: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status = 'filled')`,
   // Pipeline truth only: rejected/transferred/cancelled applications are closed history
   // and must not inflate the card's counts, stage buckets, or progress line (bug: a
   // candidate moved to another role kept appearing on the old role's card).

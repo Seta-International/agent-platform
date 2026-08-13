@@ -30,6 +30,7 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
     skills: [],
     openings_total: 1,
     openings_open: 1,
+    openings_filled: 0,
     applicants_count: 0,
     applicants_internal: 0,
     applicants_external: 0,
@@ -143,7 +144,7 @@ describe('RequisitionCard', () => {
 
   it('surfaces a terminal outcome in the hero', () => {
     const { rerender } = render(<RequisitionCard r={row({ status: 'filled' })} />);
-    expect(screen.getByText('Filled')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
 
     rerender(<RequisitionCard r={row({ status: 'cancelled' })} />);
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
