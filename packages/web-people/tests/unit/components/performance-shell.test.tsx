@@ -51,6 +51,7 @@ describe('PerformanceShell', () => {
           role_slugs={['pm.pmo']}
           capacities={[]}
           default_capacity_index={-1}
+          can_view_org={true}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -77,6 +78,7 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'am', account_id: 'a1', label: 'Contoso' }]}
           default_capacity_index={0}
+          can_view_org={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -98,6 +100,7 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'tl', project_id: 'p1', account_id: 'a1', label: 'Atlas' }]}
           default_capacity_index={0}
+          can_view_org={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -118,6 +121,7 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'tl', project_id: 'p1', account_id: 'a1', label: 'Atlas' }]}
           default_capacity_index={0}
+          can_view_org={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -141,6 +145,7 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'tl', project_id: 'p1', account_id: 'a1', label: 'Atlas' }]}
           default_capacity_index={0}
+          can_view_org={false}
           as_of_month="2026-07"
         >
           <div>body</div>
