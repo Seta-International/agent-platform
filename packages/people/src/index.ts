@@ -14,7 +14,12 @@ export {
 } from './backend/domain/allocation-grid.ts';
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
-export { resolveOverrideActive } from './backend/domain/cycle-unlock.ts';
+export {
+  listCycleUnlocks,
+  relockCycle,
+  resolveOverrideActive,
+  unlockCycle,
+} from './backend/domain/cycle-unlock.ts';
 export { type DeleteOrgUnitInput, deleteOrgUnit } from './backend/domain/delete-org-unit.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
@@ -104,6 +109,9 @@ export type {
   CycleStatus,
   CycleStatusQuery,
   CycleStatusResponse,
+  CycleUnlockEntry,
+  CycleUnlockInput,
+  CycleUnlockLog,
   EditWorkerInput,
   MonthTaskCard,
   MonthTaskGroup,
@@ -123,6 +131,9 @@ export {
   cycleStatusEnum,
   cycleStatusQuery,
   cycleStatusResponse,
+  cycleUnlockEntry,
+  cycleUnlockInput,
+  cycleUnlockLog,
   GENDER_VALUES,
   type GenderValue,
   genderValue,

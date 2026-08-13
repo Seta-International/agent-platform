@@ -98,6 +98,51 @@ export const cycleStatusResponse = z.object({
 });
 export type CycleStatusResponse = z.infer<typeof cycleStatusResponse>;
 
+// --- Manual cycle unlock (FUT-781) ---------------------------------------
+
+export const unlockScopeKind = z.enum(['month', 'project', 'person']);
+export type UnlockScopeKind = z.infer<typeof unlockScopeKind>;
+
+export const unlockAction = z.enum(['unlock', 'relock']);
+export type UnlockAction = z.infer<typeof unlockAction>;
+
+/**
+ * A PMO manual unlock / re-lock request. The month-wide scope carries no target
+ * id; the project / person scopes require one. `reason` is mandatory (AC).
+ */
+export const cycleUnlockInput = z
+  .object({
+    month: monthYm,
+    scope_kind: unlockScopeKind,
+    scope_id: z.string().uuid().nullable().default(null),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .refine((v) => (v.scope_kind === 'month') === (v.scope_id === null), {
+    message: 'scope_id is required for project/person scopes and must be null for month',
+    path: ['scope_id'],
+  });
+export type CycleUnlockInput = z.infer<typeof cycleUnlockInput>;
+
+export const cycleUnlockEntry = z.object({
+  id: z.string().uuid(),
+  review_month: monthYm,
+  scope_kind: unlockScopeKind,
+  scope_id: z.string().uuid().nullable(),
+  action: unlockAction,
+  reason: z.string(),
+  actor_person_id: z.string().uuid().nullable(),
+  actor_user_id: z.string().uuid(),
+  created_at: z.string().datetime(),
+});
+export type CycleUnlockEntry = z.infer<typeof cycleUnlockEntry>;
+
+/** A scope's current state plus the immutable audit trail, newest first. */
+export const cycleUnlockLog = z.object({
+  month: monthYm,
+  entries: z.array(cycleUnlockEntry),
+});
+export type CycleUnlockLog = z.infer<typeof cycleUnlockLog>;
+
 export type PerformanceCapacity =
   | { kind: 'am'; account_id: string; label: string }
   | { kind: 'tl'; project_id: string; account_id: string; label: string }
