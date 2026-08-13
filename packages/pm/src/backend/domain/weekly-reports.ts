@@ -29,7 +29,6 @@ import {
   reportRevision,
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
-import { assertProjectManageable } from './assert-project-manageable.ts';
 import { assertProjectReportable } from './assert-project-reportable.ts';
 import { isoWeekRange, isWeekEditable } from './iso-week.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
@@ -1467,7 +1466,7 @@ export async function overrideFlag(
   input: OverrideFlagInput & { session: SessionScope },
 ): Promise<{ flag_id: string; final_colour: ReportColour }> {
   const { project_id, iso_year, iso_week, category, final_colour, reason, session } = input;
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
 
   const [row] = await pmDb()

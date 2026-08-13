@@ -152,7 +152,7 @@ export function KpiMetricsPage() {
   const entryProjectOptions = useMemo(
     () =>
       projectsInAccount
-        .filter((p) => p.can_manage)
+        .filter((p) => p.can_report)
         .map((p) => ({ value: p.project_id, label: p.name })),
     [projectsInAccount],
   );
@@ -175,7 +175,7 @@ export function KpiMetricsPage() {
     `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
   const nothingEntered =
     !explorerQuery.isLoading && rows.length > 0 && rows.every((r) => r.record_id === null);
-  const selectedAccount =
+  const configureScopeAccount =
     search.account ??
     (search.project
       ? (projectsQuery.data ?? []).find((p) => p.project_id === search.project)?.account_id
@@ -183,10 +183,10 @@ export function KpiMetricsPage() {
     '';
   const configurableProjects = useMemo(
     () =>
-      selectedAccount
-        ? manageableProjects.filter((p) => p.account_id === selectedAccount)
+      configureScopeAccount
+        ? manageableProjects.filter((p) => p.account_id === configureScopeAccount)
         : manageableProjects,
-    [manageableProjects, selectedAccount],
+    [manageableProjects, configureScopeAccount],
   );
 
   type Ctx = { row: { original: KpiExplorerRow } };
@@ -270,19 +270,28 @@ export function KpiMetricsPage() {
           headerClassName: PIN.actions.header,
           cellClassName: PIN.actions.cell,
         },
-        cell: ({ row }: Ctx) =>
-          row.original.can_manage ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setManualInput({ project_id: row.original.project_id, iso_year, iso_week });
-              }}
+        cell: ({ row }: Ctx) => {
+          if (!row.original.can_manage) return null;
+          const label = !weekIsOpen ? 'View' : row.original.record_id === null ? 'Enter' : 'Edit';
+          return (
+            <DisabledActionTooltip
+              disabled={!row.original.can_report}
+              reason="Only this project’s EM or PMO enters its KPI figures — you manage this project but do not report on it."
             >
-              {!weekIsOpen ? 'View' : row.original.record_id === null ? 'Enter' : 'Edit'}
-            </Button>
-          ) : null,
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!row.original.can_report}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setManualInput({ project_id: row.original.project_id, iso_year, iso_week });
+                }}
+              >
+                {label}
+              </Button>
+            </DisabledActionTooltip>
+          );
+        },
       },
     ],
     [iso_year, iso_week, metricColumnGroups, weekIsOpen, detailSearch],
@@ -367,7 +376,7 @@ export function KpiMetricsPage() {
                     size="sm"
                     width={208}
                     options={[{ value: '', label: 'All accounts' }, ...accountOptions]}
-                    value={selectedAccount}
+                    value={search.account ?? ''}
                     onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
                   />
                   <Selector

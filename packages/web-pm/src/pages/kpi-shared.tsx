@@ -331,19 +331,25 @@ export function isoWeekEndDate(iso_year: number, iso_week: number): string {
   return new Date(monday + 6 * 86_400_000).toISOString().slice(0, 10);
 }
 
+const DUE_WEEK_HORIZON = 52;
+
+/** A rolling year of weeks after the one being reported on — the horizon crosses the year
+ * boundary, so a report filed in December can still point a Road-to-Green at January. */
 export function dueWeekOptions(after: {
   iso_year: number;
   iso_week: number;
 }): { value: string; label: string }[] {
-  const weeksFrom = (iso_year: number, first: number) => {
-    const out: { value: string; label: string }[] = [];
-    for (let w = first; w <= lastIsoWeekOf(iso_year); w++) {
-      out.push({ value: isoWeekEndDate(iso_year, w), label: isoWeekBase(iso_year, w) });
+  const out: { value: string; label: string }[] = [];
+  let { iso_year, iso_week } = after;
+  for (let i = 0; i < DUE_WEEK_HORIZON; i++) {
+    if (iso_week < lastIsoWeekOf(iso_year)) iso_week += 1;
+    else {
+      iso_year += 1;
+      iso_week = 1;
     }
-    return out;
-  };
-  const rest = weeksFrom(after.iso_year, after.iso_week + 1);
-  return rest.length > 0 ? rest : weeksFrom(after.iso_year + 1, 1);
+    out.push({ value: isoWeekEndDate(iso_year, iso_week), label: isoWeekBase(iso_year, iso_week) });
+  }
+  return out;
 }
 
 export function isoWeekBase(iso_year: number, iso_week: number): string {

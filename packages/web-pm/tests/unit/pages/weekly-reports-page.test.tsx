@@ -14,41 +14,34 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => routerState.search,
 }));
 
-const comingSoon = vi.hoisted(() => ({ on: false }));
-vi.mock('../../../src/pages/pm-coming-soon.tsx', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/pages/pm-coming-soon.tsx')>();
-  return {
-    ...actual,
-    get WEEKLY_REPORT_COMPOSER_COMING_SOON() {
-      return comingSoon.on;
-    },
-  };
-});
-
-const projectsState = vi.hoisted(() => ({ canReport: true }));
+const projectsState = vi.hoisted(() => ({
+  canReport: true,
+  rows: [{ project_id: 'p-1', name: 'Acme API Gateway' }],
+}));
+const weekState = vi.hoisted(() => ({ current: { iso_year: 2026, iso_week: 32 } }));
 const fetchWeeklyReportsMock = vi.fn();
 const fetchDetailMock = vi.fn();
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
   return {
     ...actual,
-    fetchCurrentWeek: () => Promise.resolve({ iso_year: 2026, iso_week: 32 }),
+    fetchCurrentWeek: () => Promise.resolve(weekState.current),
     fetchAccounts: () => Promise.resolve([]),
     fetchProjects: () =>
-      Promise.resolve([
-        {
-          project_id: 'p-1',
+      Promise.resolve(
+        projectsState.rows.map((p) => ({
+          project_id: p.project_id,
           account_id: 'acc-1',
-          name: 'Acme API Gateway',
+          name: p.name,
           phase: 'delivery',
           status: 'active' as const,
           pm_worker_id: null,
           can_manage: true,
           can_report: projectsState.canReport,
-        },
-      ]),
+        })),
+      ),
     fetchWeeklyReports: () => fetchWeeklyReportsMock(),
-    fetchWeeklyReportDetail: () => fetchDetailMock(),
+    fetchWeeklyReportDetail: (params: unknown) => fetchDetailMock(params),
   };
 });
 
@@ -124,9 +117,13 @@ function renderPage() {
   );
 }
 
+const WEDNESDAY_OF_W32 = new Date('2026-08-05T03:00:00Z');
+const FRIDAY_1800_VNT_OF_W32 = new Date('2026-08-07T11:00:00Z');
+const MONDAY_0000_VNT_OF_W33 = new Date('2026-08-09T17:00:00Z');
+
 describe('WeeklyReportsPage — who may open the composer', () => {
   beforeEach(() => {
-    comingSoon.on = false;
+    vi.setSystemTime(WEDNESDAY_OF_W32);
     routerState.search = {};
     routerState.navigate.mockClear();
     fetchWeeklyReportsMock.mockReset();
@@ -136,7 +133,9 @@ describe('WeeklyReportsPage — who may open the composer', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     projectsState.canReport = true;
+    weekState.current = { iso_year: 2026, iso_week: 32 };
   });
 
   const composeButton = () => screen.getByRole('button', { name: /New weekly report/i });
@@ -161,49 +160,27 @@ describe('WeeklyReportsPage — who may open the composer', () => {
     await user.hover(wrapper as HTMLElement);
     expect(await screen.findByText(/EM or PMO can write its weekly report/i)).toBeTruthy();
   });
-});
 
-describe('WeeklyReportsPage — composing is held behind coming soon', () => {
-  beforeEach(() => {
-    comingSoon.on = true;
-    routerState.search = {};
-    routerState.navigate.mockClear();
-    fetchWeeklyReportsMock.mockReset();
-    fetchDetailMock.mockReset();
-    fetchWeeklyReportsMock.mockResolvedValue([card]);
-    fetchDetailMock.mockResolvedValue(detail);
-  });
-
-  afterEach(() => {
-    comingSoon.on = false;
-    projectsState.canReport = true;
-  });
-
-  it('disables New weekly report for an EM who could otherwise write it', async () => {
+  it('disables it, with the reason, once the current week is past its Friday deadline', async () => {
     const user = userEvent.setup();
-    projectsState.canReport = true;
+    vi.setSystemTime(FRIDAY_1800_VNT_OF_W32);
     renderPage();
 
-    const button = () => screen.getByRole('button', { name: /New weekly report/i });
-    await waitFor(() => expect(button()).toBeDisabled());
+    await waitFor(() => expect(composeButton()).toBeDisabled());
 
-    const wrapper = button().closest('span[tabindex="0"]');
+    const wrapper = composeButton().closest('span[tabindex="0"]');
     expect(wrapper).not.toBeNull();
     await user.hover(wrapper as HTMLElement);
-    expect(await screen.findByText('Coming soon')).toBeTruthy();
+    expect(await screen.findByText(/closed at Friday 5:00 PM/i)).toBeTruthy();
   });
 
-  it('still opens the read view of a report you have already written', async () => {
-    const user = userEvent.setup();
-    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-1' };
-    fetchWeeklyReportsMock.mockResolvedValue([{ ...card, reported_by_me: true, report_count: 1 }]);
+  it('offers the composer again once Monday opens the new week', async () => {
+    vi.setSystemTime(MONDAY_0000_VNT_OF_W33);
+    weekState.current = { iso_year: 2026, iso_week: 33 };
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /View weekly report/i }));
-
-    expect(routerState.navigate).toHaveBeenCalledWith(
-      expect.objectContaining({ search: expect.objectContaining({ detail: 'p-1' }) }),
-    );
+    await screen.findByRole('button', { name: /New weekly report/i });
+    await waitFor(() => expect(composeButton()).toBeEnabled());
   });
 });
 
@@ -211,12 +188,104 @@ describe('WeeklyReportsPage — the week you have already reported', () => {
   const mine: WeeklyReportCard = { ...card, reported_by_me: true, report_count: 1 };
 
   beforeEach(() => {
+    vi.setSystemTime(WEDNESDAY_OF_W32);
     routerState.search = { iso_year: 2026, iso_week: 32 };
     routerState.navigate.mockClear();
     fetchWeeklyReportsMock.mockReset();
     fetchDetailMock.mockReset();
     fetchWeeklyReportsMock.mockResolvedValue([mine]);
     fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    projectsState.rows = [{ project_id: 'p-1', name: 'Acme API Gateway' }];
+  });
+
+  it('disables the composer, with the reason, once every project is already reported', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /New weekly report/i })).toBeDisabled(),
+    );
+
+    const wrapper = screen
+      .getByRole('button', { name: /New weekly report/i })
+      .closest('span[tabindex="0"]');
+    expect(wrapper).not.toBeNull();
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText(/already written this week’s report/i)).toBeTruthy();
+  });
+
+  it('composes the project you have not reported, not the first one you manage', async () => {
+    const user = userEvent.setup();
+    projectsState.rows = [
+      { project_id: 'p-1', name: 'Acme API Gateway' },
+      { project_id: 'p-2', name: 'Acme Billing Revamp' },
+    ];
+    fetchWeeklyReportsMock.mockResolvedValue([
+      mine,
+      { ...card, project_id: 'p-2', project_name: 'Acme Billing Revamp' },
+    ]);
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /New weekly report/i })).toBeEnabled(),
+    );
+    await user.click(screen.getByRole('button', { name: /New weekly report/i }));
+
+    await waitFor(() =>
+      expect(fetchDetailMock).toHaveBeenCalledWith(expect.objectContaining({ project_id: 'p-2' })),
+    );
+  });
+
+  it('composes what the filtered board shows, not a reported project the filter hides', async () => {
+    const user = userEvent.setup();
+    projectsState.rows = [
+      { project_id: 'p-1', name: 'Acme API Gateway' },
+      { project_id: 'p-2', name: 'Beta Data Platform' },
+    ];
+    // Filtered to another account, so p-1 — already reported — never reaches the board.
+    routerState.search = { iso_year: 2026, iso_week: 32, account: 'acc-2' };
+    fetchWeeklyReportsMock.mockResolvedValue([
+      { ...card, project_id: 'p-2', project_name: 'Beta Data Platform', account_id: 'acc-2' },
+    ]);
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /New weekly report/i })).toBeEnabled(),
+    );
+    await user.click(screen.getByRole('button', { name: /New weekly report/i }));
+
+    await waitFor(() =>
+      expect(fetchDetailMock).toHaveBeenCalledWith(expect.objectContaining({ project_id: 'p-2' })),
+    );
+  });
+
+  it('disables the composer when nothing on the filtered board is yours to report', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, account: 'acc-2' };
+    fetchWeeklyReportsMock.mockResolvedValue([
+      {
+        ...card,
+        project_id: 'p-9',
+        project_name: 'Someone Else’s Project',
+        account_id: 'acc-2',
+        can_report: false,
+      },
+    ]);
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /New weekly report/i })).toBeDisabled(),
+    );
+
+    const wrapper = screen
+      .getByRole('button', { name: /New weekly report/i })
+      .closest('span[tabindex="0"]');
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText(/none of the projects shown here/i)).toBeTruthy();
   });
 
   it('names the action "View weekly report" once that project is the filter', async () => {
@@ -505,5 +574,73 @@ describe('WeeklyReportsPage — pagination', () => {
 
     expect(await screen.findByText('No projects for this week')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /next page/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('WeeklyReportsPage — a board that failed to load', () => {
+  beforeEach(() => {
+    vi.setSystemTime(WEDNESDAY_OF_W32);
+    routerState.search = { iso_year: 2026, iso_week: 32 };
+    routerState.navigate.mockClear();
+    fetchWeeklyReportsMock.mockReset();
+    fetchDetailMock.mockReset();
+    fetchDetailMock.mockResolvedValue(detail);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('says the board failed rather than claiming the week is empty', async () => {
+    fetchWeeklyReportsMock.mockRejectedValue(new Error('iso_week must be between 1 and 53'));
+    renderPage();
+
+    expect(await screen.findByText(/couldn’t load this week’s board/i)).toBeInTheDocument();
+    expect(screen.queryByText('No projects for this week')).not.toBeInTheDocument();
+  });
+
+  it('carries the reason the request was rejected', async () => {
+    fetchWeeklyReportsMock.mockRejectedValue(new Error('iso_week must be between 1 and 53'));
+    renderPage();
+
+    expect(await screen.findByText('iso_week must be between 1 and 53')).toBeInTheDocument();
+  });
+
+  it('offers a retry that asks for the board again', async () => {
+    const user = userEvent.setup();
+    fetchWeeklyReportsMock.mockRejectedValue(new Error('Service unavailable'));
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(fetchWeeklyReportsMock.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('recovers to the board when the retry succeeds', async () => {
+    const user = userEvent.setup();
+    fetchWeeklyReportsMock.mockRejectedValueOnce(new Error('Service unavailable'));
+    fetchWeeklyReportsMock.mockResolvedValue([card]);
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByRole('heading', { name: 'Acme API Gateway' })).toBeInTheDocument();
+    expect(screen.queryByText(/couldn’t load this week’s board/i)).not.toBeInTheDocument();
+  });
+
+  it('withholds the composer while the board is unknown', async () => {
+    const user = userEvent.setup();
+    fetchWeeklyReportsMock.mockRejectedValue(new Error('Service unavailable'));
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /New weekly report/i })).toBeDisabled(),
+    );
+
+    const wrapper = screen
+      .getByRole('button', { name: /New weekly report/i })
+      .closest('span[tabindex="0"]');
+    await user.hover(wrapper as HTMLElement);
+    expect(await screen.findByText(/board could not be loaded/i)).toBeTruthy();
   });
 });
