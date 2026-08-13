@@ -448,6 +448,10 @@ export function CandidatesPage() {
           ...prev,
           [move.application_id]: 'hired',
         }));
+        setOptimisticStages((prev) => ({
+          ...prev,
+          [move.application_id]: 'offer',
+        }));
         setPendingHire(move);
         return;
       }
@@ -537,7 +541,9 @@ export function CandidatesPage() {
         sortable: true,
         width: proportional(1, { minWidth: 130 }),
         renderCell: (r) => (
-          <span className={`${LIST_CELL} text-secondary capitalize`}>{r.stage}</span>
+          <span className={`${LIST_CELL} text-secondary capitalize`}>
+            {r.status === 'hired' ? 'offer' : r.stage}
+          </span>
         ),
       },
       {

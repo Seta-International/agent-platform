@@ -283,7 +283,8 @@ export function CandidateDetailDrawer({
 
   // Decision-first: the common move is "advance to the next stage"; past Offer that becomes the
   // terminal Hire (its own confirm). Move stage (any stage) stays available in a secondary menu.
-  const stageIdx = app?.stage ? STAGES.findIndex((s) => s.id === app.stage) : -1;
+  const effectiveStage = app?.status === 'hired' ? 'offer' : app?.stage;
+  const stageIdx = effectiveStage ? STAGES.findIndex((s) => s.id === effectiveStage) : -1;
   const nextStage = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
   const canAct = canManage && !terminal && !reqOnHold && !reqFilled && !move.isPending;
   const advanceLabel = nextStage ? `Advance to ${nextStage.label}` : 'Mark as hired';
@@ -479,7 +480,9 @@ export function CandidateDetailDrawer({
                       <div className="text-sm text-secondary">Current stage</div>
                       <div className="mt-1 flex items-baseline gap-2">
                         <span className="text-lg font-semibold text-primary">
-                          {app ? (STAGES.find((s) => s.id === app.stage)?.label ?? app.stage) : '—'}
+                          {app
+                            ? (STAGES.find((s) => s.id === effectiveStage)?.label ?? effectiveStage)
+                            : '—'}
                         </span>
                         {stageIdx >= 0 && (
                           <span className="text-sm text-secondary">

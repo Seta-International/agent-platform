@@ -551,6 +551,7 @@ export async function hireApplication(input: {
         .update(application)
         .set({
           status: 'hired',
+          stage: 'offer',
           person_id: worker_id,
           closed_at: new Date(),
           version: nextAppVersion,

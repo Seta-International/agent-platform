@@ -385,4 +385,26 @@ describe('CandidateDetailDrawer', () => {
     // Matches requisitionId r1 -> QA Manual Test New Ui
     expect(screen.getByText('QA Manual Test New Ui')).toBeInTheDocument();
   });
+
+  it('renders Offer stage and full progress bar (Step 4 of 4) when application status is hired regardless of previous stage', async () => {
+    const hiredDetail: CandidateDetail = {
+      ...detail,
+      applications: [
+        {
+          ...detail.applications[0]!,
+          stage: 'new',
+          status: 'hired',
+        },
+      ],
+    };
+    fetchCandidate.mockResolvedValue(hiredDetail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, {
+      wrapper: wrap(qc),
+    });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    expect(screen.getByText('Offer')).toBeInTheDocument();
+    expect(screen.getByText('Step 4 of 4')).toBeInTheDocument();
+  });
 });

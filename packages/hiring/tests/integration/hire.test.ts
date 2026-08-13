@@ -43,10 +43,11 @@ describe('hireApplication', () => {
         expect(r.version).toBe(2);
 
         const { rows } = await pool.query(
-          `SELECT status, closed_at FROM hiring.application WHERE id = $1`,
+          `SELECT status, stage, closed_at FROM hiring.application WHERE id = $1`,
           [application_id],
         );
         expect(rows[0].status).toBe('hired');
+        expect(rows[0].stage).toBe('offer');
         expect(rows[0].closed_at).not.toBeNull();
         expect(await countEvents(pool, t.tenant_id, 'hiring.application.hired')).toBe(1);
 
