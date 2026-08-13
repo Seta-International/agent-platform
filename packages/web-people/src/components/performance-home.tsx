@@ -64,8 +64,10 @@ export function PerformanceHome() {
 
   // No delivery capacity → org tier. Only an org-viewer (people.performance.read_org)
   // gets the company view; everyone else lands on the empty mount — never a data leak.
-  // HR's cycle-config surface lands in a later ticket (also keeps the empty mount).
-  if (resolveDashboardId(role_slugs, capacity, can_view_org) === 'strategic') {
+  // HR's own cycle-config surface is a later ticket, so a people.manager who is also an
+  // org-viewer gets the same org home rather than a blank page.
+  const dashboard = resolveDashboardId(role_slugs, capacity, can_view_org);
+  if (dashboard === 'strategic' || (dashboard === 'hr' && can_view_org)) {
     return <PerformanceStrategicDashboard month={resolved.month} canUnlock={can_unlock} />;
   }
 
