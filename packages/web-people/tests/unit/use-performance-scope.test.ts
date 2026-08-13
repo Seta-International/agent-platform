@@ -41,6 +41,7 @@ describe('usePerformanceScope', () => {
         pathname: '/people/performance',
         capacities: [tlA, memberB],
         default_capacity_index: 0,
+        can_view_org: false,
         as_of_month: '2026-07',
       }),
     );
@@ -66,6 +67,7 @@ describe('usePerformanceScope', () => {
         pathname: '/people/performance',
         capacities: [tlA, memberB],
         default_capacity_index: 0,
+        can_view_org: false,
         as_of_month: '2026-07',
       }),
     );
@@ -103,6 +105,7 @@ describe('usePerformanceScope', () => {
         pathname: '/people/performance',
         capacities: [tlA, memberB],
         default_capacity_index: 0,
+        can_view_org: false,
         as_of_month: '2026-07',
       }),
     );
@@ -129,6 +132,7 @@ describe('usePerformanceScope', () => {
         pathname: '/people/performance/scoring',
         capacities: [tlA, memberB],
         default_capacity_index: 0,
+        can_view_org: false,
         as_of_month: '2026-07',
       }),
     );
@@ -140,6 +144,27 @@ describe('usePerformanceScope', () => {
           kind: 'member',
           project: 'proj-b',
         }),
+        replace: true,
+      }),
+    );
+  });
+
+  it('setOrg patches URL search to the organization view (FUT-781)', () => {
+    searchState = { kind: 'tl', project: 'proj-a', account: 'acct-1', month: '2026-07' };
+    const { result } = renderHook(() =>
+      usePerformanceScope({
+        pathname: '/people/performance',
+        capacities: [tlA, memberB],
+        default_capacity_index: 0,
+        can_view_org: true,
+        as_of_month: '2026-07',
+      }),
+    );
+
+    result.current.setOrg();
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: expect.objectContaining({ view: 'organization', kind: undefined }),
         replace: true,
       }),
     );

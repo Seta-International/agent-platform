@@ -345,6 +345,8 @@ export type PerformanceContext =
       role_slugs: string[];
       capacities: PerformanceCapacity[];
       default_capacity_index: number;
+      /** Session holds people.performance.read_org — gates the org (strategic/PMO) view. */
+      can_view_org: boolean;
     };
 
 export async function fetchPerformanceContext(asOfMonth: string): Promise<PerformanceContext> {

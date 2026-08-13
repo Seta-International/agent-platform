@@ -1,26 +1,27 @@
 import type { PerformanceCapacity } from '../api/people-client.ts';
 
-export type PerformanceDashboardId = 'member' | 'tl' | 'am' | 'strategic' | 'hr';
+export type PerformanceDashboardId = 'member' | 'tl' | 'am' | 'strategic' | 'hr' | 'none';
 
 const HR_ROLES = new Set(['people.manager']);
-const STRATEGIC_ROLES = new Set(['pm.pmo', 'pm.bod']);
 
 /**
  * FE-AD-13 role → dashboard map for SCR-02 home (FUT-695 / AC1).
- * Capacity kind wins when present; org mode uses RBAC slugs.
+ * Capacity kind wins when present; org mode is gated by `people.performance.read_org`
+ * (surfaced as `canViewOrg`). A capacity-less user WITHOUT that permission gets `none`
+ * — never the org view, which would leak company-wide data (FUT-781).
  */
 export function resolveDashboardId(
   roleSlugs: readonly string[],
   capacity: PerformanceCapacity | null,
+  canViewOrg: boolean,
 ): PerformanceDashboardId {
   if (capacity?.kind === 'am') return 'am';
   if (capacity?.kind === 'tl') return 'tl';
   if (capacity?.kind === 'member') return 'member';
 
   if (roleSlugs.some((r) => HR_ROLES.has(r))) return 'hr';
-  if (roleSlugs.some((r) => STRATEGIC_ROLES.has(r))) return 'strategic';
-  // Org mode with no strategic/HR role — still show strategic-style org home.
-  return 'strategic';
+  if (canViewOrg) return 'strategic';
+  return 'none';
 }
 
 export type DashboardCopy = {
@@ -58,6 +59,11 @@ export function dashboardCopy(id: PerformanceDashboardId): DashboardCopy {
         title: 'Performance reviews',
         subtitle:
           'HR view — cycle configuration and org-wide performance readiness for this month.',
+      };
+    case 'none':
+      return {
+        title: 'Performance reviews',
+        subtitle: 'No performance context is available for your account this month.',
       };
   }
 }

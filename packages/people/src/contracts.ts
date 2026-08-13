@@ -178,6 +178,12 @@ export type PerformanceContext =
       /** Sorted: am < tl < member, then label asc, then id asc — deterministic (AC4). */
       capacities: PerformanceCapacity[];
       default_capacity_index: 0 | -1;
+      /**
+       * True iff the session holds `people.performance.read_org` — gates the explicit
+       * "Organization" (strategic/PMO) view. Org mode is a deliberate choice, never a
+       * fallback for capacity-less users (FUT-781).
+       */
+      can_view_org: boolean;
     };
 
 const weightPct = z.number().finite().min(0).max(100);

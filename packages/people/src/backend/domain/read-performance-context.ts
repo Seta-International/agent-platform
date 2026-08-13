@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { listAccountIdsManagedBy } from '@seta/pm';
+import { can } from '@seta/shared-rbac';
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type {
   PerformanceCapacity,
@@ -147,5 +148,6 @@ export async function readPerformanceContext(
     role_slugs: [...session.role_summary.roles],
     capacities,
     default_capacity_index: capacities.length > 0 ? 0 : -1,
+    can_view_org: can(session, 'people.performance.read_org'),
   };
 }

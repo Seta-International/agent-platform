@@ -26,6 +26,8 @@ export type PerformanceShellProps = {
   role_slugs: readonly string[];
   capacities: readonly PerformanceCapacity[];
   default_capacity_index: number;
+  /** Session holds people.performance.read_org — enables the org (strategic/PMO) view. */
+  can_view_org: boolean;
   as_of_month: string;
   children: ReactNode;
 };
@@ -38,16 +40,18 @@ export function PerformanceShell({
   role_slugs,
   capacities,
   default_capacity_index,
+  can_view_org,
   as_of_month,
   children,
 }: PerformanceShellProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const urlSearch = useSearch({ strict: false }) as PerformanceScopeSearch;
-  const { resolved, search, setCapacity, setSearch } = usePerformanceScope({
+  const { resolved, search, setCapacity, setOrg, setSearch } = usePerformanceScope({
     pathname,
     capacities,
     default_capacity_index,
+    can_view_org,
     as_of_month,
   });
 
@@ -76,6 +80,7 @@ export function PerformanceShell({
       value={{
         role_slugs,
         capacities,
+        can_view_org,
         resolved,
         search,
         setMonth: (month) => setSearch({ month }),
@@ -100,8 +105,10 @@ export function PerformanceShell({
                   </div>
                   <ProjectContextSwitcher
                     capacities={capacities}
+                    canViewOrg={can_view_org}
                     resolved={resolved}
                     onSelect={setCapacity}
+                    onSelectOrg={setOrg}
                   />
                 </HStack>
               </HStack>

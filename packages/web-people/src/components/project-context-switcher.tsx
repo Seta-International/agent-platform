@@ -10,26 +10,35 @@ const ORG_VALUE = 'organization';
 
 export type ProjectContextSwitcherProps = {
   capacities: readonly PerformanceCapacity[];
+  /** Session holds people.performance.read_org — adds an explicit "Organization" option. */
+  canViewOrg: boolean;
   resolved: ResolvedPerformanceScope;
   onSelect: (c: PerformanceCapacity) => void;
+  onSelectOrg: () => void;
 };
 
 /**
- * Top-bar project-context switcher (SCR-02). Lists available capacities;
- * single capacity → read-only control still showing the label (TC-10).
- * Organization mode (PMO, no capacities) → read-only "Organization".
+ * Top-bar project-context switcher (SCR-02). Lists the principal's capacities plus,
+ * for an org-viewer (PMO/BoD/HR), an explicit "Organization" option. A single option
+ * renders as read-only text; two or more render the Selector. Org mode is always a
+ * deliberate choice here — never a silent fallback for a capacity-less user (FUT-781).
  */
 export function ProjectContextSwitcher({
   capacities,
+  canViewOrg,
   resolved,
   onSelect,
+  onSelectOrg,
 }: ProjectContextSwitcherProps) {
-  if (capacities.length === 0) {
-    return (
-      <Text size="sm" weight="medium" data-testid="performance-context-switcher">
-        Organization
-      </Text>
-    );
+  const options = [
+    ...capacities.map((c) => ({ value: capacityOptionId(c), label: capacityLabel(c) })),
+    ...(canViewOrg ? [{ value: ORG_VALUE, label: 'Organization' }] : []),
+  ];
+
+  // Capacity-less and no org access: nothing to switch to. Keep the mount point stable
+  // but render nothing selectable — a capacity-less non-viewer must not see the org view.
+  if (options.length === 0) {
+    return <span data-testid="performance-context-switcher" />;
   }
 
   const value =
@@ -37,18 +46,10 @@ export function ProjectContextSwitcher({
       ? capacityOptionId(resolved.capacity)
       : ORG_VALUE;
 
-  const options = capacities.map((c) => ({
-    value: capacityOptionId(c),
-    label: capacityLabel(c),
-  }));
-
-  const readOnly = capacities.length === 1;
-
-  if (readOnly) {
-    const only = options[0];
+  if (options.length === 1) {
     return (
       <Text size="sm" weight="medium" data-testid="performance-context-switcher">
-        {only?.label ?? 'Capacity'}
+        {options[0]?.label ?? 'Capacity'}
       </Text>
     );
   }
@@ -61,6 +62,10 @@ export function ProjectContextSwitcher({
         options={options}
         value={value}
         onChange={(next) => {
+          if (next === ORG_VALUE) {
+            onSelectOrg();
+            return;
+          }
           const match = capacities.find((c) => capacityOptionId(c) === next);
           if (match) onSelect(match);
         }}

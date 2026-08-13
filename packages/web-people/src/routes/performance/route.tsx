@@ -16,6 +16,7 @@ function PerformanceLayout() {
           role_slugs={ctx.role_slugs}
           capacities={ctx.capacities}
           default_capacity_index={ctx.default_capacity_index}
+          can_view_org={ctx.can_view_org}
           as_of_month={ctx.as_of_month}
         >
           <Outlet />
