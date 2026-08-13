@@ -833,10 +833,10 @@ describe('getAllocationGrid', () => {
         const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
         const row = grid.rows.find((r) => r.worker_id === personId)!;
 
-        // July (m=6) has 5 working days -> 5 / 22 * 100 = 22.73%
-        // Aug (m=7) has 3 working days -> 3 / 22 * 100 = 13.64%
-        expect(row.months[6]).toBeCloseTo(22.73, 1);
-        expect(row.months[7]).toBeCloseTo(13.64, 1);
+        // July (m=6) has 23 working days total, 5 covered -> 5 / 23 * 100 = 21.74%
+        // Aug (m=7) has 21 working days total, 3 covered -> 3 / 21 * 100 = 14.29%
+        expect(row.months[6]).toBeCloseTo(21.74, 1);
+        expect(row.months[7]).toBeCloseTo(14.29, 1);
 
         // Sum of monthly MM matches total_mm
         const sumMonthlyMm = row.months.reduce((s: number, m) => s + (m ?? 0) / 100, 0);
@@ -873,7 +873,7 @@ describe('getAllocationGrid', () => {
           account_id: accountId,
           name: 'Test Project',
         });
-        // Allocation = 50%, Start Date = 07 Aug 2026, End Date = 18 Aug 2026 (8 working days)
+        // Allocation = 50%, Start Date = 07 Aug 2026, End Date = 18 Aug 2026 (8 working days covered out of 21 working days in August)
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
           tenant_id: t.tenant_id,
@@ -890,9 +890,61 @@ describe('getAllocationGrid', () => {
         const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
         const row = grid.rows.find((r) => r.worker_id === personId)!;
 
-        // Aug (m=7): 8 working days / 22 * 50% = 18.18%
-        expect(row.months[7]).toBe(18.18);
-        expect(row.total_mm).toBe(0.18);
+        // Aug (m=7): 8 working days / 21 * 50% = 19.05%
+        expect(row.months[7]).toBe(19.05);
+        expect(row.total_mm).toBe(0.19);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('calculates 1.0 MM for every month and 12.0 MM annual total for a 100% full-year allocation (FUT-903)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const proj = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'FUT-903 Full Year Resource',
+        });
+        await peopleDb().insert(projectProjection).values({
+          project_id: proj,
+          tenant_id: t.tenant_id,
+          account_id: accountId,
+          name: 'Full Year Project',
+        });
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: personId,
+          project_id: proj,
+          account_id: accountId,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          planned_pct: '100',
+          bucket: 'billable',
+          active: true,
+        });
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const row = grid.rows.find((r) => r.worker_id === personId)!;
+
+        // Every month should be 100% planned load
+        expect(row.months).toEqual([100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]);
+        // Total MM for the year must equal 12.0
+        expect(row.total_mm).toBe(12);
       } finally {
         resetPeopleDb();
         resetPmDb();

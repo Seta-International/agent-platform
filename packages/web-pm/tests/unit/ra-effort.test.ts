@@ -7,34 +7,33 @@ import {
 } from '../../src/pages/ra-effort';
 
 describe('clippedCalendarEffort', () => {
-  it('computes working days ÷ 22 × planned fraction', () => {
-    // 2026-01-01 to 2026-03-31 = 64 working days (22 + 20 + 22).
-    // (50 / 100) * (64 / 22) = 1.4545... -> 1.45
+  it('computes working days per month × planned fraction', () => {
+    // 2026-01-01 to 2026-03-31 = Jan (0.5) + Feb (0.5) + Mar (0.5) = 1.50
     expect(
       clippedCalendarEffort(
         { date_from: '2026-01-01', date_to: '2026-03-31', planned_pct: 50 },
         {},
       ),
-    ).toBe(1.45);
+    ).toBe(1.5);
   });
   it('prorates partial month allocations accurately (FUT-882 example)', () => {
-    // 2026-08-01 to 2026-08-09 = 5 working days (Mon 3 Aug to Fri 7 Aug).
-    // (50 / 100) * (5 / 22) = 0.1136... -> 0.11
+    // 2026-08-01 to 2026-08-09 = 5 working days out of 21 working days in August.
+    // (50 / 100) * (5 / 21) = 0.1190... -> 0.12
     expect(
       clippedCalendarEffort(
         { date_from: '2026-08-01', date_to: '2026-08-09', planned_pct: 50 },
         {},
       ),
-    ).toBe(0.11);
+    ).toBe(0.12);
   });
   it('clips to the active window', () => {
-    // Jan-Jun 2026 = 129 working days. 1.0 * (129 / 22) = 5.8636... -> 5.86
+    // Jan-Jun 2026 = 6 full months @ 100% = 6.00 MM
     expect(
       clippedCalendarEffort(
         { date_from: '2026-01-01', date_to: '2026-12-31', planned_pct: 100 },
         { from: '2026-01-01', to: '2026-06-30' },
       ),
-    ).toBe(5.86);
+    ).toBe(6);
   });
   it('returns 0 for placeholder rows with no dates', () => {
     expect(clippedCalendarEffort({ date_from: null, date_to: null, planned_pct: 50 }, {})).toBe(0);
@@ -48,13 +47,13 @@ describe('clippedCalendarEffort', () => {
     ).toBe(0);
   });
   it('clips an open-ended row (no end date) to the window end instead of returning 0', () => {
-    // 2026-03-01 to 2026-06-30 = 87 working days. 1.0 * (87 / 22) = 3.9545... -> 3.95
+    // 2026-03-01 to 2026-06-30 = 4 full months (Mar, Apr, May, Jun) @ 100% = 4.00 MM
     expect(
       clippedCalendarEffort(
         { date_from: '2026-03-01', date_to: null, planned_pct: 100 },
         { from: '2026-01-01', to: '2026-06-30' },
       ),
-    ).toBe(3.95);
+    ).toBe(4);
   });
 });
 
@@ -106,11 +105,11 @@ describe('rollupKpis', () => {
       },
     ];
     const k = rollupKpis(rows, {});
-    // w1: 42 working days -> 1.91 MM
-    // w2: 22 working days -> 1.00 MM
-    expect(k.total_mm).toBe(2.91);
-    expect(k.billable_mm).toBe(1.91);
-    expect(k.billable_pct).toBe(66);
+    // w1: Jan (1.0) + Feb (1.0) = 2.00 MM
+    // w2: Jan (1.0) = 1.00 MM
+    expect(k.total_mm).toBe(3);
+    expect(k.billable_mm).toBe(2);
+    expect(k.billable_pct).toBe(67);
     expect(k.people).toBe(2);
   });
 });
