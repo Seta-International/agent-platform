@@ -10,6 +10,8 @@ import { accountProjection, projectProjection, requisition } from '../../src/bac
 import { accountProjectionCreated } from '../../src/backend/subscribers/account-projection.ts';
 import {
   addCandidate,
+  closeOpening,
+  closeRequisition,
   getRequisition,
   hireApplication,
   listAccounts,
@@ -322,6 +324,66 @@ describe('read requisitions', () => {
         await expect(getRequisition({ requisition_id, session: b.adminSession })).rejects.toThrow(
           'not found',
         );
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-909: openings_total excludes cancelled openings so board view matches detail view', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        // Open requisition with headcount 3
+        const { requisition_id } = await openRequisition({
+          title: 'Fresher TA',
+          kind: 'new',
+          headcount: 3,
+          session: t.adminSession,
+        });
+
+        const detailBefore = await getRequisition({ requisition_id, session: t.adminSession });
+        expect(detailBefore.openings).toHaveLength(3);
+
+        // Cancel 2 openings (headcount reduced from 3 to 1)
+        await closeOpening({
+          opening_id: detailBefore.openings[1]!.id,
+          input: { status: 'cancelled' },
+          session: t.adminSession,
+        });
+        await closeOpening({
+          opening_id: detailBefore.openings[2]!.id,
+          input: { status: 'cancelled' },
+          session: t.adminSession,
+        });
+
+        // Mark filled
+        await closeRequisition({
+          requisition_id,
+          status: 'filled',
+          session: t.adminSession,
+        });
+
+        // Verify list view (Board View) row matches detail view (Detail Modal)
+        const list = await listRequisitions(t.adminSession);
+        const row = list.find((r) => r.id === requisition_id);
+        expect(row?.openings_total).toBe(1);
+        expect(row?.openings_open).toBe(0);
+
+        const detailAfter = await getRequisition({ requisition_id, session: t.adminSession });
+        const detailOpeningsTotal = detailAfter.openings.filter(
+          (o) => o.status !== 'cancelled',
+        ).length;
+        expect(detailOpeningsTotal).toBe(1);
+
+        // Board view calculation: openings_total - openings_open = 1 - 0 = 1
+        const boardFilled = row!.openings_total - row!.openings_open;
+        expect(boardFilled).toBe(detailOpeningsTotal);
       } finally {
         resetHiringDb();
         resetCoreDb();
