@@ -411,6 +411,22 @@ export function ReassignWizardDialog({
     todayIso(),
   );
 
+  // Unique formatted validation messages for the existing rows (FUT-847). Deduplicated so that
+  // two overlapping allocations on the same project produce only one message line.
+  const existingErrorMessages = Array.from(
+    new Set(
+      futureAllocations
+        .map((a) => {
+          const err = existingErrors[a.allocation_id];
+          if (!err) return null;
+          const projName =
+            projects.find((p) => p.project_id === draftFor(a).project_id)?.name ?? a.project_name;
+          return `${projName}: ${err}`;
+        })
+        .filter((msg): msg is string => msg !== null),
+    ),
+  );
+
   // Start and end date are both mandatory for a new allocation — Review impact stays disabled
   // until every target row has a project, a positive allocation, two valid calendar dates, and
   // no validation error.
@@ -692,23 +708,16 @@ export function ReassignWizardDialog({
                     </div>
                   </div>
 
-                  {futureAllocations.some((a) => existingErrors[a.allocation_id]) ? (
+                  {existingErrorMessages.length > 0 ? (
                     <div className="space-y-0.5">
-                      {futureAllocations.map((a) =>
-                        existingErrors[a.allocation_id] ? (
-                          <p
-                            key={a.allocation_id}
-                            role="alert"
-                            className="text-sm font-medium text-error"
-                          >
-                            {/* FUT-847: the label must track the draft's project, not the
-                                original DB value — validation already runs against the draft. */}
-                            {projects.find((p) => p.project_id === draftFor(a).project_id)?.name ??
-                              a.project_name}
-                            : {existingErrors[a.allocation_id]}
-                          </p>
-                        ) : null,
-                      )}
+                      {existingErrorMessages.map((msg) => (
+                        <p key={msg} role="alert" className="text-sm font-medium text-error">
+                          {/* FUT-847: the label tracks the draft's project, and messages are
+                              deduplicated so overlapping rows on the same project present a
+                              single unified error line instead of duplicate messages. */}
+                          {msg}
+                        </p>
+                      ))}
                     </div>
                   ) : null}
 

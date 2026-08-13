@@ -690,16 +690,16 @@ describe('ReassignWizardDialog', () => {
     await user.type(projectField, 'Project Alpha');
     await user.click(await screen.findByRole('option', { name: 'Project Alpha' }));
 
-    // Both rows now overlap on Project Alpha — every overlap message must reference the
-    // current (edited) project name, never the stale "Project Beta" from before the edit.
+    // Both rows now overlap on Project Alpha — messages are deduplicated so exactly one
+    // unified overlap error message is shown referencing the edited project name.
     const overlaps = screen
       .getAllByRole('alert')
       .filter((el) => el.textContent?.includes('Overlaps another allocation'));
-    expect(overlaps.length).toBeGreaterThan(0);
-    for (const el of overlaps) {
-      expect(el).toHaveTextContent('Project Alpha: Overlaps another allocation on this project.');
-      expect(el).not.toHaveTextContent('Project Beta');
-    }
+    expect(overlaps).toHaveLength(1);
+    expect(overlaps[0]).toHaveTextContent(
+      'Project Alpha: Overlaps another allocation on this project.',
+    );
+    expect(overlaps[0]).not.toHaveTextContent('Project Beta');
   });
 
   // FUT-847: the overlap message must also clear (not linger from saved values) once the edit
@@ -741,8 +741,7 @@ describe('ReassignWizardDialog', () => {
       ],
     );
 
-    // a2 → Project Alpha first creates an overlap; the message appears, and every overlap
-    // message must reference the current (edited) project — never the stale "Project Beta".
+    // a2 → Project Alpha first creates an overlap; a single deduplicated message appears.
     const projectField = screen.getByLabelText(/project for project beta/i);
     await user.click(projectField);
     await user.clear(projectField);
@@ -751,10 +750,8 @@ describe('ReassignWizardDialog', () => {
     const overlaps = screen
       .getAllByRole('alert')
       .filter((el) => el.textContent?.includes('Overlaps another allocation'));
-    expect(overlaps.length).toBeGreaterThan(0);
-    for (const el of overlaps) {
-      expect(el).not.toHaveTextContent('Project Beta');
-    }
+    expect(overlaps).toHaveLength(1);
+    expect(overlaps[0]).not.toHaveTextContent('Project Beta');
 
     // Now set a1 to a non-overlapping window — the overlap (and the message) must clear.
     const a1Start = screen.getByLabelText(/start date for project alpha/i);
