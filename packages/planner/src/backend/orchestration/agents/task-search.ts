@@ -2,14 +2,16 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
+import {
+  type AgentResult,
+  type AgentTool,
+  buildAgentRequestContext,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  temporalContextBlock,
 } from '@seta/agent-sdk';
 import {
   plannerGetBoardSnapshotTool,
@@ -18,7 +20,6 @@ import {
   plannerQueryTasksTool,
   plannerResolveMemberTool,
 } from '@seta/planner/agent-tools';
-import { dateAnchorsPromptBlock } from '../../agent-tools/date-anchors.ts';
 import { pickModel } from '../model.ts';
 import {
   type QuerySubAgentInput as In,
@@ -54,7 +55,7 @@ export function buildInstructions(now: Date = new Date()): string {
   return `You answer "which tasks?" questions — the user is discovering a
 SET of tasks, not asking about one known task. Answer in prose.
 
-${dateAnchorsPromptBlock(now)}
+${temporalContextBlock(now)}
 
 Tools:
 - planner_queryTasks: structured filter (assignee, plan, status, due window, title substring) → list.
@@ -96,10 +97,7 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
     inputSchema: QuerySubAgentInputSchema,
     outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })

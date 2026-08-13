@@ -11,6 +11,7 @@ import {
   jsonb,
   numeric,
   pgSchema,
+  primaryKey,
   text,
   time,
   timestamp,
@@ -57,6 +58,11 @@ export const person = peopleSchema.table(
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     cv_storage_key: text('cv_storage_key'),
+    // M365 directory sync (FUT-842). photo_storage_key mirrors cv_storage_key: an S3 key
+    // via @seta/shared-storage, not a URL. directory_managed drives the field lock in
+    // editWorker — people cannot read the integrations link table across the schema boundary.
+    photo_storage_key: text('photo_storage_key'),
+    directory_managed: boolean('directory_managed').default(false).notNull(),
     // Lazy column-level reference (not table-level foreignKey()): org_unit is
     // declared after person below, so a table-level foreignKey() would evaluate
     // `orgUnit` eagerly and hit the TDZ.
@@ -255,4 +261,91 @@ export const userProjection = peopleSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex('user_projection_uniq_person').on(t.tenant_id, t.person_id)],
+);
+
+/** Fixed evaluation pillars per tenant — AM configures weights, never names/count (FUT-778). */
+export const performanceEvaluationGroup = peopleSchema.table(
+  'performance_evaluation_group',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    sort: integer('sort').notNull().default(0),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('perf_eval_group_uniq_code').on(t.tenant_id, t.code)],
+);
+
+/** Append-only config snapshot per AM Save (AC8). */
+export const performanceConfigRevision = peopleSchema.table(
+  'performance_config_revision',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    revision_no: integer('revision_no').notNull(),
+    created_by_user_id: uuid('created_by_user_id').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('perf_config_rev_uniq').on(t.tenant_id, t.account_id, t.revision_no),
+    index('perf_config_rev_by_account').on(t.tenant_id, t.account_id),
+  ],
+);
+
+export const performanceConfigGroupWeight = peopleSchema.table(
+  'performance_config_group_weight',
+  {
+    revision_id: uuid('revision_id')
+      .notNull()
+      .references(() => performanceConfigRevision.id, { onDelete: 'cascade' }),
+    group_id: uuid('group_id')
+      .notNull()
+      .references(() => performanceEvaluationGroup.id),
+    weight: numeric('weight', { precision: 5, scale: 2 }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.revision_id, t.group_id] }),
+    check('perf_config_group_weight_range', sql`weight >= 0 AND weight <= 100`),
+  ],
+);
+
+export const performanceConfigCriterion = peopleSchema.table(
+  'performance_config_criterion',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    revision_id: uuid('revision_id')
+      .notNull()
+      .references(() => performanceConfigRevision.id, { onDelete: 'cascade' }),
+    group_id: uuid('group_id')
+      .notNull()
+      .references(() => performanceEvaluationGroup.id),
+    name: text('name').notNull(),
+    weight: numeric('weight', { precision: 5, scale: 2 }).notNull(),
+    sort: integer('sort').notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex('perf_config_criterion_uniq_name').on(t.revision_id, t.group_id, t.name),
+    index('perf_config_criterion_by_rev').on(t.revision_id, t.group_id),
+    check('perf_config_criterion_weight_range', sql`weight >= 0 AND weight <= 100`),
+  ],
+);
+
+/** Frozen revision for a review month (AC5) — Saves after pin do not move this. */
+export const performanceConfigMonthPin = peopleSchema.table(
+  'performance_config_month_pin',
+  {
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    review_month: text('review_month').notNull(),
+    revision_id: uuid('revision_id')
+      .notNull()
+      .references(() => performanceConfigRevision.id),
+    pinned_at: timestamp('pinned_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tenant_id, t.account_id, t.review_month] }),
+    check('perf_config_month_pin_ym', sql`review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  ],
 );

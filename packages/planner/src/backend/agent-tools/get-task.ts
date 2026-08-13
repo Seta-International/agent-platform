@@ -1,9 +1,12 @@
 import {
   actorFromContext,
+  daysUntilDue,
   defineAgentTool,
   getPendingAssignRunIdForTask,
+  isOverdue,
   recordEntityExposure,
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { eq } from 'drizzle-orm';
@@ -18,15 +21,7 @@ export const plannerGetTaskTool = defineAgentTool({
   name: 'Look Up Task',
   description: 'Get a task by ID with its assignees, labels, and checklist summary.',
   input: z.object({
-    taskRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
-        'Task UUID, or an ordinal reference into your working memory `recentTasks` list: ' +
-          '"#1" / "1" / "first" → most recent, "#2" / "second" → next, "last" → most recent. ' +
-          'Prefer ordinals when the user is referring to something you just discussed.',
-      ),
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
   }),
   output: z.object({
     task: z.object({
@@ -46,6 +41,19 @@ export const plannerGetTaskTool = defineAgentTool({
       isDeferred: z.boolean(),
       reviewState: z.enum(['needs_review']).nullable(),
       dueAt: z.string().nullable(),
+      isOverdue: z
+        .boolean()
+        .describe(
+          'Server-computed in Asia/Ho_Chi_Minh: true when the due date has passed. ' +
+            'Use THIS to decide whether a task is late — never compare dates yourself.',
+        ),
+      daysUntilDue: z
+        .number()
+        .nullable()
+        .describe(
+          'Server-computed whole local calendar days until due. 0 = due today, ' +
+            'negative = overdue, null = no due date.',
+        ),
       createdBy: z.string(),
       createdByName: z.string().nullable(),
       createdAt: z.string(),
@@ -155,6 +163,8 @@ export const plannerGetTaskTool = defineAgentTool({
         isDeferred: taskRow.is_deferred,
         reviewState: taskRow.review_state,
         dueAt: taskRow.due_at,
+        isOverdue: isOverdue(taskRow.due_at),
+        daysUntilDue: daysUntilDue(taskRow.due_at),
         createdBy: taskRow.created_by,
         createdByName: creatorRow?.display_name ?? null,
         createdAt: taskRow.created_at,

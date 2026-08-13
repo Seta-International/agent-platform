@@ -1,9 +1,13 @@
 import type { SessionScope } from '@seta/core';
+import type { NodeTx } from '@seta/shared-db';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { kpiAppliedMetric, kpiNormBaseline, kpiNormMetric } from '../db/schema.ts';
+import { isWeekEditable } from './iso-week.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
+
+type BaselineDb = Pick<NodeTx, 'select' | 'insert' | 'delete'>;
 
 export type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
 
@@ -20,6 +24,11 @@ export interface BaselineDef {
   component_count: 1 | 2;
   component_1_label: string;
   component_2_label: string | null;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
   green_band: BandCondition;
   yellow_band: BandCondition;
   red_band: BandCondition;
@@ -35,47 +44,32 @@ export interface WeekKey {
 export const baselineKey = (project_id: string, w: WeekKey): string =>
   `${project_id}:${w.iso_year}:${w.iso_week}`;
 
-/**
- * NORM week baseline (FUT-593), lazily ensured: the first time a (project, week) is touched
- * through any route, the live definitions of that project's applied metrics are copied BY
- * VALUE into `kpi_norm_baseline`; every later read of that week uses the copy, so a catalog
- * change published mid-week only reaches weeks that have not been touched yet.
- *
- * Two deliberate semantics:
- * - The APPLIED SET stays live — a metric applied mid-week is appended to the baseline at
- *   that moment (frozen from then on), so "apply, then measure the same week" still works;
- *   a metric un-applied mid-week keeps its baseline row but drops out of the returned defs.
- * - "Week start" is therefore "first touch": for a week in active use that is Monday; for
- *   never-touched historical weeks the copy is made from the current catalog (best
- *   available — the catalog kept no history before baselines existed).
- */
-export async function ensureBaselineDefs(
-  session: SessionScope,
-  project_ids: string[],
-  weeks: WeekKey[],
-): Promise<Map<string, BaselineDef[]>> {
-  const result = new Map<string, BaselineDef[]>();
-  if (project_ids.length === 0 || weeks.length === 0) return result;
+const LIVE_DEF_COLUMNS = {
+  project_id: kpiAppliedMetric.project_id,
+  metric_id: kpiNormMetric.id,
+  metric_version: kpiNormMetric.version,
+  category: kpiNormMetric.category,
+  tier: kpiNormMetric.tier,
+  name: kpiNormMetric.name,
+  formula_label: kpiNormMetric.formula_label,
+  component_count: kpiNormMetric.component_count,
+  component_1_label: kpiNormMetric.component_1_label,
+  component_2_label: kpiNormMetric.component_2_label,
+  component_1_integer: kpiNormMetric.component_1_integer,
+  component_2_integer: kpiNormMetric.component_2_integer,
+  component_1_min: kpiNormMetric.component_1_min,
+  component_1_max: kpiNormMetric.component_1_max,
+  is_share: kpiNormMetric.is_share,
+  green_band: kpiNormMetric.green_band,
+  yellow_band: kpiNormMetric.yellow_band,
+  red_band: kpiNormMetric.red_band,
+  insight: kpiNormMetric.insight,
+  sort_order: kpiNormMetric.sort_order,
+};
 
-  // Live applied defs per project — the copy source for baseline gaps.
-  const liveRows = await pmDb()
-    .select({
-      project_id: kpiAppliedMetric.project_id,
-      metric_id: kpiNormMetric.id,
-      metric_version: kpiNormMetric.version,
-      category: kpiNormMetric.category,
-      tier: kpiNormMetric.tier,
-      name: kpiNormMetric.name,
-      formula_label: kpiNormMetric.formula_label,
-      component_count: kpiNormMetric.component_count,
-      component_1_label: kpiNormMetric.component_1_label,
-      component_2_label: kpiNormMetric.component_2_label,
-      green_band: kpiNormMetric.green_band,
-      yellow_band: kpiNormMetric.yellow_band,
-      red_band: kpiNormMetric.red_band,
-      insight: kpiNormMetric.insight,
-      sort_order: kpiNormMetric.sort_order,
-    })
+function liveAppliedDefs(db: BaselineDb, session: SessionScope, project_ids: string[]) {
+  return db
+    .select(LIVE_DEF_COLUMNS)
     .from(kpiAppliedMetric)
     .innerJoin(
       kpiNormMetric,
@@ -90,6 +84,27 @@ export async function ensureBaselineDefs(
         inArray(kpiAppliedMetric.project_id, project_ids),
       ),
     );
+}
+
+type LiveDef = Awaited<ReturnType<typeof liveAppliedDefs>>[number];
+
+function toBaselineRow(
+  def: LiveDef,
+  tenant_id: string,
+  w: WeekKey,
+): typeof kpiNormBaseline.$inferInsert {
+  return { ...def, tenant_id, iso_year: w.iso_year, iso_week: w.iso_week };
+}
+
+export async function ensureBaselineDefs(
+  session: SessionScope,
+  project_ids: string[],
+  weeks: WeekKey[],
+): Promise<Map<string, BaselineDef[]>> {
+  const result = new Map<string, BaselineDef[]>();
+  if (project_ids.length === 0 || weeks.length === 0) return result;
+
+  const liveRows = await liveAppliedDefs(pmDb(), session, project_ids);
   const liveByProject = new Map<string, typeof liveRows>();
   for (const r of liveRows) {
     const list = liveByProject.get(r.project_id) ?? [];
@@ -118,42 +133,43 @@ export async function ensureBaselineDefs(
     baselineByKey.set(key, list);
   }
 
-  // Freeze what's missing: applied metrics with no baseline row for that week yet.
   const inserts: (typeof kpiNormBaseline.$inferInsert)[] = [];
+  const prunes: { project_id: string; week: WeekKey; keep: string[] }[] = [];
   for (const project_id of project_ids) {
     const live = liveByProject.get(project_id) ?? [];
     for (const w of weeks) {
-      const existing = new Set(
-        (baselineByKey.get(baselineKey(project_id, w)) ?? []).map((r) => r.metric_id),
-      );
-      for (const def of live) {
-        if (existing.has(def.metric_id)) continue;
-        inserts.push({
-          tenant_id: session.tenant_id,
-          project_id,
-          iso_year: w.iso_year,
-          iso_week: w.iso_week,
-          metric_id: def.metric_id,
-          metric_version: def.metric_version,
-          category: def.category,
-          tier: def.tier,
-          name: def.name,
-          formula_label: def.formula_label,
-          component_count: def.component_count,
-          component_1_label: def.component_1_label,
-          component_2_label: def.component_2_label,
-          green_band: def.green_band,
-          yellow_band: def.yellow_band,
-          red_band: def.red_band,
-          insight: def.insight,
-          sort_order: def.sort_order,
-        });
+      const rows = baselineByKey.get(baselineKey(project_id, w)) ?? [];
+      if (!isWeekEditable(w.iso_year, w.iso_week)) {
+        if (rows.length === 0) {
+          for (const def of live) inserts.push(toBaselineRow(def, session.tenant_id, w));
+        }
+        continue;
       }
+      const frozen = new Set(rows.map((r) => r.metric_id));
+      for (const def of live) {
+        if (!frozen.has(def.metric_id)) inserts.push(toBaselineRow(def, session.tenant_id, w));
+      }
+      const keep = live.map((d) => d.metric_id);
+      if (rows.some((r) => !keep.includes(r.metric_id))) prunes.push({ project_id, week: w, keep });
     }
   }
-  if (inserts.length > 0) {
+  for (const p of prunes) {
+    await pmDb()
+      .delete(kpiNormBaseline)
+      .where(
+        and(
+          eq(kpiNormBaseline.tenant_id, session.tenant_id),
+          eq(kpiNormBaseline.project_id, p.project_id),
+          eq(kpiNormBaseline.iso_year, p.week.iso_year),
+          eq(kpiNormBaseline.iso_week, p.week.iso_week),
+          ...(p.keep.length > 0 ? [notInArray(kpiNormBaseline.metric_id, p.keep)] : []),
+        ),
+      );
+  }
+  if (inserts.length > 0 || prunes.length > 0) {
     // Concurrent first touches race benignly — the unique index keeps one copy.
-    await pmDb().insert(kpiNormBaseline).values(inserts).onConflictDoNothing();
+    if (inserts.length > 0)
+      await pmDb().insert(kpiNormBaseline).values(inserts).onConflictDoNothing();
     const fresh = await pmDb()
       .select()
       .from(kpiNormBaseline)
@@ -174,13 +190,11 @@ export async function ensureBaselineDefs(
     }
   }
 
-  // Returned defs = the week's frozen definitions, filtered to the LIVE applied set.
   for (const project_id of project_ids) {
-    const appliedIds = new Set((liveByProject.get(project_id) ?? []).map((r) => r.metric_id));
     for (const w of weeks) {
-      const rows = (baselineByKey.get(baselineKey(project_id, w)) ?? [])
-        .filter((r) => appliedIds.has(r.metric_id))
-        .sort((a, b) => a.sort_order - b.sort_order);
+      const rows = (baselineByKey.get(baselineKey(project_id, w)) ?? []).sort(
+        (a, b) => a.sort_order - b.sort_order,
+      );
       result.set(
         baselineKey(project_id, w),
         rows.map((r) => ({
@@ -194,6 +208,11 @@ export async function ensureBaselineDefs(
           component_count: r.component_count as 1 | 2,
           component_1_label: r.component_1_label,
           component_2_label: r.component_2_label,
+          component_1_integer: r.component_1_integer,
+          component_2_integer: r.component_2_integer,
+          component_1_min: r.component_1_min === null ? null : Number(r.component_1_min),
+          component_1_max: r.component_1_max === null ? null : Number(r.component_1_max),
+          is_share: r.is_share,
           green_band: r.green_band as BandCondition,
           yellow_band: r.yellow_band as BandCondition,
           red_band: r.red_band as BandCondition,
@@ -204,4 +223,40 @@ export async function ensureBaselineDefs(
     }
   }
   return result;
+}
+
+export async function stampBaselineWeek(
+  db: BaselineDb,
+  session: SessionScope,
+  project_ids: string[],
+  week: WeekKey,
+): Promise<void> {
+  if (project_ids.length === 0) return;
+  const defs = await liveAppliedDefs(db, session, project_ids);
+  if (defs.length === 0) return;
+  await db
+    .insert(kpiNormBaseline)
+    .values(defs.map((d) => toBaselineRow(d, session.tenant_id, week)))
+    .onConflictDoNothing();
+}
+
+export async function unstampBaselineWeek(
+  db: BaselineDb,
+  session: SessionScope,
+  project_ids: string[],
+  metric_id: string,
+  week: WeekKey,
+): Promise<void> {
+  if (project_ids.length === 0) return;
+  await db
+    .delete(kpiNormBaseline)
+    .where(
+      and(
+        eq(kpiNormBaseline.tenant_id, session.tenant_id),
+        inArray(kpiNormBaseline.project_id, project_ids),
+        eq(kpiNormBaseline.iso_year, week.iso_year),
+        eq(kpiNormBaseline.iso_week, week.iso_week),
+        eq(kpiNormBaseline.metric_id, metric_id),
+      ),
+    );
 }

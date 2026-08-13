@@ -264,6 +264,7 @@ export interface ProjectListRow {
   status: 'active' | 'on_hold' | 'closed';
   pm_worker_id: string | null;
   can_manage: boolean;
+  can_report: boolean;
 }
 
 export interface ProjectDetail extends ProjectListRow {
@@ -570,6 +571,12 @@ export interface ReassignPreviewSegment {
   planned_pct: number;
 }
 
+export interface OverAllocationPeriod {
+  date_from: string;
+  date_to: string | null;
+  peak_pct: number;
+}
+
 export interface ReassignPreviewResult {
   worker_name: string | null;
   source: ReassignPreviewSegment;
@@ -578,6 +585,7 @@ export interface ReassignPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods?: OverAllocationPeriod[];
 }
 
 export interface ReassignAllocationBody {
@@ -666,6 +674,12 @@ export interface ReassignWorkerAllocationsResult {
   warnings: ReassignWarning[];
 }
 
+export interface RestrictedSegment {
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+}
+
 export interface ReassignGroupPreviewResult {
   worker_name: string | null;
   sources: ReassignPreviewSegment[];
@@ -674,6 +688,9 @@ export interface ReassignGroupPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods?: OverAllocationPeriod[];
+  has_restricted_allocations?: boolean;
+  restricted_segments?: RestrictedSegment[];
 }
 
 export interface ReassignWorkerAllocationsBody {
@@ -722,6 +739,8 @@ export type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
 export type KpiTier = 'core' | 'extended';
 export type RagStatus = 'green' | 'yellow' | 'red';
 
+export type KpiRecordColour = RagStatus | 'gray';
+
 export type BandCondition =
   | { op: 'lte' | 'lt' | 'gte' | 'gt' | 'eq'; value: number }
   | { op: 'between'; min: number; max: number }
@@ -736,11 +755,15 @@ export interface KpiNormMetricRow {
   component_count: 1 | 2;
   component_1_label: string;
   component_2_label: string | null;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
   green_band: BandCondition;
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
-  is_live_capable: boolean;
 }
 
 export interface KpiNormDoc {
@@ -761,11 +784,20 @@ export interface AppliedMetricCoverage {
   /** How many of the queried projects have this metric applied — compare against the queried
    * project count to tell "applied everywhere" from "applied to some". */
   applied_count: number;
+  entered_count: number;
+  would_empty_count: number;
 }
 
-export async function fetchAppliedMetrics(projectIds: string[]): Promise<AppliedMetricCoverage[]> {
+export async function fetchAppliedMetrics(
+  projectIds: string[],
+  week?: { iso_year: number; iso_week: number },
+): Promise<AppliedMetricCoverage[]> {
   if (projectIds.length === 0) return [];
   const sp = new URLSearchParams({ project_ids: projectIds.join(',') });
+  if (week) {
+    sp.set('iso_year', String(week.iso_year));
+    sp.set('iso_week', String(week.iso_week));
+  }
   const res = await fetch(`/api/pm/v1/kpi-applied-metrics?${sp.toString()}`, {
     credentials: 'include',
   });
@@ -789,6 +821,15 @@ export async function setAppliedMetric(
 export interface KpiExplorerMetricCell {
   value: number | null;
   status: RagStatus | null;
+  band: BandCondition | null;
+}
+
+export interface KpiExplorerMetricDef {
+  metric_id: string;
+  category: KpiCategory;
+  name: string;
+  component_count: 1 | 2;
+  green_band: BandCondition;
 }
 
 export interface KpiExplorerRow {
@@ -799,8 +840,8 @@ export interface KpiExplorerRow {
   record_id: string | null;
   iso_year: number;
   iso_week: number;
-  overall_health: RagStatus;
-  category_health: Record<KpiCategory, RagStatus>;
+  overall_health: RagStatus | null;
+  category_health: Record<KpiCategory, RagStatus | null>;
   metrics: Record<string, KpiExplorerMetricCell>;
   can_manage: boolean;
 }
@@ -811,6 +852,7 @@ export interface KpiExplorerResult {
    * so different projects can have different applied sets; build columns from this instead of
    * assuming one shared tenant-wide set. */
   applied_metric_ids: string[];
+  metrics: KpiExplorerMetricDef[];
 }
 
 export async function fetchKpiExplorer(params: {
@@ -842,8 +884,8 @@ export interface KpiRecordDetail {
   iso_week: number;
   version: number | null;
   metrics: KpiRecordMetricRow[];
-  category_health: Record<KpiCategory, RagStatus>;
-  overall_health: RagStatus;
+  category_health: Record<KpiCategory, KpiRecordColour | null>;
+  overall_health: KpiRecordColour | null;
 }
 
 export async function fetchKpiRecord(params: {
@@ -864,7 +906,7 @@ export interface UpsertKpiRecordBody {
   project_id: string;
   iso_year: number;
   iso_week: number;
-  expected_version?: number;
+  expected_version?: number | null;
   entries: Array<{
     metric_id: string;
     component_1_value: number | null;
@@ -874,7 +916,7 @@ export interface UpsertKpiRecordBody {
 
 export async function upsertKpiRecord(
   body: UpsertKpiRecordBody,
-): Promise<{ record_id: string; version: number; overall_health: RagStatus }> {
+): Promise<{ record_id: string; version: number; overall_health: RagStatus | null }> {
   const res = await fetch('/api/pm/v1/kpi-records', {
     method: 'PUT',
     credentials: 'include',
@@ -898,7 +940,19 @@ export interface WeekStats {
     name: string;
     computed_value: number | null;
     component_count: 1 | 2;
+    green_band: BandCondition;
+    status: RagStatus;
   } | null;
+}
+
+export interface WeekMetric {
+  metric_id: string;
+  name: string;
+  category: KpiCategory;
+  computed_value: number | null;
+  component_count: 1 | 2;
+  green_band: BandCondition;
+  status: RagStatus | null;
 }
 
 export interface WeeklyHeadlineMetric {
@@ -916,8 +970,8 @@ export interface WeeklyReportCard {
   account_name: string;
   pm_name: string | null;
   pmo_name: string | null;
-  overall_colour: ReportColour;
-  category_colours: Record<KpiCategory, ReportColour>;
+  overall_colour: ReportColour | null;
+  category_colours: Record<KpiCategory, ReportColour | null>;
   stats: WeekStats;
   /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
   staffed: number;
@@ -928,6 +982,8 @@ export interface WeeklyReportCard {
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;
   can_manage: boolean;
+  can_report: boolean;
+  reported_by_me: boolean;
 }
 
 /** Server-authoritative current reporting week (Asia/Ho_Chi_Minh) — week pickers anchor on
@@ -999,22 +1055,24 @@ export interface WeeklyReportDetail {
     component_count: 1 | 2;
     status: RagStatus | null;
   }[];
+  metrics: WeekMetric[];
   pm_name: string | null;
   pmo_name: string | null;
   week_editable: boolean;
   iso_year: number;
   iso_week: number;
-  overall_colour: ReportColour;
+  overall_colour: ReportColour | null;
   flags: {
     category: KpiCategory;
-    computed_colour: ReportColour;
-    final_colour: ReportColour;
+    computed_colour: ReportColour | null;
+    final_colour: ReportColour | null;
     overridden: boolean;
   }[];
   stats: WeekStats;
-  trend: { iso_year: number; iso_week: number; colour: ReportColour }[];
+  trend: { iso_year: number; iso_week: number; colour: ReportColour | null }[];
   reports: WeeklyReportEntry[];
   can_manage: boolean;
+  can_report: boolean;
   my_reporter_id: string | null;
 }
 
@@ -1034,55 +1092,18 @@ export async function fetchWeeklyReportDetail(params: {
   return handleResponse<WeeklyReportDetail>(res);
 }
 
-/** FUT-591 draft-on-entry: idempotently create/fetch the caller's report for the context. */
-export async function ensureWeeklyReport(body: {
-  project_id: string;
-  iso_year: number;
-  iso_week: number;
-}): Promise<{
-  report_id: string;
-  version: number;
-  status: 'draft' | 'submitted';
-  created: boolean;
-}> {
-  const res = await fetch('/api/pm/v1/weekly-reports/ensure', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return handleResponse(res);
-}
-
-/** Reverse of ensureWeeklyReport — drops the pristine empty draft when the composer is abandoned
- * without a save (FUT-740). No-op server-side for anything with content or a submitted report. */
-export async function discardWeeklyReport(body: {
-  project_id: string;
-  iso_year: number;
-  iso_week: number;
-}): Promise<{ discarded: boolean }> {
-  const res = await fetch('/api/pm/v1/weekly-reports/discard', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return handleResponse(res);
-}
-
 export async function upsertWeeklyReport(body: {
   project_id: string;
   iso_year: number;
   iso_week: number;
   expected_version?: number;
-  save_mode?: 'draft' | 'submit';
   executive_summary: string;
   risk_issue?: string | null;
   road_to_green?: string | null;
   road_to_green_owner_id?: string | null;
   road_to_green_due?: string | null;
   category_colours?: Partial<Record<KpiCategory, ReportColour>>;
-}): Promise<{ report_id: string; version: number; overall_colour: ReportColour }> {
+}): Promise<{ report_id: string; version: number; overall_colour: ReportColour | null }> {
   const res = await fetch('/api/pm/v1/weekly-reports', {
     method: 'PUT',
     credentials: 'include',

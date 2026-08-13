@@ -18,12 +18,19 @@ export {
   linkPlannerGroup,
   reopenProject,
 } from './backend/domain/edit-project.ts';
+export {
+  getCurrentIsoWeek,
+  isWeekEditable,
+  setWeeklyReportClock,
+} from './backend/domain/iso-week.ts';
 export type { AppliedMetricCoverage } from './backend/domain/kpi-applied-metrics.ts';
 export { listAppliedMetrics, setAppliedMetric } from './backend/domain/kpi-applied-metrics.ts';
 export type { KpiNormDoc, KpiNormMetricRow } from './backend/domain/kpi-norm.ts';
 export { getKpiNorm } from './backend/domain/kpi-norm.ts';
 export type { BandCondition, KpiNormMetricSeed } from './backend/domain/kpi-norm-data.ts';
 export type {
+  KpiExplorerMetricCell,
+  KpiExplorerMetricDef,
   KpiExplorerResult,
   KpiExplorerRow,
   KpiRecordDetail,
@@ -44,6 +51,7 @@ export { getCharter, getCharterSummary, listCharters } from './backend/domain/re
 export type { ProjectListRow } from './backend/domain/read-projects.ts';
 export { getProject, listProjects } from './backend/domain/read-projects.ts';
 export type {
+  OverAllocationPeriod,
   ReassignAllocationResult,
   ReassignGroupPreviewResult,
   ReassignPreviewResult,
@@ -87,11 +95,9 @@ export {
   addReportComment,
   discardWeeklyReport,
   ensureWeeklyReport,
-  getCurrentIsoWeek,
   getWeeklyReportDetail,
   listWeeklyReports,
   overrideFlag,
-  setWeeklyReportClock,
   upsertWeeklyReport,
 } from './backend/domain/weekly-reports.ts';
 export { withdrawCharter } from './backend/domain/withdraw-charter.ts';

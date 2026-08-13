@@ -109,6 +109,77 @@ describe('getAllocationGrid', () => {
     });
   });
 
+  it('does not flag sequential non-overlapping allocations within the same month as over-allocated', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+        const projB = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'Sam Sequential',
+        });
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            { project_id: projA, tenant_id: t.tenant_id, account_id: accountId, name: 'Project A' },
+            { project_id: projB, tenant_id: t.tenant_id, account_id: accountId, name: 'Project B' },
+          ]);
+        // Two sequential allocations in January: Jan 1-15 (60%) and Jan 16-31 (60%)
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-01-15',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projB,
+              account_id: accountId,
+              date_from: '2026-01-16',
+              date_to: '2026-01-31',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+
+        expect(grid.rows).toHaveLength(2);
+        const totals = grid.worker_totals.find((w) => w.worker_id === personId)!;
+        // Peak concurrent allocation in Jan is 60% (sequential, non-overlapping)
+        expect(totals.totals[0]).toBe(60);
+        expect(totals.over_months).not.toContain(0);
+        expect(grid.kpis.over_allocated_count).toBe(0);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('returns rows grouped per worker, sorted by name', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -172,10 +243,10 @@ describe('getAllocationGrid', () => {
         // Amy (2 rows) sorts before Zoe (1 row); each worker's rows are consecutive.
         expect(grid.rows.map((r) => r.worker_id)).toEqual([amy, amy, zoe]);
 
-        // Search filters rows to the matching worker, but KPIs stay at full scope.
+        // Search filters rows to the matching worker, and KPIs recalculate to the filtered set.
         const filtered = await getAllocationGrid(t.adminSession, { year: 2026, search: 'amy' });
         expect(new Set(filtered.rows.map((r) => r.worker_id))).toEqual(new Set([amy]));
-        expect(filtered.kpis.member_count).toBe(2);
+        expect(filtered.kpis.member_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
@@ -280,8 +351,9 @@ describe('getAllocationGrid', () => {
         expect(acme.effort_by_account).toHaveLength(1);
         expect(acme.effort_by_account[0]!.account_id).toBe(acmeAcc);
         expect(acme.effort_by_account[0]!.total_mm).toBe(acme.rows[0]!.total_mm);
-        // KPIs stay at full scope when filtered.
-        expect(acme.kpis.member_count).toBe(2);
+        // KPIs recalculate based on the filtered account.
+        expect(acme.kpis.member_count).toBe(1);
+        expect(acme.kpis.project_count).toBe(1);
 
         // project filter narrows to a single project's line.
         const proj = await getAllocationGrid(t.adminSession, {
@@ -325,8 +397,8 @@ describe('getAllocationGrid', () => {
         });
         expect(none.rows).toHaveLength(0);
         expect(none.effort_by_account).toEqual([]);
-        // KPIs stay at full scope regardless of the active filter.
-        expect(over.kpis.member_count).toBe(2);
+        // KPIs recalculate based on the active filter.
+        expect(over.kpis.member_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
@@ -467,15 +539,15 @@ describe('getAllocationGrid', () => {
 
         const byAmNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '6885' });
         expect(new Set(byAmNo.rows.map((r) => r.worker_id))).toEqual(new Set([am]));
-        expect(byAmNo.kpis.member_count).toBe(2);
+        expect(byAmNo.kpis.member_count).toBe(1);
 
         const byMemberNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '7001' });
         expect(new Set(byMemberNo.rows.map((r) => r.worker_id))).toEqual(new Set([member]));
-        expect(byMemberNo.kpis.member_count).toBe(2);
+        expect(byMemberNo.kpis.member_count).toBe(1);
 
         const byPartial = await getAllocationGrid(t.adminSession, { year: 2026, search: '688' });
         expect(new Set(byPartial.rows.map((r) => r.worker_id))).toEqual(new Set([am]));
-        expect(byPartial.kpis.member_count).toBe(2);
+        expect(byPartial.kpis.member_count).toBe(1);
       } finally {
         resetPeopleDb();
         resetPmDb();
@@ -711,6 +783,116 @@ describe('getAllocationGrid', () => {
         expect(grid.rows).toHaveLength(1);
         expect(grid.rows[0]!.project_id).toBe(projLed);
         expect(grid.kpis.project_count).toBe(1);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('prorates monthly planned_pct for partial-month allocations so total_mm matches grid months', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const proj = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'Thu Ngọc Trần',
+          employee_no: '6799',
+        });
+        await peopleDb().insert(projectProjection).values({
+          project_id: proj,
+          tenant_id: t.tenant_id,
+          account_id: accountId,
+          name: 'Commerce Canal',
+        });
+        // Allocation spanning mid-July to mid-August (partial months)
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: personId,
+          project_id: proj,
+          account_id: accountId,
+          date_from: '2026-07-27',
+          date_to: '2026-08-05',
+          planned_pct: '100',
+          bucket: 'billable',
+          active: true,
+        });
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const row = grid.rows.find((r) => r.worker_id === personId)!;
+
+        // July (m=6) has 5 working days -> 5 / 22 * 100 = 22.73%
+        // Aug (m=7) has 3 working days -> 3 / 22 * 100 = 13.64%
+        expect(row.months[6]).toBeCloseTo(22.73, 1);
+        expect(row.months[7]).toBeCloseTo(13.64, 1);
+
+        // Sum of monthly MM matches total_mm
+        const sumMonthlyMm = row.months.reduce((s: number, m) => s + (m ?? 0) / 100, 0);
+        expect(Math.round(sumMonthlyMm * 100) / 100).toBe(row.total_mm);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('calculates monthly planned value for FUT-893 partial-month allocation (50%, Aug 7 to Aug 18)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const proj = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'FUT-893 Tester',
+        });
+        await peopleDb().insert(projectProjection).values({
+          project_id: proj,
+          tenant_id: t.tenant_id,
+          account_id: accountId,
+          name: 'Test Project',
+        });
+        // Allocation = 50%, Start Date = 07 Aug 2026, End Date = 18 Aug 2026 (8 working days)
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          person_id: personId,
+          project_id: proj,
+          account_id: accountId,
+          date_from: '2026-08-07',
+          date_to: '2026-08-18',
+          planned_pct: '50',
+          bucket: 'billable',
+          active: true,
+        });
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const row = grid.rows.find((r) => r.worker_id === personId)!;
+
+        // Aug (m=7): 8 working days / 22 * 50% = 18.18%
+        expect(row.months[7]).toBe(18.18);
+        expect(row.total_mm).toBe(0.18);
       } finally {
         resetPeopleDb();
         resetPmDb();

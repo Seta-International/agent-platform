@@ -136,4 +136,37 @@ describe('openRequisition', () => {
       }
     });
   });
+
+  // FUT-768: regression guard — batch insert + batch emit keep maximum headcount=9 fast and atomic
+  it('batch-inserts openings and events: maximum 9 headcount completes under 2s', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const { requisition_id } = await openRequisition({
+          title: 'Batch Load Test',
+          kind: 'new',
+          headcount: 9,
+          session: t.adminSession,
+        });
+
+        const ops = await hiringDb()
+          .select()
+          .from(opening)
+          .where(eq(opening.requisition_id, requisition_id));
+        expect(ops).toHaveLength(9);
+        expect(ops.every((o) => o.status === 'open')).toBe(true);
+
+        expect(await countEvents(pool, t.tenant_id, 'hiring.opening.opened')).toBe(9);
+        expect(await countEvents(pool, t.tenant_id, 'hiring.requisition.opened')).toBe(1);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

@@ -10,6 +10,8 @@ export type PerformanceScopeContextValue = {
   capacities: readonly PerformanceCapacity[];
   resolved: ResolvedPerformanceScope;
   search: PerformanceScopeSearch;
+  /** Change the active cycle month (YYYY-MM), keeping the capacity context. */
+  setMonth: (month: string) => void;
 };
 
 const PerformanceScopeContext = createContext<PerformanceScopeContextValue | null>(null);

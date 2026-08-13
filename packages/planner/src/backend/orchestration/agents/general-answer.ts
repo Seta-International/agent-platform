@@ -2,10 +2,16 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import {
+  type AgentResult,
+  buildAgentRequestContext,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
+} from '@seta/agent-sdk';
 import { pickModel } from '../model.ts';
 import {
   type QuerySubAgentInput as In,
@@ -17,6 +23,8 @@ import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
 import { GROUNDING_POLICY } from './grounding.ts';
 
 export interface QueryGeneralAnswerDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
@@ -42,10 +50,7 @@ export function makeQueryGeneralAnswerAgent(
     inputSchema: QuerySubAgentInputSchema,
     outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
@@ -54,7 +59,7 @@ export function makeQueryGeneralAnswerAgent(
             const rawAgent = new Agent({
               id: agentId,
               name: 'Planner General Answer',
-              instructions: INSTRUCTIONS,
+              instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
               model: pickModel(ctx, deps.resolveModel),
             });
             const hasStorage = typeof deps.mastraStorage?.getStore === 'function';

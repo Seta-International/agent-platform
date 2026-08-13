@@ -17,6 +17,7 @@ import type { TaskList } from 'graphile-worker';
 import { Hono } from 'hono';
 import { integrationsDb } from '../db/client.ts';
 import { getM365TenantConfig } from '../domain/get-m365-tenant-config.ts';
+import { registerM365DirectoryRoutes } from '../http/directory-routes.ts';
 import { registerIntegrationsM365Routes } from '../http/m365-routes.ts';
 import * as m365 from './index.ts';
 
@@ -44,6 +45,9 @@ export function buildM365Boot(deps: M365BootDeps): M365Boot {
   const m365SubsRepo = m365.createM365SubscriptionsRepo({
     db: integrationsDb(),
   });
+  const directoryRepo = m365.createDirectoryRepo({ db: integrationsDb() });
+  // The real `@seta/people` adapter (design §8.1). Stateless, so one per boot.
+  const directoryPeople = m365.createPeopleDirectorySurface();
 
   async function graphClientFor(setaTenantId: string): Promise<Client> {
     const config = await getM365TenantConfig(setaTenantId, {
@@ -453,6 +457,40 @@ export function buildM365Boot(deps: M365BootDeps): M365Boot {
       const graphClient = await graphClientFor(p.tenant_id);
       await m365.runPushGroup(p, { graphClient, repo: m365LinksRepo });
     },
+    'm365.directory.pull': async (payload) => {
+      const p = payload as { tenant_id: string; full?: boolean };
+      const graphClient = await graphClientFor(p.tenant_id);
+      // runDirectoryPull records directory_last_status='error' and rethrows so graphile-worker
+      // retries, which is what a transient Graph fault needs. A rejected client credential is not
+      // transient: retrying it burns all 25 attempts over backoff, rewriting directory_last_error
+      // each time and drowning the worker log, and it still cannot succeed until someone fixes the
+      // stored secret. Stop that one class here — the failure is already persisted, so
+      // `GET /directory/status` still surfaces the error state to the admin.
+      try {
+        await m365.runDirectoryPull(
+          { tenant_id: p.tenant_id, full: p.full === true },
+          {
+            repo: directoryRepo,
+            graph: m365.createDirectoryGraph(graphClient),
+            people: directoryPeople,
+          },
+        );
+      } catch (err) {
+        if (!m365.isPermanentAuthError(err)) throw err;
+      }
+    },
+
+    // Snake_case because graphile-worker's crontab parser rejects dots in a task identifier
+    // (CRONTAB_COMMAND: [_a-zA-Z][_a-zA-Z0-9:/_-]*) — a dotted name makes run() reject and the
+    // worker never boots. Matches the platform's other cron tasks (partition_manager_tick).
+    // The job it fans out to keeps its dotted name: add_job imposes no such restriction.
+    m365_directory_pull_cron: async () => {
+      await m365.runDirectoryPullCron({
+        listTenantIds: () => m365.listDirectoryTenantIds(integrationsDb()),
+        addJob: (id, jobPayload, spec) => getWorkers().addJob(id, jobPayload, spec),
+      });
+    },
+
     'm365.subscription.create': async (payload) => {
       const p = payload as {
         tenant_id: string;
@@ -488,6 +526,14 @@ export function buildM365Boot(deps: M365BootDeps): M365Boot {
       graphClientFor,
       workers: rtDeps.workers,
       m365LinksRepo,
+    });
+    registerM365DirectoryRoutes(app, {
+      repo: directoryRepo,
+      // Resolutions apply through the same public `@seta/people` doors the sync uses, under the
+      // acting admin's session (§9.2) — hence the resolution surface, not the sync's.
+      people: m365.createPeopleResolutionSurface(),
+      workers: rtDeps.workers,
+      lastRun: m365.createDirectoryRunReader(integrationsDb()),
     });
     const webhookRouter = m365.buildWebhookRouter({
       webhookSecret,

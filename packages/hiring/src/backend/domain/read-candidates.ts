@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
   application,
@@ -124,9 +124,25 @@ async function fitFor(
 // Shared read for the candidates board/list — one row per application, joined to candidate +
 // requisition with fit computed. `statuses` narrows which application states come back so the
 // same shape backs both the active board (active+hired) and the read-only Rejected column.
+// FUT-833: candidate-owned search terms (name, skills, contact email/phone). Role/seniority are
+// excluded by design — the board has dedicated Role and Seniority selectors for those. Skills stay
+// matchable (was part of the original client-side needle) via an EXISTS on the candidate's skills.
+function candidateSearchCond(q: string): SQL | undefined {
+  const needle = `%${q.toLowerCase()}%`;
+  return or(
+    ilike(candidate.name, needle),
+    sql`lower(${candidate.contact}->>'personal_email') like ${needle}`,
+    sql`lower(${candidate.contact}->>'phone') like ${needle}`,
+    sql`EXISTS (SELECT 1 FROM ${candidateSkill}
+      WHERE ${candidateSkill.candidate_id} = ${candidate.id}
+        AND lower(${candidateSkill.skill_name}) like ${needle})`,
+  );
+}
+
 async function listApplicationRows(
   session: SessionScope,
   statuses: (typeof application.$inferSelect)['status'][],
+  q?: string,
 ): Promise<CandidateListRow[]> {
   const conds = [
     eq(application.kind, 'external'),
@@ -134,6 +150,8 @@ async function listApplicationRows(
     tenantScoped(application.tenant_id, session),
     isNull(candidate.deleted_at),
   ];
+  const search = q?.trim() ? candidateSearchCond(q) : undefined;
+  if (search) conds.push(search);
   const scope = await buildCandidateScope(session);
   if (scope) conds.push(scope);
   const rows = await hiringDb()
@@ -183,16 +201,22 @@ async function listApplicationRows(
 
 // The board/list surface: the active pipeline plus hired. Terminal outcomes are read separately
 // (listRejectedCandidates) so they never leak into the pipeline columns.
-export async function listCandidates(session: SessionScope): Promise<CandidateListRow[]> {
+export async function listCandidates(
+  session: SessionScope,
+  q?: string,
+): Promise<CandidateListRow[]> {
   requirePermission(session, 'hiring.candidate.read');
-  return listApplicationRows(session, ['active', 'hired']);
+  return listApplicationRows(session, ['active', 'hired'], q);
 }
 
 // Rejected applications only — backs the board's read-only "Rejected" column. Transferred and
 // cancelled outcomes are deliberately excluded; "rejected" means an explicit reject decision.
-export async function listRejectedCandidates(session: SessionScope): Promise<CandidateListRow[]> {
+export async function listRejectedCandidates(
+  session: SessionScope,
+  q?: string,
+): Promise<CandidateListRow[]> {
   requirePermission(session, 'hiring.candidate.read');
-  return listApplicationRows(session, ['rejected']);
+  return listApplicationRows(session, ['rejected'], q);
 }
 
 export interface CandidateStageCounts {
@@ -359,7 +383,7 @@ export interface TalentPoolRow {
   recommended: { requisition_id: string; title: string; fit: FitResult }[];
 }
 
-export async function listTalentPool(session: SessionScope): Promise<TalentPoolRow[]> {
+export async function listTalentPool(session: SessionScope, q?: string): Promise<TalentPoolRow[]> {
   requirePermission(session, 'hiring.candidate.read');
   const candidateScope = await buildCandidateScope(session);
   const appConds = [eq(application.kind, 'external'), tenantScoped(application.tenant_id, session)];
@@ -397,6 +421,8 @@ export async function listTalentPool(session: SessionScope): Promise<TalentPoolR
   }
 
   const candConds = [tenantScoped(candidate.tenant_id, session), isNull(candidate.deleted_at)];
+  const search = q?.trim() ? candidateSearchCond(q) : undefined;
+  if (search) candConds.push(search);
   if (candidateScope) {
     candConds.push(sql`EXISTS (SELECT 1 FROM ${application}
       WHERE ${application.candidate_id} = ${candidate.id}

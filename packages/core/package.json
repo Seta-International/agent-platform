@@ -39,8 +39,8 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.11",
-    "@mastra/core": "^1.52.1",
+    "@hono/node-server": "^2.1.0",
+    "@mastra/core": "^1.57.0",
     "@opentelemetry/api": "^1.9.1",
     "@seta/agent-sdk": "workspace:^",
     "@seta/shared-db": "workspace:^",
@@ -48,7 +48,7 @@
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "graphile-worker": "^0.17.3",
-    "hono": "^4.12.31",
+    "hono": "^4.12.34",
     "lru-cache": "^11.5.2",
     "pg": "^8.22.0",
     "pino": "^10.3.1",

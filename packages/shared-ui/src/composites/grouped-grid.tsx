@@ -282,9 +282,7 @@ export function GroupedGrid<T extends Record<string, unknown>>({
       dividers="rows"
       textOverflow="truncate"
       hasHover
-      tableProps={
-        testId ? ({ 'data-testid': testId } as React.HTMLAttributes<HTMLTableElement>) : undefined
-      }
+      data-testid={testId}
     />
   );
 }

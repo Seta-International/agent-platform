@@ -61,6 +61,7 @@ export type {
 export {
   type AgentMemoryHandle,
   actorFromContext,
+  buildAgentRequestContext,
   RC_THREAD_ID,
   RequestContextSchema,
 } from './request-context.ts';
@@ -78,13 +79,28 @@ export {
 export type { SubscriberBuilder, SubscriberBuilderDeps } from './subscriber-builder.ts';
 export {
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
   type TaskRefResolution,
   TaskRefResolveError,
 } from './task-ref-resolver.ts';
+export {
+  addDaysToKey,
+  daysUntilDue,
+  isOverdue,
+  localDateKey,
+  localDayBounds,
+  PLATFORM_TIMEZONE,
+  TEMPORAL_CONTEXT_MARKER,
+  type TemporalAnchors,
+  temporalAnchors,
+  temporalContextBlock,
+  withTemporalContext,
+} from './temporal-context.ts';
 export type {
   AgentTool,
   AgentToolContext,
   AgentToolSpec,
+  ExecutableAgentTool,
 } from './tool.ts';
 export {
   type AgentResult,

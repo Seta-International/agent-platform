@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   type ProjectListRow,
+  previewReassignWorkerAllocations,
   type RaMonitoringAllocation,
   removeAllocation,
   updateAllocation,
@@ -18,6 +19,15 @@ vi.mock('../../../src/api/pm-client.ts', async () => {
     ...actual,
     removeAllocation: vi.fn().mockResolvedValue(undefined),
     updateAllocation: vi.fn().mockResolvedValue({ version: 2 }),
+    previewReassignWorkerAllocations: vi.fn().mockResolvedValue({
+      worker_name: 'An Đình Luận',
+      sources: [],
+      targets: [],
+      peak_pct: 100,
+      exceeds: false,
+      peak_from: null,
+      peak_to: null,
+    }),
   };
 });
 
@@ -175,9 +185,9 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByLabelText(/start date for/i)).toBeDisabled();
     expect(screen.getByLabelText(/type for/i)).toBeDisabled();
     expect(screen.getByLabelText(/note for/i)).toBeDisabled();
-    // …but you can still shorten/extend it or remove it entirely.
+    // …but you can still shorten/extend it (FUT-876 disabled delete for past-start allocations).
     expect(screen.getByLabelText(/end date for/i)).not.toBeDisabled();
-    expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).toBeDisabled();
   });
 
   it('lets an existing row be moved to a different account/project, and sends the new project_id on Save', async () => {
@@ -273,6 +283,7 @@ describe('ReassignWizardDialog', () => {
           phase: 'build',
           status: 'active',
           pm_worker_id: null,
+          can_manage: true,
         },
       ],
     );
@@ -290,6 +301,39 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
 
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+  });
+
+  it('does not offer 0 as a selectable allocation on a new project (a 0% allocation is invalid)', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    // Open the new project row's Allocation dropdown. 0 is not a valid allocation
+    // (FUT-846), so it must not be offered as an option.
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+
+    expect(screen.queryByRole('option', { name: '0' })).not.toBeInTheDocument();
+    // 0.1 remains the smallest valid step.
+    expect(await screen.findByRole('option', { name: '0.1' })).toBeInTheDocument();
   });
 
   it('requires both a start and end date on a new project before Review impact enables', async () => {
@@ -426,5 +470,297 @@ describe('ReassignWizardDialog', () => {
     // The popover shim renders the popup content, but it isn't necessarily a DOM descendant
     // of the <dialog> element, so assert against the document rather than `within(dialog)`.
     expect(await screen.findByRole('option', { name: 'Aeris' })).toBeInTheDocument();
+  });
+
+  it('displays restricted allocations warning notice and restricted timeline row on Review Impact step', async () => {
+    const user = userEvent.setup({ delay: null });
+    vi.mocked(previewReassignWorkerAllocations).mockResolvedValue({
+      worker_name: 'An Đình Luận',
+      sources: [],
+      targets: [
+        {
+          project_name: 'Aeris - Finch Mobile',
+          account_name: 'Aeris',
+          bucket: 'billable',
+          date_from: FUTURE_START,
+          date_to: NEW_END,
+          planned_pct: 100,
+        },
+      ],
+      peak_pct: 270,
+      exceeds: true,
+      peak_from: FUTURE_START,
+      peak_to: NEW_END,
+      has_restricted_allocations: true,
+      restricted_segments: [
+        {
+          date_from: FUTURE_START,
+          date_to: NEW_END,
+          planned_pct: 170,
+        },
+      ],
+    });
+
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    expect(
+      await screen.findByText((content) => content.includes('restricted projects are included')),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Restricted projects')).toBeInTheDocument();
+    expect(screen.getAllByText('270%').length).toBeGreaterThan(0);
+  });
+
+  it('displays warnings for all over-allocation periods when multiple exist (FUT-885)', async () => {
+    const user = userEvent.setup({ delay: null });
+    vi.mocked(previewReassignWorkerAllocations).mockResolvedValue({
+      worker_name: 'Phan Văn Hưng',
+      sources: [],
+      targets: [
+        {
+          project_name: 'Motion Global',
+          account_name: 'Motion Global',
+          bucket: 'billable',
+          date_from: '2026-09-24',
+          date_to: '2026-09-30',
+          planned_pct: 100,
+        },
+        {
+          project_name: 'Teacher Zone',
+          account_name: 'Teacher Zone',
+          bucket: 'billable',
+          date_from: '2026-11-01',
+          date_to: '2026-11-30',
+          planned_pct: 100,
+        },
+      ],
+      peak_pct: 200,
+      exceeds: true,
+      peak_from: '2026-09-24',
+      peak_to: '2026-09-30',
+      over_allocation_periods: [
+        { date_from: '2026-09-24', date_to: '2026-09-30', peak_pct: 200 },
+        { date_from: '2026-11-01', date_to: '2026-11-30', peak_pct: 200 },
+      ],
+      has_restricted_allocations: false,
+      restricted_segments: [],
+    });
+
+    renderWizard(
+      [allocation({ date_from: FUTURE_START, date_to: '2026-12-31' })],
+      [{ id: 'acc1', label: 'Motion Global' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Motion Global',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    expect(await screen.findAllByText(/24 Sep 2026/)).not.toHaveLength(0);
+    expect(screen.getAllByText(/30 Sep 2026/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/01 Nov 2026/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/30 Nov 2026/).length).toBeGreaterThan(0);
+  });
+
+  it('FUT-852: displays target allocation in AllocationTimeline with error styling when preview fails', async () => {
+    const user = userEvent.setup({ delay: null });
+    const { previewReassignWorkerAllocations } = await import('../../../src/api/pm-client.ts');
+    vi.mocked(previewReassignWorkerAllocations).mockRejectedValueOnce(
+      new Error('AV1A: Allocation end 2026-12-31 is after the project end 2026-06-30'),
+    );
+
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    await user.click(screen.getByRole('button', { name: /review impact/i }));
+
+    expect(
+      await screen.findByText(
+        /AV1A: Allocation end 2026-12-31 is after the project end 2026-06-30/,
+      ),
+    ).toBeInTheDocument();
+
+    // AllocationTimeline renders target allocation project name even though preview dry-run failed
+    const targetLabel = screen.getByText('Aeris - Finch Mobile');
+    expect(targetLabel).toBeInTheDocument();
+    expect(targetLabel).toHaveClass('text-error');
+  });
+
+  // FUT-847: the existing-row overlap error prefixes the *current* project name from the draft,
+  // not the original DB value. After editing row a2 (Project Beta) to overlap row a1 on the same
+  // project, both messages must reference the new project only.
+  it('FUT-847: shows the edited project name in the overlap validation message', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [
+        // a1 and a2 overlap fully in time but live on different projects — no overlap today.
+        allocation({ allocation_id: 'a1', project_id: 'p1', project_name: 'Project Alpha' }),
+        allocation({
+          allocation_id: 'a2',
+          project_id: 'p2',
+          project_name: 'Project Beta',
+          planned_pct: 40,
+        }),
+      ],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p1',
+          account_id: 'acc1',
+          name: 'Project Alpha',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Project Beta',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+      ],
+    );
+
+    // Move a2 from Project Beta → Project Alpha so the two now overlap on one project.
+    const projectField = screen.getByLabelText(/project for project beta/i);
+    await user.click(projectField);
+    await user.clear(projectField);
+    await user.type(projectField, 'Project Alpha');
+    await user.click(await screen.findByRole('option', { name: 'Project Alpha' }));
+
+    // Both rows now overlap on Project Alpha — messages are deduplicated so exactly one
+    // unified overlap error message is shown referencing the edited project name.
+    const overlaps = screen
+      .getAllByRole('alert')
+      .filter((el) => el.textContent?.includes('Overlaps another allocation'));
+    expect(overlaps).toHaveLength(1);
+    expect(overlaps[0]).toHaveTextContent(
+      'Project Alpha: Overlaps another allocation on this project.',
+    );
+    expect(overlaps[0]).not.toHaveTextContent('Project Beta');
+  });
+
+  // FUT-847: the overlap message must also clear (not linger from saved values) once the edit
+  // resolves the overlap — display tracks the draft, not the DB.
+  it('FUT-847: clears the overlap message when the edit resolves the overlap', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [
+        allocation({ allocation_id: 'a1', project_id: 'p1', project_name: 'Project Alpha' }),
+        allocation({
+          allocation_id: 'a2',
+          project_id: 'p2',
+          project_name: 'Project Beta',
+          planned_pct: 40,
+        }),
+      ],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p1',
+          account_id: 'acc1',
+          name: 'Project Alpha',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Project Beta',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+      ],
+    );
+
+    // a2 → Project Alpha first creates an overlap; a single deduplicated message appears.
+    const projectField = screen.getByLabelText(/project for project beta/i);
+    await user.click(projectField);
+    await user.clear(projectField);
+    await user.type(projectField, 'Project Alpha');
+    await user.click(await screen.findByRole('option', { name: 'Project Alpha' }));
+    const overlaps = screen
+      .getAllByRole('alert')
+      .filter((el) => el.textContent?.includes('Overlaps another allocation'));
+    expect(overlaps).toHaveLength(1);
+    expect(overlaps[0]).not.toHaveTextContent('Project Beta');
+
+    // Now set a1 to a non-overlapping window — the overlap (and the message) must clear.
+    const a1Start = screen.getByLabelText(/start date for project alpha/i);
+    await user.click(a1Start);
+    await user.clear(a1Start);
+    await user.type(a1Start, formatLongDate(isoOffset(200)));
+    const after = screen
+      .getAllByRole('alert')
+      .filter((el) => el.textContent?.includes('Overlaps another allocation'));
+    expect(after).toHaveLength(0);
   });
 });

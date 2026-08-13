@@ -40,6 +40,23 @@ vi.mock('../../../src/api/worker-search.ts', () => ({
 
 const fetchAllocationsMock = vi.fn((_params?: unknown) => Promise.resolve<unknown[]>([]));
 
+// `fetchProjectsMock` is a plain vi.fn (not a spy) so it survives the
+// `vi.restoreAllMocks()` in each describe's afterEach; tests that need a
+// different project set override it explicitly and reset it back.
+const fetchProjectsMock = vi.fn(() =>
+  Promise.resolve([
+    {
+      project_id: 'p1',
+      account_id: 'acc1',
+      name: 'Aeris - Watchtower',
+      phase: 'build',
+      status: 'active' as const,
+      pm_worker_id: null,
+      can_manage: true,
+    },
+  ]),
+);
+
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
   return {
@@ -55,18 +72,7 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
           project_count: 0,
         },
       ]),
-    fetchProjects: () =>
-      Promise.resolve([
-        {
-          project_id: 'p1',
-          account_id: 'acc1',
-          name: 'Aeris - Watchtower',
-          phase: 'build',
-          status: 'active' as const,
-          pm_worker_id: null,
-          can_manage: true,
-        },
-      ]),
+    fetchProjects: (...args: unknown[]) => fetchProjectsMock(...args),
     fetchAllocations: (params: unknown) => fetchAllocationsMock(params),
   };
 });
@@ -331,6 +337,112 @@ describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () 
       expect(wizardCalls.at(-1)).toEqual({ worker_id: 'w1' });
     });
   });
+
+  it('renders grid Calendar Effort cell clipped to the active Date Range window', async () => {
+    // Allocation spans entire 2026 year (12 months = 12.00 MM unclipped)
+    const yearAllocation = [
+      {
+        allocation_id: 'a-year',
+        worker_id: 'w1',
+        worker_name: 'Phạm Tiến Mạnh',
+        worker_title: 'Senior Engineer',
+        project_id: 'p1',
+        project_name: 'Alpha Project',
+        account_id: 'acc1',
+        account_name: 'Alpha Inc',
+        planned_pct: 100,
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+    ];
+
+    // Filter by Date Range: 01 Aug 2026 to 31 Dec 2026 (109 working days / 22 = 4.95 MM)
+    latestSearch = {
+      from: '2026-08-01',
+      to: '2026-12-31',
+    };
+    fetchAllocationsMock.mockResolvedValue(yearAllocation);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    // Grid cell displays 4.95 MM (clipped to August-December window)
+    expect(screen.getByText('4.95')).toBeInTheDocument();
+  });
+});
+
+describe('RaMonitoringPage — Project filter over-allocation calculation (FUT-888)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  it('keeps worker marked as Over-allocated when Project filter is applied', async () => {
+    const p1Allocation = {
+      allocation_id: 'a1',
+      worker_id: 'w1',
+      worker_name: 'Nguyen Thi Phuong',
+      worker_title: 'Senior Engineer',
+      project_id: 'p1',
+      project_name: 'Project A',
+      account_id: 'acc1',
+      account_name: 'Veritone',
+      planned_pct: 100,
+      date_from: '2026-08-01',
+      date_to: '2026-11-30',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    };
+    const p2Allocation = {
+      allocation_id: 'a2',
+      worker_id: 'w1',
+      worker_name: 'Nguyen Thi Phuong',
+      worker_title: 'Senior Engineer',
+      project_id: 'p2',
+      project_name: 'Project B',
+      account_id: 'acc1',
+      account_name: 'Veritone',
+      planned_pct: 100,
+      date_from: '2026-08-01',
+      date_to: '2026-11-30',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    };
+
+    latestSearch = {
+      project: 'p1',
+    };
+
+    fetchAllocationsMock.mockImplementation((params?: unknown) => {
+      const p = params as Record<string, unknown> | undefined;
+      if (p?.project_id === 'p1') {
+        return Promise.resolve([p1Allocation]);
+      }
+      return Promise.resolve([p1Allocation, p2Allocation]);
+    });
+
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    // Only Project A row is displayed in table
+    expect(screen.getByText('Project A')).toBeInTheDocument();
+    expect(screen.queryByText('Project B')).not.toBeInTheDocument();
+
+    // Worker should still be marked with "Over" badge
+    expect(screen.getByText('Over')).toBeInTheDocument();
+  });
 });
 
 describe('RaMonitoringPage — breadcrumb trail (Astryx migration)', () => {
@@ -349,5 +461,97 @@ describe('RaMonitoringPage — breadcrumb trail (Astryx migration)', () => {
     // Current crumb — manifest label and page title agree ("RA Monitoring"), not a link.
     expect(within(nav).getByText('RA Monitoring').closest('a')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'RA Monitoring' })).toBeInTheDocument();
+  });
+});
+
+describe('RaMonitoringPage — Scope card project count (FUT-841)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+    // Reset the project list back to the shared default so later describe
+    // blocks start from a known state (they reset allocations but not projects).
+    fetchProjectsMock.mockReset();
+    fetchProjectsMock.mockResolvedValue([
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'Aeris - Watchtower',
+        phase: 'build',
+        status: 'active' as const,
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ]);
+  });
+
+  it('shows the account project count when only an account filter is set', async () => {
+    fetchProjectsMock.mockResolvedValue([
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'P1',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p2',
+        account_id: 'acc1',
+        name: 'P2',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p3',
+        account_id: 'acc1',
+        name: 'P3',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ]);
+    latestSearch = { account: 'acc1' };
+
+    renderTableHarness();
+    await screen.findByRole('table');
+
+    // account filter only → the account's full project set
+    expect(screen.getByText('3 projects')).toBeInTheDocument();
+  });
+
+  it('shows 1 project when a single project is selected', async () => {
+    fetchProjectsMock.mockResolvedValue([
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'P1',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p2',
+        account_id: 'acc1',
+        name: 'P2',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ]);
+    latestSearch = { account: 'acc1', project: 'p1' };
+
+    renderTableHarness();
+    await screen.findByRole('table');
+
+    // The count must reflect the single selected project, not the account total.
+    expect(screen.getByText('1 project')).toBeInTheDocument();
   });
 });

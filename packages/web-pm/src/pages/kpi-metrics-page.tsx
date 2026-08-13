@@ -1,4 +1,5 @@
 import {
+  Banner,
   BreadcrumbItem,
   Breadcrumbs,
   HStack,
@@ -9,7 +10,8 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   fetchAccounts,
   fetchKpiExplorer,
@@ -39,7 +41,6 @@ import {
   KPI_CATEGORY_LABELS,
   metricValueText,
   ragBadge,
-  recordStatusBadge,
   shortMetricLabel,
 } from './kpi-shared.tsx';
 import { usePmContext } from './use-pm-context.ts';
@@ -51,58 +52,69 @@ export interface KpiMetricsSearch {
   project?: string;
   iso_year?: number;
   iso_week?: number;
+  detail?: string;
 }
 
-// Category band colours (mock: Q green, C amber, D blue, P purple). The group header wears
-// the strong tint; its metric sub-headers and every body cell wear a washed-out version of
-// the same hue, so the grouping stays visible while scrolling without drowning the RAG
-// colours of the values themselves.
-// Identity columns stay pinned while the metric columns scroll horizontally. Sticky cells
-// must be opaque (scrolled content would bleed through), so they carry their own background
-// and mirror the row hover via group-hover. Fixed widths make the cumulative left offsets
-// reliable: project 12rem → account at left-[12rem] (9rem) → health at left-[21rem] (7rem).
+const FROZEN_CELL = 'sticky z-10 bg-card transition-colors group-hover:bg-muted';
+const FROZEN_START_WIDTH = 192;
+const ACTION_COL_WIDTH = 80;
+
 const PIN = {
   project: {
     header: 'left-0 z-30 w-48 min-w-48 max-w-48',
-    cell: 'sticky left-0 z-10 w-48 min-w-48 max-w-48 bg-card group-hover:bg-muted transition-colors',
+    cell: `${FROZEN_CELL} left-0 w-48 min-w-48 max-w-48`,
   },
   account: {
-    header: 'left-[12rem] z-30 w-36 min-w-36 max-w-36',
-    cell: 'sticky left-[12rem] z-10 w-36 min-w-36 max-w-36 bg-card group-hover:bg-muted transition-colors',
+    header: 'w-36 min-w-36 max-w-36',
+    cell: 'w-36 min-w-36 max-w-36',
   },
   health: {
-    header: 'left-[21rem] z-30 w-28 min-w-28 max-w-28 border-r border-border',
-    cell: 'sticky left-[21rem] z-10 w-28 min-w-28 max-w-28 bg-card group-hover:bg-muted transition-colors border-r border-border',
+    header: 'w-24 min-w-24 max-w-24 border-r border-border',
+    cell: 'w-24 min-w-24 max-w-24 border-r border-border',
   },
-};
-
-const CATEGORY_STYLES: Record<string, { band: string; column: string }> = {
-  quality: {
-    band: 'bg-success-muted text-success',
-    column: 'bg-success-muted/35',
+  actions: {
+    header: 'right-0 z-30 w-20 min-w-20 max-w-20 border-l border-border bg-surface',
+    cell: `${FROZEN_CELL} right-0 w-20 min-w-20 max-w-20 border-l border-border`,
   },
-  cost_capacity: {
-    band: 'bg-warning-muted text-warning',
-    column: 'bg-warning-muted/35',
-  },
-  delivery: {
-    band: 'bg-blue-subtle text-blue-vivid',
-    column: 'bg-blue-subtle/35',
-  },
-  process: {
-    band: 'bg-purple-vivid/15 text-secondary',
-    column: 'bg-purple-vivid/5',
-  },
+  groupLabel: 'left-54',
 };
 
 export function KpiMetricsPage() {
-  const { search, setSearch, weeks, iso_year, iso_week } = usePmContext('/pm/metrics');
+  const { search, setSearch, weeks, iso_year, iso_week, weekReady } = usePmContext('/pm/metrics');
   const tab = (search as Partial<KpiMetricsSearch>).tab ?? 'explorer';
+  const detailProjectId =
+    typeof search.detail === 'string' && search.detail ? search.detail : undefined;
+
+  const detailSearch = useCallback(
+    (project_id: string): KpiMetricsSearch => ({
+      tab,
+      account: search.account,
+      project: search.project,
+      iso_year,
+      iso_week,
+      detail: project_id,
+    }),
+    [tab, search.account, search.project, iso_year, iso_week],
+  );
 
   const accountsQuery = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
   const projectsQuery = useQuery({ queryKey: pmKeys.projects(), queryFn: fetchProjects });
   const normQuery = useQuery({ queryKey: pmKeys.kpiNorm(), queryFn: fetchKpiNorm });
-  const canConfigure = (projectsQuery.data ?? []).some((p) => p.can_manage);
+  const manageableProjects = useMemo(
+    () => (projectsQuery.data ?? []).filter((p) => p.can_manage),
+    [projectsQuery.data],
+  );
+  const managesNothing = manageableProjects.length === 0;
+  const viewingCurrentWeek = weeks[0]?.iso_year === iso_year && weeks[0]?.iso_week === iso_week;
+  const weekIsOpen = isReportingWeekOpen(iso_year, iso_week, weeks[0]);
+  const canConfigure = !managesNothing && weekReady && viewingCurrentWeek && weekIsOpen;
+
+  const [configureOpen, setConfigureOpen] = useState(false);
+  const [manualInput, setManualInput] = useState<{
+    project_id: string;
+    iso_year: number;
+    iso_week: number;
+  } | null>(null);
 
   const explorerQuery = useQuery({
     queryKey: pmKeys.kpiExplorer({
@@ -120,16 +132,6 @@ export function KpiMetricsPage() {
       }),
   });
 
-  const [configureOpen, setConfigureOpen] = useState(false);
-  const [manualInput, setManualInput] = useState<{
-    project_id: string;
-    iso_year: number;
-    iso_week: number;
-  } | null>(null);
-  // Clicking a project name drills down into the same weekly-report modal Weekly Reports uses
-  // (functional-analysis.md §8b: both screens open the same detail content).
-  const [detailProject, setDetailProject] = useState<string | null>(null);
-
   const weekOptions = useMemo(
     () => weeks.map((w) => ({ value: `${w.iso_year}-${w.iso_week}`, label: w.label })),
     [weeks],
@@ -138,17 +140,23 @@ export function KpiMetricsPage() {
     () => (accountsQuery.data ?? []).map((a) => ({ value: a.account_id, label: a.name })),
     [accountsQuery.data],
   );
-  const projectOptions = useMemo(
+  const projectsInAccount = useMemo(
     () =>
-      (projectsQuery.data ?? [])
-        .filter((p) => !search.account || p.account_id === search.account)
-        .map((p) => ({ value: p.project_id, label: p.name })),
+      (projectsQuery.data ?? []).filter((p) => !search.account || p.account_id === search.account),
     [projectsQuery.data, search.account],
   );
+  const projectOptions = useMemo(
+    () => projectsInAccount.map((p) => ({ value: p.project_id, label: p.name })),
+    [projectsInAccount],
+  );
+  const entryProjectOptions = useMemo(
+    () =>
+      projectsInAccount
+        .filter((p) => p.can_manage)
+        .map((p) => ({ value: p.project_id, label: p.name })),
+    [projectsInAccount],
+  );
 
-  // Union of metrics applied to any project currently shown in Explorer — Configure metrics is
-  // per-project, so different projects can carry different applied sets (functional-analysis.md
-  // §2d); the backend computes this union from the actual visible rows.
   const appliedIds = explorerQuery.data?.applied_metric_ids ?? [];
 
   const appliedSummary = useMemo(() => {
@@ -161,51 +169,64 @@ export function KpiMetricsPage() {
     return { total: metricList.length, applied: appliedIds.length, core, extended };
   }, [appliedIds, normQuery.data]);
 
+  const rows = explorerQuery.data?.rows ?? [];
+  const weekLabel =
+    weeks.find((w) => w.iso_year === iso_year && w.iso_week === iso_week)?.label ??
+    `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
+  const nothingEntered =
+    !explorerQuery.isLoading && rows.length > 0 && rows.every((r) => r.record_id === null);
+  const selectedAccount =
+    search.account ??
+    (search.project
+      ? (projectsQuery.data ?? []).find((p) => p.project_id === search.project)?.account_id
+      : undefined) ??
+    '';
+  const configurableProjects = useMemo(
+    () =>
+      selectedAccount
+        ? manageableProjects.filter((p) => p.account_id === selectedAccount)
+        : manageableProjects,
+    [manageableProjects, selectedAccount],
+  );
+
   type Ctx = { row: { original: KpiExplorerRow } };
 
-  // Explorer is the at-a-glance view, not the full ledger: it shows only Core metrics, capped
-  // at the first 3 per category (norm order). Everything applied is still measured and visible
-  // in Manual KPI input / the weekly-report drill-down — this only trims the columns.
-  const visibleMetrics = useMemo(() => {
-    const appliedSet = new Set(appliedIds);
-    return (normQuery.data?.metrics ?? []).filter(
-      (m) => m.tier === 'core' && appliedSet.has(m.metric_id),
-    );
-  }, [normQuery.data, appliedIds]);
+  const visibleMetrics = useMemo(() => explorerQuery.data?.metrics ?? [], [explorerQuery.data]);
 
   const metricColumnGroups = useMemo(
     () =>
       KPI_CATEGORIES.map((cat) => {
-        // norm metrics arrive sorted by sort_order, so slice(0, 3) = the category's first 3 Core.
-        const catMetrics = visibleMetrics.filter((m) => m.category === cat).slice(0, 3);
+        const catMetrics = visibleMetrics.filter((m) => m.category === cat);
         if (catMetrics.length === 0) return null;
-        const styles = CATEGORY_STYLES[cat] ?? { band: '', column: '' };
         return {
           id: `cat-${cat}`,
-          header: KPI_CATEGORY_LABELS[cat],
-          meta: { headerClassName: `${styles.band} text-center font-semibold` },
+          header: () => (
+            <span className={`sticky ${PIN.groupLabel} inline-block bg-surface pr-3`}>
+              {KPI_CATEGORY_LABELS[cat]}
+            </span>
+          ),
+          meta: { headerClassName: 'text-left' },
           columns: catMetrics.map((m) => ({
             id: m.metric_id,
             meta: {
-              headerClassName: `${styles.column} text-right whitespace-nowrap`,
-              cellClassName: `${styles.column} text-right tabular-nums whitespace-nowrap`,
+              headerClassName: 'text-right whitespace-nowrap',
+              cellClassName: 'text-right tabular-nums whitespace-nowrap',
             },
             header: () => (
-              // nowrap: the table already scrolls horizontally, so columns should widen
-              // instead of breaking "ON-TIME ≥ 90%" across three lines.
-              <div className="whitespace-nowrap">
-                <div>{shortMetricLabel(m.name).toUpperCase()}</div>
-                <div className="font-normal normal-case text-secondary">
+              <div className="whitespace-nowrap" title={`${m.name} — Green target`}>
+                <div className="text-primary">{shortMetricLabel(m.name).toUpperCase()}</div>
+                <div className="font-normal normal-case tracking-normal text-success">
                   {formatBand(m.name, m.component_count, m.green_band)}
                 </div>
               </div>
             ),
-            cell: ({ row }: Ctx) =>
-              metricValueText(
-                row.original.metrics[m.metric_id] ?? { value: null, status: null },
-                m.name,
-                m.component_count,
-              ),
+            cell: ({ row }: Ctx) => {
+              const cell = row.original.metrics[m.metric_id];
+              if (cell === undefined) {
+                return <span className="text-secondary">—</span>;
+              }
+              return metricValueText(cell, m.name, m.component_count);
+            },
           })),
         };
       }).filter((g): g is NonNullable<typeof g> => g !== null),
@@ -220,13 +241,14 @@ export function KpiMetricsPage() {
         header: 'Project',
         meta: { headerClassName: PIN.project.header, cellClassName: PIN.project.cell },
         cell: ({ row }: Ctx) => (
-          <button
-            type="button"
-            className="cursor-pointer text-left font-medium text-primary underline-offset-2 hover:text-primary hover:underline"
-            onClick={() => setDetailProject(row.original.project_id)}
+          <Link
+            to="/pm/metrics"
+            search={detailSearch(row.original.project_id)}
+            onClick={(e) => e.stopPropagation()}
+            className="block truncate font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {row.original.project_name}
-          </button>
+          </Link>
         ),
       },
       {
@@ -242,29 +264,28 @@ export function KpiMetricsPage() {
       },
       ...metricColumnGroups,
       {
-        id: 'record',
-        header: 'Record',
-        cell: ({ row }: Ctx) => recordStatusBadge(row.original.record_id !== null),
-      },
-      {
         id: 'actions',
-        header: 'Actions',
+        header: 'Action',
+        meta: {
+          headerClassName: PIN.actions.header,
+          cellClassName: PIN.actions.cell,
+        },
         cell: ({ row }: Ctx) =>
           row.original.can_manage ? (
             <Button
               size="sm"
               variant="ghost"
-              onClick={() =>
-                setManualInput({ project_id: row.original.project_id, iso_year, iso_week })
-              }
+              onClick={(e) => {
+                e.stopPropagation();
+                setManualInput({ project_id: row.original.project_id, iso_year, iso_week });
+              }}
             >
-              {/* A locked week opens the same dialog read-only — say so up front. */}
-              {isReportingWeekOpen(iso_year, iso_week, weeks[0]) ? 'Edit' : 'View'}
+              {!weekIsOpen ? 'View' : row.original.record_id === null ? 'Enter' : 'Edit'}
             </Button>
           ) : null,
       },
     ],
-    [iso_year, iso_week, metricColumnGroups, weeks],
+    [iso_year, iso_week, metricColumnGroups, weekIsOpen, detailSearch],
   );
 
   return (
@@ -277,46 +298,60 @@ export function KpiMetricsPage() {
               <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
               <BreadcrumbItem isCurrent>KPI Metrics</BreadcrumbItem>
             </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
+            <HStack
+              hAlign="between"
+              vAlign="center"
+              gap={2}
+              style={{ minHeight: 'var(--size-element-md)' }}
+            >
               <Text as="h1" size="lg" weight="semibold">
                 KPI Metrics
               </Text>
-              <DisabledActionTooltip
-                disabled={!canConfigure}
-                reason="You do not manage any project — configuring applied metrics needs manage rights."
-              >
-                <Button
-                  variant="secondary"
+              {tab === 'explorer' ? (
+                <DisabledActionTooltip
                   disabled={!canConfigure}
-                  onClick={() => setConfigureOpen(true)}
+                  reason={
+                    managesNothing
+                      ? 'You do not manage any project — configuring applied metrics needs manage rights.'
+                      : !weekReady
+                        ? 'Still loading which week it is. Configuring needs the current week to warn you about figures already entered.'
+                        : !viewingCurrentWeek
+                          ? `You are viewing ${weekLabel}. Applied metrics are configured on the current week — switch to it to change them.`
+                          : `${weekLabel} closed for entry on Friday 17:00 (Asia/Ho_Chi_Minh), so its metric set is frozen. Configuring reopens on Monday and applies from next week.`
+                  }
                 >
-                  Configure metrics
-                </Button>
-              </DisabledActionTooltip>
+                  <Button
+                    variant="secondary"
+                    disabled={!canConfigure}
+                    onClick={() => setConfigureOpen(true)}
+                  >
+                    Configure metrics
+                  </Button>
+                </DisabledActionTooltip>
+              ) : null}
             </HStack>
           </VStack>
         </LayoutHeader>
       }
       content={
         <LayoutContent padding={0}>
-          <div className="space-y-4 p-6">
+          <div className="flex h-full flex-col p-6">
             <Tabs
+              className="flex min-h-0 flex-1 flex-col"
               value={tab}
-              onValueChange={(v) => setSearch({ tab: v === 'norm' ? 'norm' : 'explorer' })}
+              onValueChange={(v) =>
+                setSearch({ tab: v === 'norm' ? 'norm' : 'explorer', detail: undefined })
+              }
             >
-              <TabsList>
+              <TabsList className="self-start">
                 <TabsTrigger value="explorer">KPI Explorer</TabsTrigger>
                 <TabsTrigger value="norm">KPI Norm</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="explorer" className="space-y-4">
-                {/* Sticky context selector (FUT-589) — the (Project, Week) pair stays visible
-                while the wide Explorer table scrolls under it. Labels are a11y-only (the
-                web-planner filter-bar convention) — the trigger text is self-describing. */}
-                <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-border bg-card px-6 py-3">
+              <TabsContent value="explorer" className="flex min-h-0 flex-1 flex-col gap-4">
+                <div className="flex shrink-0 flex-wrap items-end gap-3">
                   <Selector
                     label="Week"
-                    isLabelHidden
                     size="sm"
                     width={200}
                     options={weekOptions}
@@ -329,76 +364,67 @@ export function KpiMetricsPage() {
                   />
                   <Selector
                     label="Account"
-                    isLabelHidden
                     size="sm"
                     width={208}
                     options={[{ value: '', label: 'All accounts' }, ...accountOptions]}
-                    value={search.account ?? ''}
+                    value={selectedAccount}
                     onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
                   />
                   <Selector
                     label="Project"
-                    isLabelHidden
                     size="sm"
-                    width={208}
+                    width={240}
                     options={[{ value: '', label: 'All projects' }, ...projectOptions]}
                     value={search.project ?? ''}
                     onChange={(v) => setSearch({ project: v || undefined })}
                   />
-                  {/* The one action on this screen sits apart from the filters, pinned right. */}
-                  <DisabledActionTooltip
-                    disabled={!canConfigure}
-                    reason="You do not manage any project — KPI records are read-only for you."
-                    className="ml-auto"
-                  >
-                    <Button
-                      className={canConfigure ? 'ml-auto' : undefined}
-                      onClick={() => {
-                        // Straight into the form: the filtered project when manageable, else the
-                        // first manageable one — the dialog's own Project select stays visible
-                        // and editable, so the context is explicit without an extra pick step.
-                        const manageable = (projectsQuery.data ?? []).filter((p) => p.can_manage);
-                        const preset =
-                          manageable.find((p) => p.project_id === search.project) ?? manageable[0];
-                        setManualInput({
-                          project_id: preset?.project_id ?? '',
-                          iso_year,
-                          iso_week,
-                        });
-                      }}
-                      disabled={!canConfigure || (!search.project && projectOptions.length === 0)}
-                    >
-                      Manual KPI input
-                    </Button>
-                  </DisabledActionTooltip>
                 </div>
 
-                {/* Table toolbar is off: free-text search duplicates the Project filter above, and
-                the column-visibility menu would list metric columns by their UUID ids. Wide
-                weeks scroll inside the table wrapper, never the page. */}
-                <div className="overflow-x-auto">
+                {nothingEntered ? (
+                  <Banner
+                    status="info"
+                    container="card"
+                    title={`No KPI figures entered for ${weekLabel}`}
+                    description={
+                      !weekIsOpen
+                        ? 'This week is closed, so its figures stay view-only.'
+                        : 'Entry closes Friday 17:00 (Asia/Ho_Chi_Minh). Open a project to enter its numbers.'
+                    }
+                  />
+                ) : null}
+
+                <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
                   <KpiExplorerTable
-                    data={explorerQuery.data?.rows ?? []}
+                    data={rows}
                     columns={columns}
                     isLoading={explorerQuery.isLoading}
                     emptyState={<EmptyState title="No projects for this week" />}
                     getRowKey={(row) => row.project_id}
+                    onRowClick={(row) => setSearch({ detail: row.project_id })}
+                    regionLabel={`KPI Explorer, ${weekLabel} — scroll sideways for the remaining metric columns`}
+                    pinnedStartWidth={FROZEN_START_WIDTH}
+                    pinnedEndWidth={ACTION_COL_WIDTH}
                   />
                 </div>
 
-                <p className="text-xs text-secondary">
-                  {appliedSummary.applied}/{appliedSummary.total} library metrics applied (
-                  {appliedSummary.core} core · {appliedSummary.extended} extended) · norm bands in
-                  KPI Norm.
-                </p>
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-1 text-xs text-secondary">
+                  <p>
+                    {appliedSummary.applied} of {appliedSummary.total} library metrics applied to
+                    this view ({appliedSummary.core} core, {appliedSummary.extended} extended).
+                  </p>
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">·</span> No figure entered
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">—</span> Metric not applied to this project
+                    </span>
+                  </p>
+                </div>
               </TabsContent>
 
-              <TabsContent value="norm">
-                <KpiNormTab
-                  norm={normQuery.data ?? null}
-                  appliedIds={new Set(appliedIds)}
-                  isLoading={normQuery.isLoading}
-                />
+              <TabsContent value="norm" className="min-h-0 flex-1 overflow-auto">
+                <KpiNormTab norm={normQuery.data ?? null} isLoading={normQuery.isLoading} />
               </TabsContent>
             </Tabs>
           </div>
@@ -407,27 +433,29 @@ export function KpiMetricsPage() {
             <KpiConfigureDialog
               open={configureOpen}
               onOpenChange={setConfigureOpen}
-              projects={(projectsQuery.data ?? []).filter((p) => p.can_manage)}
+              projects={configurableProjects}
               initialProjectId={search.project}
+              currentWeek={weeks[0]}
+            />
+          ) : null}
+          {detailProjectId ? (
+            <WeeklyReportDetailDialog
+              key={detailProjectId}
+              project_id={detailProjectId}
+              iso_year={iso_year}
+              iso_week={iso_week}
+              onOpenChange={(open) => {
+                if (!open) setSearch({ detail: undefined });
+              }}
             />
           ) : null}
           {manualInput ? (
             <KpiManualInputDialog
               initial={manualInput}
-              projects={projectOptions}
+              projects={entryProjectOptions}
               weeks={weeks}
               onOpenChange={(open) => {
                 if (!open) setManualInput(null);
-              }}
-            />
-          ) : null}
-          {detailProject ? (
-            <WeeklyReportDetailDialog
-              project_id={detailProject}
-              iso_year={iso_year}
-              iso_week={iso_week}
-              onOpenChange={(open) => {
-                if (!open) setDetailProject(null);
               }}
             />
           ) : null}

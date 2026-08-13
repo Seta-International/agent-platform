@@ -14,6 +14,7 @@ const makeDeps = () => ({
   assignment: vi.fn(async () => fakeRun('assignment')),
   plannerQuery: vi.fn(async () => fakeRun('qna')),
   weeklyPlanner: vi.fn(async () => fakeRun('weekly')),
+  action: vi.fn(async () => fakeRun('action')),
 });
 
 describe('chat router dispatch', () => {
@@ -52,6 +53,20 @@ describe('chat router dispatch', () => {
     expect(deps.assignment).not.toHaveBeenCalled();
     expect(deps.plannerQuery).not.toHaveBeenCalled();
     expect((final.result as { tag: string }).tag).toBe('weekly');
+  });
+
+  it('dispatches the mutate intent to the action runtime', async () => {
+    const deps = makeDeps();
+    const router = makeChatRouter({ classify: async () => 'mutate', ...deps });
+
+    const run = await router({ userText: 'đổi hạn task Alpha', taskId: null }, ctx);
+    const final = await run.finalize();
+
+    expect(deps.action).toHaveBeenCalledOnce();
+    expect(deps.assignment).not.toHaveBeenCalled();
+    expect(deps.plannerQuery).not.toHaveBeenCalled();
+    expect(deps.weeklyPlanner).not.toHaveBeenCalled();
+    expect((final.result as { tag: string }).tag).toBe('action');
   });
 
   it('forwards runInput and ctx unchanged to the selected runtime', async () => {

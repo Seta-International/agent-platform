@@ -2,10 +2,16 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import {
+  type AgentResult,
+  buildAgentRequestContext,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  temporalContextBlock,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import {
   plannerGetBoardSnapshotTool,
@@ -16,7 +22,6 @@ import {
   plannerListPlansTool,
   plannerSearchGroupMembersBySkillsTool,
 } from '@seta/planner/agent-tools';
-import { dateAnchorsPromptBlock } from '../../agent-tools/date-anchors.ts';
 import { listPlans } from '../../domain/list-plans.ts';
 import { listMemberGroups } from '../../read-helpers.ts';
 import { pickModel } from '../model.ts';
@@ -42,6 +47,8 @@ export const TEAM_INFO_TOOL_IDS = [
 export interface QueryTeamInfoDeps {
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
   /** Eval seam — receives this agent's executed tool calls after generate(). */
   onToolActivity?: OnToolActivity;
@@ -91,11 +98,18 @@ other group statistic.`;
   }
 }
 
-function buildInstructions({ requestContext }: { requestContext: RequestContext }): string {
+/** The clock comes first so the per-turn caller can bind it; `args` carries the
+ *  identity metadata Mastra supplies when it resolves dynamic instructions. Both
+ *  are optional so a test can render the prompt for a fixed instant alone. */
+export function buildInstructions(
+  now: Date = new Date(),
+  args?: { requestContext?: RequestContext },
+): string {
+  const requestContext = args?.requestContext;
   const groups =
-    requestContext.get<'caller_groups', { id: string; name: string }[]>('caller_groups') ?? [];
+    requestContext?.get<'caller_groups', { id: string; name: string }[]>('caller_groups') ?? [];
   const plans =
-    requestContext.get<'caller_plans', { id: string; name: string }[]>('caller_plans') ?? [];
+    requestContext?.get<'caller_plans', { id: string; name: string }[]>('caller_plans') ?? [];
   const groupCtx = buildCallerGroupContext(groups);
   const planLine = plans.length
     ? `\n\nThe caller's plans (identity metadata only — no live figures): ${plans
@@ -107,7 +121,7 @@ function buildInstructions({ requestContext }: { requestContext: RequestContext 
 group members + roles, the plans in a group, the buckets in a plan, a plan's
 board overview, who has which skills, and what a person has been doing lately.
 
-${dateAnchorsPromptBlock()}
+${temporalContextBlock(now)}
 
 Tools (all support groupName/planName as alternatives to groupId/planId):
 - planner_getGroupOverview(groupId?, groupName?): group name + members/roles/total count + plans.
@@ -143,10 +157,7 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
     inputSchema: QuerySubAgentInputSchema,
     outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
@@ -169,7 +180,8 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
             const rawAgent = new Agent({
               id: agentId,
               name: 'Planner Team Info',
-              instructions: buildInstructions,
+              instructions: ({ requestContext }: { requestContext: RequestContext }) =>
+                buildInstructions(deps.now?.(), { requestContext }),
               model: pickModel(ctx, deps.resolveModel),
               tools: {
                 planner_getGroupOverview: plannerGetGroupOverviewTool,

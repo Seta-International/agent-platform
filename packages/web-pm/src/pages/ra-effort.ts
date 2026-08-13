@@ -1,28 +1,26 @@
+import { countWorkingDays } from '../utils/common.ts';
+
 export interface EffortWindow {
   from?: string;
   to?: string;
-}
-
-function ym(date: string): number {
-  const [y, m] = date.split('-');
-  return Number(y) * 12 + (Number(m) - 1);
 }
 
 export function clippedCalendarEffort(
   row: { date_from: string | null; date_to: string | null; planned_pct: number | null },
   win: EffortWindow,
 ): number {
-  if (!row.date_from) return 0;
+  const effectiveFrom = row.date_from ?? win.from;
+  if (!effectiveFrom) return 0;
   // No end date means the allocation is still ongoing — treat it as running through
   // the end of the window rather than dropping it from the calculation entirely.
   const effectiveTo = row.date_to ?? win.to;
   if (!effectiveTo) return 0;
-  const from = win.from && win.from > row.date_from ? win.from : row.date_from;
+  const from = win.from && win.from > effectiveFrom ? win.from : effectiveFrom;
   const to = win.to && win.to < effectiveTo ? win.to : effectiveTo;
-  const months = ym(to) - ym(from) + 1;
-  if (months <= 0) return 0;
+  if (from > to) return 0;
+  const workingDays = countWorkingDays(from, to);
   const frac = (row.planned_pct ?? 0) / 100;
-  return Math.round(months * frac * 10) / 10;
+  return Math.round(frac * (workingDays / 22) * 100) / 100;
 }
 
 interface CapacityRow {
@@ -42,10 +40,11 @@ interface CapacityRow {
 export function peakConcurrentPct(rows: CapacityRow[], win: EffortWindow): number {
   const segs: Array<{ from: string; to: string; pct: number }> = [];
   for (const r of rows) {
-    if (!r.date_from) continue;
+    const effectiveFrom = r.date_from ?? win.from;
+    if (!effectiveFrom) continue;
     const effectiveTo = r.date_to ?? win.to;
     if (!effectiveTo) continue;
-    const from = win.from && win.from > r.date_from ? win.from : r.date_from;
+    const from = win.from && win.from > effectiveFrom ? win.from : effectiveFrom;
     const to = win.to && win.to < effectiveTo ? win.to : effectiveTo;
     if (from > to) continue;
     segs.push({ from, to, pct: r.planned_pct ?? 0 });
@@ -106,8 +105,8 @@ export function rollupKpis(
     if (r.bucket === 'billable') billable += e;
     if (r.worker_id) people.add(r.worker_id);
   }
-  total = Math.round(total * 10) / 10;
-  billable = Math.round(billable * 10) / 10;
+  total = Math.round(total * 100) / 100;
+  billable = Math.round(billable * 100) / 100;
   return {
     total_mm: total,
     billable_mm: billable,

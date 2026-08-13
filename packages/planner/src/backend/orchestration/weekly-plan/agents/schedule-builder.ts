@@ -1,7 +1,13 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { RequestContext } from '@mastra/core/request-context';
+import {
+  type AgentResult,
+  buildAgentRequestContext,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
+} from '@seta/agent-sdk';
 import { pickModel } from '../../model.ts';
 import { capacityHint, fallbackPlan, prePassOrder, windowDays } from '../scheduling.ts';
 import {
@@ -14,6 +20,8 @@ import {
 } from '../schemas.ts';
 
 export interface WeeklyPlanScheduleBuilderDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   /** Test-only seam replacing the LLM placement call; the deterministic fallback runs for real. */
   generatePlan?: (args: { message: string; requestContext: RequestContext }) => Promise<WeeklyPlan>;
@@ -48,10 +56,7 @@ export function makeWeeklyPlanScheduleBuilder(
         };
       }
 
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const ordered = prePassOrder(input.tasks);
       const days = windowDays(input.window);
@@ -79,7 +84,7 @@ export function makeWeeklyPlanScheduleBuilder(
         const agent = new Agent({
           id: 'planner.weeklyPlan.scheduleBuilder',
           name: 'Weekly Plan Schedule Builder',
-          instructions: INSTRUCTIONS,
+          instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
           model: pickModel(ctx, deps.resolveModel),
         });
         console.log('[weeklyPlan.scheduleBuilder] in:', message);

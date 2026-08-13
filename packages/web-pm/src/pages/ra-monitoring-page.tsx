@@ -12,7 +12,6 @@ import {
 } from '../api/pm-client.ts';
 import { useWorkerSource } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import { rowCalendarEffort } from '../utils/common.ts';
 import {
   Badge,
   Banner,
@@ -54,7 +53,12 @@ import {
   useToast,
   VStack,
 } from './_ui-compat.tsx';
-import { type EffortWindow, overAllocatedWorkers, rollupKpis } from './ra-effort.ts';
+import {
+  clippedCalendarEffort,
+  type EffortWindow,
+  overAllocatedWorkers,
+  rollupKpis,
+} from './ra-effort.ts';
 import { firstInGroupIds, groupByPerson, SECONDARY_SORT_FIELDS } from './ra-grouping.ts';
 import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';
 import { ReassignWizardDialog, type ReassignWizardTarget } from './reassign-wizard.tsx';
@@ -378,6 +382,14 @@ export function RaMonitoringPage() {
     [accountId, projectId, activeFrom, activeTo, q],
   );
 
+  const windowParams = useMemo(
+    () => ({
+      active_from: activeFrom || undefined,
+      active_to: activeTo || undefined,
+    }),
+    [activeFrom, activeTo],
+  );
+
   const { data: accounts } = useQuery({
     queryKey: pmKeys.accounts(),
     queryFn: fetchAccounts,
@@ -390,8 +402,13 @@ export function RaMonitoringPage() {
     queryKey: pmKeys.allocations(params),
     queryFn: () => fetchAllocations(params),
   });
+  const { data: windowRows } = useQuery({
+    queryKey: pmKeys.allocations(windowParams),
+    queryFn: () => fetchAllocations(windowParams),
+  });
 
   const allocations = useMemo(() => rows ?? [], [rows]);
+  const allAllocations = useMemo(() => windowRows ?? rows ?? [], [windowRows, rows]);
 
   // Always grouped by person (alphabetical); `sort`/`dir` only pick the
   // secondary order of a person's own rows within their group — clicking a
@@ -437,7 +454,21 @@ export function RaMonitoringPage() {
   const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
   const projectSource = useMemo(() => createStaticSource(projectOptions), [projectOptions]);
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
-  const overWorkers = useMemo(() => overAllocatedWorkers(allocations, win), [allocations, win]);
+  const overWorkers = useMemo(
+    () => overAllocatedWorkers(allAllocations, win),
+    [allAllocations, win],
+  );
+  const visibleOverWorkersCount = useMemo(() => {
+    const visibleWorkerIds = new Set(
+      allocations.map((a) => a.worker_id).filter((id): id is string => Boolean(id)),
+    );
+    let count = 0;
+    for (const wid of visibleWorkerIds) {
+      if (overWorkers.has(wid)) count++;
+    }
+    return count;
+  }, [allocations, overWorkers]);
+
   const hasFilters = Boolean(
     search.q || search.account || search.project || search.from || search.to,
   );
@@ -622,7 +653,7 @@ export function RaMonitoringPage() {
         sortable: true,
         renderCell: (r) => (
           <span className="font-mono font-semibold tabular-nums text-primary">
-            {rowCalendarEffort(r).toFixed(2)}
+            {clippedCalendarEffort(r, win).toFixed(2)}
           </span>
         ),
       },
@@ -663,12 +694,17 @@ export function RaMonitoringPage() {
         },
       },
     ],
-    [firstInGroup, overWorkers, openReassignGroup],
+    [firstInGroup, overWorkers, openReassignGroup, win],
   );
 
+  // The Scope card must reflect the current filter context (FUT-841): the
+  // count is 1 when a single project is selected, otherwise the account (or
+  // all) projects visible through the filter. `visibleProjects` is account-
+  // scoped, so the selected `projectId` has to narrow the count explicitly.
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
     : 'All projects';
+  const scopeProjectCount = projectId ? 1 : visibleProjects.length;
 
   return (
     <Layout
@@ -721,8 +757,16 @@ export function RaMonitoringPage() {
                 sub={`${kpis.billable_pct}% of effort`}
               />
               <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
-              <Kpi label="Over-allocated" value={String(overWorkers.size)} sub=">100% in window" />
-              <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
+              <Kpi
+                label="Over-allocated"
+                value={String(visibleOverWorkersCount)}
+                sub=">100% in window"
+              />
+              <Kpi
+                label="Scope"
+                value={scopeLabel}
+                sub={`${scopeProjectCount} project${scopeProjectCount === 1 ? '' : 's'}`}
+              />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

@@ -1,6 +1,10 @@
 import type { SpecializedAgentRunCtx } from '@seta/agent-sdk';
+import { withGatedMutation } from '@seta/core/events';
 import { buildActorSession, listUsers } from '@seta/identity';
 import { getPersonSkills, matchUsersToTopic, readPresence } from '@seta/people';
+import type { NodeTx } from '@seta/shared-db';
+import { eq } from 'drizzle-orm';
+import { taskAssignments } from '../../db/schema.ts';
 import { assignTask } from '../../domain/assign-task.ts';
 import { getTask } from '../../domain/get-task.ts';
 import { listDistinctLabels } from '../../domain/list-distinct-labels.ts';
@@ -209,14 +213,44 @@ export function makeAvailability(): AvailabilityPort {
 
 // ---- Assign: planner's own assignTask domain function, called directly now
 // that the orchestration lives inside planner (previously bound in apps/server
-// against @seta/planner's public surface). RBAC is re-checked inside assignTask. ----
+// against @seta/planner's public surface). RBAC is re-checked inside assignTask.
+//
+// The whole loop runs inside ONE withGatedMutation transaction: every assignTask
+// joins it through reentrant withEmit, so a mid-loop failure leaves nothing
+// written, and a resumeRetry replay returns the recorded result instead of
+// assigning a second time. ----
+async function snapshotAssignees(
+  tx: NodeTx,
+  taskId: string,
+): Promise<{ assigneeUserIds: string[] }> {
+  const rows = await tx
+    .select({ user_id: taskAssignments.user_id })
+    .from(taskAssignments)
+    .where(eq(taskAssignments.task_id, taskId));
+  // Sorted so before/after differ only when the SET differs, not on row order.
+  return { assigneeUserIds: rows.map((r) => r.user_id).sort() };
+}
+
 export function makeAssign(): AssignPort {
   return {
-    async assign({ taskId, assigneeUserIds, actorUserId }) {
+    async assign({ taskId, assigneeUserIds, actorUserId, idempotencyKey }) {
       const session = await buildActorSession({ user_id: actorUserId });
-      for (const userId of assigneeUserIds) {
-        await assignTask({ task_id: taskId, user_id: userId, session });
-      }
+      await withGatedMutation(
+        session,
+        {
+          idempotencyKey,
+          onBehalfOf: actorUserId,
+          actorKind: 'agent',
+          mutationKind: 'assign',
+          snapshot: (tx) => snapshotAssignees(tx, taskId),
+        },
+        async () => {
+          for (const userId of assigneeUserIds) {
+            await assignTask({ task_id: taskId, user_id: userId, session });
+          }
+          return { taskId, assigneeUserIds };
+        },
+      );
     },
   };
 }

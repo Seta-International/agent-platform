@@ -59,6 +59,22 @@ export const createOrgUnitInput = z.object({
 });
 export type CreateOrgUnitInput = z.infer<typeof createOrgUnitInput>;
 
+export const updateOrgUnitPatch = z.object({
+  name: z.string().min(1).optional(),
+  parent_id: z.string().uuid().nullable().optional(),
+  head_worker_id: z.string().uuid().nullable().optional(),
+});
+export type UpdateOrgUnitPatch = z.infer<typeof updateOrgUnitPatch>;
+
+export const updateOrgUnitInput = z.object({
+  org_unit_id: z.string().uuid(),
+  patch: updateOrgUnitPatch,
+});
+
+export const deleteOrgUnitInput = z.object({
+  org_unit_id: z.string().uuid(),
+});
+
 export const performanceContextInput = z.object({
   as_of_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), // YYYY-MM
 });
@@ -163,3 +179,60 @@ export type PerformanceContext =
       capacities: PerformanceCapacity[];
       default_capacity_index: 0 | -1;
     };
+
+const weightPct = z.number().finite().min(0).max(100);
+
+export const performanceConfigCriterionInput = z.object({
+  name: z.string().min(1).max(200),
+  weight: weightPct,
+  sort: z.number().int().nonnegative().optional(),
+});
+export type PerformanceConfigCriterionInput = z.infer<typeof performanceConfigCriterionInput>;
+
+export const performanceConfigGroupInput = z.object({
+  group_id: z.string().uuid(),
+  weight: weightPct,
+  criteria: z.array(performanceConfigCriterionInput).min(1),
+});
+export type PerformanceConfigGroupInput = z.infer<typeof performanceConfigGroupInput>;
+
+export const savePerformanceConfigInput = z.object({
+  account_id: z.string().uuid(),
+  base_revision_no: z.number().int().positive(),
+  groups: z.array(performanceConfigGroupInput).min(1),
+});
+export type SavePerformanceConfigInput = z.infer<typeof savePerformanceConfigInput>;
+
+export const performanceConfigCriterionView = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  weight: z.number(),
+  sort: z.number().int(),
+});
+export type PerformanceConfigCriterionView = z.infer<typeof performanceConfigCriterionView>;
+
+export const performanceConfigGroupView = z.object({
+  group_id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  sort: z.number().int(),
+  weight: z.number(),
+  criteria: z.array(performanceConfigCriterionView),
+});
+export type PerformanceConfigGroupView = z.infer<typeof performanceConfigGroupView>;
+
+export const performanceConfigResponse = z.object({
+  account_id: z.string().uuid(),
+  revision_no: z.number().int().positive(),
+  revision_id: z.string().uuid(),
+  applies_to_next_cycle: z.boolean(),
+  groups: z.array(performanceConfigGroupView),
+});
+export type PerformanceConfigResponse = z.infer<typeof performanceConfigResponse>;
+
+export const savePerformanceConfigResponse = z.object({
+  revision_no: z.number().int().positive(),
+  revision_id: z.string().uuid(),
+  applies_to_next_cycle: z.boolean(),
+});
+export type SavePerformanceConfigResponse = z.infer<typeof savePerformanceConfigResponse>;

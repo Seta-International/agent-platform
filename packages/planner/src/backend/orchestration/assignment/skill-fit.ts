@@ -1,6 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import type { SpecializedAgentRunCtx } from '@seta/agent-sdk';
+import { type SpecializedAgentRunCtx, withTemporalContext } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { pickModel } from './model.ts';
 
@@ -69,16 +69,18 @@ export async function reasonSkillFit(
   const agent = new Agent({
     id: 'staffing.skillFit',
     name: 'Skill-fit reasoning',
-    instructions: [
-      'You assess how well each candidate fits a task, by skill.',
-      'Required areas may be coarse (e.g. "infrastructure", "backend", "migrations") while',
-      'candidate skills are concrete tools. Reason about which concrete skills satisfy each',
-      'required area — e.g. Docker/Terraform/AWS satisfy "infrastructure"; PostgreSQL satisfies',
-      '"migrations" and "backend". Do NOT require exact string equality.',
-      "For each candidate return relevantSkills (the subset of THAT candidate's skills relevant",
-      'to the required areas, copied verbatim from their list — never invent skills) and',
-      'relevanceScore (0..1 coverage of the required areas). Use 0 / [] when genuinely unrelated.',
-    ].join('\n'),
+    instructions: withTemporalContext(
+      [
+        'You assess how well each candidate fits a task, by skill.',
+        'Required areas may be coarse (e.g. "infrastructure", "backend", "migrations") while',
+        'candidate skills are concrete tools. Reason about which concrete skills satisfy each',
+        'required area — e.g. Docker/Terraform/AWS satisfy "infrastructure"; PostgreSQL satisfies',
+        '"migrations" and "backend". Do NOT require exact string equality.',
+        "For each candidate return relevantSkills (the subset of THAT candidate's skills relevant",
+        'to the required areas, copied verbatim from their list — never invent skills) and',
+        'relevanceScore (0..1 coverage of the required areas). Use 0 / [] when genuinely unrelated.',
+      ].join('\n'),
+    ),
     model: pickModel(ctx, resolveModel),
   });
   const r = await agent.generate(JSON.stringify({ requiredSkills, candidates }), {

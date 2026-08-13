@@ -1,0 +1,14 @@
+{
+  "value": [
+    {
+      "id": "OID-2",
+      "userPrincipalName": "bob@contoso.com",
+      "mail": "bob@contoso.com",
+      "displayName": "Bob Tran",
+      "employeeType": "Employee",
+      "accountEnabled": true,
+      "userType": "Member"
+    }
+  ],
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/users/delta?$deltatoken=DELTATOKEN1"
+}

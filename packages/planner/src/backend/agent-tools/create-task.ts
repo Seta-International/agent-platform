@@ -1,5 +1,10 @@
 import { RequestContext } from '@mastra/core/request-context';
-import { actorFromContext, defineAgentTool, recordEntityExposure } from '@seta/agent-sdk';
+import {
+  actorFromContext,
+  defineAgentTool,
+  RC_THREAD_ID,
+  recordEntityExposure,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { applyLabelsByName } from '../domain/apply-labels-by-name.ts';
 import { createTask } from '../domain/create-task.ts';
@@ -88,7 +93,12 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
 
       const run = await workflow.createRun();
 
-      // Build requestContext with actor info + thread_id for HITL in chat
+      // Build requestContext with actor info + thread_id for HITL in chat.
+      // Propagated from the parent rather than built by
+      // buildAgentRequestContext: these values live on the calling tool's
+      // context, not on a run ctx. thread_id has to travel or the approval
+      // card's tools resolve task references against empty conversation memory
+      // (FUT-859) — the very thing this comment claimed and the code did not do.
       const requestContext = new RequestContext();
       requestContext.set('actor', { type: 'user' as const, user_id: actor.user_id });
       if (ctx.requestContext) {
@@ -96,6 +106,8 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
         if (tenantId) requestContext.set('tenant_id', tenantId);
         const roleSummary = ctx.requestContext.get('role_summary');
         if (roleSummary) requestContext.set('role_summary', roleSummary);
+        const threadId = ctx.requestContext.get(RC_THREAD_ID);
+        if (threadId) requestContext.set(RC_THREAD_ID, threadId);
       }
 
       const dedupInput: DedupInput = {

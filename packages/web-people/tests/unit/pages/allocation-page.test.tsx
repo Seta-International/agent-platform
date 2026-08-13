@@ -207,6 +207,20 @@ describe('AllocationPage (Astryx Table migration)', () => {
     expect(exportBtn).toBeInTheDocument();
     expect(exportBtn).toBeDisabled();
   });
+
+  it('displays KPI cards from the fetched grid response', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({
+      ...baseGrid,
+      kpis: { avg_utilization: 95, over_allocated_count: 5, member_count: 42, project_count: 7 },
+    });
+    renderPage();
+
+    await screen.findByRole('table');
+    expect(screen.getByText('95%')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7 projects')).toBeInTheDocument();
+  });
 });
 
 describe('AllocationPage — breadcrumb trail (Astryx migration, FUT-668)', () => {

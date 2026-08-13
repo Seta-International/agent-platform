@@ -15,6 +15,7 @@ import {
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
+import { buildProjectScope } from './scope.ts';
 
 function tagRangeError(
   err: unknown,
@@ -25,6 +26,12 @@ function tagRangeError(
     return new PmError(err.code, `${projectName}: ${err.message}`, details);
   }
   return err;
+}
+
+export interface OverAllocationPeriod {
+  date_from: string;
+  date_to: string | null;
+  peak_pct: number;
 }
 
 export interface ReassignWarning {
@@ -56,6 +63,7 @@ export interface ReassignPreviewResult {
   /** Date window during which `peak_pct` occurs (`peak_to` null means it runs open-ended). */
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods: OverAllocationPeriod[];
 }
 
 async function loadProject(
@@ -159,6 +167,9 @@ async function computeCombinedPeak(args: {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods: OverAllocationPeriod[];
+  has_restricted_allocations: boolean;
+  restricted_segments: Array<{ date_from: string; date_to: string | null; planned_pct: number }>;
 }> {
   const { worker_id, exclude_allocation_ids, candidates, session } = args;
 
@@ -178,12 +189,45 @@ async function computeCombinedPeak(args: {
 
   const otherRows = await pmDb()
     .select({
+      id: allocation.id,
+      project_id: allocation.project_id,
       date_from: allocation.date_from,
       date_to: allocation.date_to,
       planned_pct: allocation.planned_pct,
     })
     .from(allocation)
     .where(and(...conds));
+
+  // Determine which of the worker's other allocations belong to projects outside the current session's read scope.
+  const projectScope = buildProjectScope(session);
+  const projectIds = Array.from(new Set(otherRows.map((r) => r.project_id)));
+  let visibleProjectSet: Set<string> | null = null;
+  if (projectScope && projectIds.length > 0) {
+    const visibleProjects = await pmDb()
+      .select({ id: project.id })
+      .from(project)
+      .where(
+        and(
+          inArray(project.id, projectIds),
+          tenantScoped(project.tenant_id, session),
+          isNull(project.deleted_at),
+          projectScope,
+        ),
+      );
+    visibleProjectSet = new Set(visibleProjects.map((p) => p.id));
+  }
+  const restrictedOtherRows = visibleProjectSet
+    ? otherRows.filter((r) => !visibleProjectSet.has(r.project_id))
+    : [];
+
+  const restricted_segments = restrictedOtherRows
+    .filter((r) => r.date_from)
+    .map((r) => ({
+      date_from: r.date_from as string,
+      date_to: r.date_to ?? null,
+      planned_pct: r.planned_pct === null ? 0 : Number(r.planned_pct),
+    }));
+  const has_restricted_allocations = restricted_segments.length > 0;
 
   // Bound for any segment with no end date: the latest known finite end across every
   // segment we sweep (candidates AND the worker's other rows), or (rare) a far-future
@@ -217,10 +261,7 @@ async function computeCombinedPeak(args: {
 
   // Sweep every date where the combined % can change (a segment's start, or the
   // day after a segment's end) and compute the sum in each constant interval between
-  // them. This finds the true peak *and* the full contiguous window it holds for —
-  // e.g. two overlapping targets both pushing the worker over 100% span the whole
-  // time either one keeps them there, not just the single instant every segment
-  // happens to line up.
+  // them. This finds the true peak *and* all contiguous windows where % > 100%.
   const eventDates = Array.from(
     new Set(segments.flatMap((s) => [s.from, addDaysIso(s.to, 1)])),
   ).sort();
@@ -241,23 +282,24 @@ async function computeCombinedPeak(args: {
   }
 
   const peak = intervals.reduce((max, iv) => Math.max(max, iv.sum), 0);
-  let peakFrom: string | null = null;
-  let peakTo: string | null = null;
+  const over_allocation_periods: OverAllocationPeriod[] = [];
 
   if (peak > 100) {
-    let bestRunMax = -1;
     let runStart: string | null = null;
     let runEndExclusive: string | null = null;
     let runMax = 0;
     const flushRun = () => {
-      if (runStart !== null && runEndExclusive !== null && runMax > bestRunMax) {
-        bestRunMax = runMax;
-        peakFrom = runStart;
+      if (runStart !== null && runEndExclusive !== null) {
         const inclusiveEnd = addDaysIso(runEndExclusive, -1);
         // A run only truly ends there if some segment genuinely finishes on that day —
         // otherwise the boundary is just the synthetic clamp for an open-ended segment,
         // and the overlap in fact continues indefinitely.
-        peakTo = segments.some((s) => s.origTo === inclusiveEnd) ? inclusiveEnd : null;
+        const dateTo = segments.some((s) => s.origTo === inclusiveEnd) ? inclusiveEnd : null;
+        over_allocation_periods.push({
+          date_from: runStart,
+          date_to: dateTo,
+          peak_pct: runMax,
+        });
       }
       runStart = null;
       runEndExclusive = null;
@@ -275,7 +317,15 @@ async function computeCombinedPeak(args: {
     flushRun();
   }
 
-  return { peak_pct: peak, exceeds: peak > 100, peak_from: peakFrom, peak_to: peakTo };
+  return {
+    peak_pct: peak,
+    exceeds: peak > 100,
+    peak_from: over_allocation_periods[0]?.date_from ?? null,
+    peak_to: over_allocation_periods[0]?.date_to ?? null,
+    over_allocation_periods,
+    has_restricted_allocations,
+    restricted_segments,
+  };
 }
 
 async function resolveReassignment(
@@ -497,26 +547,27 @@ export async function previewReassignAllocation(
 
   const { current, sourceProj, workerId, resolvedTargets } = await resolveReassignment(input);
 
-  const [worker_name, { peak_pct, exceeds, peak_from, peak_to }] = await Promise.all([
-    loadWorkerName(workerId, session),
-    computeCombinedPeak({
-      worker_id: workerId,
-      exclude_allocation_ids: [allocation_id],
-      candidates: [
-        {
-          date_from: current.date_from as string,
-          date_to: source.date_to,
-          planned_pct: Number(current.planned_pct),
-        },
-        ...resolvedTargets.map((t) => ({
-          date_from: t.input.date_from,
-          date_to: t.input.date_to ?? null,
-          planned_pct: t.input.planned_pct,
-        })),
-      ],
-      session,
-    }),
-  ]);
+  const [worker_name, { peak_pct, exceeds, peak_from, peak_to, over_allocation_periods }] =
+    await Promise.all([
+      loadWorkerName(workerId, session),
+      computeCombinedPeak({
+        worker_id: workerId,
+        exclude_allocation_ids: [allocation_id],
+        candidates: [
+          {
+            date_from: current.date_from as string,
+            date_to: source.date_to,
+            planned_pct: Number(current.planned_pct),
+          },
+          ...resolvedTargets.map((t) => ({
+            date_from: t.input.date_from,
+            date_to: t.input.date_to ?? null,
+            planned_pct: t.input.planned_pct,
+          })),
+        ],
+        session,
+      }),
+    ]);
 
   return {
     worker_name,
@@ -540,6 +591,7 @@ export async function previewReassignAllocation(
     exceeds,
     peak_from,
     peak_to,
+    over_allocation_periods,
   };
 }
 
@@ -547,6 +599,12 @@ export interface ReassignWorkerAllocationsResult {
   updated: Array<{ allocation_id: string; version: number }>;
   target_ids: string[];
   warnings: ReassignWarning[];
+}
+
+export interface RestrictedSegment {
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
 }
 
 export interface ReassignGroupPreviewResult {
@@ -557,6 +615,9 @@ export interface ReassignGroupPreviewResult {
   exceeds: boolean;
   peak_from: string | null;
   peak_to: string | null;
+  over_allocation_periods: OverAllocationPeriod[];
+  has_restricted_allocations: boolean;
+  restricted_segments: RestrictedSegment[];
 }
 
 async function resolveGroupReassignment(
@@ -793,7 +854,18 @@ export async function previewReassignWorkerAllocations(
 
   const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
 
-  const [worker_name, { peak_pct, exceeds, peak_from, peak_to }] = await Promise.all([
+  const [
+    worker_name,
+    {
+      peak_pct,
+      exceeds,
+      peak_from,
+      peak_to,
+      over_allocation_periods,
+      has_restricted_allocations,
+      restricted_segments,
+    },
+  ] = await Promise.all([
     loadWorkerName(worker_id, session),
     computeCombinedPeak({
       worker_id,
@@ -836,5 +908,8 @@ export async function previewReassignWorkerAllocations(
     exceeds,
     peak_from,
     peak_to,
+    over_allocation_periods,
+    has_restricted_allocations,
+    restricted_segments,
   };
 }

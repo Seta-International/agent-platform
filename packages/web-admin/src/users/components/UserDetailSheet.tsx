@@ -268,7 +268,7 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
       isOpen={open}
       onOpenChange={onOpenChange}
       purpose="info"
-      position={{ top: 0, right: 0, bottom: 0 }}
+      position={{ top: 0, end: 0, bottom: 0 }}
       width={432}
       maxHeight="100dvh"
       // Astryx's Dialog does not label itself from DialogHeader (only AlertDialog does),

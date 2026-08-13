@@ -1,11 +1,13 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import { RequestContext } from '@mastra/core/request-context';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
+import type { RequestContext } from '@mastra/core/request-context';
+import {
+  type AgentResult,
+  type AgentTool,
+  buildAgentRequestContext,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { z } from 'zod';
@@ -77,10 +79,7 @@ function buildWeeklyPlanOrchestrator(
   input: WeeklyPlanOrchestratorInput,
   ctx: SpecializedAgentRunCtx,
 ): BuiltWeeklyPlanOrchestrator {
-  const rc = new RequestContext();
-  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-  rc.set('tenant_id', ctx.tenantId);
-  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+  const rc = buildAgentRequestContext(ctx);
 
   // Deterministic window resolution — before any LLM sees the turn.
   const week = resolveWeekChoice(input.userText);
@@ -98,7 +97,7 @@ function buildWeeklyPlanOrchestrator(
   const agent = new Agent({
     id: 'planner.weeklyPlan.orchestrator',
     name: 'Weekly Planner Orchestrator',
-    instructions: INSTRUCTIONS,
+    instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
     model: pickModel(ctx, deps.resolveModel),
     tools: tools as never,
   });

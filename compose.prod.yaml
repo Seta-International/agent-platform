@@ -55,3 +55,9 @@ services:
       - /dev/kmsg:/dev/kmsg:r
     cap_add: [SYSLOG]
     networks: [seta-internal]
+
+  # Point Alloy at the cadvisor above. Defaulted here, not via a deploy variable:
+  # prod-only file, fixed internal address — and dev/uat must stay empty (no cadvisor).
+  alloy:
+    environment:
+      CADVISOR_TARGET: ${CADVISOR_TARGET:-cadvisor:8080}

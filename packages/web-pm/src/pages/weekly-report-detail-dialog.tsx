@@ -1,11 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { CalendarDays } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, CalendarDays } from 'lucide-react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addWeeklyReportComment,
-  discardWeeklyReport,
-  ensureWeeklyReport,
   fetchWeeklyReportDetail,
   type KpiCategory,
   type ReportColour,
@@ -17,64 +15,58 @@ import { pmKeys } from '../state/query-keys.ts';
 import {
   Avatar,
   AvatarFallback,
-  Badge,
+  Banner,
   Button,
-  DateInput,
+  Card,
+  ChatComposer,
+  ChatComposerInput,
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
   HStack,
-  Input,
   Layout,
   LayoutContent,
   LayoutFooter,
   Selector,
   Skeleton,
   StatusDot,
+  Switch,
   Textarea,
   toast,
 } from './_ui-compat.tsx';
-import { formatMetricValue, KPI_CATEGORIES, KPI_CATEGORY_LABELS } from './kpi-shared.tsx';
-
-// RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
-const COLOUR_LABEL: Record<ReportColour, string> = {
-  green: 'Green',
-  yellow: 'Amber',
-  red: 'Red',
-  gray: 'Gray',
-};
-
-// RAG colour → Astryx status variant, same mapping as the list cards.
-const COLOUR_VARIANT: Record<ReportColour, 'success' | 'warning' | 'error' | 'neutral'> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'error',
-  gray: 'neutral',
-};
+import {
+  COLOUR_LABEL,
+  COLOUR_VARIANT,
+  colourBadge,
+  colourKey,
+  dueWeekOptions,
+  formatBand,
+  formatMetricValue,
+  isoWeekBase,
+  isoWeekBaseOfDateString,
+  KPI_CATEGORIES,
+  KPI_CATEGORY_LABELS,
+  markStyle,
+  ragFill,
+} from './kpi-shared.tsx';
+import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 
 // Same ranking as the backend's worstColour — gray (N/A) dampens but never hides yellow/red.
 const COLOUR_RANK: Record<ReportColour, number> = { green: 0, gray: 1, yellow: 2, red: 3 };
 
-// Composer QCDP segmented — the selected cell wears its status as a soft wash. Astryx's own
-// SegmentedControl paints a neutral thumb (no per-item colour), so the composer hand-builds the
-// group with these Astryx status tokens (FUT-740).
-const SEG_TINT: Record<'green' | 'yellow' | 'red', string> = {
-  green: 'bg-success-muted text-success',
-  yellow: 'bg-warning-muted text-warning',
-  red: 'bg-error-muted text-error',
+const SEG_TINT: Record<'green' | 'yellow' | 'red', CSSProperties> = {
+  green: { backgroundColor: 'var(--rag-green-wash)', color: 'var(--rag-green-text)' },
+  yellow: { backgroundColor: 'var(--rag-amber-wash)', color: 'var(--rag-amber-text)' },
+  red: { backgroundColor: 'var(--rag-red-wash)', color: 'var(--rag-red-text)' },
 };
 const SEG_COLOURS = ['green', 'yellow', 'red'] as const;
-// 2×2 composer grid: Q · D on the top row, C · P below (column-first fill).
-const QCDP_ORDER: KpiCategory[] = ['quality', 'delivery', 'cost_capacity', 'process'];
+
+const NOT_REPORTER_REASON = "Only this project's EM and PMO can write its weekly report.";
 
 const PRICING_LABEL: Record<string, string> = {
   fixed_price: 'Fixed-price',
   time_materials: 'T&M',
 };
-
-function weekLabel(iso_year: number, iso_week: number): string {
-  return `${iso_year}-W-${String(iso_week).padStart(2, '0')}`;
-}
 
 function initials(name: string | null): string {
   if (!name) return '?';
@@ -92,159 +84,100 @@ function commentWhen(iso: string): string {
     : d.toLocaleDateString();
 }
 
-export function colourBadge(colour: ReportColour | null) {
-  if (colour === null) {
-    return (
-      <Badge variant="secondary" className="font-normal">
-        —
-      </Badge>
-    );
+type ReportComment = WeeklyReportEntry['comments'][number];
+
+function newestFirst(comments: ReportComment[]): ReportComment[] {
+  const byParent = new Map<string | null, ReportComment[]>();
+  const ids = new Set(comments.map((c) => c.id));
+  for (const c of comments) {
+    const parent = c.parent_comment_id && ids.has(c.parent_comment_id) ? c.parent_comment_id : null;
+    byParent.set(parent, [...(byParent.get(parent) ?? []), c]);
   }
-  const variant =
-    colour === 'green'
-      ? 'success'
-      : colour === 'yellow'
-        ? 'warning'
-        : colour === 'red'
-          ? 'destructive'
-          : 'secondary';
-  return (
-    <Badge variant={variant} className="font-normal">
-      {COLOUR_LABEL[colour]}
-    </Badge>
-  );
+  const replies = (id: string): ReportComment[] =>
+    (byParent.get(id) ?? []).flatMap((c) => [c, ...replies(c.id)]);
+  return [...(byParent.get(null) ?? [])].reverse().flatMap((c) => [c, ...replies(c.id)]);
 }
 
-// Trend squares are fill marks. Green/red fill tokens read correctly, but light-mode
-// --color-warning is the warning *text* colour (#745b00 — olive), so amber uses the theme's
-// chromatic warning fill directly (the same value theme-neutral gives .astryx-badge.warning),
-// matching the StatusDot wrapper in shared-ui.
-const TREND_FILL: Record<ReportColour, string> = {
-  green: 'var(--color-success)',
-  yellow: 'light-dark(#ffce2f, #fdcf4f)',
-  red: 'var(--color-error)',
-  gray: 'var(--color-background-gray)',
-};
-
-function reporterRole(detail: WeeklyReportDetail, reporter_id: string): 'PM' | 'PMO' | null {
-  if (reporter_id === detail.pm_person_id) return 'PM';
-  if (reporter_id === detail.pmo_person_id) return 'PMO';
-  return null;
-}
-
-// Mock's headline line: "Staffed 5/7 · util 102% · predictability 40% · CSS 3.60" — every
-// metric value renders in primary text; unmeasured metrics simply don't appear.
 function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
+  const { worst, measured_count, applied_count, red_count, yellow_count } = detail.stats;
+
+  const spread: string[] = [];
+  if (measured_count === 0) spread.push('No figures entered this week');
+  else if (red_count + yellow_count === 0) spread.push(`All ${measured_count} on norm`);
+  else spread.push(`${red_count} red and ${yellow_count} amber`);
+  if (measured_count > 0 && measured_count < applied_count) {
+    spread.push(`${applied_count - measured_count} still blank`);
+  }
+
   return (
-    <p className="text-sm text-secondary">
-      {detail.team_size != null ? (
+    <p className="text-base text-secondary">
+      {worst && worst.computed_value !== null ? (
         <>
-          Staffed{' '}
+          <span className="font-semibold text-primary">{worst.name}</span>{' '}
           <span className="font-semibold text-primary">
-            {detail.staffed}/{detail.team_size}
+            {formatMetricValue(worst.computed_value, worst.name, worst.component_count)}
           </span>
+          {` vs norm ${formatBand(worst.name, worst.component_count, worst.green_band)} · `}
         </>
       ) : null}
-      {detail.headline_metrics.map((m) => (
-        <span key={m.label}>
-          {' · '}
-          {m.label}{' '}
-          <span className="font-semibold text-primary">
-            {formatMetricValue(m.computed_value, m.name, m.component_count)}
-          </span>
-        </span>
-      ))}
+      {spread.join(' · ')}
     </p>
   );
 }
 
 function ReportCard({
-  detail,
   entry,
   onComment,
-  commentPending,
-  onEdit,
 }: {
-  detail: WeeklyReportDetail;
   entry: WeeklyReportEntry;
   onComment: (report_id: string, body: string) => void;
-  commentPending: boolean;
-  /** Re-open the composer on this report. Set only for the author's own still-editable entry
-   * (a draft to continue, or a submitted report to update) — everyone else's card is read-only,
-   * and the server only ever shows a draft to its own author. */
-  onEdit?: () => void;
 }) {
-  const [draft, setDraft] = useState('');
-  const role = reporterRole(detail, entry.reporter_id);
-  // Keep the caret in the box after Enter — the refetch that appends the new comment
-  // re-renders the card and would otherwise drop focus mid-conversation.
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const justSent = useRef(false);
-  // The thread scrolls inside a capped box (input pinned below it) — otherwise every new
-  // comment grows the card and shoves the input further down the dialog.
-  const threadRef = useRef<HTMLDivElement | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies(entry.comments.length): the refocus + scroll-to-latest must fire when the refetched comment list lands — the length IS the signal, not a value the effect reads
-  useEffect(() => {
-    const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
-    if (!justSent.current) return;
-    justSent.current = false;
-    inputRef.current?.focus();
-  }, [entry.comments.length]);
-  const submit = () => {
-    if (draft.trim() === '' || commentPending) return;
-    onComment(entry.report_id, draft.trim());
-    setDraft('');
-    justSent.current = true;
-    inputRef.current?.focus();
-  };
+  const [commentBody, setCommentBody] = useState('');
+  const thread = useMemo(() => newestFirst(entry.comments), [entry.comments]);
   return (
-    <div className="space-y-3 rounded-lg bg-surface p-4">
+    <Card padding={4} className="space-y-3">
       {/* The reporter's name is the card's identity — the only bold element up here. Section
           labels below drop to eyebrows so the written content stays the loudest thing. */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {role ? <Badge variant="secondary">{role}</Badge> : null}
-          <span className="font-semibold text-primary">{entry.reporter_name ?? 'Unknown'}</span>
-          {entry.status === 'draft' ? (
-            // Only the author ever sees a draft (server substitutes the last published
-            // revision for everyone else) — say which situation this is.
-            <Badge variant="secondary" className="font-normal">
-              {entry.published ? 'Draft — others see your last submitted version' : 'Draft'}
-            </Badge>
-          ) : null}
+        <div className="flex min-w-0 items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-muted text-sm font-medium">
+              {initials(entry.reporter_name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="truncate text-base font-semibold text-primary">
+            {entry.reporter_name ?? 'Unknown'}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-secondary">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-sm text-secondary">
             {new Date(entry.updated_at).toLocaleDateString()}
           </span>
           {colourBadge(entry.overall_colour)}
-          {onEdit ? (
-            // Continue/edit your own report without leaving the dialog — the composer opens
-            // prefilled from this report, so a draft can be finished right where it's shown.
-            <Button variant="secondary" size="sm" onClick={onEdit}>
-              {entry.status === 'draft' ? 'Continue draft' : 'Edit'}
-            </Button>
-          ) : null}
         </div>
       </div>
 
       {entry.executive_summary ? (
         <div className="space-y-0.5">
           <div className="text-xs uppercase tracking-wide text-secondary">Summary</div>
-          <p className="text-sm text-primary">{entry.executive_summary}</p>
+          <p className="text-base text-primary">{entry.executive_summary}</p>
         </div>
       ) : null}
       {entry.risk_issue ? (
         <div className="space-y-0.5">
           <div className="text-xs uppercase tracking-wide text-secondary">Risk / Issue</div>
-          <p className="text-sm text-primary">{entry.risk_issue}</p>
+          <p className="text-base text-primary">{entry.risk_issue}</p>
         </div>
       ) : null}
       {/* A Green entry carries no recovery plan — hide any stale Road-to-Green saved by older
           revisions so the card never shows "Green" and a recovery plan side by side. */}
       {entry.road_to_green && entry.overall_colour !== 'green' ? (
-        <div className="border-l-2 border-warning pl-3 text-sm text-secondary">
+        <div
+          className="border-l-2 pl-3 text-base text-secondary"
+          style={{
+            borderColor: ragFill(colourKey(entry.overall_colour)) ?? 'var(--color-border)',
+          }}
+        >
           <span className="font-semibold text-primary">Road to Green</span> ·{' '}
           <span className="text-primary">{entry.road_to_green}</span>
           {entry.road_to_green_owner_name ? (
@@ -253,70 +186,64 @@ function ReportCard({
               <span className="font-medium text-primary">{entry.road_to_green_owner_name}</span>
             </>
           ) : null}
-          {entry.road_to_green_due ? ` · due ${entry.road_to_green_due}` : ''}
+          {entry.road_to_green_due ? (
+            <span className="whitespace-nowrap">
+              {` · due ${isoWeekBaseOfDateString(entry.road_to_green_due)}`}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="space-y-2 border-t border-border pt-3">
-        <div className="text-xs uppercase tracking-wide text-secondary">
-          Comments{entry.comments.length > 0 ? ` (${entry.comments.length})` : ''}
-        </div>
-        {entry.comments.length > 0 ? (
-          <div ref={threadRef} className="max-h-64 space-y-3 overflow-y-auto pr-1">
-            {entry.comments.map((c) => (
+      <div className="space-y-3 border-t border-border pt-3">
+        {entry.published ? (
+          <ChatComposer
+            value={commentBody}
+            onChange={setCommentBody}
+            onSubmit={(body) => onComment(entry.report_id, body)}
+            placeholder="Write a comment — Enter to submit"
+            density="compact"
+            elevation="none"
+            style={
+              {
+                '--_chat-composer-radius': 'var(--radius-element)',
+                '--_button-radius': 'var(--radius-full)',
+              } as CSSProperties
+            }
+            input={<ChatComposerInput label="Write a comment" maxRows={5} hasHistory={false} />}
+          />
+        ) : (
+          <p className="text-xs text-secondary">Comments open once this report is submitted.</p>
+        )}
+        {thread.length > 0 ? (
+          <div className="space-y-3">
+            <div className="text-xs uppercase tracking-wide text-secondary">
+              Comments ({thread.length})
+            </div>
+            {thread.map((c) => (
               // Replies indent by one avatar column so the thread reads at a glance.
               <div key={c.id} className={`flex gap-2.5 ${c.parent_comment_id ? 'pl-9' : ''}`}>
                 <Avatar className="mt-0.5 h-7 w-7">
-                  <AvatarFallback className="bg-surface-3 text-[10px] font-medium">
+                  <AvatarFallback className="bg-muted text-sm font-medium">
                     {initials(c.author_name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="truncate text-xs font-medium text-primary">
+                    <span className="truncate text-base font-medium text-primary">
                       {c.author_name ?? 'Unknown'}
                     </span>
-                    <span className="shrink-0 text-xs text-secondary">
+                    <span className="shrink-0 text-sm text-secondary">
                       {commentWhen(c.created_at)}
                     </span>
                   </div>
-                  <p className="text-sm text-primary [overflow-wrap:anywhere]">{c.body}</p>
+                  <p className="text-base text-primary [overflow-wrap:anywhere]">{c.body}</p>
                 </div>
               </div>
             ))}
           </div>
         ) : null}
-        {entry.published ? (
-          // Explicit Send button so posting never depends on the Enter key (Vietnamese IME can
-          // swallow the submitting keydown behind `isComposing`); Enter stays as a shortcut.
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Input
-                ref={inputRef}
-                value={draft}
-                width="100%"
-                placeholder="Write a comment"
-                onChange={setDraft}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit();
-                }}
-                className="bg-card"
-              />
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              isDisabled={draft.trim() === '' || commentPending}
-              onClick={submit}
-            >
-              Send
-            </Button>
-          </div>
-        ) : (
-          <p className="text-xs text-secondary">Comments open once this report is submitted.</p>
-        )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -364,59 +291,18 @@ export function WeeklyReportDetailDialog({
 
   const [formOpen, setFormOpen] = useState(startInCompose);
 
-  // Same composer creates and updates: while the week is open (Epic 3 lock) the reporter can
-  // keep adjusting QCDP and text; an existing report prefills the form and the save carries
-  // its version so a concurrent edit conflicts instead of silently overwriting.
-  const myReport = detail?.reports.find((r) => r.reporter_id === detail.my_reporter_id) ?? null;
-  // Product rule (2026-07-16): the first comment freezes the report — the version people
-  // discussed can never change under them. Server enforces; the UI explains.
-  const lockedByComments = (myReport?.comments.length ?? 0) > 0;
+  const alreadyReported =
+    detail?.reports.some((r) => r.reporter_id === detail.my_reporter_id) ?? false;
+  const notReporter = Boolean(detail && !detail.can_report);
+  const composeOffered = Boolean(detail?.can_manage && detail.week_editable && !alreadyReported);
+  const composeBlocked = notReporter || WEEKLY_REPORT_COMPOSER_COMING_SOON;
+  const canCompose = composeOffered && !composeBlocked;
 
-  // FUT-591 AC1 (draft-on-entry): opening the composer ensures exactly one draft of the
-  // caller exists for this (Project, Week) — idempotent, so re-opens are no-ops. The
-  // `ensured` ref (not the dep list) guarantees a single call per dialog mount.
-  const ensured = useRef(false);
-  // FUT-740: cleanup pairing for draft-on-entry. `createdEmptyDraft` is true only when THIS
-  // composer session inserted the empty draft (not when it reopened an existing one); `saved`
-  // flips once the reporter saves anything. If the composer is dismissed while created && !saved,
-  // that empty draft is abandoned WIP and is discarded so it never resurfaces as an "Unknown
-  // · Draft" card. A saved or pre-existing draft is never touched.
-  const createdEmptyDraft = useRef(false);
-  const saved = useRef(false);
-  useEffect(() => {
-    if (ensured.current || !formOpen || project_id === null || !detail) return;
-    if (!detail.can_manage || !detail.week_editable) return;
-    ensured.current = true;
-    ensureWeeklyReport({ project_id, iso_year, iso_week })
-      .then((res) => {
-        createdEmptyDraft.current = res.created;
-        invalidate();
-      })
-      .catch(() => {
-        // Refusals (no person link, race with the week closing) surface on save — the
-        // composer itself stays usable.
-      });
-  });
-
-  // Discard the empty draft this session created if the reporter walks away without saving.
-  // Best-effort and server-guarded (only a pristine, own draft is ever removed), so a failure
-  // here is harmless — the worst case is a stray empty draft the next open would re-adopt.
-  const discardAbandonedDraft = () => {
-    if (!createdEmptyDraft.current || saved.current || project_id === null) return;
-    createdEmptyDraft.current = false; // one-shot
-    void discardWeeklyReport({ project_id, iso_year, iso_week })
-      .then(() => invalidate())
-      .catch(() => {});
-  };
-  // Closing the whole dialog (X, Esc, backdrop) mid-compose is also an abandon — clean up first.
-  const handleOpenChange = (open: boolean) => {
-    if (!open) discardAbandonedDraft();
-    onOpenChange(open);
-  };
   const [summary, setSummary] = useState('');
   const [riskIssue, setRiskIssue] = useState('');
   const [roadToGreen, setRoadToGreen] = useState('');
   const [roadToGreenDue, setRoadToGreenDue] = useState('');
+  const [hasActiveRisk, setHasActiveRisk] = useState(false);
   // The reporter's declared QCDP colours — prefilled from this week's effective colours
   // (computed, or an earlier override) once the composer opens with data.
   const [colours, setColours] = useState<Partial<Record<KpiCategory, ReportColour>>>({});
@@ -429,50 +315,37 @@ export function WeeklyReportDetailDialog({
   // first offending control.
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const summaryRef = useRef<HTMLTextAreaElement>(null);
+  const riskIssueRef = useRef<HTMLTextAreaElement>(null);
   const roadToGreenRef = useRef<HTMLTextAreaElement>(null);
-  const dueRef = useRef<HTMLInputElement>(null);
+  const dueRef = useRef<HTMLDivElement>(null);
   const pillarsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!formOpen || !detail || prefilled.current) return;
     prefilled.current = true;
-    setColours(Object.fromEntries(detail.flags.map((f) => [f.category, f.final_colour])));
-    if (myReport) {
-      setSummary(myReport.executive_summary ?? '');
-      setRiskIssue(myReport.risk_issue ?? '');
-      setRoadToGreen(myReport.road_to_green ?? '');
-      setRoadToGreenDue(myReport.road_to_green_due ?? '');
+    const declared: Partial<Record<KpiCategory, ReportColour>> = {};
+    for (const f of detail.flags) {
+      declared[f.category] =
+        f.final_colour === 'yellow' || f.final_colour === 'red' ? f.final_colour : 'green';
     }
-  }, [formOpen, detail, myReport]);
+    setColours(declared);
+  }, [formOpen, detail]);
 
   const save = useMutation({
     // The composer only renders once a project is chosen — the cast documents that.
-    mutationFn: (mode: 'draft' | 'submit') =>
+    mutationFn: () =>
       upsertWeeklyReport({
         project_id: project_id as string,
         iso_year,
         iso_week,
-        expected_version: myReport?.version,
-        save_mode: mode,
         executive_summary: summary.trim(),
-        risk_issue: riskIssue.trim() || null,
-        // A Green report has nothing to recover from — don't carry the Road-to-Green the form
-        // prefilled from a previous non-Green revision (its inputs are hidden when Green).
-        road_to_green: nonGreen ? roadToGreen.trim() || null : null,
-        road_to_green_due: nonGreen ? roadToGreenDue || null : null,
+        risk_issue: hasActiveRisk ? riskIssue.trim() || null : null,
+        road_to_green: hasActiveRisk ? roadToGreen.trim() || null : null,
+        road_to_green_due: hasActiveRisk ? roadToGreenDue || null : null,
         category_colours: colours,
       }),
-    onSuccess: (_data, mode) => {
-      saved.current = true; // the draft now holds real content — never auto-discard it
+    onSuccess: () => {
       setSubmitAttempted(false); // a fresh reopen shouldn't inherit stale error styling
-      if (mode === 'draft') {
-        toast.success(
-          myReport?.published
-            ? 'Draft saved — everyone else keeps seeing your last submitted version.'
-            : 'Draft saved — not visible to others until you submit.',
-        );
-      } else {
-        toast.success(myReport?.published ? 'Report updated' : 'Report submitted');
-      }
+      toast.success('Report submitted');
       setFormOpen(false);
       invalidate();
     },
@@ -489,66 +362,59 @@ export function WeeklyReportDetailDialog({
   // Overall in the composer is auto = worst of the four declared colours (mock: "auto from
   // QCDP (worst)"), falling back to this week's effective colours until a pillar is touched.
   const declaredOverall: ReportColour | null = detail
-    ? KPI_CATEGORIES.reduce<ReportColour>((worst, c) => {
+    ? KPI_CATEGORIES.reduce<ReportColour | null>((worst, c) => {
         const colour =
-          colours[c] ?? detail.flags.find((f) => f.category === c)?.final_colour ?? 'red';
+          colours[c] ?? detail.flags.find((f) => f.category === c)?.final_colour ?? null;
+        if (colour === null) return worst;
+        if (worst === null) return colour;
         return COLOUR_RANK[colour] > COLOUR_RANK[worst] ? colour : worst;
-      }, 'green')
+      }, null)
     : null;
-  // The composer's Overall chip previews live from the pillars and isn't persisted until save.
-  // Flag it as an unsaved preview once the reporter moves any pillar off its prefilled colour.
-  const pillarsDirty = Boolean(
-    detail &&
-      KPI_CATEGORIES.some((c) => {
-        const declared = colours[c];
-        return (
-          declared !== undefined &&
-          declared !== detail.flags.find((f) => f.category === c)?.final_colour
-        );
-      }),
-  );
-  const nonGreen = declaredOverall !== null && declaredOverall !== 'green';
+  const flagsAllGreen = declaredOverall === 'green';
   // Epic 3: a week with any measured KPI over norm cannot be declared all-Green.
   const kpiOverNorm =
     detail !== undefined && (detail.stats.yellow_count > 0 || detail.stats.red_count > 0);
-  const allGreenBlocked = kpiOverNorm && declaredOverall === 'green';
+  const allGreenBlocked = kpiOverNorm && flagsAllGreen;
+  const riskNeedsFlag = hasActiveRisk && flagsAllGreen;
 
-  // Required-field checks, mirrored from the old submit-disable guard. A Green report needs no
-  // Road-to-Green, so those two only apply when the declared overall is non-Green (their inputs
-  // are hidden otherwise). Error strings render only once the reporter has tried to submit.
   const summaryMissing = summary.trim() === '';
-  const roadToGreenMissing = nonGreen && roadToGreen.trim() === '';
-  const dueMissing = nonGreen && roadToGreenDue === '';
+  const riskIssueMissing = hasActiveRisk && riskIssue.trim() === '';
+  const roadToGreenMissing = hasActiveRisk && roadToGreen.trim() === '';
+  const dueMissing = hasActiveRisk && roadToGreenDue === '';
   const summaryError =
     submitAttempted && summaryMissing ? 'Add an executive summary before submitting.' : undefined;
+  const riskIssueError =
+    submitAttempted && riskIssueMissing
+      ? 'Describe the risk or issue before submitting.'
+      : undefined;
   const roadToGreenError =
     submitAttempted && roadToGreenMissing
-      ? 'A Road-to-Green action is required when health is not Green.'
+      ? 'A Road-to-Green action is required while a risk is active.'
       : undefined;
   const dueError =
-    submitAttempted && dueMissing ? 'Set a due date for the Road-to-Green action.' : undefined;
+    submitAttempted && dueMissing ? 'Pick the week the Road-to-Green action is due.' : undefined;
 
   const handleSubmit = () => {
     setSubmitAttempted(true);
-    // First blocker in visual order (pillars → summary → action → due) gets the scroll so the
-    // fix is one action away. All-Green-over-norm is a pillar constraint, not a field: scroll to
-    // the QCDP group but leave focus alone — the amber "KPIs over norm" note explains it, and
-    // yanking focus onto an arbitrary radio segment would be noise.
-    const target = allGreenBlocked
-      ? pillarsRef
-      : summaryMissing
-        ? summaryRef
-        : roadToGreenMissing
-          ? roadToGreenRef
-          : dueMissing
-            ? dueRef
-            : null;
+    const target =
+      riskNeedsFlag || allGreenBlocked
+        ? pillarsRef
+        : summaryMissing
+          ? summaryRef
+          : riskIssueMissing
+            ? riskIssueRef
+            : roadToGreenMissing
+              ? roadToGreenRef
+              : dueMissing
+                ? dueRef
+                : null;
     if (target) {
       target.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      if (target !== pillarsRef) target.current?.focus();
+      if (target === dueRef) dueRef.current?.querySelector('button')?.focus();
+      else if (target !== pillarsRef) target.current?.focus();
       return;
     }
-    save.mutate('submit');
+    save.mutate();
   };
 
   const pricing = detail?.pricing_model ? (PRICING_LABEL[detail.pricing_model] ?? null) : null;
@@ -569,7 +435,7 @@ export function WeeklyReportDetailDialog({
               <div className="space-y-3">
                 <p className="text-sm text-secondary">
                   Every report is pinned to a Project + Week. Pick the project to continue — week{' '}
-                  {weekLabel(iso_year, iso_week)}.
+                  {isoWeekBase(iso_year, iso_week)}.
                 </p>
                 <div className="space-y-1">
                   <Selector
@@ -597,9 +463,7 @@ export function WeeklyReportDetailDialog({
     );
   }
 
-  const composing = Boolean(
-    detail && formOpen && detail.can_manage && detail.week_editable && !lockedByComments,
-  );
+  const composing = formOpen && canCompose;
   // The composer carries a Project field that both names and switches the project. When it's
   // present the header subtitle drops the project (it would repeat the field) and keeps only
   // the week; without the switcher the subtitle stays the sole place the project is named.
@@ -609,6 +473,8 @@ export function WeeklyReportDetailDialog({
   const headerSubtitle = detail
     ? [
         detail.account_name,
+        detail.pm_name ? `EM ${detail.pm_name}` : null,
+        detail.pmo_name ? `PMO ${detail.pmo_name}` : null,
         `${detail.phase.charAt(0).toUpperCase()}${detail.phase.slice(1)}`,
         pricing,
       ]
@@ -617,15 +483,22 @@ export function WeeklyReportDetailDialog({
     : undefined;
 
   return (
-    <Dialog isOpen onOpenChange={handleOpenChange} width={720} maxHeight="88vh" purpose="form">
+    <Dialog
+      isOpen
+      onOpenChange={onOpenChange}
+      width={composing ? 'min(1080px, 94vw)' : 720}
+      maxHeight="88vh"
+      purpose="form"
+    >
       <Layout
         header={
           <DialogHeader
+            hasDivider
             title={
               composing
-                ? `${myReport?.status === 'submitted' ? 'Update' : 'New'} weekly report · ${weekLabel(iso_year, iso_week)}`
+                ? `New weekly report · ${isoWeekBase(iso_year, iso_week)}`
                 : detail
-                  ? `${detail.project_name} · ${weekLabel(iso_year, iso_week)}`
+                  ? `${detail.project_name} · ${isoWeekBase(iso_year, iso_week)}`
                   : 'Weekly report'
             }
             subtitle={
@@ -642,75 +515,81 @@ export function WeeklyReportDetailDialog({
                 <span className="flex items-center gap-2">
                   <span className="text-xs uppercase tracking-wide text-secondary">Overall</span>
                   {colourBadge(composing ? declaredOverall : detail.overall_colour)}
-                  {composing && pillarsDirty ? (
-                    <span
-                      className="text-xs italic text-secondary"
-                      title="Auto from QCDP — not saved yet. Submit or save the draft to keep it."
-                    >
-                      Previewing
-                    </span>
-                  ) : null}
                 </span>
               ) : undefined
             }
-            onOpenChange={handleOpenChange}
+            onOpenChange={onOpenChange}
           />
         }
         footer={
           detail ? (
             <LayoutFooter hasDivider>
-              <HStack gap={2} hAlign="end">
-                {composing ? (
-                  <>
-                    <Button
-                      variant="ghost"
-                      label="Cancel"
-                      onClick={() => {
-                        discardAbandonedDraft();
-                        setFormOpen(false);
-                      }}
-                    />
-                    <Button
-                      variant="secondary"
-                      label="Save draft"
-                      onClick={() => save.mutate('draft')}
-                      isDisabled={save.isPending}
-                    />
-                    {/* Always clickable — validation happens on click (inline errors + scroll to
-                        the first gap) rather than a disabled button that never says why. */}
-                    <Button
-                      variant="primary"
-                      label="Submit report"
-                      onClick={handleSubmit}
-                      isDisabled={save.isPending}
-                    />
-                  </>
+              <HStack gap={2} hAlign="between" vAlign="center">
+                {detail.stats.applied_count > 0 ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-secondary"
+                    onClick={() =>
+                      void navigate({
+                        to: '/pm/metrics',
+                        search: {
+                          tab: 'explorer',
+                          project: detail.project_id,
+                          iso_year: detail.iso_year,
+                          iso_week: detail.iso_week,
+                        },
+                      })
+                    }
+                  >
+                    KPI Explorer
+                    <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                  </Button>
                 ) : (
-                  <>
-                    <Button variant="secondary" label="Close" onClick={() => onOpenChange(false)} />
-                    {seatsShort > 0 && detail.can_manage ? (
-                      // A backfill answers this week's seat shortage — a past (locked) week is
-                      // read-only, so composing one there would act on stale numbers.
-                      <DisabledActionTooltip
-                        disabled={!detail.week_editable}
-                        reason="Backfills can only be raised for the current week."
-                      >
-                        <Button
-                          variant="primary"
-                          label={`Raise backfill (${seatsShort} seat${seatsShort === 1 ? '' : 's'})`}
-                          isDisabled={!detail.week_editable}
-                          onClick={() => {
-                            onOpenChange(false);
-                            void navigate({
-                              to: '/pm/resourcing',
-                              search: { project: project_id },
-                            });
-                          }}
-                        />
-                      </DisabledActionTooltip>
-                    ) : null}
-                  </>
+                  <span />
                 )}
+                <HStack gap={2} vAlign="center">
+                  {composing ? (
+                    <>
+                      <Button variant="ghost" label="Cancel" onClick={() => setFormOpen(false)} />
+                      {/* Always clickable — validation happens on click (inline errors + scroll to
+                        the first gap) rather than a disabled button that never says why. */}
+                      <Button
+                        variant="primary"
+                        label="Submit report"
+                        onClick={handleSubmit}
+                        isDisabled={save.isPending}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="secondary"
+                        label="Close"
+                        onClick={() => onOpenChange(false)}
+                      />
+                      {seatsShort > 0 && detail.can_manage ? (
+                        <DisabledActionTooltip
+                          disabled={!detail.week_editable}
+                          reason="Backfills can only be raised for the current week, until Friday 5:00 PM."
+                        >
+                          <Button
+                            variant="primary"
+                            label={`Raise backfill (${seatsShort} seat${seatsShort === 1 ? '' : 's'})`}
+                            isDisabled={!detail.week_editable}
+                            onClick={() => {
+                              onOpenChange(false);
+                              void navigate({
+                                to: '/pm/resourcing',
+                                search: { project: project_id },
+                              });
+                            }}
+                          />
+                        </DisabledActionTooltip>
+                      ) : null}
+                    </>
+                  )}
+                </HStack>
               </HStack>
             </LayoutFooter>
           ) : undefined
@@ -718,7 +597,7 @@ export function WeeklyReportDetailDialog({
         content={
           <LayoutContent>
             {detailQuery.isError ? (
-              <p className="rounded-lg bg-surface px-3 py-8 text-center text-sm text-secondary">
+              <p className="rounded-lg border border-border px-3 py-8 text-center text-sm text-secondary">
                 {(detailQuery.error as Error).message ||
                   'This report could not be loaded — you may not have access to this week.'}
               </p>
@@ -734,101 +613,101 @@ export function WeeklyReportDetailDialog({
                 {/* Same treatment as the list cards: StatusDot + full pillar name, off-norm
                     pillars weight their name. */}
                 {!composing ? (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    {detail.flags.map((f) => {
-                      const off = f.final_colour !== 'green' && f.final_colour !== 'gray';
-                      const name =
-                        KPI_CATEGORY_LABELS[f.category].split(' — ')[1] ??
-                        KPI_CATEGORY_LABELS[f.category];
-                      return (
-                        <span
-                          key={f.category}
-                          className="flex items-center gap-1.5 text-sm"
-                          title={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[f.final_colour]}`}
-                        >
-                          <StatusDot
-                            variant={COLOUR_VARIANT[f.final_colour]}
-                            label={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[f.final_colour]}`}
-                          />
-                          <span className={off ? 'font-semibold text-primary' : 'text-secondary'}>
-                            {name}
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      {detail.flags.map((f) => {
+                        const off =
+                          f.final_colour !== null &&
+                          f.final_colour !== 'green' &&
+                          f.final_colour !== 'gray';
+                        const key = colourKey(f.final_colour);
+                        const name =
+                          KPI_CATEGORY_LABELS[f.category].split(' — ')[1] ??
+                          KPI_CATEGORY_LABELS[f.category];
+                        return (
+                          <span
+                            key={f.category}
+                            className="flex items-center gap-1.5 text-sm"
+                            title={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
+                          >
+                            <StatusDot
+                              variant={COLOUR_VARIANT[key]}
+                              label={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
+                              style={markStyle(key)}
+                            />
+                            <span className={off ? 'font-semibold text-primary' : 'text-secondary'}>
+                              {name}
+                            </span>
                           </span>
-                        </span>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs uppercase tracking-wide text-secondary">Trend</span>
+                      <span className="flex gap-px overflow-hidden rounded-sm">
+                        {[...detail.trend].reverse().map((t, i, arr) => (
+                          <span
+                            key={`${t.iso_year}-${t.iso_week}`}
+                            className="inline-block h-2.5 w-4"
+                            style={{
+                              backgroundColor:
+                                ragFill(colourKey(t.colour)) ?? 'var(--color-background-gray)',
+                            }}
+                            title={`${isoWeekBase(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[colourKey(t.colour)]}${
+                              i === arr.length - 1 ? ' (this week)' : ''
+                            }`}
+                          />
+                        ))}
+                      </span>
+                    </div>
                   </div>
                 ) : null}
 
-                {/* Delivery pulse + the week-over-week trend, on one balanced row. */}
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <StatsLine detail={detail} />
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs uppercase tracking-wide text-secondary">Trend</span>
-                    {[...detail.trend].reverse().map((t, i, arr) => (
-                      <span
-                        key={`${t.iso_year}-${t.iso_week}`}
-                        // The last square is the week being viewed — an inset ring marks
-                        // "you are here" without adding a label. Inset (not offset) keeps the
-                        // ring inside the box so the scroll container can't clip its top edge.
-                        className={`inline-block size-3.5 rounded-full${
-                          i === arr.length - 1 ? ' ring-2 ring-inset ring-primary/40' : ''
-                        }`}
-                        style={{ backgroundColor: TREND_FILL[t.colour] }}
-                        title={`${weekLabel(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[t.colour]}${
-                          i === arr.length - 1 ? ' (this week)' : ''
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <StatsLine detail={detail} />
 
                 {/* Composing is a focused view (mock: the submit modal is just the form) — the
-                submitted reports and their comment threads only render in the read view.
-                Exception: a comment-locked report can't compose, so its thread stays
-                visible for the "reply instead" path. */}
-                {formOpen && !lockedByComments ? null : detail.reports.length === 0 ? (
+                submitted reports and their comment threads only render in the read view. */}
+                {composing ? null : detail.reports.length === 0 ? (
                   // Empty state is an invitation to act: a reporter who can still write this
                   // week's report gets the composer one click away, right where the gap is.
                   // Quieter than the shared EmptyState on purpose — inside a dialog the empty
                   // slot is a hint, not a hero: caption-scale type and a hairline button.
-                  <div className="flex flex-col items-center rounded-lg bg-surface px-3 py-8 text-center">
+                  <div className="flex flex-col items-center rounded-lg border border-border px-3 py-8 text-center">
                     <CalendarDays className="mb-2 h-5 w-5 text-secondary" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-primary">No reports yet</p>
                     <p className="mt-0.5 text-xs text-secondary">
                       {detail.can_manage && detail.week_editable
-                        ? `Reports for ${weekLabel(iso_year, iso_week)} stay open until Friday 5:00 PM.`
-                        : `No one submitted a report for ${weekLabel(iso_year, iso_week)}.`}
+                        ? `Reports for ${isoWeekBase(iso_year, iso_week)} stay open until Friday 5:00 PM.`
+                        : `No one submitted a report for ${isoWeekBase(iso_year, iso_week)}.`}
                     </p>
-                    {detail.can_manage && detail.week_editable ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
+                    {composeOffered ? (
+                      <DisabledActionTooltip
+                        disabled={composeBlocked}
+                        reason={
+                          WEEKLY_REPORT_COMPOSER_COMING_SOON
+                            ? COMING_SOON_REASON
+                            : NOT_REPORTER_REASON
+                        }
                         className="mt-3"
-                        onClick={() => setFormOpen(true)}
                       >
-                        New weekly report
-                      </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className={composeBlocked ? undefined : 'mt-3'}
+                          isDisabled={composeBlocked}
+                          onClick={() => setFormOpen(true)}
+                        >
+                          New weekly report
+                        </Button>
+                      </DisabledActionTooltip>
                     ) : null}
                   </div>
                 ) : (
                   detail.reports.map((r) => (
                     <ReportCard
                       key={r.report_id}
-                      detail={detail}
                       entry={r}
                       onComment={(report_id, body) => comment.mutate({ report_id, body })}
-                      commentPending={comment.isPending}
-                      // Only the author's own still-editable report gets the Continue/Edit
-                      // affordance — same gate as the composer (can manage, week open, not
-                      // comment-locked). Others' cards stay read-only.
-                      onEdit={
-                        r.reporter_id === detail.my_reporter_id &&
-                        detail.can_manage &&
-                        detail.week_editable &&
-                        !lockedByComments
-                          ? () => setFormOpen(true)
-                          : undefined
-                      }
                     />
                   ))
                 )}
@@ -836,36 +715,14 @@ export function WeeklyReportDetailDialog({
                 {formOpen && detail.can_manage && !detail.week_editable ? (
                   // Epic 3: flags are set for the current week only and lock Friday 5:00 PM (VNT).
                   // Past/future weeks stay readable and commentable.
-                  <p className="rounded-lg bg-surface px-3 py-4 text-center text-sm text-secondary">
-                    {weekLabel(iso_year, iso_week)} is locked — reports cover the current week only
-                    and close at Friday 5:00 PM.
+                  <p className="rounded-lg border border-border px-3 py-4 text-center text-sm text-secondary">
+                    {isoWeekBase(iso_year, iso_week)} is locked — reports cover the current week
+                    only and close at Friday 5:00 PM.
                   </p>
                 ) : null}
 
-                {formOpen && detail.can_manage && detail.week_editable && lockedByComments ? (
-                  <p className="rounded-lg bg-surface px-3 py-4 text-center text-sm text-secondary">
-                    This report has comments and is locked — the version people discussed cannot
-                    change. Reply in the thread above instead.
-                  </p>
-                ) : null}
-
-                {formOpen && detail.can_manage && detail.week_editable && !lockedByComments ? (
-                  // The composer mirrors the read card's anatomy (same container, same section
-                  // order, Road-to-Green already inside its amber box) — you fill in the exact
-                  // card everyone else will see.
+                {composing ? (
                   <section className="space-y-5">
-                    {/* Only badge a draft that genuinely holds withheld content — a pre-existing
-                        draft, or one this session saved. The pristine empty draft that
-                        draft-on-entry auto-created (createdEmptyDraft && !saved) is internal
-                        plumbing: the reporter hasn't done anything yet, so "Draft — not in
-                        roll-up" would be noise (FUT-740). */}
-                    {myReport?.status === 'draft' &&
-                    !(createdEmptyDraft.current && !saved.current) ? (
-                      <Badge variant="secondary" className="font-normal">
-                        Draft — not in roll-up
-                      </Badge>
-                    ) : null}
-
                     {/* The report's project — names it and switches it without leaving the
                         composer. The header carries the title + week, so this field is the only
                         place the project name appears. */}
@@ -883,21 +740,18 @@ export function WeeklyReportDetailDialog({
                       </div>
                     ) : null}
 
-                    {/* QCDP pillars in a 2×2 grid (Q·D / C·P). Custom segmented — the chosen cell
-                        wears its status colour; the header's Overall chip recomputes live as the
-                        worst of the four. */}
-                    <div ref={pillarsRef} className="space-y-1">
+                    <div ref={pillarsRef} className="space-y-2">
                       <div className="text-xs uppercase tracking-wide text-secondary">
                         QCDP pillars
                       </div>
-                      <div className="flex flex-wrap gap-x-10 gap-y-3">
-                        {QCDP_ORDER.map((cat) => {
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+                        {KPI_CATEGORIES.map((cat) => {
                           const current = colours[cat];
                           const value =
                             current === 'yellow' ? 'yellow' : current === 'red' ? 'red' : 'green';
                           return (
-                            <div key={cat} className="w-52 space-y-1">
-                              <span className="block text-sm font-medium text-primary">
+                            <div key={cat} className="space-y-1.5">
+                              <span className="block text-sm font-semibold text-primary">
                                 {KPI_CATEGORY_LABELS[cat]}
                               </span>
                               {/* Real radios inside labels (visually-hidden control) — Astryx's
@@ -913,9 +767,10 @@ export function WeeklyReportDetailDialog({
                                   return (
                                     <label
                                       key={sc}
-                                      className={`cursor-pointer py-1 text-center text-xs transition-colors ${
+                                      className={`cursor-pointer py-1.5 text-center text-sm transition-colors ${
                                         i > 0 ? 'border-l border-border' : ''
-                                      } ${on ? `${SEG_TINT[sc]} font-semibold` : 'bg-card text-secondary hover:bg-muted'}`}
+                                      } ${on ? 'font-semibold' : 'bg-card text-secondary hover:bg-muted'}`}
+                                      style={on ? SEG_TINT[sc] : undefined}
                                     >
                                       <input
                                         type="radio"
@@ -938,7 +793,49 @@ export function WeeklyReportDetailDialog({
                       </div>
                     </div>
 
-                    <div className="space-y-1">
+                    <div
+                      className={hasActiveRisk ? undefined : 'rounded-lg border p-3'}
+                      style={
+                        hasActiveRisk
+                          ? undefined
+                          : {
+                              borderColor: 'var(--color-border-blue)',
+                              backgroundColor:
+                                'color-mix(in oklab, var(--color-background-blue) 45%, transparent)',
+                            }
+                      }
+                    >
+                      <Switch
+                        label="This project has active Risk / Issue this week"
+                        description="Turn on if there is any risk or issue impacting the project this week."
+                        value={hasActiveRisk}
+                        onChange={(v) => setHasActiveRisk(v)}
+                      />
+                    </div>
+
+                    {riskNeedsFlag && submitAttempted ? (
+                      <Banner
+                        status="error"
+                        title="All four flags are Green. Set Q, C, D, or P to Amber or Red to report an active risk."
+                      />
+                    ) : (
+                      <>
+                        {hasActiveRisk ? (
+                          <Banner
+                            status="info"
+                            title="Active risk detected: At least one of the 4 health flags (Q, C, D, P) must be Amber or Red."
+                          />
+                        ) : null}
+                        {allGreenBlocked ? (
+                          <Banner
+                            status="warning"
+                            title="KPIs are over norm this week. Set at least one of Q, C, D, or P to Amber or Red."
+                          />
+                        ) : null}
+                      </>
+                    )}
+
+                    <div className={hasActiveRisk ? 'grid gap-4 md:grid-cols-2' : undefined}>
                       <Textarea
                         ref={summaryRef}
                         label="Executive summary"
@@ -949,72 +846,53 @@ export function WeeklyReportDetailDialog({
                         rows={3}
                         status={summaryError ? { type: 'error', message: summaryError } : undefined}
                       />
+                      {hasActiveRisk ? (
+                        <Textarea
+                          ref={riskIssueRef}
+                          label="Risk / Issue"
+                          isRequired
+                          value={riskIssue}
+                          onChange={setRiskIssue}
+                          placeholder="Issue (happened) / Risk (may happen)…"
+                          rows={3}
+                          status={
+                            riskIssueError ? { type: 'error', message: riskIssueError } : undefined
+                          }
+                        />
+                      ) : null}
                     </div>
 
-                    <div className="space-y-1">
-                      <Textarea
-                        label="Risk / Issue"
-                        value={riskIssue}
-                        onChange={setRiskIssue}
-                        placeholder="Issue (happened) / Risk (may happen)…"
-                        rows={3}
-                      />
-                    </div>
-
-                    {/* Road-to-Green only exists when health is not Green. */}
-                    {nonGreen ? (
-                      <div className="space-y-3">
-                        <p className="border-l-2 border-warning pl-3 text-sm text-secondary">
-                          <span className="font-semibold text-primary">Not Green</span> · a
-                          Road-to-Green action is required and becomes a tracked Recovery item.
-                        </p>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="col-span-2 space-y-1">
-                            <Textarea
-                              ref={roadToGreenRef}
-                              label="Road-to-Green action"
-                              isRequired
-                              value={roadToGreen}
-                              onChange={setRoadToGreen}
-                              placeholder="What brings it back to Green?"
-                              rows={2}
-                              status={
-                                roadToGreenError
-                                  ? { type: 'error', message: roadToGreenError }
-                                  : undefined
-                              }
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <DateInput
-                              ref={dueRef}
-                              label="Due"
-                              isRequired
-                              value={roadToGreenDue || undefined}
-                              min={new Date().toISOString().slice(0, 10)}
-                              onChange={(v) => setRoadToGreenDue(v ?? '')}
-                              status={dueError ? { type: 'error', message: dueError } : undefined}
-                            />
-                          </div>
+                    {hasActiveRisk ? (
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="md:col-span-2">
+                          <Textarea
+                            ref={roadToGreenRef}
+                            label="Road-to-Green action"
+                            isRequired
+                            value={roadToGreen}
+                            onChange={setRoadToGreen}
+                            placeholder="What brings it back to Green?"
+                            rows={2}
+                            status={
+                              roadToGreenError
+                                ? { type: 'error', message: roadToGreenError }
+                                : undefined
+                            }
+                          />
+                        </div>
+                        <div ref={dueRef}>
+                          <Selector
+                            label="Due"
+                            isRequired
+                            width="100%"
+                            options={dueWeekOptions({ iso_year, iso_week })}
+                            value={roadToGreenDue || undefined}
+                            onChange={(v) => setRoadToGreenDue(v ?? '')}
+                            placeholder="Select a week…"
+                            status={dueError ? { type: 'error', message: dueError } : undefined}
+                          />
                         </div>
                       </div>
-                    ) : null}
-
-                    {allGreenBlocked ? (
-                      <p className="border-l-2 border-warning pl-3 text-sm text-secondary">
-                        <span className="font-semibold text-primary">KPIs over norm</span> · this
-                        week has Amber/Red results, so at least one pillar must be non-Green.
-                      </p>
-                    ) : null}
-
-                    {myReport?.published &&
-                    (summary.trim() === '' ||
-                      allGreenBlocked ||
-                      (nonGreen && (roadToGreen.trim() === '' || roadToGreenDue === ''))) ? (
-                      <p className="border-l-2 border-warning pl-3 text-sm text-secondary">
-                        Submitting is blocked by the checks above — <b>Save draft</b> keeps your
-                        changes privately; everyone else keeps your last submitted version.
-                      </p>
                     ) : null}
                   </section>
                 ) : null}

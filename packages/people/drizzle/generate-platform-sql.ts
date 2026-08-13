@@ -30,6 +30,9 @@ const RLS_TABLES = [
   'account_projection',
   'project_projection',
   'user_projection',
+  'performance_evaluation_group',
+  'performance_config_revision',
+  'performance_config_month_pin',
 ];
 
 const lines: string[] = [];

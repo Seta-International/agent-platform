@@ -94,6 +94,8 @@ const HEADER_FOOTER_PADDING: CSSProperties = {
   '--layout-padding-inner-y': 'var(--spacing-4)',
 } as CSSProperties;
 
+const MAX_JOB_TITLE_LENGTH = 100;
+
 const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'about', label: 'About the role' },
   { key: 'responsibilities', label: 'Responsibilities' },
@@ -256,6 +258,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         ? 'Due date cannot be in the past.'
         : null
     : null;
+  // FUT-785 headcount validation — mirrors the create form (NewRequisitionDialog).
+  const headcountError =
+    openCount < 1 || !Number.isInteger(openCount)
+      ? 'Headcount must be a positive whole number.'
+      : openCount > 9
+        ? 'Headcount cannot exceed 9.'
+        : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
   // FUT-559 error focus: mark each empty required field in red on submit and scroll to the
   // first offender, instead of a single lumped message the user has to hunt the field for.
@@ -263,7 +272,21 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const aboutFieldRef = useRef<HTMLDivElement>(null);
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
-  const titleInvalid = submitAttempted && !title.trim();
+  const titleTooLong = title.length > MAX_JOB_TITLE_LENGTH;
+  const titleAtLimit = title.length === MAX_JOB_TITLE_LENGTH;
+  const titleStatus = titleTooLong
+    ? {
+        type: 'error' as const,
+        message: `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`,
+      }
+    : titleAtLimit
+      ? {
+          type: 'warning' as const,
+          message: `Maximum limit of ${MAX_JOB_TITLE_LENGTH} characters reached.`,
+        }
+      : submitAttempted && !title.trim()
+        ? { type: 'error' as const, message: 'Job title is required.' }
+        : undefined;
   const aboutInvalid = submitAttempted && isRichTextEmpty(sections.about);
   // Unsaved-edit guard for the Cancel button (FUT-559: confirm before discarding). Compares the
   // reliably-loaded scalar fields against the stored requisition — enough to catch a real edit
@@ -448,12 +471,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   function submitEdit() {
     setSubmitAttempted(true);
-    if (missingRequired || startInPast || dueBeforeStart || dueInPast) {
-      const target = !title.trim()
-        ? titleFieldRef.current
-        : isRichTextEmpty(sections.about)
-          ? aboutFieldRef.current
-          : null;
+    if (
+      missingRequired ||
+      titleTooLong ||
+      startInPast ||
+      dueBeforeStart ||
+      dueInPast ||
+      headcountError
+    ) {
+      const target =
+        !title.trim() || titleTooLong
+          ? titleFieldRef.current
+          : isRichTextEmpty(sections.about)
+            ? aboutFieldRef.current
+            : null;
       target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -624,11 +655,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     isRequired
                     value={title}
                     onChange={(value) => setTitle(value)}
-                    status={
-                      titleInvalid
-                        ? { type: 'error', message: 'Job title is required.' }
-                        : undefined
-                    }
+                    status={titleStatus}
                   />
                 </div>
                 <Grid columns={2} gap={4}>
@@ -686,19 +713,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   />
                   <NumberInput
                     label="Headcount (openings)"
-                    min={1}
                     isIntegerOnly
                     value={openCount}
-                    onChange={(v) => setOpenCount(Math.max(1, v || 1))}
+                    onChange={(v) => setOpenCount(v ?? 1)}
                     status={
-                      openCount < originalOpenCount
-                        ? {
-                            type: 'warning',
-                            message: `Saving cancels ${originalOpenCount - openCount} open opening${
-                              originalOpenCount - openCount > 1 ? 's' : ''
-                            }. Filled openings are kept.`,
-                          }
-                        : undefined
+                      headcountError
+                        ? { type: 'error', message: headcountError }
+                        : openCount < originalOpenCount
+                          ? {
+                              type: 'warning',
+                              message: `Saving cancels ${
+                                originalOpenCount - openCount
+                              } open opening${
+                                originalOpenCount - openCount > 1 ? 's' : ''
+                              }. Filled openings are kept.`,
+                            }
+                          : undefined
                     }
                   />
                 </Grid>
@@ -958,11 +988,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   if (isRichTextEmpty(body)) return null;
                   return (
                     <div key={s.key}>
-                      <div
-                        className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
-                      >
-                        {s.label}
-                      </div>
+                      <div className="mb-1 font-semibold text-primary">{s.label}</div>
                       <RichTextDisplay value={body} />
                     </div>
                   );
@@ -1182,6 +1208,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       {selectedCandidate && (
         <CandidateDetailDrawer
           candidateId={selectedCandidate}
+          requisitionId={requisitionId}
           onClose={() => setSelectedCandidate(null)}
         />
       )}

@@ -1,12 +1,13 @@
 import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CandidateDetail } from '../../src/api/hiring-client.ts';
 
 const fetchCandidate = vi.fn();
+const fetchRequisition = vi.fn();
 const moveApplicationStage = vi.fn();
 const editCandidate = vi.fn();
 const requestCandidateCvUpload = vi.fn();
@@ -16,10 +17,20 @@ const hireApplication = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fetchRequisition.mockResolvedValue({
+    id: 'r1',
+    title: 'Backend Eng',
+    skills: [
+      { skill_id: 's1', skill_name: 'TypeScript' },
+      { skill_id: 's2', skill_name: 'React' },
+      { skill_id: 's3', skill_name: 'Node.js' },
+    ],
+  });
 });
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidate: (id: string) => fetchCandidate(id),
+  fetchRequisition: (id: string) => fetchRequisition(id),
   moveApplicationStage: (id: string, input: unknown) => moveApplicationStage(id, input),
   editCandidate: (...args: unknown[]) => editCandidate(...args),
   requestCandidateCvUpload: (...args: unknown[]) => requestCandidateCvUpload(...args),
@@ -130,7 +141,7 @@ describe('CandidateDetailDrawer', () => {
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
     // Skills live in the CV now — the drawer surfaces the fit summary, not a chip list.
-    expect(screen.getByText('2/3 skills')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/2 of 3/)).toBeInTheDocument());
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
     expect(screen.getByText('1998-05-12')).toBeInTheDocument();
     expect(screen.getByText('Female')).toBeInTheDocument();
@@ -197,7 +208,10 @@ describe('CandidateDetailDrawer', () => {
     const input = screen.getByLabelText('Replace') as HTMLInputElement;
     await userEvent.upload(input, big);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
+    // Scoped to the viewport: Astryx also mirrors the message into a body-level
+    // assertive live region, which carries role="alert" too.
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
   it('shows a CV upload dropzone when cv_storage_key is null', async () => {
@@ -272,9 +286,103 @@ describe('CandidateDetailDrawer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     // Should display exact error message in toast, NOT "This record changed — refreshing."
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    const viewport = screen.getByRole('region', { name: 'Notifications' });
+    expect(await within(viewport).findByRole('alert')).toHaveTextContent(
       'No vacant openings for this requisition',
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('selects latest application when no application is active (FUT-902)', async () => {
+    const multiAppDetail: CandidateDetail = {
+      ...detail,
+      applications: [
+        {
+          application_id: 'a1',
+          requisition_id: 'r1',
+          requisition_title: 'QA Manual Test New Ui',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'new',
+          status: 'transferred',
+          rating: null,
+          tags: [],
+          version: 1,
+          applied_at: '2026-07-22T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+        {
+          application_id: 'a2',
+          requisition_id: 'r2',
+          requisition_title: 'Mobile Developer',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'screening',
+          status: 'cancelled',
+          rating: null,
+          tags: [],
+          version: 2,
+          applied_at: '2026-07-30T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+      ],
+    };
+    fetchCandidate.mockResolvedValue(multiAppDetail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    // Should render Mobile Developer (the latest application a2) instead of QA Manual Test New Ui (a1)
+    expect(screen.getByText('Mobile Developer')).toBeInTheDocument();
+    expect(screen.queryByText('QA Manual Test New Ui')).not.toBeInTheDocument();
+  });
+
+  it('selects application matching requisitionId prop when provided', async () => {
+    const multiAppDetail: CandidateDetail = {
+      ...detail,
+      applications: [
+        {
+          application_id: 'a1',
+          requisition_id: 'r1',
+          requisition_title: 'QA Manual Test New Ui',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'new',
+          status: 'transferred',
+          rating: null,
+          tags: [],
+          version: 1,
+          applied_at: '2026-07-22T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+        {
+          application_id: 'a2',
+          requisition_id: 'r2',
+          requisition_title: 'Mobile Developer',
+          requisition_status: 'open',
+          account_id: null,
+          stage: 'screening',
+          status: 'active',
+          rating: null,
+          tags: [],
+          version: 2,
+          applied_at: '2026-07-30T10:00:00Z',
+          note: null,
+          fit: { met: 0, required: 0, score: 0, strong: false },
+        },
+      ],
+    };
+    fetchCandidate.mockResolvedValue(multiAppDetail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidateDetailDrawer candidateId="c1" requisitionId="r1" onClose={() => {}} />, {
+      wrapper: wrap(qc),
+    });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    // Matches requisitionId r1 -> QA Manual Test New Ui
+    expect(screen.getByText('QA Manual Test New Ui')).toBeInTheDocument();
   });
 });

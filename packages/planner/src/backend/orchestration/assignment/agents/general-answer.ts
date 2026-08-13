@@ -1,7 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
-import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { RequestContext } from '@mastra/core/request-context';
+import {
+  type AgentResult,
+  buildAgentRequestContext,
+  type SpecializedAgentSpec,
+  withTemporalContext,
+} from '@seta/agent-sdk';
 import type { z } from 'zod';
 import { pickModel } from '../model.ts';
 import { GeneralAnswerInputSchema, GeneralAnswerOutputSchema } from '../schemas.ts';
@@ -10,6 +15,8 @@ type In = z.infer<typeof GeneralAnswerInputSchema>;
 type Out = z.infer<typeof GeneralAnswerOutputSchema>;
 
 export interface GeneralAnswerDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   resolveModel: () => MastraModelConfig;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
@@ -31,10 +38,7 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
     inputSchema: GeneralAnswerInputSchema,
     outputSchema: GeneralAnswerOutputSchema,
     run: async (input, ctx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+      const rc = buildAgentRequestContext(ctx);
 
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
@@ -44,7 +48,7 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
             const agent = new Agent({
               id: 'staffing.generalAnswer',
               name: 'General Answer',
-              instructions: INSTRUCTIONS,
+              instructions: withTemporalContext(INSTRUCTIONS, { now: deps.now?.() }),
               model: pickModel(ctx, deps.resolveModel),
             });
             const r = await agent.generate(

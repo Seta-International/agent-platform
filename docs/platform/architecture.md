@@ -141,7 +141,7 @@ packages/
 ├── people/           # workers, skills, org units, allocations
 ├── pm/               # accounts, projects, requests, resource allocation
 ├── hiring/           # requisitions, openings, candidates, pipeline
-├── integrations/     # M365 boot, mail-transport config, MCP clients
+├── integrations/     # M365 boot + directory sync, mail-transport config, MCP clients
 ├── knowledge/        # tenant knowledge corpus, RAG pipeline
 ├── notifications/    # in-app + email prefs, SSE hub
 ├── agent/            # engine-only: Mastra runtime + agent factory
@@ -433,6 +433,22 @@ sequenceDiagram
 ```
 
 **SSO is admin pre-provisioning only.** No just-in-time provisioning. First SSO login links to an existing pre-provisioned user; unknown subjects are rejected.
+
+### Directory sync (M365 → people, one way)
+
+`@seta/integrations` pulls the Entra directory into `people` so the org chart is sourced from the company system of record. It reads `GET /users/delta?$select=…,manager` — the same endpoint serves the initial load and every incremental run, with the cursor on `integrations.m365_tenant_config`. Data flows M365 → us and never the reverse.
+
+**In scope: humans on a verified domain.** `isSyncableUser` admits `userType: 'Member'` accounts whose mail domain is one of the tenant's verified domains, then drops anything holding no licence *and* carrying neither `givenName` nor `surname`. That second test is what keeps room, equipment and shared mailboxes out of `people`: Entra models them as ordinary licensed-looking `Member` users, so domain and `userType` alone admit every meeting room in the tenant. The authoritative discriminator would be `mailboxSettings.userPurpose`, but it needs `MailboxSettings.Read` consent the directory app is not guaranteed to hold, and `/places` needs `Place.Read.All`; licence-and-name is derivable from the `/users/delta` payload the sync already reads. Requiring **both** conditions before excluding is deliberate — a licensed account with no name parts, and an unlicensed human, both still sync.
+
+The sync writes through `people`'s public surface (`syncDirectoryPeople`, `updateOrgUnit`, `deleteOrgUnit`) under a system-actor session, so RBAC and `person_history` attribution apply exactly as they do for a human edit. Three invariants keep it from becoming a back door:
+
+- **Manager is not a column.** Reporting stays derived from `org_unit.head_worker_id` (F-ORG-3), so the Entra manager projects onto the unit head rather than a `person.manager_id`. `read-workers.ts` and `worker-scope.ts` — the latter an RBAC predicate — are untouched by the sync. Because a head change therefore moves a permission scope, an ambiguous manager raises a conflict instead of picking a winner.
+- **Entra identity lives in `integrations`.** `m365_person_links` / `m365_org_unit_links` hold the Entra object IDs, following the existing `m365_group_links` pattern. `people.person` gained only `photo_storage_key` and `directory_managed` (a field-lock flag, since `people` cannot read the link table cross-schema).
+- **The sync owns the department layer only.** It creates, renames, re-parents and heads `kind='function'` units carrying a link row. The structural spine (`executive`, `operation`, `delivery`, `pmo`) is exempt — the org-chart UI grafts the account/project subtree onto `delivery`, so re-parenting it would leave those views rootless. Units with no link row are never touched, and deletes require the unit to be empty of members and children.
+
+**Auto-create never creates logins.** A synced person gets `people.person` + `employment_period` rows only — the no-JIT-provisioning rule above is unaffected. Removals and disables raise a `user_removed` conflict rather than mutating the person.
+
+Anything the sync cannot decide safely becomes a row in `integrations.m365_directory_conflict` (`manager_ambiguous`, `email_collision`, `unit_delete_blocked`, `spine_collision`, `user_removed`), resolved by an admin at `/admin/m365-directory`. Resolutions call the same public `people` functions under the **admin's** session, so the audit trail names a real user. `people.org_unit.updated` / `.deleted` propagate to `identity.org_unit_projection`, which feeds session building — deletes are tombstoned so a delete arriving before its create cannot resurrect the row.
 
 ---
 

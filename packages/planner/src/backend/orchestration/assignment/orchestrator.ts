@@ -3,15 +3,16 @@ import { Agent, type MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { TokenLimiterProcessor } from '@mastra/core/processors';
-import { RequestContext } from '@mastra/core/request-context';
+import type { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
 import {
   type AgentResult,
+  buildAgentRequestContext,
   type Citation,
-  RC_THREAD_ID,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
+  withTemporalContext,
 } from '@seta/agent-sdk';
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import type { z } from 'zod';
@@ -67,6 +68,8 @@ type RecommenderSpec = SpecializedAgentSpec<
 type GeneralAnswerSpec = SpecializedAgentSpec<{ query: string }, { answer: string }>;
 
 export interface OrchestratorDeps {
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   taskAnalyzer: TaskAnalyzerSpec;
   skillMatcher: SkillMatcherSpec;
   avaiChecker: AvaiCheckerSpec;
@@ -257,11 +260,7 @@ async function buildOrchestrator(
   ctx: SpecializedAgentRunCtx,
   cap: number,
 ): Promise<BuiltOrchestrator> {
-  const rc = new RequestContext();
-  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-  rc.set('tenant_id', ctx.tenantId);
-  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
-  if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
+  const rc = buildAgentRequestContext(ctx);
 
   const tools: Record<string, unknown> = makeOrchestratorTools({
     taskAnalyzer: deps.taskAnalyzer,
@@ -280,9 +279,10 @@ async function buildOrchestrator(
   if (wmTool) tools.updateWorkingMemory = wmTool;
 
   const wmSection = await loadUserContextSection(ctx);
-  const instructions = wmSection
-    ? `${instructionsText(cap)}\n\n${wmSection}`
-    : instructionsText(cap);
+  const instructions = withTemporalContext(
+    wmSection ? `${instructionsText(cap)}\n\n${wmSection}` : instructionsText(cap),
+    { now: deps.now?.() },
+  );
 
   const agent = new Agent({
     id: 'planner.assignment-orchestrator',

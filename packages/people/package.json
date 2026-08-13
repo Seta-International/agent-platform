@@ -36,7 +36,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "@mastra/pg": "^1.17.0",
+    "@mastra/pg": "^1.19.0",
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/knowledge": "workspace:^",
@@ -49,7 +49,7 @@
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "graphile-worker": "^0.17.3",
-    "hono": "^4.12.31",
+    "hono": "^4.12.34",
     "pg": "^8.22.0",
     "pino": "^10.3.1",
     "zod": "^4.4.3"

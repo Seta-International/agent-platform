@@ -29,6 +29,7 @@ export function Input({
   disabled,
   isDisabled,
   isLabelHidden,
+  inputMode,
   min: _min,
   max: _max,
   ...rest
@@ -37,6 +38,7 @@ export function Input({
   type?: string;
   disabled?: boolean;
   isLabelHidden?: boolean;
+  inputMode?: 'decimal' | 'numeric';
   min?: string;
   max?: string;
 }) {
@@ -44,6 +46,7 @@ export function Input({
   return (
     <AstryxInput
       {...(rest as InputProps)}
+      {...(inputMode ? ({ inputMode } as unknown as Partial<InputProps>) : {})}
       label={(label ?? '') as InputProps['label']}
       // Honour an explicit isLabelHidden; only fall back to hiding when there's no label
       // to show (so a labelled-but-hidden field like a table cell doesn't leak its label).
@@ -197,6 +200,7 @@ export function Checkbox({
         onChange?.(e.target.checked);
       }}
       className={`size-4 rounded border-border ${className ?? ''}`}
+      style={{ accentColor: 'var(--color-primary)' }}
     />
   );
   return label ? (
@@ -423,8 +427,12 @@ export function TabsContent({
 }
 
 // ---- Passthrough / trivial shims -------------------------------------------------
-export function ScrollArea({ children, className }: Div) {
-  return <div className={`overflow-auto ${className ?? ''}`}>{children}</div>;
+export function ScrollArea({ children, className, ref }: Div) {
+  return (
+    <div ref={ref} className={`overflow-auto ${className ?? ''}`}>
+      {children}
+    </div>
+  );
 }
 export function AvatarFallback({ children, className }: Div) {
   return (
@@ -434,16 +442,6 @@ export function AvatarFallback({ children, className }: Div) {
       {children}
     </span>
   );
-}
-export function DisabledActionTooltip({
-  children,
-}: {
-  disabled?: boolean;
-  reason?: ReactNode;
-  className?: string;
-  children?: ReactNode;
-}) {
-  return <>{children}</>;
 }
 
 // Input / Textarea: NOT shimmed — most web-pm files already use the new Astryx value-based

@@ -3,6 +3,7 @@ import {
   defineAgentTool,
   recordEntityExposure,
   resolveTaskRef,
+  TASK_REF_DESCRIPTION,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
@@ -13,15 +14,7 @@ export const plannerPostCommentTool = defineAgentTool({
   name: 'Post Task Comment',
   description: 'Post a plain-text comment on a planner task.',
   input: z.object({
-    taskRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe(
-        'Task UUID, or an ordinal reference into your working memory `recentTasks` list: ' +
-          '"#1" / "1" / "first" → most recent, "#2" / "second" → next, "last" → most recent. ' +
-          'Prefer ordinals when the user is referring to something you just discussed.',
-      ),
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
     body: z.string().min(1).max(4000).describe('Comment body, plain text'),
   }),
   output: z.object({

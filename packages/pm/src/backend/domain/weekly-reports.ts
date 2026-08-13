@@ -30,17 +30,24 @@ import {
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
-import { isoWeekRange } from './iso-week.ts';
+import { assertProjectReportable } from './assert-project-reportable.ts';
+import { isoWeekRange, isWeekEditable } from './iso-week.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
   computeCategoryHealth,
   computeOhs,
   computePillarScore,
+  pickWorstMetric,
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
 import { getReportersAsOf } from './reporter-assignment.ts';
-import { buildProjectManageFlag, buildProjectScope } from './scope.ts';
+import {
+  buildProjectManageFlag,
+  buildProjectReadFlag,
+  buildProjectReporterFlag,
+  buildProjectScope,
+} from './scope.ts';
 
 type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
 const CATEGORIES: readonly KpiCategory[] = ['quality', 'cost_capacity', 'delivery', 'process'];
@@ -50,9 +57,10 @@ export type ReportColour = 'green' | 'yellow' | 'red' | 'gray';
 // gray only ever enters via a manual override (nothing computes it); rank it between green and
 // yellow so a gray override dampens but never hides a yellow/red pillar in the overall roll-up.
 const COLOUR_RANK: Record<ReportColour, number> = { green: 0, gray: 1, yellow: 2, red: 3 };
-function worstColour(colours: readonly ReportColour[]): ReportColour {
-  if (colours.length === 0) return 'red'; // No Data = No Management
-  return colours.reduce((worst, c) => (COLOUR_RANK[c] > COLOUR_RANK[worst] ? c : worst));
+function worstColour(colours: readonly (ReportColour | null)[]): ReportColour | null {
+  const known = colours.filter((c): c is ReportColour => c !== null);
+  if (known.length === 0) return null;
+  return known.reduce((worst, c) => (COLOUR_RANK[c] > COLOUR_RANK[worst] ? c : worst));
 }
 
 // ── ISO week arithmetic (Dec 28 is always in the last ISO week of its year) ───────────────
@@ -82,39 +90,6 @@ export async function assignedProjectIdsAsOf(
 
 // Weekly-report edit window (Epic 3): flags are set for the CURRENT week only, and the week
 // locks at Friday 17:00 Asia/Ho_Chi_Minh (UTC+7, no DST). Comments stay open after the lock.
-let clock: () => Date = () => new Date();
-/** Test hook — editability depends on the wall clock (current-week check + Friday-5PM lock). */
-export function setWeeklyReportClock(next?: () => Date): void {
-  clock = next ?? (() => new Date());
-}
-
-function currentVnIsoWeek(now: Date): { iso_year: number; iso_week: number } {
-  const vn = new Date(now.getTime() + 7 * 3_600_000);
-  const d = new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const iso_year = d.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(iso_year, 0, 1));
-  const iso_week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-  return { iso_year, iso_week };
-}
-
-/** Server-authoritative "current reporting week" (FUT-589 AC2) — Asia/Ho_Chi_Minh wall
- * clock, so a viewer's browser timezone can never shift which week screens default to. */
-export function getCurrentIsoWeek(): { iso_year: number; iso_week: number } {
-  return currentVnIsoWeek(clock());
-}
-
-function isWeekEditable(iso_year: number, iso_week: number): boolean {
-  const now = clock();
-  const current = currentVnIsoWeek(now);
-  if (current.iso_year !== iso_year || current.iso_week !== iso_week) return false;
-  const monday = new Date(`${isoWeekRange(iso_year, iso_week).from}T00:00:00Z`);
-  // Friday 17:00 VNT = Friday 10:00 UTC.
-  const deadline = monday.getTime() + 4 * 86_400_000 + 10 * 3_600_000;
-  return now.getTime() < deadline;
-}
-
 /** Shared week gate (Epic 3): weekly data — flags, reports AND the KPI records they compute
  * from — is editable for the current week only, until Friday 17:00 VNT. Editing a past
  * week's KPIs would silently rewrite the live-computed history behind already-submitted
@@ -176,20 +151,19 @@ export interface WeekStats {
   measured_count: number;
   yellow_count: number;
   red_count: number;
-  /** Metric dragging health down the most: first red by sort_order, else first yellow.
-   * component_count rides along so the UI can format the value the same way Explorer does
-   * (percentage vs plain number). */
   worst: {
     metric_id: string;
     name: string;
     computed_value: number | null;
     component_count: 1 | 2;
+    green_band: BandCondition;
+    status: RagStatus;
   } | null;
 }
 
 interface ProjectWeekComputation {
-  category_colours: Record<KpiCategory, RagStatus>;
-  overall_colour: RagStatus;
+  category_colours: Record<KpiCategory, RagStatus | null>;
+  overall_colour: RagStatus | null;
   stats: WeekStats;
   ohs: number;
 }
@@ -211,23 +185,18 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
   let measured = 0;
   let yellow = 0;
   let red = 0;
-  let worstRed: ProjectDef | null = null;
-  let worstYellow: ProjectDef | null = null;
+  const rankable: (ProjectDef & { status: RagStatus; computed_value: number | null })[] = [];
   const sorted = [...defs].sort((a, b) => a.sort_order - b.sort_order);
   for (const def of sorted) {
-    const status = entryByMetric.get(def.metric_id)?.status ?? null;
+    const entry = entryByMetric.get(def.metric_id);
+    const status = entry?.status ?? null;
     if (status === null) continue;
     measured += 1;
     byCategory[def.category].push(status);
     if (def.tier === 'core') coreByCategory[def.category].push(status);
-    if (status === 'yellow') {
-      yellow += 1;
-      worstYellow ??= def;
-    }
-    if (status === 'red') {
-      red += 1;
-      worstRed ??= def;
-    }
+    if (status === 'yellow') yellow += 1;
+    if (status === 'red') red += 1;
+    rankable.push({ ...def, status, computed_value: entry?.computed_value ?? null });
   }
   const category_colours = {
     quality: computeCategoryHealth(byCategory.quality),
@@ -235,8 +204,10 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
     delivery: computeCategoryHealth(byCategory.delivery),
     process: computeCategoryHealth(byCategory.process),
   };
-  const overall_colour = worstColour(CATEGORIES.map((c) => category_colours[c])) as RagStatus;
-  const worstDef = worstRed ?? worstYellow;
+  const overall_colour = worstColour(
+    CATEGORIES.map((c) => category_colours[c]),
+  ) as RagStatus | null;
+  const worstDef = pickWorstMetric(rankable);
   const ohs = computeOhs({
     quality: computePillarScore(coreByCategory.quality),
     cost_capacity: computePillarScore(coreByCategory.cost_capacity),
@@ -255,8 +226,10 @@ function computeProjectWeek(defs: ProjectDef[], entries: EntryRow[]): ProjectWee
         ? {
             metric_id: worstDef.metric_id,
             name: worstDef.name,
-            computed_value: entryByMetric.get(worstDef.metric_id)?.computed_value ?? null,
+            computed_value: worstDef.computed_value,
             component_count: worstDef.component_count,
+            green_band: worstDef.green_band,
+            status: worstDef.status,
           }
         : null,
     },
@@ -354,6 +327,34 @@ const HEADLINE_METRIC_NAMES: [name: string, label: string][] = [
   ['Release Predictability', 'predictability'],
   ['eNPS / CSS', 'CSS'],
 ];
+export interface WeekMetric {
+  metric_id: string;
+  name: string;
+  category: KpiCategory;
+  computed_value: number | null;
+  component_count: 1 | 2;
+  green_band: BandCondition;
+  status: RagStatus | null;
+}
+
+function buildWeekMetrics(defs: ProjectDef[], entries: EntryRow[]): WeekMetric[] {
+  const entryByMetric = new Map(entries.map((e) => [e.metric_id, e]));
+  return [...defs]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((def) => {
+      const entry = entryByMetric.get(def.metric_id);
+      return {
+        metric_id: def.metric_id,
+        name: def.name,
+        category: def.category,
+        computed_value: entry?.computed_value ?? null,
+        component_count: def.component_count,
+        green_band: def.green_band,
+        status: entry?.status ?? null,
+      };
+    });
+}
+
 export interface HeadlineMetric {
   label: string;
   name: string;
@@ -390,8 +391,8 @@ export interface WeeklyReportCard {
   account_name: string;
   pm_name: string | null;
   pmo_name: string | null;
-  overall_colour: ReportColour;
-  category_colours: Record<KpiCategory, ReportColour>;
+  overall_colour: ReportColour | null;
+  category_colours: Record<KpiCategory, ReportColour | null>;
   stats: WeekStats;
   /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
   staffed: number;
@@ -403,6 +404,8 @@ export interface WeeklyReportCard {
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;
   can_manage: boolean;
+  can_report: boolean;
+  reported_by_me: boolean;
 }
 
 export async function listWeeklyReports(input: {
@@ -422,10 +425,6 @@ export async function listWeeklyReports(input: {
   ];
   if (input.project_id) conds.push(eq(project.id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
-  // FUT-590 AC1: the weekly list is evaluated AS OF the selected week, so the live read
-  // scope is deliberately NOT pushed into the SQL — a PM removed from a project today must
-  // still see the weeks they were assigned; the as-of filter below is the whole rule for
-  // scoped viewers. Tenant-wide readers (BoD/admin) keep the organization-wide list.
   const scope = buildProjectScope(session);
 
   let projectRows = await pmDb()
@@ -438,6 +437,8 @@ export async function listWeeklyReports(input: {
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
       can_manage: buildProjectManageFlag(session),
+      can_report: buildProjectReporterFlag(session),
+      live_readable: buildProjectReadFlag(session),
     })
     .from(project)
     .innerJoin(account, eq(account.id, project.account_id))
@@ -450,7 +451,7 @@ export async function listWeeklyReports(input: {
       iso_week,
       session,
     );
-    projectRows = projectRows.filter((p) => assigned.has(p.project_id));
+    projectRows = projectRows.filter((p) => p.live_readable || assigned.has(p.project_id));
   }
   if (projectRows.length === 0) return { rows: [] };
   const projectIds = projectRows.map((p) => p.project_id);
@@ -556,21 +557,17 @@ export async function listWeeklyReports(input: {
     .filter((id): id is string => id !== null);
   const names = await loadNames(session, personIds);
 
-  // Flag resolution (FUT-593 AC4 + staleness rationale in getWeeklyReportDetail):
-  // closed weeks read the STAMPED colours wholesale — reopening reproduces the original
-  // report; the open week stays live, shadowed only by human overrides.
-  const weekOpen = isWeekEditable(iso_year, iso_week);
   const storedByProject = new Map<
     string,
-    Map<KpiCategory, { computed: ReportColour; final: ReportColour }>
+    Map<KpiCategory, { computed: ReportColour | null; final: ReportColour | null }>
   >();
   for (const f of flagRows) {
     const m =
       storedByProject.get(f.project_id) ??
-      new Map<KpiCategory, { computed: ReportColour; final: ReportColour }>();
+      new Map<KpiCategory, { computed: ReportColour | null; final: ReportColour | null }>();
     m.set(f.category as KpiCategory, {
-      computed: f.computed_colour as ReportColour,
-      final: f.final_colour as ReportColour,
+      computed: f.computed_colour as ReportColour | null,
+      final: f.final_colour as ReportColour | null,
     });
     storedByProject.set(f.project_id, m);
   }
@@ -581,6 +578,12 @@ export async function listWeeklyReports(input: {
     reportsByProject.set(r.project_id, list);
   }
 
+  const myReportProjects = new Set(
+    session.person_id === null
+      ? []
+      : reportRows.filter((r) => r.reporter_id === session.person_id).map((r) => r.project_id),
+  );
+
   const staffedByProject = new Map(staffedRows.map((r) => [r.project_id, r.staffed]));
   const rows = projectRows.map((p) => {
     const defs = defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [];
@@ -590,11 +593,9 @@ export async function listWeeklyReports(input: {
     const category_colours = Object.fromEntries(
       CATEGORIES.map((c) => {
         const s = stored?.get(c);
-        if (!s) return [c, computation.category_colours[c]];
-        if (!weekOpen) return [c, s.final];
-        return [c, s.final !== s.computed ? s.final : computation.category_colours[c]];
+        return [c, s ? s.final : computation.category_colours[c]];
       }),
-    ) as Record<KpiCategory, ReportColour>;
+    ) as Record<KpiCategory, ReportColour | null>;
     const projectReports = reportsByProject.get(p.project_id) ?? [];
     return {
       project_id: p.project_id,
@@ -616,6 +617,8 @@ export async function listWeeklyReports(input: {
       })),
       report_count: projectReports.length,
       can_manage: p.can_manage,
+      can_report: p.can_report,
+      reported_by_me: myReportProjects.has(p.project_id),
     };
   });
   return { rows };
@@ -671,22 +674,24 @@ export interface WeeklyReportDetail {
     component_count: 1 | 2;
     status: RagStatus | null;
   }[];
+  metrics: WeekMetric[];
   pm_name: string | null;
   pmo_name: string | null;
   iso_year: number;
   iso_week: number;
-  overall_colour: ReportColour;
+  overall_colour: ReportColour | null;
   flags: {
     category: KpiCategory;
-    computed_colour: ReportColour;
-    final_colour: ReportColour;
+    computed_colour: ReportColour | null;
+    final_colour: ReportColour | null;
     overridden: boolean;
   }[];
   stats: WeekStats;
   /** Selected week first, then the 4 preceding weeks — overall colour each. */
-  trend: { iso_year: number; iso_week: number; colour: ReportColour }[];
+  trend: { iso_year: number; iso_week: number; colour: ReportColour | null }[];
   reports: WeeklyReportEntry[];
   can_manage: boolean;
+  can_report: boolean;
   /** The caller's person id — the UI matches it against reports[].reporter_id to find "my"
    * report to prefill/edit. null when the session isn't linked to a worker profile. */
   my_reporter_id: string | null;
@@ -704,13 +709,6 @@ export async function getWeeklyReportDetail(input: {
   const { project_id, iso_year, iso_week, session } = input;
   requirePermission(session, 'pm.project.read');
 
-  // FUT-590 AC4 (reciprocal read): the week's reports open for a scoped viewer only when
-  // they were assigned to this project AS OF that week — being on the roster today does not
-  // open past weeks, and being removed since does not close the weeks they owned. The live
-  // read scope is therefore not pushed into the SQL; tenant-wide readers (BoD/admin) read
-  // organization-wide. To keep NOT_FOUND-vs-FORBIDDEN semantics (existence must not leak),
-  // a scoped viewer who fails the as-of check gets FORBIDDEN only if the project is at least
-  // live-readable to them, NOT_FOUND otherwise.
   const scope = buildProjectScope(session);
   const [proj] = await pmDb()
     .select({
@@ -723,6 +721,7 @@ export async function getWeeklyReportDetail(input: {
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
       can_manage: buildProjectManageFlag(session),
+      can_report: buildProjectReporterFlag(session),
     })
     .from(project)
     .innerJoin(account, eq(account.id, project.account_id))
@@ -744,10 +743,7 @@ export async function getWeeklyReportDetail(input: {
         .from(project)
         .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session), scope))
         .limit(1);
-      if (liveReadable) {
-        throw new PmError('FORBIDDEN', 'you were not assigned to this project in that week');
-      }
-      throw new PmError('NOT_FOUND', `project ${project_id} not found`);
+      if (!liveReadable) throw new PmError('NOT_FOUND', `project ${project_id} not found`);
     }
   }
 
@@ -862,22 +858,13 @@ export async function getWeeklyReportDetail(input: {
     ].filter((id): id is string => id !== null),
   );
 
+  const selectedEntries = entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [];
   // Selected-week flags (overrides) + computed fallback.
-  const selectedComputation = computeProjectWeek(
-    defs,
-    entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
-  );
+  const selectedComputation = computeProjectWeek(defs, selectedEntries);
   // Delivery pulse — the same three named metrics the list card surfaces.
-  const headline_metrics = computeHeadlineMetrics(
-    defs,
-    entriesByKey.get(weekKey({ iso_year, iso_week })) ?? [],
-  );
+  const headline_metrics = computeHeadlineMetrics(defs, selectedEntries);
+  const metrics = buildWeekMetrics(defs, selectedEntries);
 
-  // Flag resolution: the OPEN week is live (KPI edits show immediately; a stored flag only
-  // wins as a human override — final ≠ computed stored with it). A CLOSED week reads the
-  // STAMPED colours wholesale (FUT-593 AC4): reopening reproduces the original report, and
-  // entries/baseline are locked anyway so nothing fresher exists.
-  const selectedWeekOpen = isWeekEditable(iso_year, iso_week);
   const selectedFlags = new Map(
     flagRows
       .filter((f) => f.iso_year === iso_year && f.iso_week === iso_week)
@@ -885,41 +872,30 @@ export async function getWeeklyReportDetail(input: {
   );
   const flags = CATEGORIES.map((c) => {
     const row = selectedFlags.get(c);
-    const live = selectedComputation.category_colours[c] as ReportColour;
-    const overridden = row ? row.final_colour !== row.computed_colour : false;
-    if (row && !selectedWeekOpen) {
-      return {
-        category: c,
-        computed_colour: row.computed_colour as ReportColour,
-        final_colour: row.final_colour as ReportColour,
-        overridden,
-      };
+    if (!row) {
+      const live = selectedComputation.category_colours[c] as ReportColour | null;
+      return { category: c, computed_colour: live, final_colour: live, overridden: false };
     }
     return {
       category: c,
-      computed_colour: live,
-      final_colour: overridden && row ? (row.final_colour as ReportColour) : live,
-      overridden,
+      computed_colour: row.computed_colour as ReportColour | null,
+      final_colour: row.final_colour as ReportColour | null,
+      overridden: row.final_colour !== row.computed_colour,
     };
   });
   const overall_colour = worstColour(flags.map((f) => f.final_colour));
 
-  // Trend: same per-week rule — stamped colours for closed weeks with flags, baseline-live
-  // otherwise (each week computed against its own frozen baseline).
   const trend = trendWeeks.map((w) => {
     const weekDefs = defsByKey.get(baselineKey(project_id, w)) ?? [];
     const computation = computeProjectWeek(weekDefs, entriesByKey.get(weekKey(w)) ?? []);
     const weekFlags = flagRows.filter(
       (f) => f.iso_year === w.iso_year && f.iso_week === w.iso_week,
     );
-    const weekOpen = isWeekEditable(w.iso_year, w.iso_week);
     const colours = CATEGORIES.map((c) => {
       const row = weekFlags.find((f) => f.category === c);
-      if (row && !weekOpen) return row.final_colour as ReportColour;
-      const overridden = row && row.final_colour !== row.computed_colour;
-      return overridden
-        ? (row.final_colour as ReportColour)
-        : (computation.category_colours[c] as ReportColour);
+      return row
+        ? (row.final_colour as ReportColour | null)
+        : (computation.category_colours[c] as ReportColour | null);
     });
     return { ...w, colour: worstColour(colours) };
   });
@@ -942,6 +918,7 @@ export async function getWeeklyReportDetail(input: {
     staffed: staffedRow?.staffed ?? 0,
     team_size: proj.team_size,
     headline_metrics,
+    metrics,
     pm_name: proj.pm_person_id ? (names.get(proj.pm_person_id) ?? null) : null,
     pmo_name: proj.pmo_person_id ? (names.get(proj.pmo_person_id) ?? null) : null,
     iso_year,
@@ -988,6 +965,7 @@ export async function getWeeklyReportDetail(input: {
       ];
     }),
     can_manage: proj.can_manage,
+    can_report: proj.can_report,
     my_reporter_id: session.person_id,
     week_editable: isWeekEditable(iso_year, iso_week),
   };
@@ -1011,7 +989,7 @@ export async function ensureWeeklyReport(
   created: boolean;
 }> {
   const { project_id, iso_year, iso_week, session } = input;
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
@@ -1067,7 +1045,7 @@ export async function discardWeeklyReport(
   input: DiscardWeeklyReportInput & { session: SessionScope },
 ): Promise<{ discarded: boolean }> {
   const { project_id, iso_year, iso_week, session } = input;
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
@@ -1116,14 +1094,14 @@ export async function discardWeeklyReport(
 
 export async function upsertWeeklyReport(
   input: UpsertWeeklyReportInput & { session: SessionScope },
-): Promise<{ report_id: string; version: number; overall_colour: ReportColour }> {
+): Promise<{ report_id: string; version: number; overall_colour: ReportColour | null }> {
   const { project_id, iso_year, iso_week, expected_version, session } = input;
   // Draft lifecycle (FUT-591/601): 'draft' saves anything without the submit gate and never
   // stamps flags/snapshots/rollup; 'submit' runs the gate and stamps. A draft save over a
   // submitted report DEMOTES it — its contribution is withdrawn from the shared flags and
   // the roll-up recomputes from the remaining submitted reports.
   const save_mode = input.save_mode ?? 'submit';
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
@@ -1142,7 +1120,9 @@ export async function upsertWeeklyReport(
 
   // The computed colours are only the prefill — the reporter declares each QCDP pillar in the
   // composer, and overall (plus the Road-to-Green requirement) follows the declared colours.
-  const declaredColours: Record<KpiCategory, ReportColour> = { ...computation.category_colours };
+  const declaredColours: Record<KpiCategory, ReportColour | null> = {
+    ...computation.category_colours,
+  };
   for (const category of CATEGORIES) {
     const chosen = input.category_colours?.[category];
     if (chosen) declaredColours[category] = chosen;
@@ -1165,13 +1145,10 @@ export async function upsertWeeklyReport(
       );
     }
 
-    // Business rule (functional-analysis.md §9.5): a non-Green report MUST carry a
-    // Road-to-Green action — and an action without a deadline isn't trackable, so the due
-    // date travels with it.
-    if (overall_colour !== 'green' && !(input.road_to_green?.trim() && input.road_to_green_due)) {
+    if (input.risk_issue?.trim() && !(input.road_to_green?.trim() && input.road_to_green_due)) {
       throw new PmError(
         'VALIDATION',
-        'Non-Green report requires a Road-to-Green action with a due date',
+        'A declared Risk / Issue requires a Road-to-Green action with a due date',
       );
     }
     if (input.road_to_green?.trim() && !input.road_to_green_due) {
@@ -1338,7 +1315,9 @@ export async function upsertWeeklyReport(
           ),
         );
       const flagByCategory = new Map(existingFlags.map((f) => [f.category as KpiCategory, f]));
-      const finalColours: Record<KpiCategory, ReportColour> = { ...computation.category_colours };
+      const finalColours: Record<KpiCategory, ReportColour | null> = {
+        ...computation.category_colours,
+      };
       const insertAudit = async (
         flag_id: string,
         from_colour: ReportColour | null,
@@ -1379,8 +1358,9 @@ export async function upsertWeeklyReport(
             })
             .returning({ id: flag.id });
           if (!created) continue;
-          let latest = await insertAudit(created.id, null, computed, null);
-          let final: ReportColour = computed;
+          let latest =
+            computed === null ? null : await insertAudit(created.id, null, computed, null);
+          let final: ReportColour | null = computed;
           if (declared && declared !== computed) {
             latest =
               (await insertAudit(
@@ -1400,11 +1380,12 @@ export async function upsertWeeklyReport(
           continue;
         }
 
-        let final = row.final_colour as ReportColour;
+        let final = row.final_colour as ReportColour | null;
         let latest = row.latest_audit_entry_id;
         const wasOverridden = row.final_colour !== row.computed_colour;
         if (row.computed_colour !== computed && !wasOverridden) {
-          latest = (await insertAudit(row.id, final, computed, null)) ?? latest;
+          if (computed !== null)
+            latest = (await insertAudit(row.id, final, computed, null)) ?? latest;
           final = computed;
         }
         if (declared && declared !== final) {
@@ -1540,8 +1521,8 @@ export async function overrideFlag(
             eq(flag.iso_week, iso_week),
           ),
         );
-      const byCat = new Map(flags.map((f) => [f.category, f.final_colour as ReportColour]));
-      const colourOf = (c: KpiCategory) => byCat.get(c) ?? 'red';
+      const byCat = new Map(flags.map((f) => [f.category, f.final_colour as ReportColour | null]));
+      const colourOf = (c: KpiCategory) => byCat.get(c) ?? null;
       await tx
         .update(projectWeekRollup)
         .set({
@@ -1573,7 +1554,7 @@ export async function overrideFlag(
           iso_year,
           iso_week,
           category,
-          from_colour: row.final_colour as ReportColour,
+          from_colour: row.final_colour as ReportColour | null,
           to_colour: final_colour,
           reason,
           actor_user_id: session.user_id,

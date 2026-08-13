@@ -225,7 +225,11 @@ const commaSeparatedUuids = z.preprocess(
     .pipe(z.array(z.string().uuid()))
     .optional(),
 );
-export const kpiAppliedMetricsQuery = z.object({ project_ids: commaSeparatedUuids });
+export const kpiAppliedMetricsQuery = z.object({
+  project_ids: commaSeparatedUuids,
+  iso_year: z.coerce.number().int().optional(),
+  iso_week: z.coerce.number().int().min(1).max(53).optional(),
+});
 export type KpiAppliedMetricsQuery = z.infer<typeof kpiAppliedMetricsQuery>;
 
 export const kpiExplorerQuery = z.object({
@@ -253,7 +257,7 @@ export const upsertKpiRecordInput = z.object({
   project_id: z.string().uuid(),
   iso_year: z.number().int(),
   iso_week: z.number().int().min(1).max(53),
-  expected_version: z.number().int().positive().optional(),
+  expected_version: z.number().int().positive().nullable().optional(),
   entries: z.array(upsertKpiRecordEntryInput),
 });
 export type UpsertKpiRecordInput = z.infer<typeof upsertKpiRecordInput>;
@@ -289,6 +293,146 @@ export function computeMetricValue(
   return component_1_value / component_2_value;
 }
 
+export function bandThresholds(cond: BandCondition, out: number[] = []): number[] {
+  switch (cond.op) {
+    case 'between':
+      out.push(cond.min, cond.max);
+      break;
+    case 'or':
+    case 'and':
+      for (const c of cond.conditions) bandThresholds(c, out);
+      break;
+    default:
+      out.push(cond.value);
+  }
+  return out;
+}
+
+function decimalsOf(value: number): number {
+  const text = String(value);
+  const dot = text.indexOf('.');
+  return dot === -1 ? 0 : text.length - dot - 1;
+}
+
+export function kpiValuePrecision(
+  green_band: BandCondition,
+  yellow_band: BandCondition,
+  red_band: BandCondition,
+): number {
+  const marks = [
+    ...bandThresholds(green_band),
+    ...bandThresholds(yellow_band),
+    ...bandThresholds(red_band),
+  ];
+  return Math.max(...marks.map(decimalsOf));
+}
+
+export function computeScoredValue(
+  component_count: 1 | 2,
+  component_1_value: number | null,
+  component_2_value: number | null,
+  precision: number,
+): number | null {
+  if (component_1_value === null) return null;
+  const scale = 10 ** precision;
+  if (component_count === 1) return Math.round(component_1_value * scale) / scale;
+  if (component_2_value === null || component_2_value === 0) return null;
+  return Math.round((component_1_value * scale) / component_2_value) / scale;
+}
+
+export const KPI_VALUE_MAX_INTEGER_DIGITS = 11;
+export const KPI_VALUE_MAX_DECIMALS = 4;
+
+export interface KpiEntryRules {
+  component_count: 1 | 2;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
+  component_2_label?: string | null;
+}
+
+export interface KpiEntryIssues {
+  component_1: string | null;
+  component_2: string | null;
+}
+
+function storageIssue(value: number): string | null {
+  if (!Number.isFinite(value)) return 'Enter a number';
+  if (Math.abs(value) >= 10 ** KPI_VALUE_MAX_INTEGER_DIGITS) {
+    return `Max ${KPI_VALUE_MAX_INTEGER_DIGITS} digits`;
+  }
+  if (Number(value.toFixed(KPI_VALUE_MAX_DECIMALS)) !== value) {
+    return `Max ${KPI_VALUE_MAX_DECIMALS} decimals`;
+  }
+  return null;
+}
+
+function componentIssue(
+  value: number,
+  opts: { integer: boolean; min: number | null; max: number | null },
+): string | null {
+  const storage = storageIssue(value);
+  if (storage) return storage;
+  if (opts.integer && !Number.isInteger(value)) return 'Whole number only';
+  if (opts.min !== null && value < opts.min) {
+    return opts.min === 0 ? "Can't be negative" : `Enter ${opts.min} to ${opts.max ?? '…'}`;
+  }
+  if (opts.max !== null && value > opts.max) return `Enter ${opts.min ?? '…'} to ${opts.max}`;
+  return null;
+}
+
+export function kpiComponentIssue(
+  rules: KpiEntryRules,
+  slot: 1 | 2,
+  value: number | null,
+): string | null {
+  if (value === null) return null;
+  if (slot === 2) {
+    if (rules.component_count === 1) return null;
+    if (value === 0) return "Can't be 0";
+    return componentIssue(value, { integer: rules.component_2_integer, min: 0, max: null });
+  }
+  return componentIssue(value, {
+    integer: rules.component_1_integer,
+    min: rules.component_1_min,
+    max: rules.component_1_max,
+  });
+}
+
+export function validateKpiEntry(
+  rules: KpiEntryRules,
+  component_1_value: number | null,
+  component_2_value: number | null,
+): KpiEntryIssues {
+  const issues: KpiEntryIssues = {
+    component_1: kpiComponentIssue(rules, 1, component_1_value),
+    component_2: kpiComponentIssue(rules, 2, component_2_value),
+  };
+  if (rules.component_count === 1) return issues;
+
+  if (component_1_value !== null && component_2_value === null) issues.component_2 ??= 'Required';
+  if (component_2_value !== null && component_1_value === null) issues.component_1 ??= 'Required';
+
+  if (
+    rules.is_share &&
+    issues.component_1 === null &&
+    issues.component_2 === null &&
+    component_1_value !== null &&
+    component_2_value !== null &&
+    component_1_value > component_2_value
+  ) {
+    issues.component_1 = `Can't exceed ${rules.component_2_label ?? 'the total'}`;
+  }
+
+  return issues;
+}
+
+export function hasKpiEntryIssue(issues: KpiEntryIssues): boolean {
+  return issues.component_1 !== null || issues.component_2 !== null;
+}
+
 export function evaluateBand(cond: BandCondition, value: number): boolean {
   switch (cond.op) {
     case 'lte':
@@ -308,6 +452,122 @@ export function evaluateBand(cond: BandCondition, value: number): boolean {
     case 'and':
       return cond.conditions.every((c) => evaluateBand(c, value));
   }
+}
+
+const relativeGap = (gap: number, threshold: number): number => gap / (Math.abs(threshold) || 1);
+
+export function bandMiss(green_band: BandCondition, value: number): number {
+  switch (green_band.op) {
+    case 'gte':
+    case 'gt':
+      return value >= green_band.value
+        ? 0
+        : relativeGap(green_band.value - value, green_band.value);
+    case 'lte':
+    case 'lt':
+      return value <= green_band.value
+        ? 0
+        : relativeGap(value - green_band.value, green_band.value);
+    case 'eq':
+      return value === green_band.value
+        ? 0
+        : relativeGap(Math.abs(value - green_band.value), green_band.value);
+    case 'between':
+      if (value < green_band.min) return relativeGap(green_band.min - value, green_band.min);
+      if (value > green_band.max) return relativeGap(value - green_band.max, green_band.max);
+      return 0;
+    case 'or':
+      return Math.min(...green_band.conditions.map((c) => bandMiss(c, value)));
+    case 'and':
+      return Math.max(...green_band.conditions.map((c) => bandMiss(c, value)));
+  }
+}
+
+export interface RankableMetric {
+  metric_id: string;
+  sort_order: number;
+  green_band: BandCondition;
+  status: RagStatus | null;
+  computed_value: number | null;
+}
+
+export function pickWorstMetric<T extends RankableMetric>(defs: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestRank = -1;
+  let bestMiss = -1;
+  for (const def of defs) {
+    if (def.computed_value === null) continue;
+    const rank = def.status === 'red' ? 2 : def.status === 'yellow' ? 1 : 0;
+    if (rank === 0) continue;
+    const miss = bandMiss(def.green_band, def.computed_value);
+    if (
+      rank > bestRank ||
+      (rank === bestRank &&
+        (miss > bestMiss ||
+          (miss === bestMiss && best !== null && def.sort_order < best.sort_order)))
+    ) {
+      best = def;
+      bestRank = rank;
+      bestMiss = miss;
+    }
+  }
+  return best;
+}
+
+export interface BandedMetric extends KpiEntryRules {
+  green_band: BandCondition;
+  yellow_band: BandCondition;
+  red_band: BandCondition;
+}
+
+export interface KpiFigures {
+  component_1_value: number;
+  component_2_value: number | null;
+}
+
+export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFigures | null {
+  const precision = kpiValuePrecision(metric.green_band, metric.yellow_band, metric.red_band);
+  const marks = [
+    ...bandThresholds(metric.green_band),
+    ...bandThresholds(metric.yellow_band),
+    ...bandThresholds(metric.red_band),
+  ];
+  const step = 10 ** -precision;
+  const values = new Set<number>([0, step, 1]);
+  for (const mark of marks) {
+    for (const offset of [-2 * step, -step, 0, step, 2 * step]) values.add(mark + offset);
+    for (const factor of [0, 0.2, 0.5, 0.8, 0.9, 1.1, 1.2, 1.5, 2, 3, 5]) values.add(mark * factor);
+  }
+
+  for (const raw of [...values].sort((a, b) => a - b)) {
+    const value = Math.round(raw * 10 ** precision) / 10 ** precision;
+    if (!Number.isFinite(value)) continue;
+
+    const denominator = metric.component_count === 2 ? 100 : null;
+    const component_1_value =
+      denominator === null
+        ? value
+        : Math.round(value * denominator * 10 ** precision) / 10 ** precision;
+    if (metric.component_1_integer && !Number.isInteger(component_1_value)) continue;
+
+    const issues = validateKpiEntry(metric, component_1_value, denominator);
+    if (issues.component_1 !== null || issues.component_2 !== null) continue;
+
+    const computed = computeScoredValue(
+      metric.component_count,
+      component_1_value,
+      denominator,
+      precision,
+    );
+    const status = computeEntryStatus(
+      computed,
+      metric.green_band,
+      metric.yellow_band,
+      metric.red_band,
+    );
+    if (status === target) return { component_1_value, component_2_value: denominator };
+  }
+  return null;
 }
 
 /** `null` when the metric has no value yet (not entered) — distinct from a real red/yellow/green
@@ -333,17 +593,40 @@ export function worstStatus(statuses: readonly RagStatus[]): RagStatus | null {
   return statuses.reduce((worst, s) => (RAG_RANK[s] > RAG_RANK[worst] ? s : worst));
 }
 
-/**
- * Worst-wins over the entries that have a status; 0/N (no entry in this category has a value)
- * defaults to `red` — "No Data = No Management" (functional-analysis.md §4 decision #2, updated
- * 2026-07-14: previously a neutral "not reported" state, now explicitly Red per the business doc).
- */
-export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus {
-  return worstStatus(entryStatuses) ?? 'red';
+export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus | null {
+  return worstStatus(entryStatuses);
 }
 
-export function computeOverallHealth(categoryHealths: readonly RagStatus[]): RagStatus {
-  return worstStatus(categoryHealths) ?? 'red';
+export function computeOverallHealth(
+  categoryHealths: readonly (RagStatus | null)[],
+): RagStatus | null {
+  return worstStatus(categoryHealths.filter((s): s is RagStatus => s !== null));
+}
+
+export type KpiRecordColour = RagStatus | 'gray';
+
+export function computeRecordCategoryColour(
+  metricStatuses: readonly (RagStatus | null)[],
+): KpiRecordColour | null {
+  if (metricStatuses.length === 0) return null;
+  if (metricStatuses.some((s) => s === null)) return 'gray';
+  return worstStatus(metricStatuses as readonly RagStatus[]);
+}
+
+export function computeRecordOverallColour(
+  categoryColours: readonly (KpiRecordColour | null)[],
+): KpiRecordColour | null {
+  const known = categoryColours.filter((c): c is KpiRecordColour => c !== null);
+  if (known.length === 0) return null;
+  if (known.includes('gray')) return 'gray';
+  return worstStatus(known as readonly RagStatus[]);
+}
+
+export function incompleteRecordMetrics<T extends { name: string }>(
+  defs: readonly T[],
+  statusOf: (def: T) => RagStatus | null,
+): string[] {
+  return defs.filter((d) => statusOf(d) === null).map((d) => d.name);
 }
 export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
 

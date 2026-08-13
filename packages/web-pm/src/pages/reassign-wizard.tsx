@@ -19,6 +19,7 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
+  DisabledActionTooltip,
   Input,
   Layout,
   LayoutContent,
@@ -270,6 +271,7 @@ export function ReassignWizardDialog({
         })),
       }),
     onSuccess: (result) => setPreview(result),
+    onError: () => setPreview(null),
   });
 
   const mutation = useMutation({
@@ -378,6 +380,7 @@ export function ReassignWizardDialog({
       onReassigned();
     }
 
+    setPreview(null);
     setStep(2);
     previewMutation.mutate();
   }
@@ -406,6 +409,22 @@ export function ReassignWizardDialog({
       };
     }),
     todayIso(),
+  );
+
+  // Unique formatted validation messages for the existing rows (FUT-847). Deduplicated so that
+  // two overlapping allocations on the same project produce only one message line.
+  const existingErrorMessages = Array.from(
+    new Set(
+      futureAllocations
+        .map((a) => {
+          const err = existingErrors[a.allocation_id];
+          if (!err) return null;
+          const projName =
+            projects.find((p) => p.project_id === draftFor(a).project_id)?.name ?? a.project_name;
+          return `${projName}: ${err}`;
+        })
+        .filter((msg): msg is string => msg !== null),
+    ),
   );
 
   // Start and end date are both mandatory for a new allocation — Review impact stays disabled
@@ -472,6 +491,9 @@ export function ReassignWizardDialog({
                 <ReviewStep
                   preview={preview}
                   currentAllocations={futureAllocations}
+                  targetRows={targetRows}
+                  rowDrafts={rowDrafts}
+                  projects={projects}
                   previewMutation={previewMutation}
                   mutation={mutation}
                 />
@@ -494,8 +516,9 @@ export function ReassignWizardDialog({
                       </div>
                       {futureAllocations.map((a) => {
                         const draft = draftFor(a);
-                        // A row that already started (start date in the past) is locked to end-date and
-                        // delete only — you can shorten/extend or remove it, but not rewrite its terms.
+                        // A row that already started (start date in the past) is locked to
+                        // end-date edits only — shorten/extend it (FUT-876 makes its delete
+                        // impossible: it carries an effective, historical portion).
                         const eff = effectiveRow(a);
                         const startLocked = !!eff.date_from && eff.date_from < todayIso();
                         // Reassign target must be a project the caller manages (FUT-353) — the
@@ -659,14 +682,25 @@ export function ReassignWizardDialog({
                                   }
                                 }}
                               />
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                isIconOnly
-                                icon={<Trash2 className="size-3.5 text-secondary" />}
-                                label={`Delete ${a.project_name}`}
-                                onClick={() => setConfirmTarget(a)}
-                              />
+                              {/* FUT-876: an allocation that has already started carries an
+                                  effective (historical) portion — deleting it would erase realized
+                                  allocation data. The button is disabled and the DisabledActionTooltip
+                                  wrapper (span captures hover/focus even when the button is disabled)
+                                  explains why; shortening the end date above is the supported path. */}
+                              <DisabledActionTooltip
+                                disabled={startLocked}
+                                reason={`"${a.project_name}" has already started and can't be removed — end it early by shortening the end date instead.`}
+                              >
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  isIconOnly
+                                  icon={<Trash2 className="size-3.5 text-secondary" />}
+                                  label={`Delete ${a.project_name}`}
+                                  isDisabled={startLocked}
+                                  onClick={() => setConfirmTarget(a)}
+                                />
+                              </DisabledActionTooltip>
                             </div>
                           </div>
                         );
@@ -674,19 +708,16 @@ export function ReassignWizardDialog({
                     </div>
                   </div>
 
-                  {futureAllocations.some((a) => existingErrors[a.allocation_id]) ? (
+                  {existingErrorMessages.length > 0 ? (
                     <div className="space-y-0.5">
-                      {futureAllocations.map((a) =>
-                        existingErrors[a.allocation_id] ? (
-                          <p
-                            key={a.allocation_id}
-                            role="alert"
-                            className="text-sm font-medium text-error"
-                          >
-                            {a.project_name}: {existingErrors[a.allocation_id]}
-                          </p>
-                        ) : null,
-                      )}
+                      {existingErrorMessages.map((msg) => (
+                        <p key={msg} role="alert" className="text-sm font-medium text-error">
+                          {/* FUT-847: the label tracks the draft's project, and messages are
+                              deduplicated so overlapping rows on the same project present a
+                              single unified error line instead of duplicate messages. */}
+                          {msg}
+                        </p>
+                      ))}
                     </div>
                   ) : null}
 
@@ -772,7 +803,7 @@ export function ReassignWizardDialog({
                   <Button variant="ghost" label="Back" onClick={() => setStep(1)} />
                   <Button
                     variant="primary"
-                    isDisabled={mutation.isPending}
+                    isDisabled={mutation.isPending || previewMutation.isError}
                     label={mutation.isPending ? 'Confirming…' : 'Confirm'}
                     onClick={() => mutation.mutate()}
                   />
@@ -981,11 +1012,17 @@ function TargetRowFields({
 function ReviewStep({
   preview,
   currentAllocations,
+  targetRows,
+  rowDrafts,
+  projects,
   previewMutation,
   mutation,
 }: {
   preview: ReassignGroupPreviewResult | null;
   currentAllocations: RaMonitoringAllocation[];
+  targetRows: ReassignTargetRow[];
+  rowDrafts: Record<string, RowDraft>;
+  projects: ProjectListRow[];
   previewMutation: {
     isPending: boolean;
     isError: boolean;
@@ -997,29 +1034,64 @@ function ReviewStep({
     return <p className="py-8 text-center text-sm text-secondary">Checking impact…</p>;
   }
 
+  const targetTimelineRows: TimelineRow[] = preview?.targets
+    ? preview.targets.map((t, i) => ({
+        key: `target-${i}`,
+        label: t.project_name,
+        date_from: t.date_from,
+        date_to: t.date_to,
+        planned_pct: t.planned_pct,
+      }))
+    : targetRows
+        .filter((r) => r.project_id && isValidIsoDate(r.date_from))
+        .map((r, i) => {
+          const projName =
+            projects.find((p) => p.project_id === r.project_id)?.name ?? 'New Allocation';
+          return {
+            key: `target-row-${i}`,
+            label: projName,
+            date_from: r.date_from,
+            date_to: r.date_to || null,
+            planned_pct: fractionToPct(r.planned_pct),
+            hasError: previewMutation.isError,
+          };
+        });
+
   const timelineRows: TimelineRow[] = [
-    ...currentAllocations.map((a) => ({
-      key: a.allocation_id,
-      label: a.project_name,
-      date_from: a.date_from as string,
-      date_to: a.date_to,
-      planned_pct: a.planned_pct ?? 0,
-    })),
-    ...(preview?.targets.map((t, i) => ({
-      key: `target-${i}`,
-      label: t.project_name,
-      date_from: t.date_from,
-      date_to: t.date_to,
-      planned_pct: t.planned_pct,
+    ...currentAllocations.map((a) => {
+      const draft = rowDrafts[a.allocation_id];
+      const dateFrom = draft?.date_from || (a.date_from as string);
+      const dateTo = draft?.date_to !== undefined ? draft.date_to || null : a.date_to;
+      const plannedPct =
+        draft?.planned_pct !== undefined ? fractionToPct(draft.planned_pct) : (a.planned_pct ?? 0);
+      const hasError =
+        previewMutation.isError &&
+        (previewMutation.error?.message.includes(a.project_name) ?? false);
+      return {
+        key: a.allocation_id,
+        label: a.project_name,
+        date_from: dateFrom,
+        date_to: dateTo,
+        planned_pct: plannedPct,
+        hasError,
+      };
+    }),
+    ...targetTimelineRows,
+    ...(preview?.restricted_segments?.map((r, i) => ({
+      key: `restricted-${i}`,
+      label: 'Restricted projects',
+      date_from: r.date_from,
+      date_to: r.date_to,
+      planned_pct: r.planned_pct,
+      isRestricted: true,
     })) ?? []),
   ];
 
   return (
     <div className="space-y-4">
-      {previewMutation.isError ? (
-        <Banner status="error" title={previewMutation.error?.message} />
+      {previewMutation.isError || mutation.isError ? (
+        <Banner status="error" title={previewMutation.error?.message || mutation.error?.message} />
       ) : null}
-      {mutation.isError ? <Banner status="error" title={mutation.error?.message} /> : null}
 
       {preview?.exceeds ? (
         // Over-allocation is a soft warning (you can still confirm), so it's a warning Banner —
@@ -1037,18 +1109,40 @@ function ReviewStep({
             </>
           }
           description={
-            preview.peak_from ? (
-              <>
-                They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
-                <strong>{preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}</strong>
-                {preview.peak_to
-                  ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
-                  : ''}
-                . You can still confirm below.
-              </>
-            ) : (
-              'Over 100%. You can still confirm below.'
-            )
+            <>
+              {preview.over_allocation_periods && preview.over_allocation_periods.length > 0 ? (
+                preview.over_allocation_periods.map((p, idx) => (
+                  <span
+                    key={`${p.date_from}-${p.date_to ?? 'ongoing'}`}
+                    className={idx > 0 ? 'mt-1 block' : ''}
+                  >
+                    They are over 100% from <strong>{formatDisplayDate(p.date_from)}</strong> to{' '}
+                    <strong>{p.date_to ? formatDisplayDate(p.date_to) : 'Ongoing'}</strong>
+                    {p.date_to ? ` (${daysBetweenInclusive(p.date_from, p.date_to)} days)` : ''}.
+                  </span>
+                ))
+              ) : preview.peak_from ? (
+                <>
+                  They are over 100% from <strong>{formatDisplayDate(preview.peak_from)}</strong> to{' '}
+                  <strong>
+                    {preview.peak_to ? formatDisplayDate(preview.peak_to) : 'Ongoing'}
+                  </strong>
+                  {preview.peak_to
+                    ? ` (${daysBetweenInclusive(preview.peak_from, preview.peak_to)} days)`
+                    : ''}
+                  .
+                </>
+              ) : (
+                'Over 100%.'
+              )}
+              {preview.has_restricted_allocations ? (
+                <span className="mt-1 block font-medium">
+                  Additional allocations from restricted projects are included in this calculation
+                  but are hidden due to your permissions.
+                </span>
+              ) : null}{' '}
+              You can still confirm below.
+            </>
           }
         />
       ) : null}

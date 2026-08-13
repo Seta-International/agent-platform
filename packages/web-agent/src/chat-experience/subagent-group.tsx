@@ -31,7 +31,9 @@ export function SubagentGroup({ agent, rows, open }: SubagentGroupProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 text-sm text-secondary">
-        <Avatar name={agent} size="sm" />
+        {/* The header spells the agent name out next to the avatar, so Astryx's
+            name-on-hover tooltip would only duplicate it in the a11y tree. */}
+        <Avatar name={agent} size="sm" tooltip={false} />
         <span className="font-medium text-primary">{agent}</span>
         <span aria-hidden>·</span>
         <span>{stepLabel}</span>

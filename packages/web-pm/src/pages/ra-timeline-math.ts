@@ -65,6 +65,57 @@ export function monthColumnRange(
 }
 
 /**
+ * Fractional start and end positions across the month columns for a segment's bar.
+ * Gives precise intra-month position (e.g. 01–15 Sep occupies the first half [0, 0.5]
+ * of the Sep month column, 16–30 Sep occupies the second half [0.5, 1.0]), making
+ * consecutive non-overlapping allocations in the same month visually distinct.
+ */
+export function dayFractionRange(
+  months: string[],
+  dateFrom: string,
+  dateTo: string | null,
+): { start: number; end: number } {
+  if (months.length === 0) return { start: 0, end: 0 };
+
+  const firstMonth = months[0] as string;
+
+  let start: number;
+  const fromKey = monthKey(dateFrom);
+  const fromIdx = months.indexOf(fromKey);
+  if (fromIdx !== -1) {
+    const day = Number(dateFrom.slice(8, 10));
+    const [y, m] = fromKey.split('-').map(Number);
+    // biome-ignore lint/style/noNonNullAssertion: fromKey is YYYY-MM
+    const daysInMonth = new Date(Date.UTC(y!, m!, 0)).getUTCDate();
+    start = fromIdx + (day - 1) / daysInMonth;
+  } else {
+    start = dateFrom < firstMonth ? 0 : months.length;
+  }
+
+  let end: number;
+  if (!dateTo) {
+    end = months.length;
+  } else {
+    const toKey = monthKey(dateTo);
+    const toIdx = months.indexOf(toKey);
+    if (toIdx !== -1) {
+      const day = Number(dateTo.slice(8, 10));
+      const [y, m] = toKey.split('-').map(Number);
+      // biome-ignore lint/style/noNonNullAssertion: toKey is YYYY-MM
+      const daysInMonth = new Date(Date.UTC(y!, m!, 0)).getUTCDate();
+      end = toIdx + day / daysInMonth;
+    } else {
+      end = dateTo < firstMonth ? 0 : months.length;
+    }
+  }
+
+  start = Math.max(0, Math.min(months.length, start));
+  end = Math.max(start, Math.min(months.length, end));
+
+  return { start, end };
+}
+
+/**
  * Today's fractional position across the month columns (e.g. `5.4` for
  * ~40% through the 6th column), for the vertical "Today" marker. Clamped to
  * the chart's own range.
@@ -80,22 +131,33 @@ export function todayFraction(months: string[], todayIso: string): number {
 }
 
 /**
- * Total planned_pct per month, counting any segment that overlaps the month
- * at all (not a true daily peak — a lightweight per-month approximation
- * appropriate for an at-a-glance chart, not the authoritative over-allocation
- * check the backend already performs).
+ * Peak planned_pct per month, calculated as the maximum daily total allocation
+ * across all days in that month (FUT-851).
+ *
+ * For consecutive non-overlapping allocations within the same month (e.g. 01–15 Sep @ 100%
+ * and 16–30 Sep @ 100%), the daily total on every day is 100%, so the month peak is 100%
+ * rather than summing all month-overlapping records to 200%.
  */
 export function monthlyTotals(segments: TimelineSegment[], months: string[]): number[] {
   return months.map((month) => {
-    const monthStart = `${month}-01`;
     const [y, m] = month.split('-').map(Number);
-    // Date.UTC in, toISOString out — both UTC, so this can't drift a day
-    // depending on the machine's local timezone (unlike `new Date(y, m, 0)`).
+    // Date.UTC with month m (1-indexed) and day 0 gives the last day of month m.
     // biome-ignore lint/style/noNonNullAssertion: month is always 'YYYY-MM'
-    const monthEnd = new Date(Date.UTC(y!, m!, 0)).toISOString().slice(0, 10);
-    return segments
-      .filter((s) => s.date_from <= monthEnd && (s.date_to === null || s.date_to >= monthStart))
-      .reduce((sum, s) => sum + s.planned_pct, 0);
+    const daysInMonth = new Date(Date.UTC(y!, m!, 0)).getUTCDate();
+    let maxDailySum = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayIso = `${month}-${String(day).padStart(2, '0')}`;
+      const dailySum = segments
+        .filter((s) => s.date_from <= dayIso && (s.date_to === null || s.date_to >= dayIso))
+        .reduce((sum, s) => sum + s.planned_pct, 0);
+
+      if (dailySum > maxDailySum) {
+        maxDailySum = dailySum;
+      }
+    }
+
+    return maxDailySum;
   });
 }
 

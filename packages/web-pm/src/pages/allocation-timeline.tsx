@@ -1,8 +1,9 @@
+import { Lock } from 'lucide-react';
 import { useMemo } from 'react';
 import { formatDisplayDate } from './ra-shared.tsx';
 import {
   buildMonthColumns,
-  monthColumnRange,
+  dayFractionRange,
   monthLabel,
   monthlyTotals,
   type TimelineSegment,
@@ -12,6 +13,8 @@ import {
 export interface TimelineRow extends TimelineSegment {
   key: string;
   label: string;
+  isRestricted?: boolean;
+  hasError?: boolean;
 }
 
 const LABEL_WIDTH = 224;
@@ -90,9 +93,18 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
           ))}
 
           {rows.map((row, rowIndex) => {
-            const { start, end } = monthColumnRange(months, row.date_from, row.date_to);
-            const dot = ROW_DOT_CLASSES[rowIndex % ROW_DOT_CLASSES.length];
-            const bar = ROW_BAR_CLASSES[rowIndex % ROW_BAR_CLASSES.length];
+            const { start, end } = dayFractionRange(months, row.date_from, row.date_to);
+            const isRestricted = row.isRestricted;
+            const dot = row.hasError
+              ? 'bg-error'
+              : isRestricted
+                ? 'bg-amber-vivid'
+                : ROW_DOT_CLASSES[rowIndex % ROW_DOT_CLASSES.length];
+            const bar = row.hasError
+              ? 'bg-error-muted text-error font-semibold'
+              : isRestricted
+                ? 'bg-amber-subtle text-amber-vivid border border-dashed border-amber-strong'
+                : ROW_BAR_CLASSES[rowIndex % ROW_BAR_CLASSES.length];
             return (
               <div className="contents" key={row.key}>
                 <div
@@ -100,8 +112,22 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
                   style={{ gridColumn: 1, gridRow: rowIndex + 2 }}
                   title={row.label}
                 >
-                  <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
-                  <span className="truncate text-primary">{row.label}</span>
+                  {isRestricted ? (
+                    <Lock className="size-3.5 shrink-0 text-amber-600" aria-label="Restricted" />
+                  ) : (
+                    <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+                  )}
+                  <span
+                    className={`truncate ${
+                      row.hasError
+                        ? 'font-medium text-error'
+                        : isRestricted
+                          ? 'font-medium text-secondary italic'
+                          : 'text-primary'
+                    }`}
+                  >
+                    {row.label}
+                  </span>
                 </div>
                 <div
                   className="whitespace-nowrap border-b border-l border-border px-2 py-2 font-mono text-secondary"

@@ -2,7 +2,14 @@ import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { UpsertKpiRecordInput as UpsertKpiRecordInputContract } from '../../contracts.ts';
+import {
+  computeRecordCategoryColour,
+  computeRecordOverallColour,
+  incompleteRecordMetrics,
+  type KpiRecordColour,
+  type UpsertKpiRecordInput as UpsertKpiRecordInputContract,
+  validateKpiEntry,
+} from '../../contracts.ts';
 import { PM_KPI_RECORD_SAVED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import {
@@ -18,12 +25,13 @@ import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
   computeCategoryHealth,
   computeEntryStatus,
-  computeMetricValue,
   computeOverallHealth,
+  computeScoredValue,
+  kpiValuePrecision,
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
-import { buildProjectManageFlag, buildProjectScope } from './scope.ts';
+import { buildProjectManageFlag, buildProjectReadFlag, buildProjectScope } from './scope.ts';
 import { assertWeekEditable, assignedProjectIdsAsOf } from './weekly-reports.ts';
 
 type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
@@ -38,20 +46,33 @@ interface AppliedMetricDef {
   component_count: 1 | 2;
   component_1_label: string;
   component_2_label: string | null;
+  component_1_integer: boolean;
+  component_2_integer: boolean;
+  component_1_min: number | null;
+  component_1_max: number | null;
+  is_share: boolean;
   green_band: BandCondition;
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
 }
 
+function precisionOf(def: AppliedMetricDef): number {
+  return kpiValuePrecision(def.green_band, def.yellow_band, def.red_band);
+}
+
 function statusOf(def: AppliedMetricDef, value: number | null): RagStatus | null {
   return computeEntryStatus(value, def.green_band, def.yellow_band, def.red_band);
+}
+
+function bandFor(def: AppliedMetricDef, status: RagStatus): BandCondition {
+  return status === 'green' ? def.green_band : status === 'yellow' ? def.yellow_band : def.red_band;
 }
 
 function categoryHealths(
   defsById: Map<string, AppliedMetricDef>,
   entries: { metric_id: string; status: RagStatus | null }[],
-): Record<KpiCategory, RagStatus> {
+): Record<KpiCategory, RagStatus | null> {
   const byCategory: Record<KpiCategory, RagStatus[]> = {
     quality: [],
     cost_capacity: [],
@@ -72,9 +93,58 @@ function categoryHealths(
   };
 }
 
+function categoryColours(
+  defs: readonly { metric_id: string; category: KpiCategory }[],
+  statusOf: (metric_id: string) => RagStatus | null,
+): Record<KpiCategory, KpiRecordColour | null> {
+  const byCategory: Record<KpiCategory, (RagStatus | null)[]> = {
+    quality: [],
+    cost_capacity: [],
+    delivery: [],
+    process: [],
+  };
+  for (const def of defs) byCategory[def.category].push(statusOf(def.metric_id));
+  return {
+    quality: computeRecordCategoryColour(byCategory.quality),
+    cost_capacity: computeRecordCategoryColour(byCategory.cost_capacity),
+    delivery: computeRecordCategoryColour(byCategory.delivery),
+    process: computeRecordCategoryColour(byCategory.process),
+  };
+}
+
+const INCOMPLETE_NAMES_SHOWN = 5;
+
+function assertNoUnassessedMetric(
+  defs: readonly { metric_id: string; name: string }[],
+  statusOf: (metric_id: string) => RagStatus | null,
+): void {
+  if (defs.length === 0) {
+    throw new PmError('VALIDATION', 'No KPI metric is applied to this project yet');
+  }
+  const missing = incompleteRecordMetrics(defs, (d) => statusOf(d.metric_id));
+  if (missing.length === 0) return;
+  const shown = missing.slice(0, INCOMPLETE_NAMES_SHOWN).join(', ');
+  const rest = missing.length - INCOMPLETE_NAMES_SHOWN;
+  throw new PmError(
+    'VALIDATION',
+    `Every applied metric needs its figures before saving — still missing: ${shown}${
+      rest > 0 ? ` (+${rest} more)` : ''
+    }`,
+  );
+}
+
 export interface KpiExplorerMetricCell {
   value: number | null;
   status: RagStatus | null;
+  band: BandCondition | null;
+}
+
+export interface KpiExplorerMetricDef {
+  metric_id: string;
+  category: KpiCategory;
+  name: string;
+  component_count: 1 | 2;
+  green_band: BandCondition;
 }
 
 export interface KpiExplorerRow {
@@ -85,11 +155,8 @@ export interface KpiExplorerRow {
   record_id: string | null;
   iso_year: number;
   iso_week: number;
-  overall_health: RagStatus;
-  category_health: Record<KpiCategory, RagStatus>;
-  /** Per applied-metric cell (value + status), keyed by metric_id — one column per applied
-   * metric in KPI Explorer (functional-analysis.md §2a: metric columns grouped under a category
-   * header, not just the category rollup). */
+  overall_health: RagStatus | null;
+  category_health: Record<KpiCategory, RagStatus | null>;
   metrics: Record<string, KpiExplorerMetricCell>;
   can_manage: boolean;
 }
@@ -100,6 +167,7 @@ export interface KpiExplorerResult {
    * per-project, different projects can have different applied sets; the frontend builds one
    * shared column list from this rather than assuming a single tenant-wide set. */
   applied_metric_ids: string[];
+  metrics: KpiExplorerMetricDef[];
 }
 
 export async function listKpiExplorer(input: {
@@ -119,10 +187,6 @@ export async function listKpiExplorer(input: {
   ];
   if (input.project_id) conds.push(eq(project.id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
-  // FUT-590 AC1, same rule as the weekly list: a scoped viewer sees the week's Explorer
-  // evaluated AS OF that week (reporter_assignment projection), not their current roster —
-  // so live scope is deliberately not pushed into the SQL. Tenant-wide readers (BoD/admin)
-  // keep the organization-wide table.
   const scope = buildProjectScope(session);
 
   let projectRows = await pmDb()
@@ -132,6 +196,7 @@ export async function listKpiExplorer(input: {
       account_id: project.account_id,
       account_name: account.name,
       can_manage: buildProjectManageFlag(session),
+      live_readable: buildProjectReadFlag(session),
     })
     .from(project)
     .innerJoin(account, eq(account.id, project.account_id))
@@ -144,9 +209,9 @@ export async function listKpiExplorer(input: {
       iso_week,
       session,
     );
-    projectRows = projectRows.filter((p) => assigned.has(p.project_id));
+    projectRows = projectRows.filter((p) => p.live_readable || assigned.has(p.project_id));
   }
-  if (projectRows.length === 0) return { rows: [], applied_metric_ids: [] };
+  if (projectRows.length === 0) return { rows: [], applied_metric_ids: [], metrics: [] };
 
   const projectIds = projectRows.map((p) => p.project_id);
   // FUT-593: the Explorer measures each week against that week's frozen baseline — union
@@ -162,7 +227,6 @@ export async function listKpiExplorer(input: {
       defs.push(d);
     }
   }
-  const defsById = new Map(defs.map((d) => [d.metric_id, d]));
 
   const recordRows = await pmDb()
     .select({
@@ -214,13 +278,22 @@ export async function listKpiExplorer(input: {
   const rows = projectRows.map((p) => {
     const record_id = recordByProject.get(p.project_id) ?? null;
     const entries = record_id ? (entriesByRecord.get(record_id) ?? []) : [];
-    const category_health = categoryHealths(defsById, entries);
+    const projectDefs = defsByKey.get(baselineKey(p.project_id, { iso_year, iso_week })) ?? [];
+    const category_health = categoryHealths(
+      new Map(projectDefs.map((d) => [d.metric_id, d])),
+      entries,
+    );
     const overall_health = computeOverallHealth(CATEGORIES.map((c) => category_health[c]));
     const entryByMetric = new Map(entries.map((e) => [e.metric_id, e]));
     const metrics: Record<string, KpiExplorerMetricCell> = {};
-    for (const def of defs) {
+    for (const def of projectDefs) {
       const e = entryByMetric.get(def.metric_id);
-      metrics[def.metric_id] = { value: e?.computed_value ?? null, status: e?.status ?? null };
+      const status = e?.status ?? null;
+      metrics[def.metric_id] = {
+        value: e?.computed_value ?? null,
+        status,
+        band: status === null ? null : bandFor(def, status),
+      };
     }
     return {
       project_id: p.project_id,
@@ -236,7 +309,17 @@ export async function listKpiExplorer(input: {
       can_manage: p.can_manage,
     };
   });
-  return { rows, applied_metric_ids: defs.map((d) => d.metric_id) };
+  return {
+    rows,
+    applied_metric_ids: defs.map((d) => d.metric_id),
+    metrics: defs.map((d) => ({
+      metric_id: d.metric_id,
+      category: d.category,
+      name: d.name,
+      component_count: d.component_count,
+      green_band: d.green_band,
+    })),
+  };
 }
 
 export interface KpiRecordMetricRow extends AppliedMetricDef {
@@ -253,8 +336,8 @@ export interface KpiRecordDetail {
   iso_week: number;
   version: number | null;
   metrics: KpiRecordMetricRow[];
-  category_health: Record<KpiCategory, RagStatus>;
-  overall_health: RagStatus;
+  category_health: Record<KpiCategory, KpiRecordColour | null>;
+  overall_health: KpiRecordColour | null;
 }
 
 export async function getKpiRecord(input: {
@@ -337,11 +420,9 @@ export async function getKpiRecord(input: {
     };
   });
 
-  const category_health = categoryHealths(
-    new Map(defs.map((d) => [d.metric_id, d])),
-    metrics.map((m) => ({ metric_id: m.metric_id, status: m.status })),
-  );
-  const overall_health = computeOverallHealth(CATEGORIES.map((c) => category_health[c]));
+  const statusByMetric = new Map(metrics.map((m) => [m.metric_id, m.status]));
+  const category_health = categoryColours(defs, (id) => statusByMetric.get(id) ?? null);
+  const overall_health = computeRecordOverallColour(CATEGORIES.map((c) => category_health[c]));
 
   return {
     record_id: rec?.id ?? null,
@@ -357,7 +438,7 @@ export async function getKpiRecord(input: {
 
 export async function upsertKpiRecord(
   input: UpsertKpiRecordInputContract & { session: SessionScope },
-): Promise<{ record_id: string; version: number; overall_health: RagStatus }> {
+): Promise<{ record_id: string; version: number; overall_health: RagStatus | null }> {
   const { project_id, iso_year, iso_week, expected_version, entries, session } = input;
   await assertProjectManageable(project_id, session);
   if (iso_week < 1 || iso_week > 53) {
@@ -373,6 +454,17 @@ export async function upsertKpiRecord(
     ) ?? [];
   const defsById = new Map(defs.map((d) => [d.metric_id, d]));
 
+  for (const e of entries) {
+    const def = defsById.get(e.metric_id);
+    if (!def) continue;
+    const issues = validateKpiEntry(def, e.component_1_value, e.component_2_value);
+    const failure = issues.component_1 ?? issues.component_2;
+    if (failure) {
+      const box = issues.component_1 ? def.component_1_label : (def.component_2_label ?? '');
+      throw new PmError('VALIDATION', `${def.name} — ${box}: ${failure}`);
+    }
+  }
+
   // Keep only entries for currently-applied metrics with at least component_1 filled — a
   // metric with nothing typed in isn't "attempted", so it isn't persisted at all.
   const attempted = entries.filter(
@@ -380,10 +472,11 @@ export async function upsertKpiRecord(
   );
   const computed = attempted.map((e) => {
     const def = defsById.get(e.metric_id)!;
-    const computed_value = computeMetricValue(
+    const computed_value = computeScoredValue(
       def.component_count,
       e.component_1_value,
       e.component_2_value,
+      precisionOf(def),
     );
     return {
       ...e,
@@ -391,12 +484,10 @@ export async function upsertKpiRecord(
       status: statusOf(def, computed_value),
     };
   });
-  const completeCount = computed.filter((e) => e.status !== null).length;
-  if (completeCount === 0) {
-    throw new PmError('VALIDATION', 'Enter at least one metric');
-  }
+  const statusByMetric = new Map(computed.map((e) => [e.metric_id, e.status]));
+  assertNoUnassessedMetric(defs, (id) => statusByMetric.get(id) ?? null);
 
-  let result!: { record_id: string; version: number; overall_health: RagStatus };
+  let result!: { record_id: string; version: number; overall_health: RagStatus | null };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
@@ -413,10 +504,17 @@ export async function upsertKpiRecord(
         )
         .limit(1);
 
-      if (existing && expected_version !== undefined && existing.version !== expected_version) {
-        throw new PmError('CONFLICT', 'record was modified by someone else', {
-          current_version: existing.version,
-        });
+      if (existing && expected_version !== undefined) {
+        if (expected_version === null) {
+          throw new PmError('CONFLICT', 'another reporter created this record first', {
+            current_version: existing.version,
+          });
+        }
+        if (existing.version !== expected_version) {
+          throw new PmError('CONFLICT', 'record was modified by someone else', {
+            current_version: existing.version,
+          });
+        }
       }
 
       let record_id: string;

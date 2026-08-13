@@ -1,5 +1,4 @@
 import {
-  Badge,
   BreadcrumbItem,
   Breadcrumbs,
   Button,
@@ -12,6 +11,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  Pagination,
   Selector,
   Skeleton,
   StatusDot,
@@ -20,15 +20,22 @@ import {
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import {
-  fetchAccounts,
-  fetchProjects,
-  fetchWeeklyReports,
-  type ReportColour,
-} from '../api/pm-client.ts';
+import { useMemo, useRef, useState } from 'react';
+import { fetchAccounts, fetchProjects, fetchWeeklyReports } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import { formatMetricValue, KPI_CATEGORIES, KPI_CATEGORY_LABELS } from './kpi-shared.tsx';
+import {
+  COLOUR_LABEL,
+  COLOUR_VARIANT,
+  type ColourKey,
+  colourBadge,
+  colourKey,
+  formatBand,
+  formatMetricValue,
+  KPI_CATEGORIES,
+  KPI_CATEGORY_LABELS,
+  markStyle,
+} from './kpi-shared.tsx';
+import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 import { usePmContext } from './use-pm-context.ts';
 import { WeeklyReportDetailDialog } from './weekly-report-detail-dialog.tsx';
 
@@ -37,28 +44,17 @@ export interface WeeklyReportsSearch {
   project?: string;
   iso_year?: number;
   iso_week?: number;
+  detail?: string;
 }
 
-// RAG colour → Astryx status variant (shared by StatusDot and Badge; chromatic = status only).
-const COLOUR_VARIANT: Record<ReportColour, 'success' | 'warning' | 'error' | 'neutral'> = {
-  green: 'success',
-  yellow: 'warning',
-  red: 'error',
-  gray: 'neutral',
-};
-// RAG wording: the stored value stays 'yellow' (API contract), the user reads "Amber".
-const COLOUR_LABEL: Record<ReportColour, string> = {
-  green: 'Green',
-  yellow: 'Amber',
-  red: 'Red',
-  gray: 'No data',
-};
 // Colour budget: status colour appears only as small marks (dots, one verdict badge per card).
 // Large chromatic surfaces made the board shout — Green is the norm and must stay quiet.
 
 // The portfolio-health strip: one tile per outcome, always Green/Amber/Red; "No data" only
 // when a project has no measured entries this week (so it never adds noise on a full board).
-const SUMMARY_ORDER: ReportColour[] = ['green', 'yellow', 'red', 'gray'];
+const SUMMARY_ORDER: ColourKey[] = ['green', 'yellow', 'red', 'gray', 'none'];
+
+const PAGE_SIZE = 12;
 
 export function WeeklyReportsPage() {
   const { search, setSearch, weeks, iso_year, iso_week } = usePmContext('/pm/weekly');
@@ -83,10 +79,9 @@ export function WeeklyReportsPage() {
 
   // id null = the composer was opened without an explicit project context — the dialog
   // prompts for one instead of silently defaulting (FUT-589 AC1).
-  const [detailProject, setDetailProject] = useState<{
-    id: string | null;
-    compose: boolean;
-  } | null>(null);
+  const [composeProject, setComposeProject] = useState<{ id: string | null } | null>(null);
+  const detailParam = typeof search.detail === 'string' ? search.detail : undefined;
+  const openProject = composeProject ?? (detailParam ? { id: detailParam } : null);
 
   const weekOptions = useMemo(
     () => weeks.map((w) => ({ value: `${w.iso_year}-${w.iso_week}`, label: w.label })),
@@ -115,7 +110,7 @@ export function WeeklyReportsPage() {
   const manageableOptions = useMemo(
     () =>
       (projectsQuery.data ?? [])
-        .filter((p) => p.can_manage)
+        .filter((p) => p.can_report)
         .map((p) => ({ value: p.project_id, label: p.name })),
     [projectsQuery.data],
   );
@@ -128,27 +123,54 @@ export function WeeklyReportsPage() {
   const isPastWeek =
     currentWeek !== undefined &&
     (currentWeek.iso_year !== iso_year || currentWeek.iso_week !== iso_week);
-  const composeDisabled = cannotReport || isPastWeek;
-  const composeDisabledReason = cannotReport
-    ? 'You do not manage any project, so there is nothing to report on.'
-    : 'Weekly reports can only be created for the current week.';
-
   const cards = listQuery.data ?? [];
+
+  const filteredCard = search.project
+    ? cards.find((c) => c.project_id === search.project)
+    : undefined;
+  const viewProjectId = filteredCard?.reported_by_me ? filteredCard.project_id : null;
+  const composeDisabled =
+    viewProjectId === null && (WEEKLY_REPORT_COMPOSER_COMING_SOON || cannotReport || isPastWeek);
+  const composeDisabledReason = WEEKLY_REPORT_COMPOSER_COMING_SOON
+    ? COMING_SOON_REASON
+    : cannotReport
+      ? 'Only a project’s EM or PMO can write its weekly report, and you are neither on any project.'
+      : 'Weekly reports can only be created for the current week.';
 
   // Portfolio rollup for the strip: how many projects sit at each overall colour this week.
   const summary = useMemo(() => {
-    const c: Record<ReportColour, number> = { green: 0, yellow: 0, red: 0, gray: 0 };
-    for (const card of cards) c[card.overall_colour] += 1;
+    const c: Record<ColourKey, number> = { green: 0, yellow: 0, red: 0, gray: 0, none: 0 };
+    for (const card of cards) c[colourKey(card.overall_colour)] += 1;
     return c;
   }, [cards]);
-  const summaryTiles = SUMMARY_ORDER.filter((k) => k !== 'gray' || summary.gray > 0);
+  const summaryTiles = SUMMARY_ORDER.filter(
+    (k) => (k !== 'gray' && k !== 'none') || summary[k] > 0,
+  );
+
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageCards = useMemo(
+    () => cards.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [cards, currentPage],
+  );
+  const boardRef = useRef<HTMLDivElement>(null);
+  const goToPage = (next: number) => {
+    setPage(next);
+    boardRef.current?.scrollIntoView?.({ block: 'start' });
+  };
 
   const openComposer = () => {
     // Straight into the composer — the filtered project when manageable, else the first
     // manageable one; the PROJECT dropdown at the top of the form keeps the context explicit.
     const preset =
       manageableOptions.find((o) => o.value === search.project) ?? manageableOptions[0];
-    if (preset) setDetailProject({ id: preset.value, compose: true });
+    if (preset) setComposeProject({ id: preset.value });
+  };
+
+  const closeDetail = () => {
+    setComposeProject(null);
+    if (detailParam) setSearch({ detail: undefined });
   };
 
   return (
@@ -169,10 +191,12 @@ export function WeeklyReportsPage() {
                 <DisabledActionTooltip disabled={composeDisabled} reason={composeDisabledReason}>
                   <Button
                     variant="primary"
-                    label="New weekly report"
-                    icon={<Plus className="size-4" />}
+                    label={viewProjectId ? 'View weekly report' : 'New weekly report'}
+                    icon={viewProjectId ? undefined : <Plus className="size-4" />}
                     isDisabled={composeDisabled}
-                    onClick={openComposer}
+                    onClick={
+                      viewProjectId ? () => setSearch({ detail: viewProjectId }) : openComposer
+                    }
                   />
                 </DisabledActionTooltip>
               </HStack>
@@ -190,7 +214,9 @@ export function WeeklyReportsPage() {
                 value={`${iso_year}-${iso_week}`}
                 onChange={(v) => {
                   const [y, w] = v.split('-').map(Number);
-                  if (y !== undefined && w !== undefined) setSearch({ iso_year: y, iso_week: w });
+                  if (y === undefined || w === undefined) return;
+                  setPage(1);
+                  setSearch({ iso_year: y, iso_week: w });
                 }}
               />
               <Selector
@@ -200,7 +226,10 @@ export function WeeklyReportsPage() {
                 width={208}
                 options={accountOptions}
                 value={search.account ?? ''}
-                onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
+                onChange={(v) => {
+                  setPage(1);
+                  setSearch({ account: v || undefined, project: undefined });
+                }}
               />
               <Selector
                 label="Project"
@@ -209,7 +238,10 @@ export function WeeklyReportsPage() {
                 width={208}
                 options={projectOptions}
                 value={search.project ?? ''}
-                onChange={(v) => setSearch({ project: v || undefined })}
+                onChange={(v) => {
+                  setPage(1);
+                  setSearch({ project: v || undefined });
+                }}
               />
             </div>
           </VStack>
@@ -217,7 +249,7 @@ export function WeeklyReportsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="space-y-4 p-6">
+          <div ref={boardRef} className="space-y-4 p-6">
             {/* Portfolio health at a glance for the selected week — the number a PMO/BoD wants
                 first, before scanning individual cards. */}
             {!listQuery.isLoading && cards.length > 0 ? (
@@ -226,7 +258,11 @@ export function WeeklyReportsPage() {
                   <Card key={key} padding={3} className="min-w-[128px] flex-1">
                     <span className="block text-3xl font-bold text-primary">{summary[key]}</span>
                     <span className="flex items-center gap-1.5">
-                      <StatusDot variant={COLOUR_VARIANT[key]} label={COLOUR_LABEL[key]} />
+                      <StatusDot
+                        variant={COLOUR_VARIANT[key]}
+                        label={COLOUR_LABEL[key]}
+                        style={markStyle(key)}
+                      />
                       <Text type="supporting" color="secondary">
                         {COLOUR_LABEL[key]}
                       </Text>
@@ -249,130 +285,159 @@ export function WeeklyReportsPage() {
             ) : cards.length === 0 ? (
               <EmptyState title="No projects for this week" />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {cards.map((card) => {
-                  const overall = card.overall_colour;
-                  // Delivery pulse as label/value pairs: staffing first, then the week's
-                  // headline metrics, formatted the same way their norm bands are.
-                  const pulse = [
-                    ...(card.team_size != null
-                      ? [{ label: 'Staffed', value: `${card.staffed}/${card.team_size}` }]
-                      : []),
-                    ...card.headline_metrics.map((m) => ({
-                      label: m.label,
-                      value: formatMetricValue(m.computed_value, m.name, m.component_count),
-                    })),
-                  ];
-                  return (
-                    <ClickableCard
-                      key={card.project_id}
-                      label={`Open weekly report for ${card.project_name}`}
-                      onClick={() => setDetailProject({ id: card.project_id, compose: false })}
-                      padding={4}
-                      className="flex h-full flex-col gap-3"
-                    >
-                      {/* Identity (account only) + the overall verdict as a RAG badge. */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <Heading level={3} maxLines={1}>
-                            {card.project_name}
-                          </Heading>
-                          <Text type="supporting" color="secondary" maxLines={1} display="block">
-                            {card.account_name}
-                          </Text>
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {pageCards.map((card) => {
+                    const overall = card.overall_colour;
+                    const { worst, measured_count, applied_count, red_count, yellow_count } =
+                      card.stats;
+                    const coverage =
+                      measured_count > 0
+                        ? `${measured_count}/${applied_count} metrics`
+                        : card.team_size != null
+                          ? `Staffed ${card.staffed}/${card.team_size}`
+                          : null;
+                    const reportsPart =
+                      card.report_count > 0
+                        ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
+                        : 'No reports';
+                    return (
+                      <ClickableCard
+                        key={card.project_id}
+                        label={`Open weekly report for ${card.project_name}`}
+                        onClick={() => setSearch({ detail: card.project_id })}
+                        padding={4}
+                        className="flex h-full flex-col gap-3"
+                      >
+                        {/* Identity (account only) + the overall verdict as a RAG badge. */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <Heading level={3} maxLines={1}>
+                              {card.project_name}
+                            </Heading>
+                            <Text type="supporting" color="secondary" maxLines={1} display="block">
+                              {card.account_name}
+                            </Text>
+                          </div>
+                          <span className="shrink-0">{colourBadge(overall)}</span>
                         </div>
-                        <span className="shrink-0">
-                          <Badge variant={COLOUR_VARIANT[overall]} label={COLOUR_LABEL[overall]} />
-                        </span>
-                      </div>
 
-                      {/* QCDP pillars — full names with a small status dot each; colour stays a
+                        {/* QCDP pillars — full names with a small status dot each; colour stays a
                           mark, not a surface. An off-norm pillar weights its name. */}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        {KPI_CATEGORIES.map((cat) => {
-                          const colour = card.category_colours[cat];
-                          const name =
-                            KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
-                          const off = colour !== 'green' && colour !== 'gray';
-                          return (
-                            <span
-                              key={cat}
-                              className="flex items-center gap-1.5"
-                              title={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[colour]}`}
-                            >
-                              <StatusDot
-                                variant={COLOUR_VARIANT[colour]}
-                                label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[colour]}`}
-                              />
-                              <Text
-                                type="supporting"
-                                color={off ? 'primary' : 'secondary'}
-                                weight={off ? 'semibold' : 'normal'}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                          {KPI_CATEGORIES.map((cat) => {
+                            const colour = card.category_colours[cat];
+                            const key = colourKey(colour);
+                            const name =
+                              KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
+                            const off = colour !== null && colour !== 'green' && colour !== 'gray';
+                            return (
+                              <span
+                                key={cat}
+                                className="flex items-center gap-1.5"
+                                title={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
                               >
-                                {name}
-                              </Text>
-                            </span>
-                          );
-                        })}
-                      </div>
-
-                      {/* Delivery pulse — staffing + the week's util / predictability / CSS as
-                          small label-over-value stat cards; replaces the executive summary. */}
-                      {pulse.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {/* Muted tiles: no border inside the bordered ClickableCard, so the
-                              stats read as one quiet band rather than four nested boxes. */}
-                          {pulse.map((m) => (
-                            <div key={m.label} title={m.label}>
-                              <Card variant="muted" padding={2} height="100%">
+                                <StatusDot
+                                  variant={COLOUR_VARIANT[key]}
+                                  label={`${KPI_CATEGORY_LABELS[cat]}: ${COLOUR_LABEL[key]}`}
+                                  style={markStyle(key)}
+                                />
                                 <Text
                                   type="supporting"
-                                  color="secondary"
-                                  display="block"
-                                  maxLines={1}
-                                  className="capitalize"
+                                  color={off ? 'primary' : 'secondary'}
+                                  weight={off ? 'medium' : 'normal'}
                                 >
-                                  {m.label}
+                                  {name}
                                 </Text>
-                                <Text type="label" weight="semibold" display="block">
-                                  {m.value}
-                                </Text>
-                              </Card>
-                            </div>
-                          ))}
+                              </span>
+                            );
+                          })}
                         </div>
-                      ) : null}
 
-                      {/* Footer — the report count, or the invitation to write one. */}
-                      <div className="mt-auto flex items-center justify-end pt-3">
-                        <Text type="supporting" color="secondary">
-                          {card.report_count > 0
-                            ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
-                            : card.can_manage && !isPastWeek
-                              ? 'No report yet — click to write one'
-                              : 'No report yet'}
-                        </Text>
-                      </div>
-                    </ClickableCard>
-                  );
-                })}
-              </div>
+                        {worst ? (
+                          <div className="flex gap-2.5">
+                            <span
+                              aria-hidden
+                              className="w-[3px] shrink-0 rounded-full"
+                              style={markStyle(worst.status)}
+                            />
+                            <div className="min-w-0">
+                              <span className="flex min-w-0 items-baseline gap-1.5">
+                                {worst.computed_value === null ? null : (
+                                  <Text size="lg" weight="bold">
+                                    {formatMetricValue(
+                                      worst.computed_value,
+                                      worst.name,
+                                      worst.component_count,
+                                    )}
+                                  </Text>
+                                )}
+                                <Text
+                                  type="label"
+                                  weight="semibold"
+                                  maxLines={1}
+                                  className="min-w-0"
+                                >
+                                  {worst.name}
+                                </Text>
+                              </span>
+                              <Text type="supporting" color="secondary" display="block">
+                                {`norm ${formatBand(worst.name, worst.component_count, worst.green_band)}`}
+                              </Text>
+                            </div>
+                          </div>
+                        ) : (
+                          <Text type="supporting" color="secondary" display="block">
+                            {measured_count > 0 ? 'All on norm' : 'No figures this week'}
+                          </Text>
+                        )}
+
+                        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+                          <span className="min-w-0">
+                            {worst ? (
+                              <Text type="supporting" color="secondary" maxLines={1}>
+                                {`${red_count} red · ${yellow_count} amber`}
+                              </Text>
+                            ) : null}
+                          </span>
+                          <span className="shrink-0">
+                            <Text type="supporting" color="secondary">
+                              {coverage ? `${coverage} · ${reportsPart}` : reportsPart}
+                            </Text>
+                          </span>
+                        </div>
+                      </ClickableCard>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-center">
+                  <Pagination
+                    page={currentPage}
+                    onChange={goToPage}
+                    totalItems={cards.length}
+                    pageSize={PAGE_SIZE}
+                    variant="compact"
+                    size="sm"
+                    label="Weekly report pages"
+                  />
+                </div>
+              </>
             )}
           </div>
 
-          {detailProject ? (
+          {openProject ? (
             <WeeklyReportDetailDialog
               // Keyed by project so switching in the composer's PROJECT dropdown remounts the
               // dialog with fresh form state prefilled from the new project.
-              key={detailProject.id ?? 'pick-project'}
-              project_id={detailProject.id}
-              startInCompose={detailProject.compose}
+              key={openProject.id ?? 'pick-project'}
+              project_id={openProject.id}
+              startInCompose={composeProject !== null}
               iso_year={iso_year}
               iso_week={iso_week}
-              projectOptions={detailProject.compose ? manageableOptions : undefined}
-              onProjectChange={(id) => setDetailProject({ id, compose: true })}
+              projectOptions={composeProject !== null ? manageableOptions : undefined}
+              onProjectChange={(id) => setComposeProject({ id })}
               onOpenChange={(open) => {
-                if (!open) setDetailProject(null);
+                if (!open) closeDetail();
               }}
             />
           ) : null}

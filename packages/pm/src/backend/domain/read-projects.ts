@@ -4,7 +4,7 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
-import { buildProjectManageFlag, buildProjectScope } from './scope.ts';
+import { buildProjectManageFlag, buildProjectReporterFlag, buildProjectScope } from './scope.ts';
 
 export interface ProjectListRow {
   project_id: string;
@@ -17,6 +17,7 @@ export interface ProjectListRow {
   // Whether the requesting session may manage this project — drives the RA Monitoring
   // "Add allocation" project picker and Add button (FUT-353). Read scope is wider than manage.
   can_manage: boolean;
+  can_report: boolean;
 }
 
 export async function listProjects(session: SessionScope): Promise<ProjectListRow[]> {
@@ -38,6 +39,7 @@ export async function listProjects(session: SessionScope): Promise<ProjectListRo
       pm_worker_id: project.pm_person_id,
       org_unit_id: project.org_unit_id,
       can_manage: buildProjectManageFlag(session),
+      can_report: buildProjectReporterFlag(session),
     })
     .from(project)
     .where(and(...conds))

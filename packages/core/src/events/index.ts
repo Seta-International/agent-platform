@@ -7,5 +7,12 @@ export type {
   SubscriberDef,
 } from '@seta/shared-types';
 export { type EmitCtx, emitContext } from './context.ts';
-export { EmitContextRequired, emit } from './emit.ts';
-export { withEmit } from './with-emit.ts';
+export { EmitContextRequired, emit, emitBatch } from './emit.ts';
+export { CrossTenantEmitContext, withEmit } from './with-emit.ts';
+export {
+  type GatedMutationOpts,
+  type GatedMutationResult,
+  type MutationKind,
+  type MutationSession,
+  withGatedMutation,
+} from './with-gated-mutation.ts';

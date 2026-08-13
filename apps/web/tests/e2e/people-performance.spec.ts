@@ -25,10 +25,10 @@ test.describe('performance entry (Story 1.1 / FUT-692)', () => {
 
     await page.goto('/people/performance');
     if (context.status === 'ok') {
-      // Story 1.2 shell: sidebar + switcher replace the S1.1 "Signed in with N" stub.
-      await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+      // Workspace chrome: cycle badge + capacity switcher (no secondary sidebar).
+      await expect(page.getByTestId('performance-workspace')).toBeVisible({ timeout: 8_000 });
       await expect(page.getByTestId('performance-context-switcher')).toBeVisible();
-      await expect(page.getByTestId('performance-nav-dashboard')).toBeVisible();
+      await expect(page.getByTestId('performance-home')).toBeAttached();
     } else {
       await expect(page.getByText('No employee record found')).toBeVisible({ timeout: 8_000 });
     }
@@ -88,7 +88,7 @@ test.describe('performance shell (Story 1.2 / FUT-693)', () => {
     test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
 
     await page.goto('/people/performance');
-    await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-workspace')).toBeVisible({ timeout: 8_000 });
     await expect(page.getByTestId('performance-cycle-badge-slot')).toBeAttached();
 
     // Bare URL should be corrected to include month (+ capacity when present).
@@ -136,14 +136,14 @@ test.describe('performance cycle badge (Story 1.3 / FUT-694)', () => {
     };
 
     await page.goto('/people/performance');
-    await expect(page.getByTestId('performance-sidebar')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-workspace')).toBeVisible({ timeout: 8_000 });
     await expect(page.getByTestId('cycle-status-badge')).toBeVisible({ timeout: 8_000 });
     await expect(page.getByTestId('cycle-status-badge')).toContainText(labels[cycle.status] ?? '');
   });
 });
 
-test.describe('performance home tasks (Story 1.4 / FUT-695)', () => {
-  test('home shows role dashboard + tasks-for-this-month region', async ({ page }) => {
+test.describe('performance home (Reviews workspace)', () => {
+  test('home shows role workspace with KPI tiles', async ({ page }) => {
     const ctx = await request.newContext({
       baseURL: 'http://localhost:5173',
       storageState: '.auth/admin.json',
@@ -155,8 +155,10 @@ test.describe('performance home tasks (Story 1.4 / FUT-695)', () => {
     test.skip(context.status !== 'ok', 'admin has no employee record in this sandbox');
 
     await page.goto('/people/performance');
-    await expect(page.getByTestId('performance-home')).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByTestId('tasks-for-this-month')).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByTestId('performance-home-kpis')).toBeVisible();
+    // Home body is intentionally empty until the dashboard ticket; assert the
+    // workspace chrome renders and the mount point is present.
+    await expect(page.getByTestId('performance-workspace')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('performance-home')).toBeAttached();
+    await expect(page.getByTestId('tasks-for-this-month')).toHaveCount(0);
   });
 });

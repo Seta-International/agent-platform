@@ -113,9 +113,13 @@ function DetailCard({
 
 export function CandidateDetailDrawer({
   candidateId,
+  applicationId,
+  requisitionId,
   onClose,
 }: {
   candidateId: string | null;
+  applicationId?: string | null;
+  requisitionId?: string | null;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -178,7 +182,21 @@ export function CandidateDetailDrawer({
     void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
   };
 
-  const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
+  const app = useMemo(() => {
+    if (!data?.applications.length) return undefined;
+    if (applicationId) {
+      const match = data.applications.find((a) => a.application_id === applicationId);
+      if (match) return match;
+    }
+    if (requisitionId) {
+      const match = data.applications.find((a) => a.requisition_id === requisitionId);
+      if (match) return match;
+    }
+    return (
+      data.applications.find((a) => a.status === 'active') ??
+      data.applications[data.applications.length - 1]
+    );
+  }, [data?.applications, applicationId, requisitionId]);
   const terminal = app ? app.status !== 'active' : true;
 
   // The candidate payload carries only the fit counts (met/required), not which skills the

@@ -92,6 +92,27 @@
       "when": 1784187018259,
       "tag": "0028_fut601_report_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785747214819,
+      "tag": "0030_fut797_kpi_metric_entry_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785828697080,
+      "tag": "0031_kpi_norm_metric_bands_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785998230416,
+      "tag": "0032_fut798_nullable_report_colours",
+      "breakpoints": true
     }
   ]
 }

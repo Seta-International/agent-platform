@@ -14,6 +14,9 @@ import {
 } from 'react';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
 
+const scrollNone = stylex.create({
+  hide: { scrollbarWidth: 'none' },
+});
 const styles = stylex.create({
   board: {
     display: 'flex',
@@ -64,25 +67,36 @@ export interface KanbanBoardProps {
    * requiring the user to first reveal, then click, the "+ Add another bucket" trigger.
    */
   emptyState?: ReactNode | ((startCompose: () => void) => ReactNode);
+  /** Exposes the board scroll element for a sync-scrollbar. */
+  scrollRef?: (el: HTMLDivElement | null) => void;
+  /** Hides the native scrollbar (for pages that provide a external sync-scrollbar). */
+  hideNativeScrollbar?: boolean;
 }
 
-export function KanbanBoard({
-  children,
-  onAddBucket,
-  addBucketDisabledReason,
-  nameMaxLength,
-  bucketCount,
-  rootDroppable,
-  emptyState,
-}: KanbanBoardProps) {
+export function KanbanBoard(props: KanbanBoardProps) {
+  const {
+    children,
+    onAddBucket,
+    addBucketDisabledReason,
+    nameMaxLength,
+    bucketCount,
+    rootDroppable,
+    emptyState,
+    scrollRef,
+    hideNativeScrollbar,
+  } = props;
   const [composing, setComposing] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const rootDroppableRef = useRef(rootDroppable);
   rootDroppableRef.current = rootDroppable;
-  const setBoardRef = useCallback((el: HTMLDivElement | null) => {
-    boardRef.current = el;
-    rootDroppableRef.current?.ref?.(el);
-  }, []);
+  const setBoardRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      boardRef.current = el;
+      scrollRef?.(el);
+      rootDroppableRef.current?.ref?.(el);
+    },
+    [scrollRef],
+  );
 
   const wantScrollRef = useRef(false);
   const prevCountRef = useRef(bucketCount ?? 0);
@@ -107,7 +121,11 @@ export function KanbanBoard({
   const isEmpty = Children.count(children) === 0;
 
   return (
-    <div ref={setBoardRef} {...rootDroppable?.rootProps} {...stylex.props(styles.board)}>
+    <div
+      ref={setBoardRef}
+      {...rootDroppable?.rootProps}
+      {...stylex.props(styles.board, hideNativeScrollbar && scrollNone.hide)}
+    >
       {isEmpty && emptyState && !composing ? (
         typeof emptyState === 'function' ? (
           emptyState(() => setComposing(true))

@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { emit, withEmit } from '@seta/core/events';
+import { emit, emitBatch, withEmit } from '@seta/core/events';
 import type { OpenRequisitionInput } from '../../contracts.ts';
 import { HIRING_OPENING_OPENED, HIRING_REQUISITION_OPENED } from '../../events.ts';
 import { opening, requisition, requisitionJdSection, requisitionSkill } from '../db/schema.ts';
@@ -67,20 +67,27 @@ export async function openRequisition(
         payload: { requisition_id: row.id, tenant_id: session.tenant_id },
       });
 
-      for (let seq = 1; seq <= (input.headcount ?? 1); seq++) {
-        const [op] = await tx
-          .insert(opening)
-          .values({ tenant_id: session.tenant_id, requisition_id: row.id, seq })
-          .returning({ id: opening.id });
-        if (!op) throw new Error('opening insert returned no row');
-        await emit({
-          tenantId: session.tenant_id,
-          aggregateType: 'hiring.opening',
-          aggregateId: op.id,
-          eventType: HIRING_OPENING_OPENED,
-          eventVersion: 1,
-          payload: { opening_id: op.id, requisition_id: row.id, tenant_id: session.tenant_id },
-        });
+      const openings = await tx
+        .insert(opening)
+        .values(
+          Array.from({ length: input.headcount ?? 1 }, (_, i) => ({
+            tenant_id: session.tenant_id,
+            requisition_id: row.id,
+            seq: i + 1,
+          })),
+        )
+        .returning({ id: opening.id });
+      if (openings.length > 0) {
+        await emitBatch(
+          openings.map((op) => ({
+            tenantId: session.tenant_id,
+            aggregateType: 'hiring.opening',
+            aggregateId: op.id,
+            eventType: HIRING_OPENING_OPENED,
+            eventVersion: 1,
+            payload: { opening_id: op.id, requisition_id: row.id, tenant_id: session.tenant_id },
+          })),
+        );
       }
     },
   );

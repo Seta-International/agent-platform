@@ -189,6 +189,73 @@ describe('setM365TenantConfig domain', () => {
     );
   });
 
+  /**
+   * Entra's "Certificates & secrets" blade shows a *Secret ID* (a UUID) next to the secret
+   * *Value*, and the Value is displayed only once at creation. Pasting the ID is the single most
+   * common misconfiguration — it validated fine, encrypted fine, and only failed much later at
+   * token time with AADSTS7000215. Reject it at the door instead.
+   */
+  it('rejects a client secret that is really an Entra Secret ID (a UUID)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        const { tenantId, actor } = await setup(pool, databaseUrl);
+        try {
+          await expect(
+            setM365TenantConfig({
+              tenantId,
+              actor,
+              input: {
+                entra_tenant_id: crypto.randomUUID(),
+                client_id: 'cid',
+                client_secret_plaintext: '3f1c8a20-9d4e-4b17-a6c2-70e5b8d1f934',
+              },
+              crypto: { encrypt: fakeEncrypt },
+            }),
+          ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+        } finally {
+          resetCoreDb();
+          resetIntegrationsDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('accepts a real Entra secret Value shape', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        const { tenantId, actor } = await setup(pool, databaseUrl);
+        try {
+          await expect(
+            setM365TenantConfig({
+              tenantId,
+              actor,
+              input: {
+                entra_tenant_id: crypto.randomUUID(),
+                client_id: 'cid',
+                // Shape-alike only — never a real credential.
+                client_secret_plaintext: 'Xy4Z~fakeSecretValueForTests.0aB1cD2eF3gH',
+              },
+              crypto: { encrypt: fakeEncrypt },
+            }),
+          ).resolves.toBeUndefined();
+        } finally {
+          resetCoreDb();
+          resetIntegrationsDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('rejects when entra_tenant_id is not a valid UUID', async () => {
     await withTestDb(
       {

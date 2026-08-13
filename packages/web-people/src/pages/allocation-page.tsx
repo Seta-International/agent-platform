@@ -88,7 +88,7 @@ function heatStyle(v: number | null | undefined): CSSProperties {
 
 function formatLoad(pct: number): string {
   const frac = pct / 100;
-  return Number.isInteger(frac) ? frac.toFixed(1) : String(frac);
+  return Number.isInteger(frac) ? frac.toFixed(1) : String(Number(frac.toFixed(2)));
 }
 
 const HEAT_LEVELS = [
@@ -342,7 +342,9 @@ export function AllocationPage() {
         width: proportional(2),
         renderCell: (r) => (
           <div className="flex w-44 items-center gap-2.5">
-            <Avatar name={r.full_name} size={32} />
+            {/* Name is spelled out beside the avatar, so Astryx's name-on-hover
+                tooltip would only duplicate it in the a11y tree. */}
+            <Avatar name={r.full_name} size={32} tooltip={false} />
             <span className="font-medium leading-tight">{r.full_name}</span>
           </div>
         ),

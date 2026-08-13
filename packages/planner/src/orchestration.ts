@@ -1,5 +1,13 @@
 // Public surface for composing the assignment orchestration runtime (specialized
 // agents + assignment DAG, relocated from @seta/staffing) at the app tier.
+
+// A2 Action runtime (mutate chat intent).
+export {
+  buildPlannerActionRuntime,
+  type PlannerActionRuntime,
+  type PlannerActionRuntimeDeps,
+} from './backend/orchestration/action/register.ts';
+export type { UpdateTaskResume } from './backend/orchestration/action/schemas.ts';
 export {
   makeAssign,
   makeAvailability,

@@ -80,19 +80,33 @@ export const COLUMN_EMPTY_COPY: Record<BoardColumnId, { title: string; descripti
   },
 };
 
+export type StageMove = {
+  kind: 'stage';
+  application_id: string;
+  to: CandStage;
+  expected_version: number;
+};
+export type HireMove = {
+  kind: 'hire';
+  application_id: string;
+  expected_version: number;
+};
+
 export function resolveStageDrop(args: {
   draggableId: string;
   source: string;
   destination: string | null;
   items: CandidateListItem[];
-}): { application_id: string; to: CandStage; expected_version: number } | null {
+}): StageMove | HireMove | null {
   const { draggableId, source, destination, items } = args;
   if (!destination || destination === source) return null;
-  if (destination === 'hired') return null; // Hired is offer-driven (deferred); not a drop target
   if (destination === 'rejected') return null; // Rejection goes through the reason dialog, not a drop
   const it = items.find((i) => i.application_id === draggableId);
   if (!it) return null;
+  if (destination === 'hired')
+    return { kind: 'hire', application_id: draggableId, expected_version: it.version };
   return {
+    kind: 'stage',
     application_id: draggableId,
     to: destination as CandStage,
     expected_version: it.version,

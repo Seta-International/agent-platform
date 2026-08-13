@@ -63,6 +63,25 @@ export const orgUnitCreatedPayload = z.object({
 });
 export type OrgUnitCreatedPayload = z.infer<typeof orgUnitCreatedPayload>;
 
+export const PEOPLE_ORG_UNIT_UPDATED = 'people.org_unit.updated';
+
+export const orgUnitUpdatedPayload = z.object({
+  org_unit_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  name: z.string(),
+  parent_id: z.string().uuid().nullable(),
+  head_worker_id: z.string().uuid().nullable(),
+});
+export type OrgUnitUpdatedPayload = z.infer<typeof orgUnitUpdatedPayload>;
+
+export const PEOPLE_ORG_UNIT_DELETED = 'people.org_unit.deleted';
+
+export const orgUnitDeletedPayload = z.object({
+  org_unit_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+});
+export type OrgUnitDeletedPayload = z.infer<typeof orgUnitDeletedPayload>;
+
 export const PEOPLE_WORKER_USER_LINKED = 'people.worker.user_linked';
 
 export const workerUserLinkedPayload = z.object({
@@ -73,6 +92,16 @@ export const workerUserLinkedPayload = z.object({
 });
 export type WorkerUserLinkedPayload = z.infer<typeof workerUserLinkedPayload>;
 
+export const PEOPLE_PERFORMANCE_CONFIG_SAVED = 'people.performance.config.saved';
+
+export const performanceConfigSavedPayload = z.object({
+  account_id: z.string().uuid(),
+  revision_id: z.string().uuid(),
+  revision_no: z.number().int().positive(),
+  base_revision_no: z.number().int().positive(),
+});
+export type PerformanceConfigSavedPayload = z.infer<typeof performanceConfigSavedPayload>;
+
 export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
@@ -82,5 +111,8 @@ export const PEOPLE_EVENTS = {
   'people.worker.terminated': workerLifecyclePayload,
   'people.worker.reinstated': workerLifecyclePayload,
   [PEOPLE_ORG_UNIT_CREATED]: orgUnitCreatedPayload,
+  [PEOPLE_ORG_UNIT_UPDATED]: orgUnitUpdatedPayload,
+  [PEOPLE_ORG_UNIT_DELETED]: orgUnitDeletedPayload,
   [PEOPLE_WORKER_USER_LINKED]: workerUserLinkedPayload,
+  [PEOPLE_PERFORMANCE_CONFIG_SAVED]: performanceConfigSavedPayload,
 } as const satisfies Record<string, z.ZodSchema>;

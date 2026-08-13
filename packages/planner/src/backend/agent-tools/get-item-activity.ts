@@ -1,4 +1,9 @@
-import { actorFromContext, defineAgentTool, resolveTaskRef } from '@seta/agent-sdk';
+import {
+  actorFromContext,
+  defineAgentTool,
+  resolveTaskRef,
+  TASK_REF_DESCRIPTION,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import type { PersistedPlannerEvent } from '../domain/list-task-events.ts';
@@ -75,11 +80,7 @@ export const plannerGetItemActivityTool = defineAgentTool({
     'comments, label and checklist edits. Each event includes details of ' +
     'what changed (changedFields, before/after values, who made the change).',
   input: z.object({
-    taskRef: z
-      .string()
-      .trim()
-      .min(1)
-      .describe('Task UUID or an ordinal into recentTasks ("#1", "first", "last").'),
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
     limit: z.number().int().min(1).max(200).optional().describe('Max events (default 50).'),
     cursor: z.string().optional().describe('Opaque pagination cursor from a prior call.'),
   }),

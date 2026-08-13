@@ -1,10 +1,15 @@
-import { installDialogShim, installPopoverShim } from '@seta/shared-ui/testing';
+import {
+  installDialogShim,
+  installLiveRegionIsolation,
+  installPopoverShim,
+} from '@seta/shared-ui/testing';
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
 installPopoverShim();
 installDialogShim();
+installLiveRegionIsolation();
 // jsdom doesn't implement scrollIntoView; forms use it to surface validation errors.
 Element.prototype.scrollIntoView ??= () => {};
 

@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
-import { decideApproval } from '../../src/backend/domain/decide-approval.ts';
+import {
+  decideApproval,
+  recordApprovalDecision,
+} from '../../src/backend/domain/decide-approval.ts';
 import { listMyPendingApprovals } from '../../src/backend/domain/list-my-pending-approvals.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { buildSession, withAgentTestDb } from '../helpers.ts';
@@ -407,6 +410,110 @@ describe('decideApproval', () => {
           mastra: makeMastra(vi.fn()),
         }),
       ).rejects.toThrow(/forbidden/i);
+    });
+  });
+});
+
+/** An agentic native-suspend chat approval: carries mastra_run_id, so
+ *  requireMastraRun passes and the row's workflow_id is a real orchestrator id.
+ *  Mirrors the seeder in routes.chat-resume.test.ts. */
+async function seedAgenticApproval(
+  pool: import('pg').Pool,
+  args: { tenantId: string; approverUserId: string },
+): Promise<{ approvalId: string; runId: string }> {
+  const runId = randomUUID();
+  await pool.query(
+    `INSERT INTO agent.workflow_runs
+       (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+     VALUES ($1, 'planner.assignment-orchestrator', $2, $3, 'chat', '{}'::jsonb, 'paused', now())`,
+    [runId, args.tenantId, args.approverUserId],
+  );
+  const approvalId = randomUUID();
+  await pool.query(
+    `INSERT INTO agent.workflow_approvals
+       (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
+        fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
+        mastra_run_id, tool_call_id, status, expires_at, created_at)
+     VALUES ($1, $2, $3, 'chat-hitl', $4::jsonb, $5, NULL, false, NULL,
+             $6, 'tc-1', 'pending', now() + interval '1 day', now())`,
+    [
+      approvalId,
+      runId,
+      args.tenantId,
+      JSON.stringify({ primary: { argsPatch: { action: 'assign', taskId: randomUUID() } } }),
+      args.approverUserId,
+      randomUUID(),
+    ],
+  );
+  return { approvalId, runId };
+}
+
+describe('recordApprovalDecision — validate hook', () => {
+  it('a throwing validate leaves the row pending', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      await expect(
+        recordApprovalDecision({
+          session: me,
+          approvalId,
+          decision: 'approve',
+          requireMastraRun: true,
+          validate: () => {
+            throw Object.assign(new Error('validation_failed: nope'), {
+              code: 'validation_failed',
+            });
+          },
+        }),
+      ).rejects.toMatchObject({ code: 'validation_failed' });
+
+      const row = await pool.query<{ status: string }>(
+        'SELECT status FROM agent.workflow_approvals WHERE approval_id = $1',
+        [approvalId],
+      );
+      expect(row.rows[0]!.status).toBe('pending');
+    });
+  });
+
+  it('validate receives the row workflow_id and the stored card', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      let seen: { workflow_id: string; proposed_payload: unknown } | undefined;
+      await recordApprovalDecision({
+        session: me,
+        approvalId,
+        decision: 'approve',
+        requireMastraRun: true,
+        validate: (row) => {
+          seen = row;
+        },
+      });
+      expect(seen?.workflow_id).toBe('planner.assignment-orchestrator');
+      expect(seen?.proposed_payload).toBeTruthy();
+    });
+  });
+
+  it('an expired approval reports code "expired", not "already_decided"', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      await pool.query(
+        "UPDATE agent.workflow_approvals SET status = 'expired' WHERE approval_id = $1",
+        [approvalId],
+      );
+      await expect(
+        recordApprovalDecision({ session: me, approvalId, decision: 'approve' }),
+      ).rejects.toMatchObject({ code: 'expired' });
     });
   });
 });

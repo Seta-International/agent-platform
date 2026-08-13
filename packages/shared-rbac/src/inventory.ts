@@ -314,6 +314,10 @@ export const INVENTORY: StatementSpec[] = [
           'planner.task.read',
           'planner.task.update',
           'planner.task.mark_sync_status',
+          'people.worker.read',
+          'people.worker.create',
+          'people.worker.update',
+          'people.org_unit.manage',
         ],
       },
     ],
@@ -323,10 +327,14 @@ export const INVENTORY: StatementSpec[] = [
     statement: {
       'people.worker': ['read', 'create', 'update', 'manage'],
       'people.self': ['read', 'manage'],
-      'people.performance': ['read'],
+      'people.performance': ['read', 'configure'],
+      'people.org_unit': ['manage'],
     },
     descriptions: {
       'people.performance.read': 'Enter the Performance surface and read own capacities',
+      'people.performance.configure':
+        'Save evaluation group/criteria weights for accounts the principal manages (AM)',
+      'people.org_unit.manage': 'Rename, re-parent, and delete org units',
     },
     roles: [
       {
@@ -340,6 +348,8 @@ export const INVENTORY: StatementSpec[] = [
           'people.self.read',
           'people.self.manage',
           'people.performance.read',
+          'people.performance.configure',
+          'people.org_unit.manage',
           'core.skill.read',
         ],
       },
@@ -351,6 +361,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.self.read',
           'people.self.manage',
           'people.performance.read',
+          'people.performance.configure',
           'core.skill.read',
         ],
       },

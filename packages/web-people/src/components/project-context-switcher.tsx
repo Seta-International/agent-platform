@@ -57,6 +57,7 @@ export function ProjectContextSwitcher({
     <div data-testid="performance-context-switcher" className="min-w-[12rem]">
       <Selector
         label="Capacity"
+        isLabelHidden
         options={options}
         value={value}
         onChange={(next) => {

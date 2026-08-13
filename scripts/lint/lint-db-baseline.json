@@ -1,5 +1,8 @@
 [
+  "R1:packages/people/src/backend/db/schema.ts:performance_config_criterion",
+  "R1:packages/people/src/backend/db/schema.ts:performance_config_group_weight",
   "R3:packages/people/src/backend/db/schema.ts:employment_period:t.person_id",
+  "R3:packages/people/src/backend/db/schema.ts:performance_config_criterion:t.revision_id",
   "R3:packages/planner/src/backend/db/schema.ts:labels:t.plan_id",
   "R4:packages/agent/src/backend/db/schema.ts:rate_limits",
   "R4:packages/agent/src/backend/db/schema.workflow-events-seen.ts:workflow_run_events_seen",
@@ -21,6 +24,9 @@
   "R4:packages/identity/src/backend/db/schema.ts:role_permission_overlays",
   "R4:packages/notifications/src/backend/db/schema/notification-prefs.ts:notification_prefs",
   "R4:packages/people/src/backend/db/schema.ts:account_projection",
+  "R4:packages/people/src/backend/db/schema.ts:performance_config_criterion",
+  "R4:packages/people/src/backend/db/schema.ts:performance_config_group_weight",
+  "R4:packages/people/src/backend/db/schema.ts:performance_config_month_pin",
   "R4:packages/people/src/backend/db/schema.ts:person_history",
   "R4:packages/people/src/backend/db/schema.ts:project_projection",
   "R4:packages/people/src/backend/db/schema.ts:worker_allocation_projection",

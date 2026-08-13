@@ -90,4 +90,40 @@ describe('HitlCardHost', () => {
     );
     expect(workflowsApi.decideApproval).not.toHaveBeenCalled();
   });
+
+  // FUT-816. The card and the submit hook are each covered on their own; this is
+  // the wiring between them — the host must pass the decision through instead of
+  // picking named fields off it, or an A2 confirm silently loses its `chosen`
+  // and the server 400s.
+  it('posts a payload-free confirm exactly as the card emitted it', async () => {
+    const updateRow: WorkflowApprovalRow = {
+      ...agenticRow,
+      approvalId: 'a9',
+      proposedPayload: {
+        toolCallId: 'planner.action:t1',
+        intent: 'Update "AWS migration"',
+        riskBadge: 'write',
+        summary: 'Due will change.',
+        details: [{ kind: 'kvTable', rows: [{ k: 'Due', v: '12 Aug → 15 Aug' }] }],
+        primary: {
+          label: 'Apply the change',
+          argsPatch: { action: 'update', taskId: 't1', idempotencyKey: 'k1' },
+        },
+        alternates: [],
+        decline: { label: 'Cancel', argsPatch: { action: 'decline' } },
+        meta: {
+          tenantId: 'tn',
+          userId: 'actor',
+          agentPath: ['action', 'orchestrator'],
+          toolId: 'planner_updateTask',
+          ts: '2026-08-03T00:00:00Z',
+        },
+      },
+    };
+    wrap(<HitlCardHost approval={updateRow} canAct threadId="thread-1" />);
+    expect(screen.getByText('12 Aug → 15 Aug')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /apply the change/i }));
+    await waitFor(() => expect(workflowsApi.resumeChat).toHaveBeenCalled());
+    expect(workflowsApi.resumeChat).toHaveBeenCalledWith({ approvalId: 'a9', chosen: 'primary' });
+  });
 });

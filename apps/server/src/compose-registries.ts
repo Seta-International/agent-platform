@@ -15,8 +15,10 @@ import {
   type AssignmentOrchestrationRuntime,
   type AssignmentPorts,
   buildAssignmentOrchestrationRuntime,
+  buildPlannerActionRuntime,
   buildPlannerQueryRuntime,
   buildWeeklyPlanRuntime,
+  type PlannerActionRuntime,
   type PlannerQueryRuntime,
   type WeeklyPlanRuntime,
 } from '@seta/planner/orchestration';
@@ -53,6 +55,8 @@ export interface ComposedOrchestrationRuntimes {
   plannerQueryOrchestration: PlannerQueryRuntime;
   weeklyPlanOrchestration: WeeklyPlanRuntime;
   assignmentOrchestration: AssignmentOrchestrationRuntime;
+  /** A2: the mutate intent. Reachable from chat once FUT-814 routes to it. */
+  actionOrchestration: PlannerActionRuntime;
 }
 
 /**
@@ -99,9 +103,19 @@ export function composeRegistries(deps: ComposeDeps): ComposedOrchestrationRunti
     mastraStorage: deps.mastraStorage,
   });
 
+  const actionOrchestration = buildPlannerActionRuntime({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
+
   SpecializedAgentRegistry.freeze();
   OrchestrationRegistry.freeze();
   AgentRegistry.freeze();
 
-  return { plannerQueryOrchestration, weeklyPlanOrchestration, assignmentOrchestration };
+  return {
+    plannerQueryOrchestration,
+    weeklyPlanOrchestration,
+    assignmentOrchestration,
+    actionOrchestration,
+  };
 }

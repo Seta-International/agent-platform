@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import {
   buildMonthColumns,
+  dayFractionRange,
   monthColumnRange,
   monthKey,
   monthLabel,
@@ -60,6 +60,40 @@ describe('monthColumnRange', () => {
   });
 });
 
+describe('dayFractionRange', () => {
+  const months = ['2026-09'];
+
+  it('maps intra-month date ranges to precise fractional column offsets', () => {
+    // 01 Sep - 15 Sep in Sep 2026 (30 days) -> start 0, end 0.5
+    expect(dayFractionRange(months, '2026-09-01', '2026-09-15')).toEqual({ start: 0, end: 0.5 });
+    // 16 Sep - 30 Sep in Sep 2026 -> start 0.5, end 1.0
+    expect(dayFractionRange(months, '2026-09-16', '2026-09-30')).toEqual({ start: 0.5, end: 1 });
+  });
+
+  it('handles multi-month fractional ranges', () => {
+    const multiMonths = ['2026-08', '2026-09'];
+    // 01 Sep - 15 Sep in multi-month chart -> start 1.0, end 1.5
+    expect(dayFractionRange(multiMonths, '2026-09-01', '2026-09-15')).toEqual({
+      start: 1,
+      end: 1.5,
+    });
+  });
+
+  it('handles open-ended segments (date_to = null)', () => {
+    const multiMonths = ['2026-08', '2026-09'];
+    // 16 Aug to null -> start 0.4838..., end 2
+    const res = dayFractionRange(multiMonths, '2026-08-16', null);
+    expect(res.start).toBeGreaterThan(0.4);
+    expect(res.end).toBe(2);
+  });
+
+  it('clamps dates outside the chart range', () => {
+    const months = ['2026-09'];
+    expect(dayFractionRange(months, '2020-01-01', '2026-09-15')).toEqual({ start: 0, end: 0.5 });
+    expect(dayFractionRange(months, '2026-09-16', '2030-12-31')).toEqual({ start: 0.5, end: 1 });
+  });
+});
+
 describe('todayFraction', () => {
   it('is a whole number at the start of a month', () => {
     const months = ['2026-06', '2026-07', '2026-08'];
@@ -116,6 +150,30 @@ describe('monthlyTotals', () => {
       months,
     );
     expect(totals).toEqual([0, 20, 20]);
+  });
+
+  it('FUT-851: calculates monthly total as peak daily allocation for consecutive non-overlapping segments', () => {
+    const months = ['2026-09'];
+    const totals = monthlyTotals(
+      [
+        { date_from: '2026-09-01', date_to: '2026-09-15', planned_pct: 100 },
+        { date_from: '2026-09-16', date_to: '2026-09-30', planned_pct: 100 },
+      ],
+      months,
+    );
+    expect(totals).toEqual([100]);
+  });
+
+  it('FUT-851: calculates peak daily allocation when segments partially overlap in a month', () => {
+    const months = ['2026-09'];
+    const totals = monthlyTotals(
+      [
+        { date_from: '2026-09-01', date_to: '2026-09-20', planned_pct: 60 },
+        { date_from: '2026-09-10', date_to: '2026-09-30', planned_pct: 50 },
+      ],
+      months,
+    );
+    expect(totals).toEqual([110]);
   });
 });
 

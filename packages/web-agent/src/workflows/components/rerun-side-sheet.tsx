@@ -75,7 +75,7 @@ export function RerunSideSheet({
         if (!v) onClose();
       }}
       purpose="form"
-      position={{ top: 0, right: 0, bottom: 0 }}
+      position={{ top: 0, end: 0, bottom: 0 }}
       width={480}
       maxHeight="100dvh"
       // Astryx's Dialog does not label itself from DialogHeader (only AlertDialog does),

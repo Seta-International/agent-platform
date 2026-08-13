@@ -22,7 +22,7 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { type ClipboardEvent, useId, useRef, useState } from 'react';
+import { type ClipboardEvent, useEffect, useId, useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -36,6 +36,8 @@ import { hiringKeys } from '../state/query-keys.ts';
 import { GroupLabel } from './form-group-label.tsx';
 import { isRichTextEmpty } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
+
+const MAX_JOB_TITLE_LENGTH = 100;
 
 // Mirrors RequisitionDetailView's editing-mode SECTIONS — kept in sync by hand so the
 // create and edit forms read as the same layout (see FUT-404).
@@ -69,8 +71,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     !Number.isInteger(headcount) ||
     headcount < 1
       ? 'Headcount must be a positive whole number.'
-      : headcount > 1000
-        ? 'Headcount cannot exceed 1,000.'
+      : headcount > 9
+        ? 'Headcount cannot exceed 9.'
         : null;
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('internal');
@@ -86,9 +88,31 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   // FUT-559 error focus: red per-field message + scroll to the first empty required field.
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const aboutFieldRef = useRef<HTMLDivElement>(null);
+  // FUT-788: Astryx Dialog keeps the DOM mounted regardless of `isOpen`, so the scrollable
+  // LayoutContent retains its scrollTop between open/close cycles. Reset to top on each open.
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open) {
+      contentScrollRef.current?.scrollTo({ top: 0 });
+    }
+  }, [open]);
   // Stable id base for the JD Field wrappers (label ↔ control association).
   const jdFieldBase = useId();
-  const titleInvalid = submitAttempted && !title.trim();
+  const titleTooLong = title.length > MAX_JOB_TITLE_LENGTH;
+  const titleAtLimit = title.length === MAX_JOB_TITLE_LENGTH;
+  const titleStatus = titleTooLong
+    ? {
+        type: 'error' as const,
+        message: `Job title cannot exceed ${MAX_JOB_TITLE_LENGTH} characters.`,
+      }
+    : titleAtLimit
+      ? {
+          type: 'warning' as const,
+          message: `Maximum limit of ${MAX_JOB_TITLE_LENGTH} characters reached.`,
+        }
+      : submitAttempted && !title.trim()
+        ? { type: 'error' as const, message: 'Job title is required.' }
+        : undefined;
   const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
   // FUT-559 date bounds: a new requisition can't start in the past, and due must land on or
   // after the start. yyyy-mm-dd ISO strings compare lexically; use local-midnight today.
@@ -208,12 +232,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || startInPast || dueBeforeStart || headcountError) {
-      const target = !title.trim()
-        ? titleFieldRef.current
-        : isRichTextEmpty(jd.about)
-          ? aboutFieldRef.current
-          : null;
+    if (missingRequired || titleTooLong || startInPast || dueBeforeStart || headcountError) {
+      const target =
+        !title.trim() || titleTooLong
+          ? titleFieldRef.current
+          : isRichTextEmpty(jd.about)
+            ? aboutFieldRef.current
+            : null;
       target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -244,7 +269,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             <DialogHeader title="New requisition" onOpenChange={handleOpenChange} hasDivider />
           }
           content={
-            <LayoutContent>
+            <LayoutContent ref={contentScrollRef}>
               <VStack gap={6}>
                 {/* Role */}
                 <VStack gap={4}>
@@ -257,11 +282,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       value={title}
                       onChange={(value) => setTitle(value)}
                       placeholder="e.g. Senior Backend Engineer"
-                      status={
-                        titleInvalid
-                          ? { type: 'error', message: 'Job title is required.' }
-                          : undefined
-                      }
+                      status={titleStatus}
                     />
                   </div>
                   <Grid columns={2} gap={4}>
@@ -350,9 +371,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       }}
                       status={
                         headcountError &&
-                        (submitAttempted ||
-                          headcount === null ||
-                          (headcount !== null && (headcount < 1 || headcount > 1000)))
+                        (submitAttempted || headcount === null || headcount < 1 || headcount > 9)
                           ? { type: 'error', message: headcountError }
                           : undefined
                       }

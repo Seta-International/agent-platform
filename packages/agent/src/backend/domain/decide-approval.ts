@@ -64,12 +64,31 @@ export interface RecordApprovalDecisionOpts {
    *  before any write, so a misrouted evented row never records a decision it
    *  can't resume. */
   requireMastraRun?: boolean;
+  /**
+   * Runs INSIDE the transaction, after the row is read and before any write.
+   * Throw to reject without consuming the approval.
+   *
+   * Same discipline as `requireMastraRun` above: a check that has to see the
+   * persisted row, and whose failure must leave that row untouched. The
+   * /chat/resume route uses it to reject a body that does not match the card's
+   * workflow — otherwise an invalid request would permanently burn a valid
+   * pending decision.
+   */
+  validate?: (row: { workflow_id: string; proposed_payload: unknown; status: string }) => void;
 }
 
 interface ApprovalCardLike {
   primary?: { argsPatch?: Record<string, unknown> };
   alternates?: ReadonlyArray<{ argsPatch?: Record<string, unknown> }>;
   decline?: { argsPatch?: Record<string, unknown> };
+}
+
+/** The gated-write key an approval card minted on its suspend pass. Every action's
+ *  argsPatch carries the same value, so reading primary is enough. */
+function idempotencyKeyFromCard(proposedPayload: unknown): string | undefined {
+  const card = (proposedPayload ?? null) as ApprovalCardLike | null;
+  const key = card?.primary?.argsPatch?.idempotencyKey;
+  return typeof key === 'string' ? key : undefined;
 }
 
 /**
@@ -169,6 +188,12 @@ export async function recordApprovalDecision(
     const rows = (res as unknown as { rows: Row[] }).rows ?? (res as unknown as Row[]);
     const row = rows[0];
     if (!row) throw Object.assign(new Error('not_found'), { code: 'not_found' });
+    if (row.status === 'expired') {
+      // A distinct code: the user never decided this one, so "already decided"
+      // is a misleading thing to tell them. The sweeper owns this transition,
+      // which is why expiry is a persisted state, not a computed one.
+      throw Object.assign(new Error('expired'), { code: 'expired' });
+    }
     if (row.status !== 'pending') {
       throw Object.assign(new Error('already_decided'), { code: 'already_decided' });
     }
@@ -191,16 +216,30 @@ export async function recordApprovalDecision(
       throw Object.assign(new Error('not_resumable'), { code: 'not_resumable' });
     }
 
+    if (opts.validate) {
+      opts.validate({
+        workflow_id: row.workflow_id,
+        proposed_payload: row.proposed_payload,
+        status: row.status,
+      });
+    }
+
     const decisionStatus =
       opts.decision === 'reject'
         ? 'rejected'
         : opts.decision === 'modify'
           ? 'modified'
           : 'approved';
+    // `idempotency_key` would be the house style here, but this one field is read
+    // straight back as resumeData by resumeRetry (which passes decision_payload to
+    // the tool verbatim), and the tool's resumeSchema is camelCase. Naming it
+    // idempotencyKey is what makes the retry path gated.
+    const idempotencyKey = idempotencyKeyFromCard(row.proposed_payload);
     const decisionPayload = {
       decision: opts.decision,
       ...(opts.overrideUserIds !== undefined ? { override_user_ids: opts.overrideUserIds } : {}),
       ...(opts.note !== undefined ? { note: opts.note } : {}),
+      ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
     };
     await tx.execute(sql`
       UPDATE agent.workflow_approvals
