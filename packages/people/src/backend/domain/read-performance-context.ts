@@ -149,5 +149,6 @@ export async function readPerformanceContext(
     capacities,
     default_capacity_index: capacities.length > 0 ? 0 : -1,
     can_view_org: can(session, 'people.performance.read_org'),
+    can_unlock: can(session, 'people.performance.unlock'),
   };
 }

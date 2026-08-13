@@ -17,7 +17,7 @@ import { PerformanceTlDashboard } from './performance-tl-dashboard.tsx';
  * keep the empty mount point so the shell tabs and routing stay wired.
  */
 export function PerformanceHome() {
-  const { resolved, role_slugs, can_view_org } = usePerformanceScopeContext();
+  const { resolved, role_slugs, can_view_org, can_unlock } = usePerformanceScopeContext();
   const capacity = resolved.capacity;
 
   if (capacity?.kind === 'am') {
@@ -66,7 +66,7 @@ export function PerformanceHome() {
   // gets the company view; everyone else lands on the empty mount — never a data leak.
   // HR's cycle-config surface lands in a later ticket (also keeps the empty mount).
   if (resolveDashboardId(role_slugs, capacity, can_view_org) === 'strategic') {
-    return <PerformanceStrategicDashboard month={resolved.month} />;
+    return <PerformanceStrategicDashboard month={resolved.month} canUnlock={can_unlock} />;
   }
 
   return <VStack data-testid="performance-home" />;

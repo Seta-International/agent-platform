@@ -347,6 +347,8 @@ export type PerformanceContext =
       default_capacity_index: number;
       /** Session holds people.performance.read_org — gates the org (strategic/PMO) view. */
       can_view_org: boolean;
+      /** Session holds people.performance.unlock — gates the PMO manual-unlock panel. */
+      can_unlock: boolean;
     };
 
 export async function fetchPerformanceContext(asOfMonth: string): Promise<PerformanceContext> {
@@ -364,6 +366,63 @@ export type CycleStatusResponse = {
   status: CycleStatus;
   evaluated_at: string;
 };
+
+// --- Manual cycle unlock (FUT-781) ---------------------------------------
+// Types mirror @seta/people contracts (web packages can't import the module).
+export type UnlockScopeKind = 'month' | 'project' | 'person';
+export type UnlockAction = 'unlock' | 'relock';
+
+export type CycleUnlockEntry = {
+  id: string;
+  review_month: string;
+  scope_kind: UnlockScopeKind;
+  scope_id: string | null;
+  action: UnlockAction;
+  reason: string;
+  actor_person_id: string | null;
+  actor_user_id: string;
+  created_at: string;
+};
+
+export type CycleUnlockLog = {
+  month: string;
+  entries: CycleUnlockEntry[];
+};
+
+export type CycleUnlockBody = {
+  month: string;
+  scope_kind: UnlockScopeKind;
+  scope_id: string | null;
+  reason: string;
+};
+
+export async function fetchCycleUnlocks(month: string): Promise<CycleUnlockLog> {
+  const res = await fetch(
+    `/api/people/v1/performance/cycle-unlocks?month=${encodeURIComponent(month)}`,
+    { credentials: 'include' },
+  );
+  return handleResponse<CycleUnlockLog>(res);
+}
+
+export async function unlockCycle(body: CycleUnlockBody): Promise<CycleUnlockEntry> {
+  const res = await fetch('/api/people/v1/performance/cycle-unlocks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CycleUnlockEntry>(res);
+}
+
+export async function relockCycle(body: CycleUnlockBody): Promise<CycleUnlockEntry> {
+  const res = await fetch('/api/people/v1/performance/cycle-relocks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CycleUnlockEntry>(res);
+}
 
 export async function fetchCycleStatus(month: string): Promise<CycleStatusResponse> {
   const res = await fetch(

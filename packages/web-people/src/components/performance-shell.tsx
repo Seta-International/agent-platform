@@ -28,6 +28,8 @@ export type PerformanceShellProps = {
   default_capacity_index: number;
   /** Session holds people.performance.read_org — enables the org (strategic/PMO) view. */
   can_view_org: boolean;
+  /** Session holds people.performance.unlock — enables the PMO manual-unlock panel. */
+  can_unlock: boolean;
   as_of_month: string;
   children: ReactNode;
 };
@@ -41,6 +43,7 @@ export function PerformanceShell({
   capacities,
   default_capacity_index,
   can_view_org,
+  can_unlock,
   as_of_month,
   children,
 }: PerformanceShellProps) {
@@ -81,6 +84,7 @@ export function PerformanceShell({
         role_slugs,
         capacities,
         can_view_org,
+        can_unlock,
         resolved,
         search,
         setMonth: (month) => setSearch({ month }),
