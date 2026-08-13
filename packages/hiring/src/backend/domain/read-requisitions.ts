@@ -88,7 +88,7 @@ const REQUISITION_LIST_COLUMNS = {
   skills: sql<
     RequisitionSkillSummary[]
   >`(SELECT COALESCE(json_agg(json_build_object('skill_name', rs.skill_name, 'min_level', rs.min_level) ORDER BY rs.skill_name), '[]'::json) FROM hiring.requisition_skill rs WHERE rs.requisition_id = "hiring"."requisition"."id")`,
-  openings_total: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id")`,
+  openings_total: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status != 'cancelled')`,
   openings_open: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status = 'open')`,
   // Pipeline truth only: rejected/transferred/cancelled applications are closed history
   // and must not inflate the card's counts, stage buckets, or progress line (bug: a
