@@ -20,7 +20,7 @@ import {
   project,
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
-import { assertProjectManageable } from './assert-project-manageable.ts';
+import { assertProjectReportable } from './assert-project-reportable.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
 import {
   computeCategoryHealth,
@@ -31,7 +31,12 @@ import {
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
-import { buildProjectManageFlag, buildProjectReadFlag, buildProjectScope } from './scope.ts';
+import {
+  buildProjectManageFlag,
+  buildProjectReadFlag,
+  buildProjectReporterFlag,
+  buildProjectScope,
+} from './scope.ts';
 import { assertWeekEditable, assignedProjectIdsAsOf } from './weekly-reports.ts';
 
 type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
@@ -159,6 +164,7 @@ export interface KpiExplorerRow {
   category_health: Record<KpiCategory, RagStatus | null>;
   metrics: Record<string, KpiExplorerMetricCell>;
   can_manage: boolean;
+  can_report: boolean;
 }
 
 export interface KpiExplorerResult {
@@ -196,6 +202,7 @@ export async function listKpiExplorer(input: {
       account_id: project.account_id,
       account_name: account.name,
       can_manage: buildProjectManageFlag(session),
+      can_report: buildProjectReporterFlag(session),
       live_readable: buildProjectReadFlag(session),
     })
     .from(project)
@@ -307,6 +314,7 @@ export async function listKpiExplorer(input: {
       overall_health,
       category_health,
       can_manage: p.can_manage,
+      can_report: p.can_report,
     };
   });
   return {
@@ -440,7 +448,7 @@ export async function upsertKpiRecord(
   input: UpsertKpiRecordInputContract & { session: SessionScope },
 ): Promise<{ record_id: string; version: number; overall_health: RagStatus | null }> {
   const { project_id, iso_year, iso_week, expected_version, entries, session } = input;
-  await assertProjectManageable(project_id, session);
+  await assertProjectReportable(project_id, session);
   if (iso_week < 1 || iso_week > 53) {
     throw new PmError('VALIDATION', 'iso_week must be between 1 and 53');
   }

@@ -31,11 +31,12 @@ import {
   colourKey,
   formatBand,
   formatMetricValue,
+  isoWeekBase,
+  isReportingWeekOpen,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
   markStyle,
 } from './kpi-shared.tsx';
-import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 import { usePmContext } from './use-pm-context.ts';
 import { WeeklyReportDetailDialog } from './weekly-report-detail-dialog.tsx';
 
@@ -117,25 +118,50 @@ export function WeeklyReportsPage() {
   // Disable-with-reason (app-wide convention) — only once projects have loaded, so the
   // button doesn't flash a false "no access" tooltip during the initial fetch.
   const cannotReport = projectsQuery.data !== undefined && manageableOptions.length === 0;
-  // Reports are only ever authored for the current week (weeks[0] is the server anchor);
-  // browsing a past week is read-only, so composing is disabled with a reason.
+  // Reports are only ever authored for the current week (weeks[0] is the server anchor) and
+  // that week closes at Friday 17:00 VNT — the same Epic 3 gate the dialog reads off
+  // `week_editable`, mirrored here so the button says why instead of opening a dead composer.
   const currentWeek = weeks[0];
-  const isPastWeek =
+  const notCurrentWeek =
     currentWeek !== undefined &&
     (currentWeek.iso_year !== iso_year || currentWeek.iso_week !== iso_week);
+  const weekClosed =
+    currentWeek !== undefined && !isReportingWeekOpen(iso_year, iso_week, currentWeek);
   const cards = listQuery.data ?? [];
+
+  // Composer entry points read the board itself, never the unfiltered project list: the two are
+  // scoped differently, and subtracting a filtered set from an unfiltered one let a project the
+  // filter had hidden — already reported — become the preset. `cards` carries both facts.
+  const reportableCards = cards.filter((c) => c.can_report);
+  const composableOptions = useMemo(
+    () =>
+      cards
+        .filter((c) => c.can_report && !c.reported_by_me)
+        .map((c) => ({ value: c.project_id, label: c.project_name })),
+    [cards],
+  );
+  const boardLoaded = listQuery.data !== undefined;
+  const nothingToReport = boardLoaded && !cannotReport && reportableCards.length === 0;
+  const allReported = boardLoaded && reportableCards.length > 0 && composableOptions.length === 0;
 
   const filteredCard = search.project
     ? cards.find((c) => c.project_id === search.project)
     : undefined;
   const viewProjectId = filteredCard?.reported_by_me ? filteredCard.project_id : null;
   const composeDisabled =
-    viewProjectId === null && (WEEKLY_REPORT_COMPOSER_COMING_SOON || cannotReport || isPastWeek);
-  const composeDisabledReason = WEEKLY_REPORT_COMPOSER_COMING_SOON
-    ? COMING_SOON_REASON
+    viewProjectId === null &&
+    (listQuery.isError || cannotReport || nothingToReport || allReported || weekClosed);
+  const composeDisabledReason = listQuery.isError
+    ? 'This week’s board could not be loaded, so there is nothing to report on yet — try again first.'
     : cannotReport
       ? 'Only a project’s EM or PMO can write its weekly report, and you are neither on any project.'
-      : 'Weekly reports can only be created for the current week.';
+      : allReported
+        ? 'You have already written this week’s report for every project shown here.'
+        : nothingToReport
+          ? 'None of the projects shown here are yours to report on — clear the filters to reach the ones that are.'
+          : notCurrentWeek
+            ? 'Weekly reports can only be created for the current week.'
+            : `${isoWeekBase(iso_year, iso_week)} closed at Friday 5:00 PM (Asia/Ho_Chi_Minh). Reporting reopens on Monday for the new week.`;
 
   // Portfolio rollup for the strip: how many projects sit at each overall colour this week.
   const summary = useMemo(() => {
@@ -164,7 +190,7 @@ export function WeeklyReportsPage() {
     // Straight into the composer — the filtered project when manageable, else the first
     // manageable one; the PROJECT dropdown at the top of the form keeps the context explicit.
     const preset =
-      manageableOptions.find((o) => o.value === search.project) ?? manageableOptions[0];
+      composableOptions.find((o) => o.value === search.project) ?? composableOptions[0];
     if (preset) setComposeProject({ id: preset.value });
   };
 
@@ -178,36 +204,36 @@ export function WeeklyReportsPage() {
       height="fill"
       header={
         <LayoutHeader hasDivider padding={4}>
-          <VStack gap={3}>
-            <VStack gap={1}>
-              <Breadcrumbs variant="supporting">
-                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
-                <BreadcrumbItem isCurrent>Weekly Reports</BreadcrumbItem>
-              </Breadcrumbs>
-              <HStack hAlign="between" vAlign="center" gap={2}>
-                <Text as="h1" size="lg" weight="semibold">
-                  Weekly Reports
-                </Text>
-                <DisabledActionTooltip disabled={composeDisabled} reason={composeDisabledReason}>
-                  <Button
-                    variant="primary"
-                    label={viewProjectId ? 'View weekly report' : 'New weekly report'}
-                    icon={viewProjectId ? undefined : <Plus className="size-4" />}
-                    isDisabled={composeDisabled}
-                    onClick={
-                      viewProjectId ? () => setSearch({ detail: viewProjectId }) : openComposer
-                    }
-                  />
-                </DisabledActionTooltip>
-              </HStack>
-            </VStack>
-            {/* Context filters sit in the header band itself (always visible, no detached grey
-                strip). Labels are a11y-only (web-planner filter-bar convention) — the trigger
-                text is self-describing. Week leads — it's the primary axis. */}
-            <div className="flex flex-wrap items-center gap-2">
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Weekly Reports</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <Text as="h1" size="lg" weight="semibold">
+                Weekly Reports
+              </Text>
+              <DisabledActionTooltip disabled={composeDisabled} reason={composeDisabledReason}>
+                <Button
+                  variant="primary"
+                  label={viewProjectId ? 'View weekly report' : 'New weekly report'}
+                  icon={viewProjectId ? undefined : <Plus className="size-4" />}
+                  isDisabled={composeDisabled}
+                  onClick={
+                    viewProjectId ? () => setSearch({ detail: viewProjectId }) : openComposer
+                  }
+                />
+              </DisabledActionTooltip>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div ref={boardRef} className="space-y-4 p-6">
+            <div className="flex shrink-0 flex-wrap items-end gap-3">
               <Selector
                 label="Week"
-                isLabelHidden
                 size="sm"
                 width={200}
                 options={weekOptions}
@@ -221,7 +247,6 @@ export function WeeklyReportsPage() {
               />
               <Selector
                 label="Account"
-                isLabelHidden
                 size="sm"
                 width={208}
                 options={accountOptions}
@@ -233,7 +258,6 @@ export function WeeklyReportsPage() {
               />
               <Selector
                 label="Project"
-                isLabelHidden
                 size="sm"
                 width={208}
                 options={projectOptions}
@@ -244,12 +268,7 @@ export function WeeklyReportsPage() {
                 }}
               />
             </div>
-          </VStack>
-        </LayoutHeader>
-      }
-      content={
-        <LayoutContent padding={0}>
-          <div ref={boardRef} className="space-y-4 p-6">
+
             {/* Portfolio health at a glance for the selected week — the number a PMO/BoD wants
                 first, before scanning individual cards. */}
             {!listQuery.isLoading && cards.length > 0 ? (
@@ -282,6 +301,24 @@ export function WeeklyReportsPage() {
                 <Skeleton className="h-48 w-full" />
                 <Skeleton className="h-48 w-full" />
               </div>
+            ) : listQuery.isError ? (
+              // A rejected board is not an empty one: `?iso_week=99` and a malformed `?account=`
+              // both reach the API, and reading "No projects for this week" off a 400 sends
+              // people hunting for missing data that was never missing.
+              <EmptyState
+                title="Couldn’t load this week’s board"
+                description={
+                  (listQuery.error as Error).message ||
+                  'The request was rejected. Check the week and filters in the address bar, then try again.'
+                }
+                actions={
+                  <Button
+                    variant="secondary"
+                    label="Try again"
+                    onClick={() => void listQuery.refetch()}
+                  />
+                }
+              />
             ) : cards.length === 0 ? (
               <EmptyState title="No projects for this week" />
             ) : (
@@ -434,7 +471,7 @@ export function WeeklyReportsPage() {
               startInCompose={composeProject !== null}
               iso_year={iso_year}
               iso_week={iso_week}
-              projectOptions={composeProject !== null ? manageableOptions : undefined}
+              projectOptions={composeProject !== null ? composableOptions : undefined}
               onProjectChange={(id) => setComposeProject({ id })}
               onOpenChange={(open) => {
                 if (!open) closeDetail();

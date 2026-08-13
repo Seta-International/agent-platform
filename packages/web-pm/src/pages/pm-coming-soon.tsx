@@ -11,9 +11,6 @@ import {
   VStack,
 } from './_ui-compat.tsx';
 
-export const WEEKLY_REPORT_COMPOSER_COMING_SOON = true;
-export const COMING_SOON_REASON = 'Coming soon';
-
 /**
  * Shared "coming soon" screen for PM sections. One layout, parameterized by
  * section title/description so each route keeps its own breadcrumb + heading.

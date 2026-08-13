@@ -142,8 +142,13 @@ export function KpiConfigureDialog({
   const visibleProjects = filter.trim()
     ? sortedProjects.filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
     : sortedProjects;
-  const allSelected =
-    visibleProjects.length > 0 && visibleProjects.every((p) => selected.has(p.project_id));
+  const visibleSelectedCount = visibleProjects.filter((p) => selected.has(p.project_id)).length;
+  const allSelected = visibleProjects.length > 0 && visibleSelectedCount === visibleProjects.length;
+  const selectAllState: boolean | 'indeterminate' = allSelected
+    ? true
+    : visibleSelectedCount > 0
+      ? 'indeterminate'
+      : false;
   const toggleAll = () =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -184,7 +189,7 @@ export function KpiConfigureDialog({
                   <div className="flex items-center gap-2.5 border-b border-border px-3 py-2.5">
                     <Checkbox
                       id="kpi-project-select-all"
-                      checked={allSelected}
+                      checked={selectAllState}
                       onCheckedChange={toggleAll}
                       disabled={visibleProjects.length === 0}
                     />
@@ -195,7 +200,7 @@ export function KpiConfigureDialog({
                       Select all
                     </label>
                     <span className="ml-auto text-xs text-secondary">
-                      {selected.size}/{sortedProjects.length}
+                      {visibleSelectedCount}/{visibleProjects.length}
                     </span>
                   </div>
                   <div className="border-b border-border p-2">

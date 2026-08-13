@@ -844,6 +844,7 @@ export interface KpiExplorerRow {
   category_health: Record<KpiCategory, RagStatus | null>;
   metrics: Record<string, KpiExplorerMetricCell>;
   can_manage: boolean;
+  can_report: boolean;
 }
 
 export interface KpiExplorerResult {

@@ -29,12 +29,18 @@ describe('isoWeekEndDate', () => {
 });
 
 describe('dueWeekOptions', () => {
-  it('starts the week after the report and runs to the end of the ISO year', () => {
+  it('starts the week after the report and runs a rolling year past the year boundary', () => {
     const options = dueWeekOptions({ iso_year: 2026, iso_week: 33 });
 
     expect(options[0]?.label).toBe('2026-W34');
-    expect(options.at(-1)?.label).toBe('2026-W53');
-    expect(options).toHaveLength(20);
+    expect(options.at(-1)?.label).toBe('2027-W32');
+    expect(options).toHaveLength(52);
+  });
+
+  it('keeps offering next year to a report filed late in December', () => {
+    const labels = dueWeekOptions({ iso_year: 2026, iso_week: 50 }).map((o) => o.label);
+
+    expect(labels.slice(0, 4)).toEqual(['2026-W51', '2026-W52', '2026-W53', '2027-W01']);
   });
 
   it('carries the week’s end date as the value the report stores', () => {

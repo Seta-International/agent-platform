@@ -13,6 +13,7 @@ import {
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import {
+  AlertDialog,
   Avatar,
   AvatarFallback,
   Banner,
@@ -49,7 +50,6 @@ import {
   markStyle,
   ragFill,
 } from './kpi-shared.tsx';
-import { COMING_SOON_REASON, WEEKLY_REPORT_COMPOSER_COMING_SOON } from './pm-coming-soon.tsx';
 
 // Same ranking as the backend's worstColour — gray (N/A) dampens but never hides yellow/red.
 const COLOUR_RANK: Record<ReportColour, number> = { green: 0, gray: 1, yellow: 2, red: 3 };
@@ -127,12 +127,15 @@ function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
 
 function ReportCard({
   entry,
+  draft,
+  onDraftChange,
   onComment,
 }: {
   entry: WeeklyReportEntry;
+  draft: string;
+  onDraftChange: (body: string) => void;
   onComment: (report_id: string, body: string) => void;
 }) {
-  const [commentBody, setCommentBody] = useState('');
   const thread = useMemo(() => newestFirst(entry.comments), [entry.comments]);
   return (
     <Card padding={4} className="space-y-3">
@@ -197,8 +200,8 @@ function ReportCard({
       <div className="space-y-3 border-t border-border pt-3">
         {entry.published ? (
           <ChatComposer
-            value={commentBody}
-            onChange={setCommentBody}
+            value={draft}
+            onChange={onDraftChange}
             onSubmit={(body) => onComment(entry.report_id, body)}
             placeholder="Write a comment — Enter to submit"
             density="compact"
@@ -295,8 +298,7 @@ export function WeeklyReportDetailDialog({
     detail?.reports.some((r) => r.reporter_id === detail.my_reporter_id) ?? false;
   const notReporter = Boolean(detail && !detail.can_report);
   const composeOffered = Boolean(detail?.can_manage && detail.week_editable && !alreadyReported);
-  const composeBlocked = notReporter || WEEKLY_REPORT_COMPOSER_COMING_SOON;
-  const canCompose = composeOffered && !composeBlocked;
+  const canCompose = composeOffered && !notReporter;
 
   const [summary, setSummary] = useState('');
   const [riskIssue, setRiskIssue] = useState('');
@@ -307,6 +309,16 @@ export function WeeklyReportDetailDialog({
   // (computed, or an earlier override) once the composer opens with data.
   const [colours, setColours] = useState<Partial<Record<KpiCategory, ReportColour>>>({});
   const prefilled = useRef(false);
+  const prefilledColours = useRef<Partial<Record<KpiCategory, ReportColour>>>({});
+  // The composer's discard prompt, holding whichever way out the reporter asked for: Cancel,
+  // X / Escape, switching project, or the footer's KPI Explorer link.
+  const [pendingExit, setPendingExit] = useState<{ run: () => void } | null>(null);
+
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const commentDirty = Object.values(commentDrafts).some((b) => b.trim() !== '');
+  // The read view's own discard prompt, holding whichever way out the reader asked for —
+  // closing the dialog, or one of the two footer buttons that navigate the page away.
+  const [pendingLeave, setPendingLeave] = useState<{ run: () => void } | null>(null);
 
   // Submit is always clickable now (only the pending save disables it). Clicking with gaps
   // reveals inline field errors and scrolls to the first one, instead of a dead grey button
@@ -327,6 +339,7 @@ export function WeeklyReportDetailDialog({
       declared[f.category] =
         f.final_colour === 'yellow' || f.final_colour === 'red' ? f.final_colour : 'green';
     }
+    prefilledColours.current = declared;
     setColours(declared);
   }, [formOpen, detail]);
 
@@ -417,6 +430,66 @@ export function WeeklyReportDetailDialog({
     save.mutate();
   };
 
+  const dirty =
+    summary.trim() !== '' ||
+    hasActiveRisk ||
+    riskIssue.trim() !== '' ||
+    roadToGreen.trim() !== '' ||
+    roadToGreenDue !== '' ||
+    KPI_CATEGORIES.some((c) => colours[c] !== prefilledColours.current[c]);
+
+  // Leaving the composer ends the attempt: a later reopen is a fresh form, not the previous
+  // attempt's leftovers — its error styling included (FUT-740).
+  const resetComposer = () => {
+    setSummary('');
+    setRiskIssue('');
+    setRoadToGreen('');
+    setRoadToGreenDue('');
+    setHasActiveRisk(false);
+    setColours(prefilledColours.current);
+    setSubmitAttempted(false);
+  };
+
+  // Cancel falls back to the read view — except when the composer was the entry point (the
+  // board's "+ New weekly report"), where no read view was ever asked for.
+  const exitComposer = (exit: 'cancel' | 'close') => {
+    if (exit === 'close' || startInCompose) onOpenChange(false);
+    else setFormOpen(false);
+  };
+
+  // Every way out of a composer holding unsaved input asks first; the thunk is what happens
+  // once the reporter says yes, so a new exit only has to describe where it goes.
+  const guardComposer = (leave: () => void) => {
+    if (save.isPending) return;
+    if (dirty) {
+      setPendingExit({ run: leave });
+      return;
+    }
+    resetComposer();
+    leave();
+  };
+
+  const requestExit = (exit: 'cancel' | 'close') => guardComposer(() => exitComposer(exit));
+
+  const discardReport = () => {
+    const leave = pendingExit?.run;
+    setPendingExit(null);
+    resetComposer();
+    leave?.();
+  };
+
+  const guardComment = (leave: () => void) => {
+    if (commentDirty) setPendingLeave({ run: leave });
+    else leave();
+  };
+
+  const discardComment = () => {
+    const leave = pendingLeave?.run;
+    setPendingLeave(null);
+    setCommentDrafts({});
+    leave?.();
+  };
+
   const pricing = detail?.pricing_model ? (PRICING_LABEL[detail.pricing_model] ?? null) : null;
   const seatsShort =
     detail?.team_size != null && detail.team_size > detail.staffed
@@ -464,13 +537,28 @@ export function WeeklyReportDetailDialog({
   }
 
   const composing = formOpen && canCompose;
+  // X, Escape and the footer's Close all land here. While the composer holds unsaved input they
+  // ask first, exactly as Cancel does; so does an unsent comment draft in the read view.
+  // Everywhere else they dismiss straight away.
+  const requestDialogClose = (open: boolean) => {
+    if (open) return;
+    if (composing) requestExit('close');
+    else guardComment(() => onOpenChange(false));
+  };
+  // Footer links navigate the page away, so they clear whichever guard the current mode owns:
+  // the composer's unsent report, or an unsent comment in the read view.
+  const guardLeave = (leave: () => void) => {
+    if (composing) guardComposer(leave);
+    else guardComment(leave);
+  };
   // The composer carries a Project field that both names and switches the project. When it's
-  // present the header subtitle drops the project (it would repeat the field) and keeps only
-  // the week; without the switcher the subtitle stays the sole place the project is named.
+  // present the subtitle drops the project (it would repeat the field) and carries the same
+  // account/owner/phase context the read view shows; without the switcher it leads with the
+  // project, the only place that names it.
   const showProjectSwitcher = Boolean(
     projectOptions && projectOptions.length > 0 && onProjectChange,
   );
-  const headerSubtitle = detail
+  const projectContext = detail
     ? [
         detail.account_name,
         detail.pm_name ? `EM ${detail.pm_name}` : null,
@@ -481,426 +569,470 @@ export function WeeklyReportDetailDialog({
         .filter(Boolean)
         .join(' · ')
     : undefined;
+  const headerSubtitle =
+    composing && detail && !showProjectSwitcher
+      ? [detail.project_name, projectContext].filter(Boolean).join(' · ')
+      : projectContext;
 
   return (
-    <Dialog
-      isOpen
-      onOpenChange={onOpenChange}
-      width={composing ? 'min(1080px, 94vw)' : 720}
-      maxHeight="88vh"
-      purpose="form"
-    >
-      <Layout
-        header={
-          <DialogHeader
-            hasDivider
-            title={
-              composing
-                ? `New weekly report · ${isoWeekBase(iso_year, iso_week)}`
-                : detail
-                  ? `${detail.project_name} · ${isoWeekBase(iso_year, iso_week)}`
-                  : 'Weekly report'
-            }
-            subtitle={
-              composing && detail
-                ? // The week now rides in the title. Project lives in the body switcher when it's
-                  // shown, so nothing is left for the subtitle; otherwise it names the project.
-                  showProjectSwitcher
-                  ? undefined
-                  : detail.project_name
-                : headerSubtitle
-            }
-            endContent={
-              detail ? (
-                <span className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wide text-secondary">Overall</span>
-                  {colourBadge(composing ? declaredOverall : detail.overall_colour)}
-                </span>
-              ) : undefined
-            }
-            onOpenChange={onOpenChange}
-          />
-        }
-        footer={
-          detail ? (
-            <LayoutFooter hasDivider>
-              <HStack gap={2} hAlign="between" vAlign="center">
-                {detail.stats.applied_count > 0 ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-secondary"
-                    onClick={() =>
-                      void navigate({
-                        to: '/pm/metrics',
-                        search: {
-                          tab: 'explorer',
-                          project: detail.project_id,
-                          iso_year: detail.iso_year,
-                          iso_week: detail.iso_week,
-                        },
-                      })
-                    }
-                  >
-                    KPI Explorer
-                    <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-                  </Button>
-                ) : (
-                  <span />
-                )}
-                <HStack gap={2} vAlign="center">
-                  {composing ? (
-                    <>
-                      <Button variant="ghost" label="Cancel" onClick={() => setFormOpen(false)} />
-                      {/* Always clickable — validation happens on click (inline errors + scroll to
-                        the first gap) rather than a disabled button that never says why. */}
-                      <Button
-                        variant="primary"
-                        label="Submit report"
-                        onClick={handleSubmit}
-                        isDisabled={save.isPending}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        variant="secondary"
-                        label="Close"
-                        onClick={() => onOpenChange(false)}
-                      />
-                      {seatsShort > 0 && detail.can_manage ? (
-                        <DisabledActionTooltip
-                          disabled={!detail.week_editable}
-                          reason="Backfills can only be raised for the current week, until Friday 5:00 PM."
-                        >
-                          <Button
-                            variant="primary"
-                            label={`Raise backfill (${seatsShort} seat${seatsShort === 1 ? '' : 's'})`}
-                            isDisabled={!detail.week_editable}
-                            onClick={() => {
-                              onOpenChange(false);
-                              void navigate({
-                                to: '/pm/resourcing',
-                                search: { project: project_id },
-                              });
-                            }}
-                          />
-                        </DisabledActionTooltip>
-                      ) : null}
-                    </>
-                  )}
+    <>
+      <Dialog
+        isOpen
+        onOpenChange={requestDialogClose}
+        width={composing ? 'min(1080px, 94vw)' : 720}
+        maxHeight="88vh"
+        purpose="form"
+      >
+        <Layout
+          header={
+            <DialogHeader
+              hasDivider
+              title={
+                composing
+                  ? `New weekly report · ${isoWeekBase(iso_year, iso_week)}`
+                  : detail
+                    ? `${detail.project_name} · ${isoWeekBase(iso_year, iso_week)}`
+                    : 'Weekly report'
+              }
+              subtitle={headerSubtitle}
+              endContent={
+                detail ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-wide text-secondary">Overall</span>
+                    {colourBadge(composing ? declaredOverall : detail.overall_colour)}
+                  </span>
+                ) : undefined
+              }
+              onOpenChange={requestDialogClose}
+            />
+          }
+          footer={
+            detailQuery.isError ? (
+              <LayoutFooter hasDivider>
+                <HStack gap={2} hAlign="end">
+                  <Button variant="secondary" label="Close" onClick={() => onOpenChange(false)} />
                 </HStack>
-              </HStack>
-            </LayoutFooter>
-          ) : undefined
-        }
-        content={
-          <LayoutContent>
-            {detailQuery.isError ? (
-              <p className="rounded-lg border border-border px-3 py-8 text-center text-sm text-secondary">
-                {(detailQuery.error as Error).message ||
-                  'This report could not be loaded — you may not have access to this week.'}
-              </p>
-            ) : detailQuery.isLoading || !detail ? (
-              <div className="space-y-2">
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-40 w-full" />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* View-only QCDP snapshot — the composer edits the pillars below (the source of
-                    truth), so a stale duplicate here would only contradict them. */}
-                {/* Same treatment as the list cards: StatusDot + full pillar name, off-norm
-                    pillars weight their name. */}
-                {!composing ? (
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      {detail.flags.map((f) => {
-                        const off =
-                          f.final_colour !== null &&
-                          f.final_colour !== 'green' &&
-                          f.final_colour !== 'gray';
-                        const key = colourKey(f.final_colour);
-                        const name =
-                          KPI_CATEGORY_LABELS[f.category].split(' — ')[1] ??
-                          KPI_CATEGORY_LABELS[f.category];
-                        return (
-                          <span
-                            key={f.category}
-                            className="flex items-center gap-1.5 text-sm"
-                            title={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
-                          >
-                            <StatusDot
-                              variant={COLOUR_VARIANT[key]}
-                              label={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
-                              style={markStyle(key)}
-                            />
-                            <span className={off ? 'font-semibold text-primary' : 'text-secondary'}>
-                              {name}
-                            </span>
-                          </span>
-                        );
-                      })}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs uppercase tracking-wide text-secondary">Trend</span>
-                      <span className="flex gap-px overflow-hidden rounded-sm">
-                        {[...detail.trend].reverse().map((t, i, arr) => (
-                          <span
-                            key={`${t.iso_year}-${t.iso_week}`}
-                            className="inline-block h-2.5 w-4"
-                            style={{
-                              backgroundColor:
-                                ragFill(colourKey(t.colour)) ?? 'var(--color-background-gray)',
-                            }}
-                            title={`${isoWeekBase(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[colourKey(t.colour)]}${
-                              i === arr.length - 1 ? ' (this week)' : ''
-                            }`}
-                          />
-                        ))}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
-
-                <StatsLine detail={detail} />
-
-                {/* Composing is a focused view (mock: the submit modal is just the form) — the
-                submitted reports and their comment threads only render in the read view. */}
-                {composing ? null : detail.reports.length === 0 ? (
-                  // Empty state is an invitation to act: a reporter who can still write this
-                  // week's report gets the composer one click away, right where the gap is.
-                  // Quieter than the shared EmptyState on purpose — inside a dialog the empty
-                  // slot is a hint, not a hero: caption-scale type and a hairline button.
-                  <div className="flex flex-col items-center rounded-lg border border-border px-3 py-8 text-center">
-                    <CalendarDays className="mb-2 h-5 w-5 text-secondary" strokeWidth={1.5} />
-                    <p className="text-sm font-medium text-primary">No reports yet</p>
-                    <p className="mt-0.5 text-xs text-secondary">
-                      {detail.can_manage && detail.week_editable
-                        ? `Reports for ${isoWeekBase(iso_year, iso_week)} stay open until Friday 5:00 PM.`
-                        : `No one submitted a report for ${isoWeekBase(iso_year, iso_week)}.`}
-                    </p>
-                    {composeOffered ? (
-                      <DisabledActionTooltip
-                        disabled={composeBlocked}
-                        reason={
-                          WEEKLY_REPORT_COMPOSER_COMING_SOON
-                            ? COMING_SOON_REASON
-                            : NOT_REPORTER_REASON
-                        }
-                        className="mt-3"
-                      >
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className={composeBlocked ? undefined : 'mt-3'}
-                          isDisabled={composeBlocked}
-                          onClick={() => setFormOpen(true)}
-                        >
-                          New weekly report
-                        </Button>
-                      </DisabledActionTooltip>
-                    ) : null}
-                  </div>
-                ) : (
-                  detail.reports.map((r) => (
-                    <ReportCard
-                      key={r.report_id}
-                      entry={r}
-                      onComment={(report_id, body) => comment.mutate({ report_id, body })}
-                    />
-                  ))
-                )}
-
-                {formOpen && detail.can_manage && !detail.week_editable ? (
-                  // Epic 3: flags are set for the current week only and lock Friday 5:00 PM (VNT).
-                  // Past/future weeks stay readable and commentable.
-                  <p className="rounded-lg border border-border px-3 py-4 text-center text-sm text-secondary">
-                    {isoWeekBase(iso_year, iso_week)} is locked — reports cover the current week
-                    only and close at Friday 5:00 PM.
-                  </p>
-                ) : null}
-
-                {composing ? (
-                  <section className="space-y-5">
-                    {/* The report's project — names it and switches it without leaving the
-                        composer. The header carries the title + week, so this field is the only
-                        place the project name appears. */}
-                    {showProjectSwitcher ? (
-                      <div className="space-y-1">
-                        <Selector
-                          label="Project"
-                          width={360}
-                          options={projectOptions ?? []}
-                          value={project_id ?? ''}
-                          onChange={(v) => {
-                            if (v && v !== project_id) onProjectChange?.(v);
-                          }}
-                        />
-                      </div>
-                    ) : null}
-
-                    <div ref={pillarsRef} className="space-y-2">
-                      <div className="text-xs uppercase tracking-wide text-secondary">
-                        QCDP pillars
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
-                        {KPI_CATEGORIES.map((cat) => {
-                          const current = colours[cat];
-                          const value =
-                            current === 'yellow' ? 'yellow' : current === 'red' ? 'red' : 'green';
-                          return (
-                            <div key={cat} className="space-y-1.5">
-                              <span className="block text-sm font-semibold text-primary">
-                                {KPI_CATEGORY_LABELS[cat]}
-                              </span>
-                              {/* Real radios inside labels (visually-hidden control) — Astryx's
-                                  SegmentedControl can't tint per item, so this is the accessible
-                                  escape hatch for the status wash (FUT-740). */}
-                              <div
-                                role="radiogroup"
-                                aria-label={KPI_CATEGORY_LABELS[cat]}
-                                className="grid w-full grid-cols-3 overflow-hidden rounded-md border border-border"
-                              >
-                                {SEG_COLOURS.map((sc, i) => {
-                                  const on = value === sc;
-                                  return (
-                                    <label
-                                      key={sc}
-                                      className={`cursor-pointer py-1.5 text-center text-sm transition-colors ${
-                                        i > 0 ? 'border-l border-border' : ''
-                                      } ${on ? 'font-semibold' : 'bg-card text-secondary hover:bg-muted'}`}
-                                      style={on ? SEG_TINT[sc] : undefined}
-                                    >
-                                      <input
-                                        type="radio"
-                                        name={`qcdp-${cat}`}
-                                        value={sc}
-                                        checked={on}
-                                        onChange={() =>
-                                          setColours((prev) => ({ ...prev, [cat]: sc }))
-                                        }
-                                        className="sr-only"
-                                      />
-                                      {COLOUR_LABEL[sc]}
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div
-                      className={hasActiveRisk ? undefined : 'rounded-lg border p-3'}
-                      style={
-                        hasActiveRisk
-                          ? undefined
-                          : {
-                              borderColor: 'var(--color-border-blue)',
-                              backgroundColor:
-                                'color-mix(in oklab, var(--color-background-blue) 45%, transparent)',
-                            }
+              </LayoutFooter>
+            ) : detail ? (
+              <LayoutFooter hasDivider>
+                <HStack gap={2} hAlign="between" vAlign="center">
+                  {detail.stats.applied_count > 0 ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-secondary"
+                      onClick={() =>
+                        guardLeave(
+                          () =>
+                            void navigate({
+                              to: '/pm/metrics',
+                              search: {
+                                tab: 'explorer',
+                                project: detail.project_id,
+                                iso_year: detail.iso_year,
+                                iso_week: detail.iso_week,
+                              },
+                            }),
+                        )
                       }
                     >
-                      <Switch
-                        label="This project has active Risk / Issue this week"
-                        description="Turn on if there is any risk or issue impacting the project this week."
-                        value={hasActiveRisk}
-                        onChange={(v) => setHasActiveRisk(v)}
-                      />
-                    </div>
-
-                    {riskNeedsFlag && submitAttempted ? (
-                      <Banner
-                        status="error"
-                        title="All four flags are Green. Set Q, C, D, or P to Amber or Red to report an active risk."
-                      />
+                      KPI Explorer
+                      <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  <HStack gap={2} vAlign="center">
+                    {composing ? (
+                      <>
+                        <Button
+                          variant="secondary"
+                          label="Cancel"
+                          onClick={() => requestExit('cancel')}
+                        />
+                        {/* Always clickable — validation happens on click (inline errors + scroll to
+                        the first gap) rather than a disabled button that never says why. */}
+                        <Button
+                          variant="primary"
+                          label="Submit report"
+                          onClick={handleSubmit}
+                          isDisabled={save.isPending}
+                        />
+                      </>
                     ) : (
                       <>
-                        {hasActiveRisk ? (
-                          <Banner
-                            status="info"
-                            title="Active risk detected: At least one of the 4 health flags (Q, C, D, P) must be Amber or Red."
-                          />
-                        ) : null}
-                        {allGreenBlocked ? (
-                          <Banner
-                            status="warning"
-                            title="KPIs are over norm this week. Set at least one of Q, C, D, or P to Amber or Red."
-                          />
+                        <Button
+                          variant="secondary"
+                          label="Close"
+                          onClick={() => requestDialogClose(false)}
+                        />
+                        {seatsShort > 0 && detail.can_manage ? (
+                          <DisabledActionTooltip
+                            disabled={!detail.week_editable}
+                            reason="Backfills can only be raised for the current week, until Friday 5:00 PM."
+                          >
+                            <Button
+                              variant="primary"
+                              label={`Raise backfill (${seatsShort} seat${seatsShort === 1 ? '' : 's'})`}
+                              isDisabled={!detail.week_editable}
+                              onClick={() =>
+                                guardComment(() => {
+                                  onOpenChange(false);
+                                  void navigate({
+                                    to: '/pm/resourcing',
+                                    search: { project: project_id },
+                                  });
+                                })
+                              }
+                            />
+                          </DisabledActionTooltip>
                         ) : null}
                       </>
                     )}
+                  </HStack>
+                </HStack>
+              </LayoutFooter>
+            ) : undefined
+          }
+          content={
+            <LayoutContent>
+              {detailQuery.isError ? (
+                <p className="rounded-lg border border-border px-3 py-8 text-center text-sm text-secondary">
+                  {(detailQuery.error as Error).message ||
+                    'This report could not be loaded — you may not have access to this week.'}
+                </p>
+              ) : detailQuery.isLoading || !detail ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-40 w-full" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* View-only QCDP snapshot — the composer edits the pillars below (the source of
+                    truth), so a stale duplicate here would only contradict them. */}
+                  {/* Same treatment as the list cards: StatusDot + full pillar name, off-norm
+                    pillars weight their name. */}
+                  {!composing ? (
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        {detail.flags.map((f) => {
+                          const off =
+                            f.final_colour !== null &&
+                            f.final_colour !== 'green' &&
+                            f.final_colour !== 'gray';
+                          const key = colourKey(f.final_colour);
+                          const name =
+                            KPI_CATEGORY_LABELS[f.category].split(' — ')[1] ??
+                            KPI_CATEGORY_LABELS[f.category];
+                          return (
+                            <span
+                              key={f.category}
+                              className="flex items-center gap-1.5 text-sm"
+                              title={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
+                            >
+                              <StatusDot
+                                variant={COLOUR_VARIANT[key]}
+                                label={`${KPI_CATEGORY_LABELS[f.category]}: ${COLOUR_LABEL[key]}`}
+                                style={markStyle(key)}
+                              />
+                              <span
+                                className={off ? 'font-semibold text-primary' : 'text-secondary'}
+                              >
+                                {name}
+                              </span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs uppercase tracking-wide text-secondary">
+                          Trend
+                        </span>
+                        <span className="flex gap-px overflow-hidden rounded-sm">
+                          {[...detail.trend].reverse().map((t, i, arr) => (
+                            <span
+                              key={`${t.iso_year}-${t.iso_week}`}
+                              className="inline-block h-2.5 w-4"
+                              style={{
+                                backgroundColor:
+                                  ragFill(colourKey(t.colour)) ?? 'var(--color-background-gray)',
+                              }}
+                              title={`${isoWeekBase(t.iso_year, t.iso_week)}: ${COLOUR_LABEL[colourKey(t.colour)]}${
+                                i === arr.length - 1 ? ' (this week)' : ''
+                              }`}
+                            />
+                          ))}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
 
-                    <div className={hasActiveRisk ? 'grid gap-4 md:grid-cols-2' : undefined}>
-                      <Textarea
-                        ref={summaryRef}
-                        label="Executive summary"
-                        isRequired
-                        value={summary}
-                        onChange={setSummary}
-                        placeholder="Overall health + key deviation…"
-                        rows={3}
-                        status={summaryError ? { type: 'error', message: summaryError } : undefined}
-                      />
-                      {hasActiveRisk ? (
-                        <Textarea
-                          ref={riskIssueRef}
-                          label="Risk / Issue"
-                          isRequired
-                          value={riskIssue}
-                          onChange={setRiskIssue}
-                          placeholder="Issue (happened) / Risk (may happen)…"
-                          rows={3}
-                          status={
-                            riskIssueError ? { type: 'error', message: riskIssueError } : undefined
-                          }
-                        />
+                  <StatsLine detail={detail} />
+
+                  {/* Composing is a focused view (mock: the submit modal is just the form) — the
+                submitted reports and their comment threads only render in the read view. */}
+                  {composing ? null : detail.reports.length === 0 ? (
+                    // Empty state is an invitation to act: a reporter who can still write this
+                    // week's report gets the composer one click away, right where the gap is.
+                    // Quieter than the shared EmptyState on purpose — inside a dialog the empty
+                    // slot is a hint, not a hero: caption-scale type and a hairline button.
+                    <div className="flex flex-col items-center rounded-lg border border-border px-3 py-8 text-center">
+                      <CalendarDays className="mb-2 h-5 w-5 text-secondary" strokeWidth={1.5} />
+                      <p className="text-sm font-medium text-primary">No reports yet</p>
+                      <p className="mt-0.5 text-xs text-secondary">
+                        {detail.can_manage && detail.week_editable
+                          ? `Reports for ${isoWeekBase(iso_year, iso_week)} stay open until Friday 5:00 PM.`
+                          : `No one submitted a report for ${isoWeekBase(iso_year, iso_week)}.`}
+                      </p>
+                      {composeOffered ? (
+                        <DisabledActionTooltip
+                          disabled={notReporter}
+                          reason={NOT_REPORTER_REASON}
+                          className="mt-3"
+                        >
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className={notReporter ? undefined : 'mt-3'}
+                            isDisabled={notReporter}
+                            onClick={() => setFormOpen(true)}
+                          >
+                            New weekly report
+                          </Button>
+                        </DisabledActionTooltip>
                       ) : null}
                     </div>
+                  ) : (
+                    detail.reports.map((r) => (
+                      <ReportCard
+                        key={r.report_id}
+                        entry={r}
+                        draft={commentDrafts[r.report_id] ?? ''}
+                        onDraftChange={(body) =>
+                          setCommentDrafts((prev) => ({ ...prev, [r.report_id]: body }))
+                        }
+                        onComment={(report_id, body) => comment.mutate({ report_id, body })}
+                      />
+                    ))
+                  )}
 
-                    {hasActiveRisk ? (
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <div className="md:col-span-2">
+                  {formOpen && detail.can_manage && !detail.week_editable ? (
+                    // Epic 3: flags are set for the current week only and lock Friday 5:00 PM (VNT).
+                    // Past/future weeks stay readable and commentable.
+                    <p className="rounded-lg border border-border px-3 py-4 text-center text-sm text-secondary">
+                      {isoWeekBase(iso_year, iso_week)} is locked — reports cover the current week
+                      only and close at Friday 5:00 PM.
+                    </p>
+                  ) : null}
+
+                  {composing ? (
+                    <section className="space-y-5">
+                      {/* The report's project — names it and switches it without leaving the
+                        composer. The header carries the title + week, so this field is the only
+                        place the project name appears. */}
+                      {showProjectSwitcher ? (
+                        <div className="space-y-1">
+                          <Selector
+                            label="Project"
+                            width={360}
+                            options={projectOptions ?? []}
+                            value={project_id ?? ''}
+                            onChange={(v) => {
+                              if (v && v !== project_id) {
+                                guardComposer(() => onProjectChange?.(v));
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : null}
+
+                      <div ref={pillarsRef} className="space-y-2">
+                        <div className="text-xs uppercase tracking-wide text-secondary">
+                          QCDP pillars
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+                          {KPI_CATEGORIES.map((cat) => {
+                            const current = colours[cat];
+                            const value =
+                              current === 'yellow' ? 'yellow' : current === 'red' ? 'red' : 'green';
+                            return (
+                              <div key={cat} className="space-y-1.5">
+                                <span className="block text-sm font-semibold text-primary">
+                                  {KPI_CATEGORY_LABELS[cat]}
+                                </span>
+                                {/* Real radios inside labels (visually-hidden control) — Astryx's
+                                  SegmentedControl can't tint per item, so this is the accessible
+                                  escape hatch for the status wash (FUT-740). */}
+                                <div
+                                  role="radiogroup"
+                                  aria-label={KPI_CATEGORY_LABELS[cat]}
+                                  className="grid w-full grid-cols-3 overflow-hidden rounded-md border border-border"
+                                >
+                                  {SEG_COLOURS.map((sc, i) => {
+                                    const on = value === sc;
+                                    return (
+                                      <label
+                                        key={sc}
+                                        className={`cursor-pointer py-1.5 text-center text-sm transition-colors ${
+                                          i > 0 ? 'border-l border-border' : ''
+                                        } ${on ? 'font-semibold' : 'bg-card text-secondary hover:bg-muted'}`}
+                                        style={on ? SEG_TINT[sc] : undefined}
+                                      >
+                                        <input
+                                          type="radio"
+                                          name={`qcdp-${cat}`}
+                                          value={sc}
+                                          checked={on}
+                                          onChange={() =>
+                                            setColours((prev) => ({ ...prev, [cat]: sc }))
+                                          }
+                                          className="sr-only"
+                                        />
+                                        {COLOUR_LABEL[sc]}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div
+                        className={hasActiveRisk ? undefined : 'rounded-lg border p-3'}
+                        style={
+                          hasActiveRisk
+                            ? undefined
+                            : {
+                                borderColor: 'var(--color-border-blue)',
+                                backgroundColor:
+                                  'color-mix(in oklab, var(--color-background-blue) 45%, transparent)',
+                              }
+                        }
+                      >
+                        <Switch
+                          label="This project has active Risk / Issue this week"
+                          description="Turn on if there is any risk or issue impacting the project this week."
+                          value={hasActiveRisk}
+                          onChange={(v) => setHasActiveRisk(v)}
+                        />
+                      </div>
+
+                      {riskNeedsFlag && submitAttempted ? (
+                        <Banner
+                          status="error"
+                          title="All four flags are Green. Set Q, C, D, or P to Amber or Red to report an active risk."
+                        />
+                      ) : (
+                        <>
+                          {hasActiveRisk ? (
+                            <Banner
+                              status="info"
+                              title="Active risk detected: At least one of the 4 health flags (Q, C, D, P) must be Amber or Red."
+                            />
+                          ) : null}
+                          {allGreenBlocked ? (
+                            <Banner
+                              status="warning"
+                              title="KPIs are over norm this week. Set at least one of Q, C, D, or P to Amber or Red."
+                            />
+                          ) : null}
+                        </>
+                      )}
+
+                      <div className={hasActiveRisk ? 'grid gap-4 md:grid-cols-2' : undefined}>
+                        <Textarea
+                          ref={summaryRef}
+                          label="Executive summary"
+                          isRequired
+                          value={summary}
+                          onChange={setSummary}
+                          placeholder="What happened this week, and why this status?"
+                          rows={3}
+                          status={
+                            summaryError ? { type: 'error', message: summaryError } : undefined
+                          }
+                        />
+                        {hasActiveRisk ? (
                           <Textarea
-                            ref={roadToGreenRef}
-                            label="Road-to-Green action"
+                            ref={riskIssueRef}
+                            label="Risk / Issue"
                             isRequired
-                            value={roadToGreen}
-                            onChange={setRoadToGreen}
-                            placeholder="What brings it back to Green?"
-                            rows={2}
+                            value={riskIssue}
+                            onChange={setRiskIssue}
+                            placeholder="What's the issue (happened) or risk (may happen)?"
+                            rows={3}
                             status={
-                              roadToGreenError
-                                ? { type: 'error', message: roadToGreenError }
+                              riskIssueError
+                                ? { type: 'error', message: riskIssueError }
                                 : undefined
                             }
                           />
-                        </div>
-                        <div ref={dueRef}>
-                          <Selector
-                            label="Due"
-                            isRequired
-                            width="100%"
-                            options={dueWeekOptions({ iso_year, iso_week })}
-                            value={roadToGreenDue || undefined}
-                            onChange={(v) => setRoadToGreenDue(v ?? '')}
-                            placeholder="Select a week…"
-                            status={dueError ? { type: 'error', message: dueError } : undefined}
-                          />
-                        </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </section>
-                ) : null}
-              </div>
-            )}
-          </LayoutContent>
+
+                      {hasActiveRisk ? (
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="md:col-span-2">
+                            <Textarea
+                              ref={roadToGreenRef}
+                              label="Road-to-Green action"
+                              isRequired
+                              value={roadToGreen}
+                              onChange={setRoadToGreen}
+                              placeholder="What brings it back to Green?"
+                              rows={2}
+                              status={
+                                roadToGreenError
+                                  ? { type: 'error', message: roadToGreenError }
+                                  : undefined
+                              }
+                            />
+                          </div>
+                          <div ref={dueRef}>
+                            <Selector
+                              label="Due"
+                              isRequired
+                              width="100%"
+                              options={dueWeekOptions({ iso_year, iso_week })}
+                              value={roadToGreenDue || undefined}
+                              onChange={(v) => setRoadToGreenDue(v ?? '')}
+                              placeholder="Select a week…"
+                              status={dueError ? { type: 'error', message: dueError } : undefined}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                    </section>
+                  ) : null}
+                </div>
+              )}
+            </LayoutContent>
+          }
+        />
+      </Dialog>
+      <AlertDialog
+        isOpen={pendingExit !== null || pendingLeave !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          setPendingExit(null);
+          setPendingLeave(null);
+        }}
+        title={pendingLeave ? 'Discard this comment?' : 'Discard this report?'}
+        description={
+          pendingLeave
+            ? 'What you have written has not been posted yet.'
+            : 'What you have written for this week has not been submitted.'
         }
+        cancelLabel="Keep editing"
+        actionLabel="Discard"
+        actionVariant="destructive"
+        onAction={() => {
+          if (pendingLeave) discardComment();
+          else discardReport();
+        }}
       />
-    </Dialog>
+    </>
   );
 }

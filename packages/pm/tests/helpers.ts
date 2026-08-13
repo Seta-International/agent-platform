@@ -48,6 +48,7 @@ export async function seedTenant(pool: Pool): Promise<SeededTenant> {
       email: adminEmail,
       display_name: 'Test Admin',
       roles: ['pm.manager'],
+      worker_id: adminResult.user_id,
     }),
   };
 }
