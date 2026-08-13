@@ -5,8 +5,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { performanceCycleUnlock } from '../../src/backend/db/schema.ts';
 import { setMonthClock } from '../../src/backend/domain/month-clock.ts';
-import { readCycleStatus, resolveOverrideActive } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import {
+  listCycleUnlocks,
+  readCycleStatus,
+  relockCycle,
+  resolveOverrideActive,
+  unlockCycle,
+} from '../../src/index.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -157,6 +163,153 @@ describe('resolveOverrideActive', () => {
         expect(
           await resolveOverrideActive(t.adminSession, { month: MONTH, project_id: projB }),
         ).toBe(false);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+function pmoSession(tenantId: string) {
+  return buildSession({
+    tenant_id: tenantId,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.pmo'],
+    person_id: crypto.randomUUID(),
+    assignments: [{ role_slug: 'pm.pmo', scope_kind: 'tenant', scope_id: null }],
+  });
+}
+
+describe('unlockCycle / relockCycle (FUT-781, AC1-AC4)', () => {
+  it('rejects a caller without people.performance.unlock (PMO-only)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const member = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['people.viewer'],
+          person_id: crypto.randomUUID(),
+        });
+        await expect(
+          unlockCycle(member, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'x' }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('unlock writes an audit row and activates the override; relock reverses it', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = pmoSession(t.tenant_id);
+
+        const entry = await unlockCycle(pmo, {
+          month: MONTH,
+          scope_kind: 'month',
+          scope_id: null,
+          reason: 'Payroll correction',
+        });
+        expect(entry.action).toBe('unlock');
+        expect(entry.reason).toBe('Payroll correction');
+        expect(entry.actor_user_id).toBe(pmo.user_id);
+        expect(await resolveOverrideActive(pmo, { month: MONTH })).toBe(true);
+
+        await relockCycle(pmo, {
+          month: MONTH,
+          scope_kind: 'month',
+          scope_id: null,
+          reason: 'Done',
+        });
+        expect(await resolveOverrideActive(pmo, { month: MONTH })).toBe(false);
+
+        const log = await listCycleUnlocks(pmo, MONTH);
+        expect(log.entries.map((e) => e.action)).toEqual(['relock', 'unlock']);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('blocks a stale double-unlock (two-tab concurrency): already unlocked → CONFLICT', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = pmoSession(t.tenant_id);
+        await unlockCycle(pmo, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'a' });
+        await expect(
+          unlockCycle(pmo, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'b' }),
+        ).rejects.toMatchObject({ code: 'CONFLICT' });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('blocks a relock when the scope is already locked → CONFLICT', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = pmoSession(t.tenant_id);
+        await expect(
+          relockCycle(pmo, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'x' }),
+        ).rejects.toMatchObject({ code: 'CONFLICT' });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('a project-scoped unlock is independent of a person-scoped unlock', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = pmoSession(t.tenant_id);
+        const proj = crypto.randomUUID();
+        const person = crypto.randomUUID();
+        await unlockCycle(pmo, {
+          month: MONTH,
+          scope_kind: 'project',
+          scope_id: proj,
+          reason: 'proj',
+        });
+        // Same-scope re-unlock is blocked, but a different scope is unaffected.
+        const personEntry = await unlockCycle(pmo, {
+          month: MONTH,
+          scope_kind: 'person',
+          scope_id: person,
+          reason: 'person',
+        });
+        expect(personEntry.scope_kind).toBe('person');
+        expect(await resolveOverrideActive(pmo, { month: MONTH, project_id: proj })).toBe(true);
+        expect(await resolveOverrideActive(pmo, { month: MONTH, person_id: person })).toBe(true);
       } finally {
         resetPeopleDb();
         resetCoreDb();
