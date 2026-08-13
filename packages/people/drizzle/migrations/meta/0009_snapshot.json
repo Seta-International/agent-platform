@@ -196,12 +196,8 @@
           "tableFrom": "employment_period",
           "tableTo": "person",
           "schemaTo": "people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -337,12 +333,8 @@
           "tableFrom": "org_unit",
           "tableTo": "org_unit",
           "schemaTo": "people",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -351,12 +343,8 @@
           "tableFrom": "org_unit",
           "tableTo": "person",
           "schemaTo": "people",
-          "columnsFrom": [
-            "head_worker_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["head_worker_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -471,12 +459,8 @@
           "tableFrom": "performance_config_criterion",
           "tableTo": "performance_config_revision",
           "schemaTo": "people",
-          "columnsFrom": [
-            "revision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["revision_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -485,12 +469,8 @@
           "tableFrom": "performance_config_criterion",
           "tableTo": "performance_evaluation_group",
           "schemaTo": "people",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -536,12 +516,8 @@
           "tableFrom": "performance_config_group_weight",
           "tableTo": "performance_config_revision",
           "schemaTo": "people",
-          "columnsFrom": [
-            "revision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["revision_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -550,12 +526,8 @@
           "tableFrom": "performance_config_group_weight",
           "tableTo": "performance_evaluation_group",
           "schemaTo": "people",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -563,10 +535,7 @@
       "compositePrimaryKeys": {
         "performance_config_group_weight_revision_id_group_id_pk": {
           "name": "performance_config_group_weight_revision_id_group_id_pk",
-          "columns": [
-            "revision_id",
-            "group_id"
-          ]
+          "columns": ["revision_id", "group_id"]
         }
       },
       "uniqueConstraints": {},
@@ -622,12 +591,8 @@
           "tableFrom": "performance_config_month_pin",
           "tableTo": "performance_config_revision",
           "schemaTo": "people",
-          "columnsFrom": [
-            "revision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["revision_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -635,11 +600,7 @@
       "compositePrimaryKeys": {
         "performance_config_month_pin_tenant_id_account_id_review_month_pk": {
           "name": "performance_config_month_pin_tenant_id_account_id_review_month_pk",
-          "columns": [
-            "tenant_id",
-            "account_id",
-            "review_month"
-          ]
+          "columns": ["tenant_id", "account_id", "review_month"]
         }
       },
       "uniqueConstraints": {},
@@ -1089,12 +1050,8 @@
           "tableFrom": "person",
           "tableTo": "org_unit",
           "schemaTo": "people",
-          "columnsFrom": [
-            "org_unit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["org_unit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1210,12 +1167,8 @@
           "tableFrom": "person_history",
           "tableTo": "person",
           "schemaTo": "people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1366,12 +1319,8 @@
           "tableFrom": "person_skill",
           "tableTo": "person",
           "schemaTo": "people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

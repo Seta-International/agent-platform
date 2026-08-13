@@ -71,6 +71,13 @@
       "when": 1786430404944,
       "tag": "0015_performance_config",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786600000000,
+      "tag": "0017_backfill_worker_allocation_projection",
+      "breakpoints": true
     }
   ]
 }
