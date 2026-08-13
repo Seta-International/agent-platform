@@ -61,7 +61,7 @@ import { buildScopeNote } from './utils.ts';
 const STATUS_LABEL: Record<string, string> = {
   open: 'Open',
   on_hold: 'On hold',
-  filled: 'Filled',
+  filled: 'Completed',
   cancelled: 'Cancelled',
 };
 // Lifecycle status order for the Stage column sort — non-open statuses group before open ones,
@@ -384,7 +384,8 @@ export function RequisitionsPage() {
         renderCell: (r) =>
           r.openings_total > 0 ? (
             <span className="whitespace-nowrap tabular-nums text-secondary">
-              {Math.max(0, r.openings_total - r.openings_open)}/{r.openings_total} filled
+              {r.openings_filled ?? Math.max(0, r.openings_total - r.openings_open)}/
+              {r.openings_total} filled
             </span>
           ) : (
             <span className="text-secondary">—</span>
@@ -524,7 +525,7 @@ export function RequisitionsPage() {
                     { value: 'all', label: 'Status' },
                     { value: 'open', label: 'Open' },
                     { value: 'on_hold', label: 'On hold' },
-                    { value: 'filled', label: 'Filled' },
+                    { value: 'filled', label: 'Completed' },
                     { value: 'cancelled', label: 'Cancelled' },
                   ]}
                   value={statusFilter}

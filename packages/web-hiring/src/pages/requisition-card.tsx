@@ -26,7 +26,7 @@ export function RequisitionCard({ r }: { r: RequisitionListRow }) {
   // — the card emphasises that column so the pipeline's leading edge reads at a glance.
   const counts = stageCounts(r.applicants_count, r.applicants);
   const furthest = furthestReachedIndex(r.applicants);
-  const filled = Math.max(0, r.openings_total - r.openings_open);
+  const filled = r.openings_filled ?? Math.max(0, r.openings_total - r.openings_open);
 
   // Time-to-fill readout for open requisitions: days left / overdue, coloured only when it
   // needs attention (past due → red, within a week → amber). Non-open states show a status

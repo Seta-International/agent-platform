@@ -48,7 +48,7 @@ describe('MarkFilledDialog', () => {
     renderDialog();
     const dialog = screen.getByRole('alertdialog');
     expect(
-      within(dialog).getByRole('heading', { name: 'Mark requisition as filled?' }),
+      within(dialog).getByRole('heading', { name: 'Mark requisition as completed?' }),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText(
@@ -87,7 +87,7 @@ describe('MarkFilledDialog', () => {
     const { onDone, onOpenChange } = renderDialog();
 
     const dialog = screen.getByRole('alertdialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark filled' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark completed' }));
 
     await waitFor(() =>
       expect(closeRequisition).toHaveBeenCalledWith('req1', {
@@ -108,7 +108,7 @@ describe('MarkFilledDialog', () => {
     renderDialog();
 
     const dialog = screen.getByRole('alertdialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark filled' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark completed' }));
 
     const action = await within(dialog).findByRole('button', { name: 'Marking…' });
     expect(action).toBeDisabled();

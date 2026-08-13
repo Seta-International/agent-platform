@@ -544,7 +544,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // locked — the outcome is settled and can't be reopened.
   const terminalReason =
     req.status === 'filled'
-      ? "This requisition is filled — it's closed and can no longer be changed."
+      ? "This requisition is completed — it's closed and can no longer be changed."
       : "This requisition is cancelled — it's closed and can no longer be changed.";
 
   // FUT-559: read applicants from the detail endpoint (candidate_id + name + seniority +
@@ -574,20 +574,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // filled, status Open). The `openingsTotal > 0` check keeps a requisition with zero live openings
   // from reading as staffed.
   const isFullyStaffed = openingsTotal > 0 && openingsFilled >= openingsTotal;
-  // A filled requisition is a closed, fully-resolved position, so its Headcount reads complete
-  // (A/A) regardless of how many openings an actual hire filled — the banner below carries the
-  // "how it closed" nuance. Non-filled requisitions still show real hire progress.
-  const headcountFilled = req.status === 'filled' ? openingsTotal : openingsFilled;
-  // Status `filled` only comes from the "Mark filled" button (hiring fills openings but never
-  // flips the requisition's status). Since Headcount now reads A/A, the banner is where we say how
-  // many openings an actual hire filled — the rest were closed out by the manual mark.
+  // The filled headcount continues to reflect the actual number of hired candidates.
+  const headcountFilled = openingsFilled;
+  // Status `filled` (Completed) only comes from the "Mark completed" button.
   const markedFilledNotice =
     req.status === 'filled'
       ? openingsTotal > 0 && openingsFilled < openingsTotal
         ? openingsFilled === 0
-          ? 'Marked filled with the button — no candidate was hired for this requisition.'
-          : `Marked filled with the button — ${openingsFilled} of ${openingsTotal} openings were filled by a hire, the rest were closed manually.`
-        : 'Marked filled with the button.'
+          ? 'Marked completed with the button — no candidate was hired for this requisition.'
+          : `Marked completed with the button — ${openingsFilled} of ${openingsTotal} openings were filled by a hire, the rest were closed manually.`
+        : 'Marked completed with the button.'
       : null;
   const fullyStaffedReason = 'This requisition is fully staffed — all openings are filled.';
   const renderApplicant = (a: ApplicantRow) => {
@@ -1163,7 +1159,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           <Button
             size="sm"
             variant="secondary"
-            label="Mark filled"
+            label="Mark completed"
             isDisabled={isTerminal || !canClose || isOnHold}
             onClick={() => setShowFillConfirm(true)}
           />

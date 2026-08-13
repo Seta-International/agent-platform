@@ -75,6 +75,7 @@ export interface RequisitionListRow {
   skills: RequisitionSkillSummary[];
   openings_total: number;
   openings_open: number;
+  openings_filled: number;
   applicants_count: number;
   applicants_internal: number;
   applicants_external: number;

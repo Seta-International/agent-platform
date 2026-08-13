@@ -25,6 +25,7 @@ function row(over: Partial<RequisitionListRow>): RequisitionListRow {
     skills: [],
     openings_total: 1,
     openings_open: 1,
+    openings_filled: 0,
     applicants_count: 3,
     applicants_internal: 0,
     applicants_external: 0,
@@ -59,7 +60,7 @@ describe('deriveAttention', () => {
   it('marks a filled requisition as success', () => {
     expect(deriveAttention(row({ status: 'filled' }))).toMatchObject({
       dotVariant: 'success',
-      statusWord: 'Filled',
+      statusWord: 'Completed',
     });
   });
 

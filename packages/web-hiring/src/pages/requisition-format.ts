@@ -22,7 +22,7 @@ export const PIPELINE_STAGE_LABEL: Record<ReqStage, string> = {
 export const STATUS_LABEL: Record<ReqStatus, string> = {
   open: 'Open',
   on_hold: 'On hold',
-  filled: 'Filled',
+  filled: 'Completed',
   cancelled: 'Cancelled',
 };
 export const STATUS_BADGE_CLASS: Record<ReqStatus, string> = {
@@ -102,9 +102,9 @@ export function deriveAttention(r: RequisitionListRow): RequisitionAttention {
   if (r.status === 'filled')
     return {
       dotVariant: 'success',
-      dotLabel: 'Filled',
+      dotLabel: 'Completed',
       toneVar: TONE.success,
-      statusWord: 'Filled',
+      statusWord: 'Completed',
     };
   if (r.approval_status === 'rejected')
     return {
