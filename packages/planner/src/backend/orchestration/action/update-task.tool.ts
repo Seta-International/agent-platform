@@ -2,6 +2,7 @@ import { defineAgentTool, resolveTaskRef, type SpecializedAgentRunCtx } from '@s
 import { buildBulkApprovalCard, buildUpdateApprovalCard } from './approval-card.ts';
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
+import { renderPatchDiff } from './revised-result.ts';
 import {
   dropNoOps,
   INCOMPLETE_PREVIEW,
@@ -319,7 +320,22 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
       }
       // Mastra unwinds (throws) at suspend() on the suspending pass — nothing
       // past this runs. The return only types the tool.
-      await agent.suspend({ card });
+      // Single-target revisions only: a bulk revision has no one snapshot to diff
+      // against, and inventing a representative row would be the same class of
+      // fiction this exists to prevent.
+      const revisedNote =
+        revision.kind === 'revision' && targets.length === 1 && first
+          ? {
+              // The SUPERSEDED card's id — the new card's is minted by the writer
+              // and is not knowable here. This is the right value to report: it
+              // identifies which proposal was replaced.
+              approvalId: revision.previousApprovalId,
+              taskTitle: first.title,
+              diff: renderPatchDiff(normalized, first),
+            }
+          : undefined;
+
+      await agent.suspend({ card, ...(revisedNote ? { revised: revisedNote } : {}) });
       return { updated: false, taskIds };
     },
   });

@@ -600,6 +600,44 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     expect(card?.primary.argsPatch.targets).toEqual([{ taskId: TASK_ID, expectedVersion: 9 }]);
   });
 
+  it('suspends with a RENDERED diff, so the sentence quotes rather than derives', async () => {
+    // Production wrote "Thứ Hai, 15/08/2026" for a Saturday. Handing the model the
+    // finished string removes the arithmetic from its job (design D20).
+    const { tool } = buildWithPreview();
+    let payload:
+      | { revised?: { taskTitle: string; diff: unknown[]; approvalId: string } }
+      | undefined;
+    const suspend = vi.fn(async (p: unknown) => {
+      payload = p as typeof payload;
+    });
+    await tool.execute!(
+      { taskRefs: [TASK_ID], patch: { dueAt: '2026-08-15' } } as never,
+      firstPassCtx(suspend),
+    );
+    expect(payload?.revised?.taskTitle).toBe('AWS migration');
+    expect(payload?.revised?.approvalId).toBe(OPEN_ID);
+    expect(payload?.revised?.diff).toContainEqual({
+      field: 'dueAt',
+      from: 'thứ Tư 12/08/2026',
+      to: 'thứ Bảy 15/08/2026',
+    });
+  });
+
+  it('a NEW card carries no revised note — nothing has been adjusted', async () => {
+    // Its absence is what stops the assistant reporting "đã cập nhật" for a
+    // proposal that has not even been agreed to yet.
+    const { tool } = build();
+    let payload: { revised?: unknown } | undefined;
+    const suspend = vi.fn(async (p: unknown) => {
+      payload = p as typeof payload;
+    });
+    await tool.execute!(
+      { taskRefs: [TASK_ID], patch: { dueAt: '2026-08-15' } } as never,
+      firstPassCtx(suspend),
+    );
+    expect(payload?.revised).toBeUndefined();
+  });
+
   it('a DIFFERENT task while a preview is open is an ordinary new request (AC3)', async () => {
     const { tool, preview } = buildWithPreview();
     const { card } = await suspendedCard(tool, {

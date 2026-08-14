@@ -210,9 +210,24 @@ export const UpdateTaskToolOutputSchema = z.object({
   taskIds: z.array(z.string()),
   /** Set when the write was refused for a reason the agent should explain. */
   refusal: z.string().nullable().optional(),
+  /** Present ONLY on a successfully persisted revision (design D20). Its absence
+   *  is what stops the assistant saying "đã cập nhật" after a refusal, and its
+   *  pre-rendered strings are what stop it inventing a weekday. */
+  revised: z
+    .object({
+      approvalId: z.string(),
+      taskTitle: z.string(),
+      diff: z.array(z.object({ field: z.string(), from: z.string(), to: z.string() })),
+    })
+    .optional(),
 });
 
-export const UpdateTaskSuspendSchema = z.object({ card: z.unknown() });
+export const UpdateTaskSuspendSchema = z.object({
+  card: z.unknown(),
+  /** The rendered diff of a revision, so the sentence the model writes after the
+   *  card appears quotes stored values instead of deriving them. */
+  revised: z.unknown().optional(),
+});
 
 /** One target of a batch. `expectedVersion` is per task, so a batch of ten in
  *  which one task moved since the preview conflicts as a whole (design §5). */
