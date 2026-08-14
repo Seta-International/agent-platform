@@ -1,4 +1,5 @@
 import { defineAgentTool, type SpecializedAgentRunCtx } from '@seta/agent-sdk';
+import type { z } from 'zod';
 import {
   classifyByThreshold,
   toDistance,
@@ -6,8 +7,10 @@ import {
 import { buildCreateTaskApprovalCard } from './approval-card.ts';
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
+import { INCOMPLETE_PREVIEW, resolveRevision, stringField } from './revision.ts';
 import type { ActionOpenPreview } from './schemas.ts';
 import {
+  CREATE_DRAFT_FIELDS,
   type CreateTaskDraft,
   CreateTaskResumeSchema,
   CreateTaskSuspendSchema,
@@ -30,6 +33,56 @@ export interface CreateTaskToolDeps {
 const DEDUP_THRESHOLDS = { likelyDup: 0.35, maybeDup: 0.45 };
 const MAX_SIMILAR = 3;
 
+/** The draft fields a revision may name, in the model's own vocabulary. */
+type DraftInput = Pick<
+  z.infer<typeof CreateTaskToolInputSchema>,
+  'title' | 'description' | 'dueAt' | 'startAt' | 'priority' | 'labels'
+>;
+
+/**
+ * Merge an adjustment onto the draft already on the card, then remove whatever
+ * the user asked to be left alone (design D3, D17).
+ *
+ * Keys are added CONDITIONALLY, never as `undefined`: `CreateTaskDraftSchema` is
+ * `.strict()`, and an explicit `description: undefined` would erase a value the
+ * user already agreed to just because this sentence did not repeat it.
+ *
+ * `title` is not droppable — the schema requires it, so dropping it would produce
+ * a card the builder cannot render.
+ */
+function mergeDrafts(
+  previous: CreateTaskDraft,
+  input: DraftInput,
+  dropFields: readonly string[] | undefined,
+): { draft: CreateTaskDraft } | { refusal: string } {
+  const merged: Record<string, unknown> = {
+    ...previous,
+    title: input.title,
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.startAt ? { startAt: normalizeInstant(input.startAt, 'start') } : {}),
+    ...(input.dueAt ? { dueAt: normalizeInstant(input.dueAt, 'end') } : {}),
+    ...(input.priority ? { priority: input.priority } : {}),
+    ...(input.labels?.length ? { labels: input.labels } : {}),
+  };
+  for (const field of dropFields ?? []) {
+    if (field === 'title') {
+      return {
+        refusal:
+          'A new task needs a title. Tell me what it should be called, or cancel the preview.',
+      };
+    }
+    if (!(CREATE_DRAFT_FIELDS as readonly string[]).includes(field)) {
+      return {
+        refusal:
+          `I don't set a field called "${field}" on a new task. I can set ` +
+          `${CREATE_DRAFT_FIELDS.join(', ')}.`,
+      };
+    }
+    delete merged[field];
+  }
+  return { draft: merged as CreateTaskDraft };
+}
+
 /**
  * A2's create tool: preview → confirm → one gated write.
  *
@@ -39,7 +92,7 @@ const MAX_SIMILAR = 3;
  * preview and the "use the existing one instead" escape.
  */
 export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
-  const { ports, ctx } = deps;
+  const { ports, ctx, openPreview } = deps;
   const actor = { tenantId: ctx.tenantId, actorUserId: ctx.actorUserId };
 
   return defineAgentTool({
@@ -110,12 +163,33 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
-      const plan = await ports.taskCreate.resolvePlan({ ...actor, planRef: input.planRef });
+      const revision = await resolveRevision({
+        preview: ports.preview,
+        actor,
+        revisionOf: input.revisionOf,
+        openPreview,
+        toolId: 'planner_createTask',
+      });
+      if (revision.kind === 'refused') {
+        return { created: false, taskId: null, refusal: revision.refusal };
+      }
+
+      // On a revision the plan comes FROM THE CARD: `planRef` is ignored, because
+      // moving the plan moves the bucket and the board the task lands on.
+      const planRef =
+        revision.kind === 'revision'
+          ? stringField(revision.previousArgsPatch, 'planId')
+          : input.planRef;
+      if (!planRef) {
+        return { created: false, taskId: null, refusal: INCOMPLETE_PREVIEW };
+      }
+
+      const plan = await ports.taskCreate.resolvePlan({ ...actor, planRef });
       if (!plan) {
         return {
           created: false,
           taskId: null,
-          refusal: `I can't find a plan called "${input.planRef}".`,
+          refusal: `I can't find a plan called "${planRef}".`,
         };
       }
       if ('ambiguous' in plan) {
@@ -123,7 +197,7 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
         return {
           created: false,
           taskId: null,
-          refusal: `There are ${plan.ambiguous.length} plans called "${input.planRef}". Which one did you mean?`,
+          refusal: `There are ${plan.ambiguous.length} plans called "${planRef}". Which one did you mean?`,
         };
       }
 
@@ -133,6 +207,11 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
 
       // After the gate, before the embedding call — same reason the gate sits
       // where it does: a request that cannot land should not spend a search.
+      //
+      // Re-resolved on a revision too, deliberately: the bucket is a value the
+      // SERVER picks, never one the user chose, so the rebuilt card must show
+      // whichever column it resolves to NOW. Pinning a stale bucketId would risk
+      // a card promising a column that no longer exists.
       const bucket = await ports.taskCreate.resolveDefaultBucket({
         ...actor,
         planId: plan.planId,
@@ -149,14 +228,15 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
         };
       }
 
-      const draft: CreateTaskDraft = {
-        title: input.title,
-        ...(input.description ? { description: input.description } : {}),
-        ...(input.startAt ? { startAt: normalizeInstant(input.startAt, 'start') } : {}),
-        ...(input.dueAt ? { dueAt: normalizeInstant(input.dueAt, 'end') } : {}),
-        ...(input.priority ? { priority: input.priority } : {}),
-        ...(input.labels?.length ? { labels: input.labels } : {}),
-      };
+      const previousDraft =
+        revision.kind === 'revision'
+          ? ((revision.previousArgsPatch.draft ?? {}) as CreateTaskDraft)
+          : ({} as CreateTaskDraft);
+      const mergedDraft = mergeDrafts(previousDraft, input, input.dropFields);
+      if ('refusal' in mergedDraft) {
+        return { created: false, taskId: null, refusal: mergedDraft.refusal };
+      }
+      const draft = mergedDraft.draft;
 
       // A dead vector store must not stop a user creating a task: degrade to a
       // card with no alternates rather than refusing the request.
@@ -165,7 +245,9 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
         const hits = await ports.similarTasks.search({
           ...actor,
           planId: plan.planId,
-          queryText: [input.title, input.description ?? ''].join(' ').trim(),
+          // The MERGED title, so the "use the existing one instead" escape
+          // matches what the card now proposes.
+          queryText: [draft.title, draft.description ?? ''].join(' ').trim(),
           limit: 5,
         });
         const { classification, top } = classifyByThreshold(
@@ -198,8 +280,10 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
         // Minted HERE and persisted on the card: resume may run in another
-        // process, so the key can only travel via proposed_payload.
+        // process, so the key can only travel via proposed_payload. FRESH on
+        // every revision (AC4).
         idempotencyKey: crypto.randomUUID(),
+        ...(revision.kind === 'revision' ? { supersedes: revision.previousApprovalId } : {}),
       });
 
       if (typeof agent?.suspend !== 'function') {
