@@ -292,13 +292,18 @@ describe('ReassignWizardDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add project' }));
     expect(screen.getByLabelText('Account')).toBeInTheDocument();
-    // No project chosen yet — still gated.
+    // No project or allocation chosen yet — still gated.
     expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
 
     await user.click(screen.getByRole('combobox', { name: 'Account' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(screen.getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    // Still disabled because Allocation is required and starts empty
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
   });
@@ -336,7 +341,7 @@ describe('ReassignWizardDialog', () => {
     expect(await screen.findByRole('option', { name: '0.1' })).toBeInTheDocument();
   });
 
-  it('requires both a start and end date on a new project, displays required indicators, validation errors, and gates Review impact', async () => {
+  it('requires both a start and end date on a new project, displays required indicators, and gates Review impact without noisy inline error', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
@@ -371,30 +376,31 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(screen.getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
-    // Dates default to today, so the row is valid out of the box.
+    // Dates default to today, so the row is valid out of the box once allocation is selected.
     const startDate = screen.getByLabelText('Start date') as HTMLInputElement;
     const endDate = screen.getByLabelText('End date') as HTMLInputElement;
     expect(startDate.value).not.toBe('');
     expect(endDate.value).not.toBe('');
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
 
-    // Clearing a required date (end) gates the button again and shows validation error message.
+    // Clearing a required date (end) gates the button again without noisy inline text error.
     fireEvent.change(endDate, { target: { value: '' } });
     fireEvent.blur(endDate);
     expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
-    expect(screen.getAllByText('End date is required.').length).toBeGreaterThanOrEqual(1);
+    expect(document.querySelector('p.text-error')).toBeNull();
 
-    // Restoring a valid end date re-enables it and clears the message.
+    // Restoring a valid end date re-enables it.
     fireEvent.change(endDate, { target: { value: '2026-12-31' } });
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
-    expect(screen.queryByText('End date is required.')).not.toBeInTheDocument();
 
-    // Clearing start date shows start date required error and gates button.
+    // Clearing start date gates the button without noisy inline text error.
     fireEvent.change(startDate, { target: { value: '' } });
     fireEvent.blur(startDate);
     expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
-    expect(screen.getAllByText('Start date is required.').length).toBeGreaterThanOrEqual(1);
+    expect(document.querySelector('p.text-error')).toBeNull();
   });
 
   // Astryx's DateInput enforces `min` on typed input as well as in the picker: a date
@@ -424,6 +430,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(screen.getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     // Defaults to today → valid.
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
@@ -540,6 +548,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
 
@@ -607,6 +617,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
     await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
 
@@ -644,6 +656,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(screen.getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     await user.click(screen.getByRole('button', { name: /review impact/i }));
 

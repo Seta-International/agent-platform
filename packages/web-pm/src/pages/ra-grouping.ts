@@ -35,6 +35,11 @@ export function personGroupKey(r: GroupableRow): string {
   return r.worker_id ?? `unfilled:${r.allocation_id}`;
 }
 
+/** Identity used to detect "same project for the same person" once grouped. */
+export function projectGroupKey(r: GroupableRow): string {
+  return `${personGroupKey(r)}::${r.account_name ?? ''}::${r.project_name ?? ''}`;
+}
+
 /** Ascending comparator for the within-group secondary sort field. */
 export function compareByField(field: string, a: GroupableRow, b: GroupableRow): number {
   switch (field) {
@@ -59,22 +64,76 @@ export function compareByField(field: string, a: GroupableRow, b: GroupableRow):
 
 /**
  * Groups rows by person — alphabetical, always, regardless of the secondary
- * sort direction — then sorts each group's own rows by `field`. Two projects
- * for the same person always stay adjacent, no matter what `field`/`desc` is.
+ * sort direction — then keeps allocations for the same project together within
+ * each person's group, sorting project groups by `field` and sorting individual
+ * allocation periods within each project chronologically by date.
  */
 export function groupByPerson<T extends GroupableRow>(
   rows: T[],
   field: string,
   desc: boolean,
 ): T[] {
-  const arr = [...rows];
-  arr.sort((a, b) => {
-    const personCmp = personSortKey(a).localeCompare(personSortKey(b));
-    if (personCmp !== 0) return personCmp;
-    const raw = compareByField(field, a, b);
-    return desc ? -raw : raw;
-  });
-  return arr;
+  // First, group by person
+  const personMap = new Map<string, T[]>();
+  for (const r of rows) {
+    const pKey = personSortKey(r);
+    const list = personMap.get(pKey);
+    if (list) {
+      list.push(r);
+    } else {
+      personMap.set(pKey, [r]);
+    }
+  }
+
+  // Sort person keys alphabetically
+  const sortedPersonKeys = [...personMap.keys()].sort((a, b) => a.localeCompare(b));
+
+  const result: T[] = [];
+
+  for (const pKey of sortedPersonKeys) {
+    const personRows = personMap.get(pKey) ?? [];
+
+    // Group rows of this person by project
+    const projectMap = new Map<string, T[]>();
+    for (const r of personRows) {
+      const projKey = projectGroupKey(r);
+      const list = projectMap.get(projKey);
+      if (list) {
+        list.push(r);
+      } else {
+        projectMap.set(projKey, [r]);
+      }
+    }
+
+    // Sort each project's periods chronologically by date_from
+    for (const periods of projectMap.values()) {
+      periods.sort((a, b) => {
+        const startCmp = (a.date_from ?? '').localeCompare(b.date_from ?? '');
+        if (startCmp !== 0) return startCmp;
+        return (a.date_to ?? '').localeCompare(b.date_to ?? '');
+      });
+    }
+
+    // Sort project groups relative to each other using the first (earliest) row of each project
+    const projectGroups = [...projectMap.values()];
+    projectGroups.sort((groupA, groupB) => {
+      const repA = groupA[0];
+      const repB = groupB[0];
+      if (!repA || !repB) return 0;
+      const raw = compareByField(field, repA, repB);
+      if (raw !== 0) return desc ? -raw : raw;
+      // Stable fallback
+      const projCmp = (repA.project_name ?? '').localeCompare(repB.project_name ?? '');
+      if (projCmp !== 0) return projCmp;
+      return (repA.account_name ?? '').localeCompare(repB.account_name ?? '');
+    });
+
+    for (const group of projectGroups) {
+      result.push(...group);
+    }
+  }
+
+  return result;
 }
 
 /** Allocation ids that are the first row of their person's group, given rows
@@ -84,6 +143,19 @@ export function firstInGroupIds<T extends GroupableRow>(sortedRows: T[]): Set<st
   let prevKey: string | null = null;
   for (const r of sortedRows) {
     const key = personGroupKey(r);
+    if (key !== prevKey) ids.add(r.allocation_id);
+    prevKey = key;
+  }
+  return ids;
+}
+
+/** Allocation ids that are the first row of their project's group for a person,
+ *  given rows already ordered by {@link groupByPerson}. */
+export function firstInProjectGroupIds<T extends GroupableRow>(sortedRows: T[]): Set<string> {
+  const ids = new Set<string>();
+  let prevKey: string | null = null;
+  for (const r of sortedRows) {
+    const key = projectGroupKey(r);
     if (key !== prevKey) ids.add(r.allocation_id);
     prevKey = key;
   }

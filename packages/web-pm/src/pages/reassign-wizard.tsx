@@ -900,14 +900,17 @@ function AllocationSelect({
 }) {
   const options = (ALLOCATION_FRACTION_STEPS as readonly string[]).includes(value)
     ? ALLOCATION_FRACTION_STEPS
-    : [value, ...ALLOCATION_FRACTION_STEPS];
+    : value
+      ? [value, ...ALLOCATION_FRACTION_STEPS]
+      : ALLOCATION_FRACTION_STEPS;
   return (
     <Selector
       label={ariaLabel}
       isLabelHidden
       size="sm"
       options={options.map((v) => ({ value: v, label: v }))}
-      value={value}
+      value={value || undefined}
+      placeholder="—"
       onChange={onChange}
       isDisabled={disabled}
     />

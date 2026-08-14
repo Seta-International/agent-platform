@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   compareByField,
   firstInGroupIds,
+  firstInProjectGroupIds,
   groupByPerson,
   personGroupKey,
   personSortKey,
+  projectGroupKey,
 } from '../../src/pages/ra-grouping';
 
 function row(over: Partial<Parameters<typeof groupByPerson>[0][number]> = {}) {
@@ -51,6 +53,32 @@ describe('personGroupKey', () => {
   });
 });
 
+describe('projectGroupKey', () => {
+  it('identifies same project for same worker', () => {
+    const a = projectGroupKey(
+      row({ worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD', allocation_id: 'a1' }),
+    );
+    const b = projectGroupKey(
+      row({ worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD', allocation_id: 'a2' }),
+    );
+    expect(a).toBe(b);
+  });
+  it('distinguishes different projects for same worker', () => {
+    const a = projectGroupKey(
+      row({ worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD', allocation_id: 'a1' }),
+    );
+    const b = projectGroupKey(
+      row({
+        worker_id: 'w1',
+        account_name: 'Aeris',
+        project_name: 'Watchtower',
+        allocation_id: 'a2',
+      }),
+    );
+    expect(a).not.toBe(b);
+  });
+});
+
 describe('compareByField', () => {
   it('compares planned_pct numerically', () => {
     expect(
@@ -83,10 +111,46 @@ describe('groupByPerson', () => {
     expect(sorted.map((r) => r.allocation_id)).toEqual(['a2', 'a1', 'z1']);
   });
 
+  it('keeps allocations for the same project contiguous within a person even if dates interleave with other projects (FUT-849)', () => {
+    const rows = [
+      row({
+        allocation_id: 'a1',
+        worker_name: 'Alice',
+        project_name: 'Project A',
+        date_from: '2026-01-01',
+      }),
+      row({
+        allocation_id: 'b1',
+        worker_name: 'Alice',
+        project_name: 'Project B',
+        date_from: '2026-02-01',
+      }),
+      row({
+        allocation_id: 'a2',
+        worker_name: 'Alice',
+        project_name: 'Project A',
+        date_from: '2026-03-01',
+      }),
+    ];
+    const sorted = groupByPerson(rows, 'start', false);
+    // Project A rows must stay together, sorted chronologically: a1, a2, then Project B (b1)
+    expect(sorted.map((r) => r.allocation_id)).toEqual(['a1', 'a2', 'b1']);
+  });
+
   it('sorts within a group ascending by the given field, and flips for desc', () => {
     const rows = [
-      row({ allocation_id: 'a1', worker_name: 'Alice', planned_pct: 80 }),
-      row({ allocation_id: 'a2', worker_name: 'Alice', planned_pct: 20 }),
+      row({
+        allocation_id: 'a1',
+        worker_name: 'Alice',
+        project_name: 'Project 1',
+        planned_pct: 80,
+      }),
+      row({
+        allocation_id: 'a2',
+        worker_name: 'Alice',
+        project_name: 'Project 2',
+        planned_pct: 20,
+      }),
     ];
     const asc = groupByPerson(rows, 'planned', false);
     expect(asc.map((r) => r.allocation_id)).toEqual(['a2', 'a1']);
@@ -126,5 +190,26 @@ describe('firstInGroupIds', () => {
     const ids = firstInGroupIds(sorted);
     expect(ids.has('a1')).toBe(true);
     expect(ids.has('a2')).toBe(true);
+  });
+});
+
+describe('firstInProjectGroupIds (FUT-849)', () => {
+  it('flags only the first row of each project within a person', () => {
+    const sorted = [
+      row({ allocation_id: 'a1', worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD' }),
+      row({ allocation_id: 'a2', worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD' }),
+      row({
+        allocation_id: 'a3',
+        worker_id: 'w1',
+        account_name: 'Aeris',
+        project_name: 'Watchtower',
+      }),
+      row({ allocation_id: 'b1', worker_id: 'w2', account_name: 'VRI', project_name: 'VERI-AD' }),
+    ];
+    const ids = firstInProjectGroupIds(sorted);
+    expect(ids.has('a1')).toBe(true);
+    expect(ids.has('a2')).toBe(false); // second allocation for VERI-AD under w1
+    expect(ids.has('a3')).toBe(true); // first allocation for Watchtower under w1
+    expect(ids.has('b1')).toBe(true); // first allocation for VERI-AD under w2
   });
 });

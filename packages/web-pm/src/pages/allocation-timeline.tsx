@@ -17,6 +17,20 @@ export interface TimelineRow extends TimelineSegment {
   hasError?: boolean;
 }
 
+export interface GroupedTimelineRow {
+  rowKey: string;
+  projectKey: string;
+  projectIndex: number;
+  label: string;
+  isRestricted?: boolean;
+  hasError?: boolean;
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+  isFirstInProject: boolean;
+  totalProjectSegments: number;
+}
+
 const LABEL_WIDTH = 224;
 const DATE_COL_WIDTH = 112;
 const PREFIX_WIDTH = LABEL_WIDTH + DATE_COL_WIDTH * 2;
@@ -24,9 +38,9 @@ const PREFIX_WIDTH = LABEL_WIDTH + DATE_COL_WIDTH * 2;
 // that point the chart scrolls horizontally instead of squeezing further.
 const MIN_MONTH_WIDTH = 56;
 
-// One categorical hue per row, cycled. Each bar pairs a soft tint fill with the
-// matching vivid text, and its legend dot is the same hue's solid variant — so a
-// row's bar and dot always read as the same colour (no muted grey, no near-white dots).
+// One categorical hue per project, cycled. Each bar pairs a soft tint fill with the
+// matching vivid text, and its legend dot is the same hue's solid variant — so all
+// periods of the same project share the same distinct colour.
 const ROW_BAR_CLASSES = [
   'bg-blue-subtle text-blue-vivid',
   'bg-green-subtle text-green-vivid',
@@ -36,22 +50,89 @@ const ROW_BAR_CLASSES = [
 const ROW_DOT_CLASSES = ['bg-blue-vivid', 'bg-green-vivid', 'bg-orange-vivid', 'bg-purple-vivid'];
 
 /**
- * Lightweight Gantt-style chart of a person's allocations: one bar per row
- * (whole-month granularity), a "Total allocation" row summing every month,
- * and a dashed "Today" marker. Built on plain CSS grid rather than a charting
- * library. Month columns stretch to fill the available width (down to
- * `MIN_MONTH_WIDTH` each), so bar/marker offsets are computed as percentages
- * of the month-columns span rather than fixed pixel widths.
+ * Groups rows by project, ordering segments chronologically and ensuring
+ * all allocation periods for the same project stay contiguous with unified
+ * project color theming while preserving exact start/end dates for each period.
+ */
+export function groupTimelineRows(rows: TimelineRow[]): GroupedTimelineRow[] {
+  if (rows.length === 0) return [];
+
+  const groupMap = new Map<string, TimelineRow[]>();
+  const groupOrder: string[] = [];
+
+  for (const r of rows) {
+    const key = r.isRestricted ? '__restricted__' : r.label;
+    const list = groupMap.get(key);
+    if (list) {
+      list.push(r);
+    } else {
+      groupMap.set(key, [r]);
+      groupOrder.push(key);
+    }
+  }
+
+  // Sort project groups: regular projects in chronological order of earliest start, restricted last
+  groupOrder.sort((a, b) => {
+    if (a === '__restricted__') return 1;
+    if (b === '__restricted__') return -1;
+    const listA = groupMap.get(a) ?? [];
+    const listB = groupMap.get(b) ?? [];
+    const minA = listA.reduce(
+      (min, s) => (!min || s.date_from < min ? s.date_from : min),
+      listA[0]?.date_from ?? '',
+    );
+    const minB = listB.reduce(
+      (min, s) => (!min || s.date_from < min ? s.date_from : min),
+      listB[0]?.date_from ?? '',
+    );
+    return minA.localeCompare(minB);
+  });
+
+  const result: GroupedTimelineRow[] = [];
+
+  groupOrder.forEach((groupKey, projectIndex) => {
+    const segments = groupMap.get(groupKey) ?? [];
+    segments.sort((a, b) => a.date_from.localeCompare(b.date_from));
+
+    const isRestricted = segments.some((s) => s.isRestricted);
+    const groupHasError = segments.some((s) => s.hasError);
+    const label = isRestricted ? 'Restricted projects' : (segments[0]?.label ?? groupKey);
+
+    segments.forEach((seg, segIdx) => {
+      result.push({
+        rowKey: seg.key,
+        projectKey: groupKey,
+        projectIndex,
+        label,
+        isRestricted,
+        hasError: seg.hasError || groupHasError,
+        date_from: seg.date_from,
+        date_to: seg.date_to,
+        planned_pct: seg.planned_pct,
+        isFirstInProject: segIdx === 0,
+        totalProjectSegments: segments.length,
+      });
+    });
+  });
+
+  return result;
+}
+
+/**
+ * Lightweight Gantt-style chart of a person's allocations: grouped by project
+ * so multiple allocation periods for the same project are visually connected
+ * with consistent color theming while preserving exact start/end dates for each period.
  */
 export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; todayIso: string }) {
   const months = useMemo(() => buildMonthColumns(rows, todayIso), [rows, todayIso]);
   const totals = useMemo(() => monthlyTotals(rows, months), [rows, months]);
   const todayPos = useMemo(() => todayFraction(months, todayIso), [months, todayIso]);
+  const groupedRows = useMemo(() => groupTimelineRows(rows), [rows]);
 
   if (rows.length === 0 || months.length === 0) return null;
 
   const gridTemplateColumns = `${LABEL_WIDTH}px ${DATE_COL_WIDTH}px ${DATE_COL_WIDTH}px repeat(${months.length}, minmax(${MIN_MONTH_WIDTH}px, 1fr))`;
-  const totalRow = rows.length + 2;
+  const totalRow = groupedRows.length + 2;
   const todayLeft = `calc(${PREFIX_WIDTH}px + (100% - ${PREFIX_WIDTH}px) * ${(todayPos / months.length).toFixed(6)})`;
 
   return (
@@ -92,43 +173,49 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
             </div>
           ))}
 
-          {rows.map((row, rowIndex) => {
+          {groupedRows.map((row, rowIndex) => {
             const { start, end } = dayFractionRange(months, row.date_from, row.date_to);
             const isRestricted = row.isRestricted;
             const dot = row.hasError
               ? 'bg-error'
               : isRestricted
                 ? 'bg-amber-vivid'
-                : ROW_DOT_CLASSES[rowIndex % ROW_DOT_CLASSES.length];
+                : ROW_DOT_CLASSES[row.projectIndex % ROW_DOT_CLASSES.length];
             const bar = row.hasError
               ? 'bg-error-muted text-error font-semibold'
               : isRestricted
                 ? 'bg-amber-subtle text-amber-vivid border border-dashed border-amber-strong'
-                : ROW_BAR_CLASSES[rowIndex % ROW_BAR_CLASSES.length];
+                : ROW_BAR_CLASSES[row.projectIndex % ROW_BAR_CLASSES.length];
+
             return (
-              <div className="contents" key={row.key}>
-                <div
-                  className="flex items-center gap-1.5 truncate border-b border-border px-2 py-2"
-                  style={{ gridColumn: 1, gridRow: rowIndex + 2 }}
-                  title={row.label}
-                >
-                  {isRestricted ? (
-                    <Lock className="size-3.5 shrink-0 text-amber-600" aria-label="Restricted" />
-                  ) : (
-                    <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
-                  )}
-                  <span
-                    className={`truncate ${
-                      row.hasError
-                        ? 'font-medium text-error'
-                        : isRestricted
-                          ? 'font-medium text-secondary italic'
-                          : 'text-primary'
-                    }`}
+              <div className="contents" key={row.rowKey}>
+                {row.isFirstInProject ? (
+                  <div
+                    className="sticky left-0 z-10 flex items-center gap-1.5 truncate border-b border-border bg-card px-2 py-2"
+                    style={{
+                      gridColumn: 1,
+                      gridRow: `${rowIndex + 2} / ${rowIndex + 2 + row.totalProjectSegments}`,
+                    }}
+                    title={row.label}
                   >
-                    {row.label}
-                  </span>
-                </div>
+                    {isRestricted ? (
+                      <Lock className="size-3.5 shrink-0 text-amber-600" aria-label="Restricted" />
+                    ) : (
+                      <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+                    )}
+                    <span
+                      className={`truncate ${
+                        row.hasError
+                          ? 'font-medium text-error'
+                          : isRestricted
+                            ? 'font-medium text-secondary italic'
+                            : 'font-medium text-primary'
+                      }`}
+                    >
+                      {row.label}
+                    </span>
+                  </div>
+                ) : null}
                 <div
                   className="whitespace-nowrap border-b border-l border-border px-2 py-2 font-mono text-secondary"
                   style={{ gridColumn: 2, gridRow: rowIndex + 2 }}
@@ -151,6 +238,7 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
                       left: `${(start / months.length) * 100}%`,
                       width: `${((end - start) / months.length) * 100}%`,
                     }}
+                    title={`${row.label}: ${formatDisplayDate(row.date_from)} – ${row.date_to ? formatDisplayDate(row.date_to) : 'Ongoing'} (${row.planned_pct}%)`}
                   >
                     {`${row.planned_pct}%`}
                   </div>

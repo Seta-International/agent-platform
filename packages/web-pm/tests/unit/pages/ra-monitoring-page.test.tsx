@@ -281,6 +281,55 @@ describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
     expect(screen.getByText('Worker 25')).toBeInTheDocument();
     expect(screen.queryByText('Worker 00')).not.toBeInTheDocument();
   });
+
+  it('groups multiple allocation periods for the same project under the same worker and renders Account/Project only once (FUT-849)', async () => {
+    const multiPeriodAllocations = [
+      {
+        allocation_id: 'a1',
+        worker_id: 'w1',
+        worker_name: 'Jane Doe',
+        worker_title: 'Engineer',
+        account_name: 'VRI',
+        project_name: 'VERI-AD',
+        planned_pct: 100,
+        date_from: '2026-08-03',
+        date_to: '2026-08-31',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+      {
+        allocation_id: 'a2',
+        worker_id: 'w1',
+        worker_name: 'Jane Doe',
+        worker_title: 'Engineer',
+        account_name: 'VRI',
+        project_name: 'VERI-AD',
+        planned_pct: 100,
+        date_from: '2026-09-01',
+        date_to: '2026-10-01',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+    ];
+    fetchAllocationsMock.mockResolvedValue(multiPeriodAllocations);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+
+    // Both dates are rendered
+    expect(screen.getByText('03 Aug 2026')).toBeInTheDocument();
+    expect(screen.getByText('01 Sep 2026')).toBeInTheDocument();
+
+    // Account and Project name appear only once in the table body (grouped on first row)
+    expect(screen.getAllByText('VRI')).toHaveLength(1);
+    expect(screen.getAllByText('VERI-AD')).toHaveLength(1);
+  });
 });
 
 describe('RaMonitoringPage — Add-allocation wizard fetch scope (FUT-750)', () => {

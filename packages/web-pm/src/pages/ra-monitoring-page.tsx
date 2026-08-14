@@ -59,7 +59,12 @@ import {
   overAllocatedWorkers,
   rollupKpis,
 } from './ra-effort.ts';
-import { firstInGroupIds, groupByPerson, SECONDARY_SORT_FIELDS } from './ra-grouping.ts';
+import {
+  firstInGroupIds,
+  firstInProjectGroupIds,
+  groupByPerson,
+  SECONDARY_SORT_FIELDS,
+} from './ra-grouping.ts';
 import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';
 import { ReassignWizardDialog, type ReassignWizardTarget } from './reassign-wizard.tsx';
 
@@ -421,6 +426,7 @@ export function RaMonitoringPage() {
     [allocations, secondaryField, secondaryDesc],
   );
   const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
+  const firstInProject = useMemo(() => firstInProjectGroupIds(groupedRows), [groupedRows]);
   const rowClassName = useCallback(
     (item: RaMonitoringAllocation) =>
       // Thin `dividers="rows"` lines (drawn on the cells) separate every allocation; a
@@ -545,9 +551,10 @@ export function RaMonitoringPage() {
   }, []);
 
   // Column defs depend directly on the closures they read (canManage,
-  // overWorkers, firstInGroup, openReassignGroup) — no `table.options.meta`
-  // indirection needed: none of these cells contain a live-editable input, so
-  // there's no keystroke-remount concern the old `meta` plumbing guarded against.
+  // overWorkers, firstInGroup, firstInProject, openReassignGroup) — no
+  // `table.options.meta` indirection needed: none of these cells contain a
+  // live-editable input, so there's no keystroke-remount concern the old
+  // `meta` plumbing guarded against.
   const columns = useMemo<TableColumn<RaRow>[]>(
     () => [
       {
@@ -555,7 +562,10 @@ export function RaMonitoringPage() {
         header: 'Account',
         width: proportional(1.2, { minWidth: 150 }),
         sortable: true,
-        renderCell: (r) => <span className="text-secondary">{r.account_name}</span>,
+        renderCell: (r) => {
+          if (!firstInProject.has(r.allocation_id)) return null;
+          return <span className="text-secondary">{r.account_name}</span>;
+        },
       },
       {
         key: 'project',
@@ -564,7 +574,10 @@ export function RaMonitoringPage() {
         // generous floor so names wrap to 1–2 lines instead of the previous three.
         width: proportional(1.6, { minWidth: 190 }),
         sortable: true,
-        renderCell: (r) => <span className="text-primary">{r.project_name}</span>,
+        renderCell: (r) => {
+          if (!firstInProject.has(r.allocation_id)) return null;
+          return <span className="text-primary">{r.project_name}</span>;
+        },
       },
       {
         key: 'name',
@@ -686,7 +699,7 @@ export function RaMonitoringPage() {
         },
       },
     ],
-    [overWorkers, openReassignGroup, win],
+    [firstInProject, overWorkers, openReassignGroup, win],
   );
 
   // The Scope card must reflect the current filter context (FUT-841): the

@@ -113,4 +113,50 @@ describe('AllocationTimeline', () => {
     expect(screen.getByLabelText('Restricted')).toBeTruthy();
     expect(screen.getAllByText('270%').length).toBeGreaterThan(0);
   });
+
+  it('visually groups multiple allocation records for the same project under one project group while preserving each period date (FUT-849)', () => {
+    render(
+      <AllocationTimeline
+        rows={[
+          {
+            key: 'a1',
+            label: 'VERI-AD',
+            date_from: '2026-09-01',
+            date_to: '2026-10-01',
+            planned_pct: 100,
+          },
+          {
+            key: 'a2',
+            label: 'VERI-AD',
+            date_from: '2026-08-03',
+            date_to: '2026-08-31',
+            planned_pct: 100,
+          },
+          {
+            key: 'a3',
+            label: 'VERI-AD',
+            date_from: '2026-11-01',
+            date_to: '2026-11-30',
+            planned_pct: 100,
+          },
+        ]}
+        todayIso="2026-08-01"
+      />,
+    );
+
+    // Project name VERI-AD appears exactly once in the table (on the first row of the group)
+    const projectLabels = screen.getAllByText('VERI-AD');
+    expect(projectLabels.length).toBe(1);
+
+    // Each individual allocation period date is clearly preserved
+    expect(screen.getByText('03 Aug 2026')).toBeTruthy();
+    expect(screen.getByText('31 Aug 2026')).toBeTruthy();
+    expect(screen.getByText('01 Sep 2026')).toBeTruthy();
+    expect(screen.getByText('01 Oct 2026')).toBeTruthy();
+    expect(screen.getByText('01 Nov 2026')).toBeTruthy();
+    expect(screen.getByText('30 Nov 2026')).toBeTruthy();
+
+    // Bars for the 3 distinct periods are rendered
+    expect(screen.getAllByText('100%').length).toBeGreaterThanOrEqual(3);
+  });
 });

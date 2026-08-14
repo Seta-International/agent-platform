@@ -54,21 +54,11 @@ describe('targetAllocationErrors', () => {
     ]);
   });
 
-  it('flags a missing start date', () => {
-    expect(targetAllocationErrors([span({ date_from: '' })], [], TODAY)).toEqual([
-      TARGET_ERROR.missingStartDate,
-    ]);
-  });
-
-  it('flags a missing end date', () => {
-    expect(targetAllocationErrors([span({ date_to: '' })], [], TODAY)).toEqual([
-      TARGET_ERROR.missingEndDate,
-    ]);
-  });
-
-  it('flags missing both start and end date', () => {
+  it('does not emit inline error for missing start or end date (gated by Review impact button)', () => {
+    expect(targetAllocationErrors([span({ date_from: '' })], [], TODAY)).toEqual([null]);
+    expect(targetAllocationErrors([span({ date_to: '' })], [], TODAY)).toEqual([null]);
     expect(targetAllocationErrors([span({ date_from: '', date_to: '' })], [], TODAY)).toEqual([
-      TARGET_ERROR.missingDates,
+      null,
     ]);
   });
 
