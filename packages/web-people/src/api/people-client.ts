@@ -369,39 +369,53 @@ export type CycleStatusResponse = {
 
 // --- Manual cycle unlock (FUT-781) ---------------------------------------
 // Types mirror @seta/people contracts (web packages can't import the module).
-export type UnlockScopeKind = 'month' | 'project' | 'person';
 export type UnlockAction = 'unlock' | 'relock';
 
 export type CycleUnlockEntry = {
   id: string;
   review_month: string;
-  scope_kind: UnlockScopeKind;
-  scope_id: string | null;
+  account_id: string;
   action: UnlockAction;
+  expires_at: string | null;
   reason: string;
   actor_person_id: string | null;
   actor_user_id: string;
   created_at: string;
 };
 
-export type CycleUnlockLog = {
-  month: string;
+export type CycleUnlockAccountState = {
+  account_id: string;
+  name: string;
+  /** ISO deadline of the running window, or null when the account is locked. */
+  unlocked_until: string | null;
+};
+
+export type CycleUnlockPanelData = {
+  /** The only month that may be unlocked now — the latest closed cycle. */
+  unlockable_month: string;
+  max_days: number;
+  accounts: CycleUnlockAccountState[];
   entries: CycleUnlockEntry[];
 };
 
 export type CycleUnlockBody = {
   month: string;
-  scope_kind: UnlockScopeKind;
-  scope_id: string | null;
+  account_id: string;
+  days: number;
   reason: string;
 };
 
-export async function fetchCycleUnlocks(month: string): Promise<CycleUnlockLog> {
-  const res = await fetch(
-    `/api/people/v1/performance/cycle-unlocks?month=${encodeURIComponent(month)}`,
-    { credentials: 'include' },
-  );
-  return handleResponse<CycleUnlockLog>(res);
+export type CycleRelockBody = {
+  month: string;
+  account_id: string;
+  reason: string;
+};
+
+export async function fetchCycleUnlockPanel(): Promise<CycleUnlockPanelData> {
+  const res = await fetch('/api/people/v1/performance/cycle-unlocks', {
+    credentials: 'include',
+  });
+  return handleResponse<CycleUnlockPanelData>(res);
 }
 
 export async function unlockCycle(body: CycleUnlockBody): Promise<CycleUnlockEntry> {
@@ -414,7 +428,7 @@ export async function unlockCycle(body: CycleUnlockBody): Promise<CycleUnlockEnt
   return handleResponse<CycleUnlockEntry>(res);
 }
 
-export async function relockCycle(body: CycleUnlockBody): Promise<CycleUnlockEntry> {
+export async function relockCycle(body: CycleRelockBody): Promise<CycleUnlockEntry> {
   const res = await fetch('/api/people/v1/performance/cycle-relocks', {
     method: 'POST',
     credentials: 'include',
@@ -424,9 +438,14 @@ export async function relockCycle(body: CycleUnlockBody): Promise<CycleUnlockEnt
   return handleResponse<CycleUnlockEntry>(res);
 }
 
-export async function fetchCycleStatus(month: string): Promise<CycleStatusResponse> {
+export async function fetchCycleStatus(
+  month: string,
+  accountId?: string | null,
+): Promise<CycleStatusResponse> {
+  // A manual unlock is scoped to one account, so the badge needs the account in view.
+  const account = accountId ? `&account_id=${encodeURIComponent(accountId)}` : '';
   const res = await fetch(
-    `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}`,
+    `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}${account}`,
     { credentials: 'include' },
   );
   return handleResponse<CycleStatusResponse>(res);

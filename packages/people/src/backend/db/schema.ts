@@ -361,8 +361,8 @@ export const UNLOCK_MAX_DAYS = 5;
  *
  * One row per action, scoped to a single account for one review month. Rows are never
  * updated or deleted — an early re-lock is a new `relock` row. The current state for a
- * (review_month, account) is the latest row by (created_at, id): unlocked while that row
- * is an `unlock` whose `expires_at` is still in the future, locked otherwise. Expiry is
+ * (review_month, account) is the latest row by `seq`: unlocked while that row is an
+ * `unlock` whose `expires_at` is still in the future, locked otherwise. Expiry is
  * therefore evaluated on read; no scheduled job re-locks anything.
  *
  * `expires_at` is set on `unlock` rows and NULL on `relock` rows.

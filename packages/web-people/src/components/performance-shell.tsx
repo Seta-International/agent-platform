@@ -105,7 +105,10 @@ export function PerformanceShell({
                 </Text>
                 <HStack gap={3} vAlign="center" wrap="wrap">
                   <div data-testid="performance-cycle-badge-slot">
-                    <CycleStatusBadgeLoader month={cycleMonth} />
+                    <CycleStatusBadgeLoader
+                      month={cycleMonth}
+                      accountId={resolved.capacity?.account_id}
+                    />
                   </div>
                   <ProjectContextSwitcher
                     capacities={capacities}

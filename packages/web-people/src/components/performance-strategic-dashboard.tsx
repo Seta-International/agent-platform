@@ -56,7 +56,9 @@ export function PerformanceStrategicDashboard({
 
   return (
     <VStack gap={4} data-testid="performance-home">
-      {canUnlock ? <CycleUnlockPanel month={month} /> : null}
+      {/* The unlockable cycle is fixed by the server (latest closed month), not by the
+          month being browsed — so the panel takes no month. */}
+      {canUnlock ? <CycleUnlockPanel /> : null}
 
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

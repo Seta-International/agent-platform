@@ -4,8 +4,8 @@ import {
   Card,
   Divider,
   HStack,
+  Selector,
   Spinner,
-  StatusDot,
   Text,
   Textarea,
   useToast,
@@ -13,8 +13,9 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { CycleUnlockAccountState } from '../api/people-client.ts';
 import { relockCycle, unlockCycle } from '../api/people-client.ts';
-import { cycleUnlocksOptions } from '../api/performance-query.ts';
+import { cycleUnlockPanelOptions } from '../api/performance-query.ts';
 import { formatPerformanceMonth } from '../nav/performance-dashboard.ts';
 import { performanceKeys } from '../state/performance-query-keys.ts';
 
@@ -23,54 +24,93 @@ function formatWhen(iso: string): string {
   return Number.isNaN(d.getTime())
     ? iso
     : d.toLocaleString(undefined, {
-        month: 'short',
         day: 'numeric',
+        month: 'short',
         hour: '2-digit',
         minute: '2-digit',
       });
 }
 
+/** "2 days left" / "6 hours left" — how long an open window still has to run. */
+function remaining(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 'expired';
+  const hours = Math.ceil(ms / 3_600_000);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} left`;
+  const days = Math.ceil(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} left`;
+}
+
 /**
- * PMO manual cycle-unlock control (FUT-781). Reopens the whole review month for
- * corrections outside the normal window, then re-locks it. Every action needs a
- * reason and is appended to an immutable trail. Rendered only for holders of
- * `people.performance.unlock`; the server re-checks the permission on every call.
+ * PMO manual cycle unlock (FUT-781). Reopens one account's review month for up to
+ * five days so missed evaluations can be corrected, then closes by itself. Only the
+ * latest closed cycle can be reopened — earlier months are signed off and read-only.
+ * Rendered for holders of `people.performance.unlock`; the server re-checks on every
+ * call, and every action is appended to the trail below.
  */
-export function CycleUnlockPanel({ month }: { month: string }) {
-  const cycleLabel = formatPerformanceMonth(month);
+export function CycleUnlockPanel() {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [days, setDays] = useState(3);
   const [reason, setReason] = useState('');
 
-  const log = useQuery(cycleUnlocksOptions(month));
-  const entries = log.data?.entries ?? [];
-  // Entries are newest-first; the latest month-wide row is the current state.
-  const monthUnlocked = entries.find((e) => e.scope_kind === 'month')?.action === 'unlock';
+  const panel = useQuery(cycleUnlockPanelOptions());
 
   const refresh = async () => {
+    setReason('');
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: performanceKeys.cycleUnlocks(month) }),
-      queryClient.invalidateQueries({ queryKey: performanceKeys.cycleStatus(month) }),
+      queryClient.invalidateQueries({ queryKey: performanceKeys.cycleUnlocks() }),
+      queryClient.invalidateQueries({ queryKey: performanceKeys.all }),
     ]);
   };
 
+  const month = panel.data?.unlockable_month ?? null;
+  const maxDays = panel.data?.max_days ?? 5;
+  const accounts = panel.data?.accounts ?? [];
+  const selected: CycleUnlockAccountState | null =
+    accounts.find((a) => a.account_id === accountId) ?? accounts[0] ?? null;
+  const isOpen = selected?.unlocked_until != null;
+
   const mutation = useMutation({
     mutationFn: () => {
-      const body = { month, scope_kind: 'month' as const, scope_id: null, reason: reason.trim() };
-      return monthUnlocked ? relockCycle(body) : unlockCycle(body);
+      if (!month || !selected) throw new Error('Pick an account first.');
+      return isOpen
+        ? relockCycle({ month, account_id: selected.account_id, reason: reason.trim() })
+        : unlockCycle({ month, account_id: selected.account_id, days, reason: reason.trim() });
     },
     onSuccess: async () => {
-      toast({ body: monthUnlocked ? `Re-locked ${cycleLabel}` : `Unlocked ${cycleLabel}` });
-      setReason('');
+      toast({
+        body: isOpen
+          ? `Re-locked ${selected?.name ?? 'the account'}`
+          : `Unlocked ${selected?.name ?? 'the account'} for ${days} day${days === 1 ? '' : 's'}`,
+      });
       await refresh();
     },
     onError: async (e: Error) => {
-      // A CONFLICT means another tab changed the state — refresh so the control matches reality.
+      // A CONFLICT means another tab already changed this account — resync the panel.
       toast({ body: e.message || 'Could not update the cycle. Reload and try again.' });
       await refresh();
     },
   });
 
+  if (panel.isPending) {
+    return (
+      <Card padding={4} data-testid="cycle-unlock-panel">
+        <Spinner label="Loading cycle unlock" />
+      </Card>
+    );
+  }
+  if (panel.isError || !panel.data || !month) {
+    return (
+      <Card padding={4} data-testid="cycle-unlock-panel">
+        <Text color="secondary">Couldn't load the cycle unlock controls.</Text>
+      </Card>
+    );
+  }
+
+  const cycleLabel = formatPerformanceMonth(month);
+  const openCount = accounts.filter((a) => a.unlocked_until).length;
   const reasonMissing = reason.trim().length === 0;
 
   return (
@@ -78,24 +118,51 @@ export function CycleUnlockPanel({ month }: { month: string }) {
       <VStack gap={3}>
         <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
           <Text as="h2" size="lg" weight="semibold">
-            Manual cycle unlock
+            Reopen {cycleLabel}
           </Text>
-          <HStack gap={2} vAlign="center">
-            <StatusDot
-              variant={monthUnlocked ? 'warning' : 'neutral'}
-              label={monthUnlocked ? 'Unlocked' : 'Locked'}
+          {openCount > 0 ? (
+            <Badge
+              variant="warning"
+              label={`${openCount} account${openCount === 1 ? '' : 's'} open`}
             />
-            <Text size="sm" weight="medium">
-              {monthUnlocked ? 'Unlocked' : 'Locked'}
-            </Text>
-          </HStack>
+          ) : null}
         </HStack>
 
         <Text size="sm" color="secondary">
-          {monthUnlocked
-            ? `${cycleLabel} is open for corrections outside the normal window. Re-lock it when you're done.`
-            : `Reopen ${cycleLabel} so evaluations can be made or corrected outside the normal window.`}
+          {cycleLabel} is the last cycle that can still be corrected. Reopening an account lets its
+          evaluations be edited for up to {maxDays} days, then it closes on its own. Earlier months
+          are final.
         </Text>
+
+        <HStack gap={3} vAlign="start" wrap="wrap">
+          <Selector
+            label="Account"
+            options={accounts.map((a) => ({
+              value: a.account_id,
+              label: a.unlocked_until ? `${a.name} — open` : a.name,
+            }))}
+            value={selected?.account_id ?? ''}
+            onChange={(next) => setAccountId(next)}
+          />
+          {isOpen ? null : (
+            <Selector
+              label="Reopen for"
+              options={Array.from({ length: maxDays }, (_, i) => ({
+                value: String(i + 1),
+                label: `${i + 1} day${i === 0 ? '' : 's'}`,
+              }))}
+              value={String(days)}
+              onChange={(next) => setDays(Number(next))}
+            />
+          )}
+        </HStack>
+
+        {isOpen && selected?.unlocked_until ? (
+          <Text size="sm">
+            {selected.name} is open until {formatWhen(selected.unlocked_until)} (
+            {remaining(selected.unlocked_until)}).
+          </Text>
+        ) : null}
 
         <Textarea
           label="Reason"
@@ -103,27 +170,27 @@ export function CycleUnlockPanel({ month }: { month: string }) {
           value={reason}
           onChange={(value) => setReason(value)}
           placeholder={
-            monthUnlocked
-              ? 'Why are you re-locking this cycle?'
-              : 'Why does this cycle need to be reopened?'
+            isOpen
+              ? 'Why are you closing this window early?'
+              : 'Why does this account need to be reopened?'
           }
           rows={2}
           isDisabled={mutation.isPending}
         />
         <HStack hAlign="end">
           <Button
-            variant={monthUnlocked ? 'destructive' : 'primary'}
+            variant={isOpen ? 'destructive' : 'primary'}
             label={
               mutation.isPending
-                ? monthUnlocked
-                  ? 'Re-locking…'
-                  : 'Unlocking…'
-                : monthUnlocked
-                  ? `Re-lock ${cycleLabel}`
-                  : `Unlock ${cycleLabel}`
+                ? isOpen
+                  ? 'Closing…'
+                  : 'Reopening…'
+                : isOpen
+                  ? 'Close now'
+                  : 'Reopen account'
             }
             onClick={() => mutation.mutate()}
-            isDisabled={mutation.isPending || reasonMissing}
+            isDisabled={mutation.isPending || reasonMissing || !selected}
           />
         </HStack>
 
@@ -132,28 +199,32 @@ export function CycleUnlockPanel({ month }: { month: string }) {
         <Text as="h3" size="sm" weight="semibold" color="secondary">
           Activity
         </Text>
-        {log.isPending ? (
-          <Spinner label="Loading unlock activity" />
-        ) : entries.length === 0 ? (
+        {panel.data.entries.length === 0 ? (
           <Text size="sm" color="secondary">
-            No unlock activity for {cycleLabel} yet.
+            Nothing has been reopened for {cycleLabel}.
           </Text>
         ) : (
-          <VStack gap={2} as="ul" data-testid="cycle-unlock-trail">
-            {entries.map((e) => (
-              <HStack key={e.id} as="li" gap={2} vAlign="start" wrap="wrap">
-                <Badge
-                  variant={e.action === 'unlock' ? 'warning' : 'neutral'}
-                  label={e.action === 'unlock' ? 'Unlocked' : 'Re-locked'}
-                />
-                <VStack gap={0}>
-                  <Text size="sm">{e.reason}</Text>
-                  <Text size="xsm" color="secondary">
-                    {formatWhen(e.created_at)}
-                  </Text>
-                </VStack>
-              </HStack>
-            ))}
+          <VStack gap={2} data-testid="cycle-unlock-trail">
+            {panel.data.entries.map((e) => {
+              const account = accounts.find((a) => a.account_id === e.account_id);
+              return (
+                <HStack key={e.id} gap={2} vAlign="start" wrap="wrap">
+                  <Badge
+                    variant={e.action === 'unlock' ? 'warning' : 'neutral'}
+                    label={e.action === 'unlock' ? 'Reopened' : 'Closed'}
+                  />
+                  <VStack gap={0}>
+                    <Text size="sm">
+                      {account?.name ?? 'Account'} — {e.reason}
+                    </Text>
+                    <Text size="xsm" color="secondary">
+                      {formatWhen(e.created_at)}
+                      {e.expires_at ? ` · until ${formatWhen(e.expires_at)}` : ''}
+                    </Text>
+                  </VStack>
+                </HStack>
+              );
+            })}
           </VStack>
         )}
       </VStack>
