@@ -12,7 +12,11 @@ export type {
   DecideApprovalOpts,
   DecideApprovalResult,
 } from './backend/domain/decide-approval.ts';
-export { decideApproval } from './backend/domain/decide-approval.ts';
+// `recordApprovalDecision` is the record-only half of `decideApproval` — it
+// closes the approval and its synthetic run row without needing a Mastra
+// instance to resume into. Public so a cross-tier test can drive Cancel exactly
+// as the chat decide route does (FUT-840).
+export { decideApproval, recordApprovalDecision } from './backend/domain/decide-approval.ts';
 export type {
   FindOpenChatPreviewOpts,
   FindOpenPreviewsForTasksOpts,
@@ -50,7 +54,13 @@ export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/re
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 // The one-preview-per-task refusal, public so a caller above the agent tier can
 // tell it apart from a genuine write failure (FUT-840 design D11).
-export { PendingTaskPreviewExistsError } from './backend/domain/write-chat-approval-row.ts';
+// `writeChatApprovalRow` is public for the same reason: projecting a card into
+// the read model is the agent tier's job, but the only layer that can drive it
+// against a REAL planner card is apps/server, which composes both tiers.
+export {
+  PendingTaskPreviewExistsError,
+  writeChatApprovalRow,
+} from './backend/domain/write-chat-approval-row.ts';
 
 export { ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
 export { AgentRunStateRepository } from './backend/orchestration/run-state-repository.ts';

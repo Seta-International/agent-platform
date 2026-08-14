@@ -47,10 +47,20 @@ export interface PlannerActionRuntimeDeps {
   ports?: ActionPorts;
 }
 
-/** Registers the A2 agent + its single-step orchestration and returns the chat
- *  entrypoints. The caller (apps/server) freezes the registries afterwards. */
-export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): PlannerActionRuntime {
-  const ports: ActionPorts = deps.ports ?? {
+/**
+ * A2's production port set: every real domain adapter, plus the injected
+ * `preview` (whose SQL lives in the agent tier).
+ *
+ * Named rather than inlined into `buildPlannerActionRuntime` because apps/server
+ * — the one layer that can supply a real `PreviewPort` — also needs to compose
+ * these ports outside a Mastra runtime, to exercise the tools without a model.
+ */
+export function makeActionPorts(deps: {
+  previewPort: PreviewPort;
+  embeddingProvider: EmbeddingProvider;
+  databaseUrl?: string;
+}): ActionPorts {
+  return {
     taskRead: makeActionTaskRead(),
     taskUpdate: makeActionTaskUpdate(),
     taskLink: makeActionTaskLink(),
@@ -71,6 +81,12 @@ export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): Plann
       },
     }),
   };
+}
+
+/** Registers the A2 agent + its single-step orchestration and returns the chat
+ *  entrypoints. The caller (apps/server) freezes the registries afterwards. */
+export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): PlannerActionRuntime {
+  const ports: ActionPorts = deps.ports ?? makeActionPorts(deps);
   const agentDeps = {
     ports,
     resolveModel: deps.resolveModel,
