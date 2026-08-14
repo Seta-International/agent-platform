@@ -188,9 +188,8 @@ async function ensureMonthPinIfNeeded(
   const tenantId = session.tenant_id;
   const at = monthClockNow();
   const month = vnYearMonth(at);
-  // A month-wide manual unlock (FUT-781) reopens the config window for the whole
-  // tenant; person/project unlocks do not affect account-level config.
-  const overrideActive = await resolveOverrideActive(session, { month });
+  // A manual unlock (FUT-781) on this account reopens its config window.
+  const overrideActive = await resolveOverrideActive(session, { month, account_id: accountId });
   const { status } = classifyCycleStatus({ month, at, overrideActive });
   if (!cycleWindowActive(status)) {
     return { applies_to_next_cycle: false };

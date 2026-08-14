@@ -15,7 +15,7 @@ export {
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
 export {
-  listCycleUnlocks,
+  readCycleUnlockPanel,
   relockCycle,
   resolveOverrideActive,
   unlockCycle,
@@ -32,6 +32,7 @@ export {
 } from './backend/domain/match-users-to-topic.ts';
 export {
   classifyCycleStatus,
+  latestClosedCycleMonth,
   monthClockNow,
   setMonthClock,
   vnYearMonth,
@@ -106,12 +107,14 @@ export {
 } from './backend/embeddings/vector-store.ts';
 export type {
   CreateWorkerInput,
+  CycleRelockInput,
   CycleStatus,
   CycleStatusQuery,
   CycleStatusResponse,
+  CycleUnlockAccountState,
   CycleUnlockEntry,
   CycleUnlockInput,
-  CycleUnlockLog,
+  CycleUnlockPanel,
   EditWorkerInput,
   MonthTaskCard,
   MonthTaskGroup,
@@ -128,12 +131,13 @@ export type {
   SavePerformanceConfigResponse,
 } from './contracts.ts';
 export {
+  cycleRelockInput,
   cycleStatusEnum,
   cycleStatusQuery,
   cycleStatusResponse,
   cycleUnlockEntry,
   cycleUnlockInput,
-  cycleUnlockLog,
+  cycleUnlockPanel,
   GENDER_VALUES,
   type GenderValue,
   genderValue,

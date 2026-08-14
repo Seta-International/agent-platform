@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   classifyCycleStatus,
+  latestClosedCycleMonth,
   monthClockNow,
   setMonthClock,
   vnParts,
@@ -114,5 +115,42 @@ describe('classifyCycleStatus (TC-11..17)', () => {
     setMonthClock(() => fixed);
     expect(monthClockNow().toISOString()).toBe(fixed.toISOString());
     expect(classifyCycleStatus({ month: '2026-07', at: monthClockNow() }).status).toBe('open');
+  });
+});
+
+describe('latestClosedCycleMonth (FUT-781)', () => {
+  // A cycle month M is closed once its makeup window (through day 4 of M+1) has passed.
+  // Only that month may be manually unlocked; anything older is view-only forever.
+
+  it('mid-month: the previous cycle is the latest closed one', () => {
+    // Aug 13 — July's window ended Aug 4, August's has not opened (25th).
+    expect(latestClosedCycleMonth(vn(2026, 8, 13, 10))).toBe('2026-07');
+  });
+
+  it('during a makeup window the month under makeup is not yet closed', () => {
+    // Aug 3 — July is in makeup, so June is the latest closed cycle.
+    expect(latestClosedCycleMonth(vn(2026, 8, 3, 10))).toBe('2026-06');
+  });
+
+  it('day 1 of the next month: the makeup window has not run yet', () => {
+    // Aug 1 — July's makeup (2nd–4th) is still ahead, so July is not closed.
+    expect(latestClosedCycleMonth(vn(2026, 8, 1, 10))).toBe('2026-06');
+  });
+
+  it('inside an open window the current month is open, previous is closed', () => {
+    // Jul 26 — July is open for evaluation; June closed on Jul 4.
+    expect(latestClosedCycleMonth(vn(2026, 7, 26, 10))).toBe('2026-06');
+  });
+
+  it('rolls the year over correctly', () => {
+    // Jan 13 2027 — December 2026's window ended Jan 4 2027.
+    expect(latestClosedCycleMonth(vn(2027, 1, 13, 10))).toBe('2026-12');
+    // Jan 3 2027 — December is still in makeup, so November is the latest closed.
+    expect(latestClosedCycleMonth(vn(2027, 1, 3, 10))).toBe('2026-11');
+  });
+
+  it('the month it returns classifies as locked (nothing else to unlock)', () => {
+    const at = vn(2026, 8, 13, 10);
+    expect(classifyCycleStatus({ month: latestClosedCycleMonth(at), at }).status).toBe('locked');
   });
 });

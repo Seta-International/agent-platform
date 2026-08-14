@@ -1,13 +1,14 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import {
+  cycleRelockInput,
   cycleStatusQuery,
   cycleUnlockInput,
   monthTasksQuery,
   performanceContextInput,
   savePerformanceConfigInput,
 } from '../../contracts.ts';
-import { listCycleUnlocks, relockCycle, unlockCycle } from '../domain/cycle-unlock.ts';
+import { readCycleUnlockPanel, relockCycle, unlockCycle } from '../domain/cycle-unlock.ts';
 import { vnYearMonth } from '../domain/month-clock.ts';
 import { parseCycleMonthOrThrow, readCycleStatus } from '../domain/read-cycle-status.ts';
 import { readMonthTasks } from '../domain/read-month-tasks.ts';
@@ -26,6 +27,7 @@ export function registerPeoplePerformanceRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/people/v1/performance/cycle-status', async (c) => {
     const input = cycleStatusQuery.parse({
       month: parseCycleMonthOrThrow(c.req.query('month')),
+      account_id: c.req.query('account_id') ?? null,
     });
     return c.json(await readCycleStatus(c.get('user'), input));
   });
@@ -38,19 +40,16 @@ export function registerPeoplePerformanceRoutes(app: Hono<SessionEnv>): void {
   });
 
   app.get('/api/people/v1/performance/cycle-unlocks', async (c) => {
-    const month = parseCycleMonthOrThrow(c.req.query('month'));
-    return c.json(await listCycleUnlocks(c.get('user'), month));
+    return c.json(await readCycleUnlockPanel(c.get('user')));
   });
 
   app.post('/api/people/v1/performance/cycle-unlocks', async (c) => {
-    const body = await c.req.json();
-    const input = cycleUnlockInput.parse(body);
+    const input = cycleUnlockInput.parse(await c.req.json());
     return c.json(await unlockCycle(c.get('user'), input));
   });
 
   app.post('/api/people/v1/performance/cycle-relocks', async (c) => {
-    const body = await c.req.json();
-    const input = cycleUnlockInput.parse(body);
+    const input = cycleRelockInput.parse(await c.req.json());
     return c.json(await relockCycle(c.get('user'), input));
   });
 
