@@ -60,6 +60,13 @@ function realPorts(): ActionPorts {
     taskCreate: makeActionTaskCreate(),
     similarTasks: { search: async () => [] },
     comment: makeActionComment(),
+    // FUT-840: the matrix never revises, and its seeded tasks carry no pending
+    // preview. The real port reaches `agent.workflow_approvals`, which planner
+    // may not read, so the matrix answers for it: nothing open, nothing taken.
+    preview: {
+      loadPreview: async () => null,
+      takenDedupKeys: async () => [],
+    },
   };
 }
 

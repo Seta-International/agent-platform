@@ -16,12 +16,14 @@ export { decideApproval } from './backend/domain/decide-approval.ts';
 export type {
   FindOpenChatPreviewOpts,
   FindOpenPreviewsForTasksOpts,
+  LoadChatPreviewByIdOpts,
   OpenChatPreview,
   PreviewScope,
 } from './backend/domain/find-open-chat-preview.ts';
 export {
   findOpenChatPreview,
   findOpenPreviewsForTasks,
+  loadChatPreviewById,
 } from './backend/domain/find-open-chat-preview.ts';
 export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
 export { getWorkflowRun } from './backend/domain/get-workflow-run.ts';

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   findOpenChatPreview,
   findOpenPreviewsForTasks,
+  loadChatPreviewById,
 } from '../../src/backend/domain/find-open-chat-preview.ts';
 import { writeChatApprovalRow } from '../../src/backend/domain/write-chat-approval-row.ts';
 import { buildSession, withAgentTestDb } from '../helpers.ts';
@@ -326,6 +327,144 @@ describe('findOpenPreviewsForTasks', () => {
         [],
       );
       expect(await findOpenPreviewsForTasks({ session, dedupKeys: [] })).toEqual([]);
+    });
+  });
+});
+
+describe('loadChatPreviewById', () => {
+  it('returns the card for a pending approval of this tenant and approver', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const { approvalId } = await seedPreview(pool, {
+        tenantId,
+        userId,
+        threadId: `thread-${randomUUID()}`,
+        taskId: randomUUID(),
+      });
+
+      const found = await loadChatPreviewById({
+        session: buildSession({ tenantId, userId }),
+        approvalId,
+        workflowIds: [ACTION_WORKFLOW],
+      });
+      expect(found?.approvalId).toBe(approvalId);
+      expect(found?.card.meta.toolId).toBe('planner_updateTask');
+    });
+  });
+
+  it("returns null for another user's approval — a UUID in text buys no access", async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const { approvalId } = await seedPreview(pool, {
+        tenantId,
+        userId: randomUUID(),
+        threadId: `thread-${randomUUID()}`,
+        taskId: randomUUID(),
+      });
+
+      expect(
+        await loadChatPreviewById({
+          session: buildSession({ tenantId, userId: randomUUID() }),
+          approvalId,
+          workflowIds: [ACTION_WORKFLOW],
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it("returns null for another tenant's approval", async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const userId = randomUUID();
+      const { approvalId } = await seedPreview(pool, {
+        tenantId: randomUUID(),
+        userId,
+        threadId: `thread-${randomUUID()}`,
+        taskId: randomUUID(),
+      });
+
+      expect(
+        await loadChatPreviewById({
+          session: buildSession({ tenantId: randomUUID(), userId }),
+          approvalId,
+          workflowIds: [ACTION_WORKFLOW],
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it('returns null once the approval is decided', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const { approvalId } = await seedPreview(pool, {
+        tenantId,
+        userId,
+        threadId: `thread-${randomUUID()}`,
+        taskId: randomUUID(),
+      });
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET status = 'approved' WHERE approval_id = $1`,
+        [approvalId],
+      );
+
+      expect(
+        await loadChatPreviewById({
+          session: buildSession({ tenantId, userId }),
+          approvalId,
+          workflowIds: [ACTION_WORKFLOW],
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it('returns null for a card belonging to another runtime — this keeps design D2 true', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const { approvalId } = await seedPreview(pool, {
+        tenantId,
+        userId,
+        threadId: `thread-${randomUUID()}`,
+        taskId: randomUUID(),
+        workflowId: ASSIGNMENT_WORKFLOW,
+      });
+
+      expect(
+        await loadChatPreviewById({
+          session: buildSession({ tenantId, userId }),
+          approvalId,
+          workflowIds: [ACTION_WORKFLOW],
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it('does NOT filter on expires_at, so revise and Confirm agree (spec §5)', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const { approvalId } = await seedPreview(pool, {
+        tenantId,
+        userId,
+        threadId: `thread-${randomUUID()}`,
+        taskId: randomUUID(),
+      });
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET expires_at = now() - interval '1 hour'
+          WHERE approval_id = $1`,
+        [approvalId],
+      );
+
+      expect(
+        (
+          await loadChatPreviewById({
+            session: buildSession({ tenantId, userId }),
+            approvalId,
+            workflowIds: [ACTION_WORKFLOW],
+          })
+        )?.approvalId,
+      ).toBe(approvalId);
     });
   });
 });

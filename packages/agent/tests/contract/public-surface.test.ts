@@ -15,6 +15,7 @@ const EXPECTED_NAMED_EXPORTS = new Set<string>([
   // write failure.
   'findOpenChatPreview',
   'findOpenPreviewsForTasks',
+  'loadChatPreviewById',
   'PendingTaskPreviewExistsError',
   'registerAgentContributions',
   // model resolver — exported for the composition root to inject models into
