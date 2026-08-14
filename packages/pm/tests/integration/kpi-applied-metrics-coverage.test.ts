@@ -408,7 +408,7 @@ describe('listAppliedMetrics — entered_count for the queried week (FUT-802 AC5
     });
   });
 
-  it('still reports a figure whose metric has since been un-applied', async () => {
+  it('drops the open week figure of a metric that has since been un-applied', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -449,10 +449,7 @@ describe('listAppliedMetrics — entered_count for the queried week (FUT-802 AC5
           iso_week: 29,
         });
 
-        expect(coverage.find((c) => c.metric_id === metricOne)).toMatchObject({
-          applied_count: 0,
-          entered_count: 1,
-        });
+        expect(coverage.find((c) => c.metric_id === metricOne)).toBeUndefined();
       } finally {
         resetPmDb();
         resetCoreDb();

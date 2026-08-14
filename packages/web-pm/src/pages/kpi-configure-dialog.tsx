@@ -436,14 +436,14 @@ export function KpiConfigureDialog({
                 selectedIds.length === 1
                   ? `Its ${weekLabel} figures`
                   : `${weekLabel} figures in ${confirmOff.enteredCount} of ${selectedIds.length} selected projects`
-              } stop counting towards the ${flagLabel(
+              } are deleted and stop counting towards the ${flagLabel(
                 confirmOff.category,
-              )} flag, so that colour can drop. They stay saved and count again if you turn it back on.`
+              )} flag, so that colour can drop. Turning it back on starts from a blank cell. Closed weeks keep their figures.`
             : ''
         }
         cancelLabel="Keep it on"
-        actionLabel="Turn off"
-        actionVariant="primary"
+        actionLabel="Turn off and delete"
+        actionVariant="destructive"
         onAction={() => {
           if (confirmOff) toggle.mutate({ metricId: confirmOff.metricId, applied: false });
           setConfirmOff(null);
