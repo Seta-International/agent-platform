@@ -12,6 +12,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import type { PerformanceRollup, RollupRow } from '../api/people-client.ts';
 import { performanceRollupOptions } from '../api/performance-query.ts';
@@ -29,9 +30,11 @@ type MemberRow = RollupRow & Record<string, unknown>;
 function EvaluateMembersTable({
   rollup,
   members,
+  onEvaluate,
 }: {
   rollup: PerformanceRollup;
   members: readonly RollupRow[];
+  onEvaluate: (personId: string) => void;
 }) {
   const columns = useMemo<TableColumn<MemberRow>[]>(
     () => [
@@ -57,13 +60,18 @@ function EvaluateMembersTable({
               ) : (
                 <Badge variant="neutral" label="Not evaluated" />
               )}
-              <Button size="sm" variant="secondary" label={evaluated ? 'Edit' : 'Evaluate'} />
+              <Button
+                size="sm"
+                variant="secondary"
+                label={evaluated ? 'Edit' : 'Evaluate'}
+                onClick={() => onEvaluate(m.id)}
+              />
             </HStack>
           );
         },
       },
     ],
-    [rollup.groups],
+    [rollup.groups, onEvaluate],
   );
 
   return (
@@ -95,6 +103,16 @@ export function PerformanceTlDashboard({ projectId, month }: { projectId: string
     performanceRollupOptions({ month, scope: 'project', project_id: projectId }),
   );
   const cycleLabel = formatPerformanceMonth(month);
+  const navigate = useNavigate();
+  const openEvaluation = (personId: string) =>
+    void navigate({
+      to: '/people/performance/scoring',
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        subject: personId,
+        subject_project: projectId,
+      }),
+    });
 
   return (
     <RollupBoundary query={query}>
@@ -163,7 +181,11 @@ export function PerformanceTlDashboard({ projectId, month }: { projectId: string
                     Nobody else is allocated to this project this cycle.
                   </Text>
                 ) : (
-                  <EvaluateMembersTable rollup={rollup} members={members} />
+                  <EvaluateMembersTable
+                    rollup={rollup}
+                    members={members}
+                    onEvaluate={openEvaluation}
+                  />
                 )}
               </VStack>
             </Card>
