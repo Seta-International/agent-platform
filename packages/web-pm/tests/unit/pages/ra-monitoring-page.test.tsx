@@ -555,3 +555,64 @@ describe('RaMonitoringPage — Scope card project count (FUT-841)', () => {
     expect(screen.getByText('1 project')).toBeInTheDocument();
   });
 });
+
+describe('RaMonitoringPage — Grouped allocations Person and Seniority display (FUT-837)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  it('renders Person, Seniority, and Action on every row for a person with multiple allocations', async () => {
+    const multiAllocations = [
+      {
+        allocation_id: 'a1',
+        worker_id: 'w1',
+        worker_name: 'Jane Doe',
+        worker_title: 'Senior Engineer',
+        account_name: 'Zeta Corp',
+        project_name: 'Project Alpha',
+        planned_pct: 50,
+        date_from: '2026-01-01',
+        date_to: '2026-06-01',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+      {
+        allocation_id: 'a2',
+        worker_id: 'w1',
+        worker_name: 'Jane Doe',
+        worker_title: 'Senior Engineer',
+        account_name: 'Alpha Inc',
+        project_name: 'Project Beta',
+        planned_pct: 50,
+        date_from: '2026-02-01',
+        date_to: '2026-06-01',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+    ];
+
+    fetchAllocationsMock.mockResolvedValue(multiAllocations);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+
+    // Both rows must render the person's name and seniority
+    const names = screen.getAllByText('Jane Doe');
+    expect(names).toHaveLength(2);
+
+    const seniorities = screen.getAllByText('Senior Engineer');
+    expect(seniorities).toHaveLength(2);
+
+    const reassignButtons = screen.getAllByRole('button', { name: 'Reassign' });
+    expect(reassignButtons).toHaveLength(2);
+  });
+});
