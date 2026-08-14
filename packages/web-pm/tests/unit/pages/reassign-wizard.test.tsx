@@ -336,7 +336,7 @@ describe('ReassignWizardDialog', () => {
     expect(await screen.findByRole('option', { name: '0.1' })).toBeInTheDocument();
   });
 
-  it('requires both a start and end date on a new project before Review impact enables', async () => {
+  it('requires both a start and end date on a new project, displays required indicators, validation errors, and gates Review impact', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
@@ -355,6 +355,18 @@ describe('ReassignWizardDialog', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Add project' }));
+
+    // Start date and End date column headers in the target table are marked with required asterisk (*).
+    const targetStartDateHeader = screen
+      .getAllByText('Start date')
+      .find((el) => el.parentElement?.textContent?.includes('*'));
+    expect(targetStartDateHeader).toBeDefined();
+
+    const targetEndDateHeader = screen
+      .getAllByText('End date')
+      .find((el) => el.parentElement?.textContent?.includes('*'));
+    expect(targetEndDateHeader).toBeDefined();
+
     await user.click(screen.getByRole('combobox', { name: 'Account' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(screen.getByRole('combobox', { name: 'Project' }));
@@ -367,17 +379,22 @@ describe('ReassignWizardDialog', () => {
     expect(endDate.value).not.toBe('');
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
 
-    // Clearing a required date (end) gates the button again. Astryx DateInput only commits a
-    // cleared value on blur (onChange fires undefined then) — a bare `change` to '' just sets
-    // in-progress text without touching the underlying value, unlike the native date input
-    // this replaced where the change event alone updated `.value`.
+    // Clearing a required date (end) gates the button again and shows validation error message.
     fireEvent.change(endDate, { target: { value: '' } });
     fireEvent.blur(endDate);
     expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+    expect(screen.getAllByText('End date is required.').length).toBeGreaterThanOrEqual(1);
 
-    // Restoring a valid end date re-enables it.
+    // Restoring a valid end date re-enables it and clears the message.
     fireEvent.change(endDate, { target: { value: '2026-12-31' } });
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+    expect(screen.queryByText('End date is required.')).not.toBeInTheDocument();
+
+    // Clearing start date shows start date required error and gates button.
+    fireEvent.change(startDate, { target: { value: '' } });
+    fireEvent.blur(startDate);
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+    expect(screen.getAllByText('Start date is required.').length).toBeGreaterThanOrEqual(1);
   });
 
   // Astryx's DateInput enforces `min` on typed input as well as in the picker: a date
