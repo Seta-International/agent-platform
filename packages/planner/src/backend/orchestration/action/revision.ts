@@ -9,25 +9,6 @@ import type { ActionOpenPreview } from './schemas.ts';
 // This module decides only WHETHER a call is a revision and WHAT it revises.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * One sentence for "that is not the preview that is open", whether the id is
- * simply wrong, belongs to somebody else, or names a row that has since been
- * decided.
- *
- * Deliberately indistinguishable across those cases: FUT-824's property is that
- * a UUID appearing in text buys no access, and a refusal that distinguished
- * "no such approval" from "not yours" would answer the question an attacker is
- * asking.
- */
-export const NOT_THE_OPEN_PREVIEW =
-  'I can only change the preview that is open right now. Tell me what to change ' +
-  'about it, or cancel it and ask me again.';
-
-/** Design D4: changing the KIND of change is not an adjustment. */
-export const DIFFERENT_KIND_OF_CHANGE =
-  'That preview is a different kind of change. Confirm or cancel it first, and ' +
-  'then ask me for this one.';
-
 /** A persisted card whose argsPatch is missing what the revision needs. Rare —
  *  a card minted before a tool shipped, or a truncated payload — and refusing
  *  beats rebuilding a proposal from half a card. */
@@ -36,67 +17,84 @@ export const INCOMPLETE_PREVIEW =
 
 export type ResolveRevisionResult =
   | { kind: 'new' }
-  | { kind: 'refused'; refusal: string }
   | { kind: 'revision'; previousApprovalId: string; previousArgsPatch: Record<string, unknown> };
 
 export interface ResolveRevisionOpts {
   preview: PreviewPort;
   actor: ActorRef;
-  /** What the MODEL asked to revise. */
-  revisionOf: string | undefined;
-  /** What the SERVER found open for this turn. Arrives through the run context,
-   *  never through tool arguments — which is the whole point. */
+  /** What the SERVER found open for this thread, or null. Arrives through the run
+   *  context, never through tool arguments — which is the whole point. */
   openPreview: ActionOpenPreview | null | undefined;
   /** The tool asking. */
   toolId: string;
+  /** The tasks THIS turn resolved from the model's refs. Empty means the turn
+   *  resolved none, which is how create behaves and how a tool whose refs are
+   *  absent behaves. */
+  resolvedTaskIds: readonly string[];
 }
 
 /**
- * Decide whether this call adjusts the open preview.
+ * Decide whether this call adjusts the open preview — with no input from the
+ * model (design D20, replacing D15).
  *
- * Three asserts, in this order, and the order is the security argument:
+ * D15 asked the model for `revisionOf` and then required it to EQUAL the id the
+ * server had just injected. A value that must equal a value the receiver already
+ * holds carries no information: it was a 36-character encoding of one bit, in the
+ * format a small model is least reliable at. Eight consecutive production turns
+ * omitted it, so the revision branch never ran and the `task:` mutex refused
+ * every adjustment. The server holds every fact needed to decide, so it decides.
  *
- *  1. `revisionOf` ABSENT → a new request. Never refused (design D15): AC3's
- *     second bullet is expressed exactly that way, and refusing would break
- *     "create a task for the release notes" typed while an update preview waits.
- *  2. `revisionOf` must EQUAL the server-injected approval id. Scoping the load
- *     on tenant + approver + toolId is not enough on its own, because targets
- *     come FROM the card: a valid-but-different approval id of the same user is a
- *     silent retarget — "make it Friday" about task A becomes a Friday card for
- *     task B, and B's card is voided. Binding to the row the SERVER chose brings
- *     tenant, actor, thread, workflow and status along for free. Checked BEFORE
- *     the load, so a mismatched id costs no query and reveals nothing.
- *  3. The card's `meta.toolId` must equal the calling tool. This is where design
- *     D4 stops being prompt text: "và giao cho Tuấn nữa" on an update preview
- *     reaches the assign tool, which refuses rather than superseding the update
- *     card and silently losing the due-date change.
+ * This is STRICTER than D15, not looser. D15's threat was hostile text naming a
+ * different valid approval id to retarget a change; with no field to name, the
+ * attack cannot be expressed at all (FUT-824).
+ *
+ * Four asserts, cheapest first:
+ *
+ *  1. No open preview → a new request.
+ *  2. The card's tool must equal the calling tool. A mismatch falls through to
+ *     `new` rather than refusing, and that is deliberate: it is what lets "create
+ *     a task for the release notes" through while an update preview waits (AC3),
+ *     while "và giao cho Tuấn nữa" on the SAME task still gets refused — by the
+ *     `task:` mutex on the new-card path, which reaches the design-D4 outcome
+ *     through one mechanism instead of two.
+ *  3. If the turn resolved tasks of its own, they must be the card's tasks. This
+ *     is the check D15 never had: when the model names a task explicitly, a
+ *     mismatch now falls through to a new card instead of adjusting whichever
+ *     card happened to be newest. Decided BEFORE the load, so a different task
+ *     costs no query.
+ *  4. Load the row. Null means it was decided, swept or re-homed between the
+ *     server's lookup and this call — across an LLM turn — so treat the turn as a
+ *     new request and let the mutex speak if it must.
+ *
+ * Which card is "the" open one when several are pending stays design D5: newest
+ * wins, enforced by `ORDER BY created_at DESC LIMIT 1` in the finder. Unchanged
+ * from Part 3 — the model could only ever name the single card it was shown, so
+ * the outcome for a two-card user is the same as before.
  */
 export async function resolveRevision(opts: ResolveRevisionOpts): Promise<ResolveRevisionResult> {
-  if (!opts.revisionOf) return { kind: 'new' };
-
-  const expected = opts.openPreview?.approvalId;
-  if (!expected || opts.revisionOf !== expected) {
-    return { kind: 'refused', refusal: NOT_THE_OPEN_PREVIEW };
+  const open = opts.openPreview;
+  if (!open) return { kind: 'new' };
+  if (open.toolId !== opts.toolId) return { kind: 'new' };
+  if (opts.resolvedTaskIds.length > 0 && !sameTaskSet(open.taskIds, opts.resolvedTaskIds)) {
+    return { kind: 'new' };
   }
 
-  const loaded = await opts.preview.loadPreview({
-    ...opts.actor,
-    approvalId: opts.revisionOf,
-  });
-  // Null means the row was decided, expired-and-swept, or belongs to another
-  // runtime — all between the server's lookup and this call, i.e. across an LLM
-  // turn. Same sentence as a mismatch.
-  if (!loaded) return { kind: 'refused', refusal: NOT_THE_OPEN_PREVIEW };
-
-  if (loaded.toolId !== opts.toolId) {
-    return { kind: 'refused', refusal: DIFFERENT_KIND_OF_CHANGE };
-  }
+  const loaded = await opts.preview.loadPreview({ ...opts.actor, approvalId: open.approvalId });
+  if (!loaded) return { kind: 'new' };
 
   return {
     kind: 'revision',
     previousApprovalId: loaded.approvalId,
     previousArgsPatch: loaded.argsPatch,
   };
+}
+
+/** Order-insensitive: a batch's refs and a card's targets need not agree on order
+ *  for it to be the same change. */
+function sameTaskSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = new Set(a);
+  return b.every((id) => left.has(id));
 }
 
 /**

@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { LoadedPreview } from '../../../../src/backend/orchestration/action/ports.ts';
 import {
-  DIFFERENT_KIND_OF_CHANGE,
-  NOT_THE_OPEN_PREVIEW,
   refuseIfPreviewOpen,
   resolveRevision,
   taskIdsFromArgsPatch,
@@ -41,86 +39,93 @@ const openPreview = {
   proposedRows: [{ k: 'Due', v: '12 Aug → 15 Aug' }],
 };
 
-describe('resolveRevision', () => {
-  it('an absent revisionOf is an ordinary new request and is NEVER refused', async () => {
+describe('resolveRevision derives the revision from server state', () => {
+  it('is a new request when the server found NO open preview', async () => {
     const preview = previewPort();
     const r = await resolveRevision({
       preview,
       actor,
-      revisionOf: undefined,
-      openPreview,
+      openPreview: null,
       toolId: 'planner_updateTask',
+      resolvedTaskIds: [TASK_A],
     });
-    // AC3's second bullet is expressed exactly this way: a new request alongside
-    // an open preview. Refusing it would break "create a task for the release
-    // notes" while an update preview is open.
     expect(r).toEqual({ kind: 'new' });
     expect(preview.loadPreview).not.toHaveBeenCalled();
   });
 
-  it('accepts a revisionOf that equals the SERVER-injected id', async () => {
-    const r = await resolveRevision({
-      preview: previewPort(),
-      actor,
-      revisionOf: OPEN_ID,
-      openPreview,
-      toolId: 'planner_updateTask',
-    });
-    expect(r).toMatchObject({ kind: 'revision', previousApprovalId: OPEN_ID });
-  });
-
-  it('refuses a MISMATCHED id without ever loading it (design D15)', async () => {
+  it('adjusts the open preview when the turn named no task at all', async () => {
     const preview = previewPort();
     const r = await resolveRevision({
       preview,
       actor,
-      revisionOf: OTHER_ID,
       openPreview,
       toolId: 'planner_updateTask',
+      resolvedTaskIds: [],
     });
-    // A valid-but-different approval id of the SAME user would otherwise be a
-    // silent retarget: targets come from the card, so "make it Friday" about task
-    // A becomes a Friday card for task B, and B's card is voided. That is AC5's
-    // first bullet defeated through an open channel.
-    expect(r).toEqual({ kind: 'refused', refusal: NOT_THE_OPEN_PREVIEW });
+    expect(r).toMatchObject({ kind: 'revision', previousApprovalId: OPEN_ID });
+  });
+
+  it('adjusts the open preview when the turn named the SAME task', async () => {
+    const r = await resolveRevision({
+      preview: previewPort(),
+      actor,
+      openPreview,
+      toolId: 'planner_updateTask',
+      resolvedTaskIds: [TASK_A],
+    });
+    expect(r).toMatchObject({ kind: 'revision', previousApprovalId: OPEN_ID });
+  });
+
+  it('matches the task set regardless of order', async () => {
+    const r = await resolveRevision({
+      preview: previewPort(),
+      actor,
+      openPreview: { ...openPreview, taskIds: [TASK_A, 'b'] },
+      toolId: 'planner_updateTask',
+      resolvedTaskIds: ['b', TASK_A],
+    });
+    expect(r).toMatchObject({ kind: 'revision' });
+  });
+
+  it('is a NEW request when the turn named a DIFFERENT task, without loading', async () => {
+    const preview = previewPort();
+    const r = await resolveRevision({
+      preview,
+      actor,
+      openPreview,
+      toolId: 'planner_updateTask',
+      resolvedTaskIds: [OTHER_ID],
+    });
+    // The check design D15 never had: when the model names a task explicitly, a
+    // mismatch falls through to a new card instead of adjusting whichever card
+    // happened to be newest. Decided BEFORE the load, so it costs no query.
+    expect(r).toEqual({ kind: 'new' });
     expect(preview.loadPreview).not.toHaveBeenCalled();
   });
 
-  it('refuses a revisionOf when the server found NO open preview', async () => {
+  it('is a NEW request when ANOTHER TOOL owns the open card (design D4)', async () => {
     const r = await resolveRevision({
       preview: previewPort(),
       actor,
-      revisionOf: OPEN_ID,
-      openPreview: null,
-      toolId: 'planner_updateTask',
-    });
-    expect(r).toEqual({ kind: 'refused', refusal: NOT_THE_OPEN_PREVIEW });
-  });
-
-  it('refuses with the SAME sentence when the row is gone, so a uuid in text leaks nothing', async () => {
-    const r = await resolveRevision({
-      preview: previewPort({ loaded: null }),
-      actor,
-      revisionOf: OPEN_ID,
-      openPreview,
-      toolId: 'planner_updateTask',
-    });
-    expect(r).toEqual({ kind: 'refused', refusal: NOT_THE_OPEN_PREVIEW });
-  });
-
-  it('refuses when the open preview belongs to a DIFFERENT tool (design D4)', async () => {
-    const r = await resolveRevision({
-      preview: previewPort(),
-      actor,
-      revisionOf: OPEN_ID,
       openPreview,
       // The card says planner_updateTask; the merge tool is asking.
       toolId: 'planner_mergeTasks',
+      resolvedTaskIds: [TASK_A],
     });
-    // Treating this as a new request would supersede the update card and silently
-    // lose the due-date change; one card carrying two actions would break the
-    // one-card-one-tool-one-idempotency-key contract every tool relies on.
-    expect(r).toEqual({ kind: 'refused', refusal: DIFFERENT_KIND_OF_CHANGE });
+    // Falling through to `new` is what lets the task: mutex produce the design-D4
+    // sentence, and what lets "create a task for the release notes" through.
+    expect(r).toEqual({ kind: 'new' });
+  });
+
+  it('is a NEW request when the row vanished between the lookup and the call', async () => {
+    const r = await resolveRevision({
+      preview: previewPort({ loaded: null }),
+      actor,
+      openPreview,
+      toolId: 'planner_updateTask',
+      resolvedTaskIds: [],
+    });
+    expect(r).toEqual({ kind: 'new' });
   });
 
   it('scopes the load to the acting tenant and user', async () => {
@@ -128,9 +133,9 @@ describe('resolveRevision', () => {
     await resolveRevision({
       preview,
       actor,
-      revisionOf: OPEN_ID,
       openPreview,
       toolId: 'planner_updateTask',
+      resolvedTaskIds: [TASK_A],
     });
     expect(preview.loadPreview).toHaveBeenCalledWith({
       tenantId: 't1',
@@ -143,9 +148,9 @@ describe('resolveRevision', () => {
     const r = await resolveRevision({
       preview: previewPort(),
       actor,
-      revisionOf: OPEN_ID,
       openPreview,
       toolId: 'planner_updateTask',
+      resolvedTaskIds: [TASK_A],
     });
     expect(r).toMatchObject({
       kind: 'revision',

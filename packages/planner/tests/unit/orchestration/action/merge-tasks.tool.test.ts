@@ -259,7 +259,10 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const tool = makeMergeTasksTool({
       ports: { taskLink, taskMerge, preview } as never,
       ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
-      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+      openPreview:
+        over.openPreview === undefined
+          ? injectedPreview({ toolId: 'planner_mergeTasks', taskIds: [TASK_A, TASK_B] })
+          : over.openPreview,
     });
     return { tool, taskLink, taskMerge, preview };
   }
@@ -272,21 +275,25 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       duplicateTaskRef: KEEP_ID,
       keepTaskRef: DUP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.duplicateTaskId).toBe(KEEP_ID);
     expect(card?.primary.argsPatch.keepTaskId).toBe(DUP_ID);
   });
 
-  it('refuses when the refs name a task outside the card pair (design D5, AC5)', async () => {
+  it('refs naming a task outside the card pair are a NEW request (design D5, AC5)', async () => {
+    // Design D20 decides this before merge's own permutation rule is reached: the
+    // resolved pair does not match the card's, so this never enters the revision
+    // branch. The open card stays pending and a separate merge is proposed.
     const { tool } = buildRev();
-    const { out, suspend } = await runFirstPass(tool, {
+    const { card } = await runFirstPass(tool, {
       duplicateTaskRef: DUP_ID,
       keepTaskRef: THIRD_TASK,
-      revisionOf: OPEN_ID,
     });
-    expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/two other tasks/i);
+    expect(card?.primary.argsPatch).toMatchObject({
+      duplicateTaskId: DUP_ID,
+      keepTaskId: THIRD_TASK,
+    });
+    expect(card?.meta.supersedes).toBeUndefined();
   });
 
   it('refuses when both refs resolve to the SAME task', async () => {
@@ -294,7 +301,6 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       duplicateTaskRef: DUP_ID,
       keepTaskRef: DUP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toBeTruthy();
@@ -307,7 +313,6 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     await runFirstPass(tool, {
       duplicateTaskRef: KEEP_ID,
       keepTaskRef: DUP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(taskMerge.assertCanMerge.mock.calls[0]![0]).toMatchObject({
       duplicateGroupId: 'g-keep',
@@ -324,7 +329,7 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const suspend = vi.fn(async () => {});
     await expect(
       tool.execute!(
-        { duplicateTaskRef: KEEP_ID, keepTaskRef: DUP_ID, revisionOf: OPEN_ID } as never,
+        { duplicateTaskRef: KEEP_ID, keepTaskRef: DUP_ID } as never,
         firstPassCtx(suspend),
       ),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
@@ -341,7 +346,6 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       duplicateTaskRef: KEEP_ID,
       keepTaskRef: DUP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.duplicateExpectedVersion).toBe(7);
   });
@@ -351,23 +355,25 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       duplicateTaskRef: DUP_ID,
       keepTaskRef: KEEP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
     expect(card?.meta.supersedes).toBe(OPEN_ID);
   });
 
-  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+  it('refuses via the mutex when the open preview belongs to a different tool (design D4)', async () => {
+    // D20 reaches D4's outcome through ONE mechanism: a link card is not adjustable
+    // by the merge tool, so this falls through to the new-card path, where the
+    // `task:` key that link card holds refuses it in a sentence.
     const { tool } = buildRev({
-      loaded: { approvalId: OPEN_ID, toolId: 'planner_linkTasks', argsPatch: openArgsPatch },
+      openPreview: injectedPreview({ toolId: 'planner_linkTasks', taskIds: [TASK_A, TASK_B] }),
+      taken: [`task:${DUP_ID}`],
     });
     const { out, suspend } = await runFirstPass(tool, {
       duplicateTaskRef: DUP_ID,
       keepTaskRef: KEEP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/different kind of change/i);
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
   });
 
   it('refuses a card missing a side rather than rebuilding from half of it', async () => {
@@ -381,7 +387,6 @@ describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       duplicateTaskRef: DUP_ID,
       keepTaskRef: KEEP_ID,
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/incomplete/i);

@@ -20,8 +20,8 @@ export interface MergeTasksToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
   /** The preview the SERVER found open for this turn, or null (FUT-840). It
-   *  arrives through the run context and never through tool arguments, which is
-   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+   *  arrives through the run context and never through tool arguments, and the
+   *  server — not the model — decides whether this call adjusts it (design D20). */
   openPreview?: ActionOpenPreview | null;
 }
 
@@ -63,7 +63,7 @@ export function makeMergeTasksTool(deps: MergeTasksToolDeps) {
     resumeSchema: MergeTasksResumeSchema,
     // Declarative metadata only. The real gate is three checks in assertCanMerge.
     rbac: 'planner.task.delete',
-    execute: async ({ duplicateTaskRef, keepTaskRef, revisionOf }, toolCtx) => {
+    execute: async ({ duplicateTaskRef, keepTaskRef }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -91,17 +91,6 @@ export function makeMergeTasksTool(deps: MergeTasksToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
-      const revision = await resolveRevision({
-        preview: ports.preview,
-        actor,
-        revisionOf,
-        openPreview,
-        toolId: 'planner_mergeTasks',
-      });
-      if (revision.kind === 'refused') {
-        return { merged: false, keptTaskId: null, refusal: revision.refusal };
-      }
-
       // Shared with link, so an unresolvable endpoint reads the same either way.
       // The PERMISSION gate below is merge's own, because merge also deletes.
       const resolved = await resolveTwoEndpoints({
@@ -120,6 +109,17 @@ export function makeMergeTasksTool(deps: MergeTasksToolDeps) {
         return { merged: false, keptTaskId: null, refusal: resolved.refusal };
       }
       const { source: duplicate, target: keep } = resolved;
+
+      // Decided AFTER resolution: the server matches the resolved pair against the
+      // open card's tasks (design D20), and merge's own permutation rule below then
+      // works out which side survives.
+      const revision = await resolveRevision({
+        preview: ports.preview,
+        actor,
+        openPreview,
+        toolId: 'planner_mergeTasks',
+        resolvedTaskIds: [duplicate.taskId, keep.taskId],
+      });
 
       if (revision.kind === 'revision') {
         // THE ONE TOOL whose revision reads the model's refs, because which side

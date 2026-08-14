@@ -282,19 +282,25 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     const tool = makeAssignTaskTool({
       ports: { taskAssign, preview } as never,
       ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
-      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+      openPreview:
+        over.openPreview === undefined
+          ? injectedPreview({ toolId: 'planner_assignTask', taskIds: [TASK_A] })
+          : over.openPreview,
     });
     return { tool, taskAssign, preview };
   }
 
-  it('takes the task FROM THE CARD and ignores the model taskRef (AC5.1)', async () => {
+  it('a DIFFERENT task is a new request, so no adjustment can retarget the card (AC5.1)', async () => {
+    // Under design D20 the server matches the resolved task against the card's
+    // own, so naming another task never reaches the revision branch at all: it
+    // proposes a separate card and leaves the open one alone.
     const { tool } = buildRev();
     const { card } = await runFirstPass(tool, {
       taskRef: OTHER_TASK,
       assigneeRefs: ['Tuấn'],
-      revisionOf: OPEN_ID,
     });
-    expect(card?.primary.argsPatch.taskId).toBe(TASK_A);
+    expect(card?.primary.argsPatch.taskId).toBe(OTHER_TASK);
+    expect(card?.meta.supersedes).toBeUndefined();
   });
 
   it('REPLACES the assignee set — the tool has replace semantics (FUT-806 design D5)', async () => {
@@ -305,7 +311,6 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       taskRef: TASK_A,
       assigneeRefs: ['Tuấn'],
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.assigneeUserIds).toEqual(['u-tuan']);
   });
@@ -318,10 +323,7 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     });
     const suspend = vi.fn(async () => {});
     await expect(
-      tool.execute!(
-        { taskRef: TASK_A, assigneeRefs: ['Tuấn'], revisionOf: OPEN_ID } as never,
-        firstPassCtx(suspend),
-      ),
+      tool.execute!({ taskRef: TASK_A, assigneeRefs: ['Tuấn'] } as never, firstPassCtx(suspend)),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
     expect(suspend).not.toHaveBeenCalled();
   });
@@ -331,7 +333,6 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       assigneeRefs: ['Nobody'],
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/Nobody/);
@@ -342,23 +343,26 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       taskRef: TASK_A,
       assigneeRefs: ['Tuấn'],
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
     expect(card?.meta.supersedes).toBe(OPEN_ID);
   });
 
-  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+  it('refuses via the mutex when the open preview belongs to a different tool (design D4)', async () => {
+    // D20 reaches D4's outcome through ONE mechanism instead of two: a card owned
+    // by another tool is not adjustable, so the call falls through to the new-card
+    // path, where the `task:` key that other card holds refuses it in a sentence.
+    // `assign:` is untaken, so FUT-806's reuse does not apply.
     const { tool } = buildRev({
-      loaded: { approvalId: OPEN_ID, toolId: 'planner_updateTask', argsPatch: openArgsPatch },
+      openPreview: injectedPreview({ toolId: 'planner_updateTask', taskIds: [TASK_A] }),
+      taken: [`task:${TASK_A}`],
     });
     const { out, suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       assigneeRefs: ['Tuấn'],
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/different kind of change/i);
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
   });
 
   it('refuses a NEW card when the task already has a pending preview (AC1)', async () => {
@@ -376,7 +380,6 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     const { suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       assigneeRefs: ['Tuấn'],
-      revisionOf: OPEN_ID,
     });
     expect(preview.takenDedupKeys).not.toHaveBeenCalled();
     expect(suspend).toHaveBeenCalledTimes(1);
@@ -393,7 +396,6 @@ describe('planner_assignTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       assigneeRefs: ['Tuấn'],
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/incomplete/i);

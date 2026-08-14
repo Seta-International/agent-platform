@@ -19,8 +19,8 @@ export interface AssignTaskToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
   /** The preview the SERVER found open for this turn, or null (FUT-840). It
-   *  arrives through the run context and never through tool arguments, which is
-   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+   *  arrives through the run context and never through tool arguments, and the
+   *  server — not the model — decides whether this call adjusts it (design D20). */
   openPreview?: ActionOpenPreview | null;
 }
 
@@ -78,7 +78,7 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
     resumeSchema: AssignTaskResumeSchema,
     // Declarative metadata only; the first pass gates for itself.
     rbac: 'planner.task.assign',
-    execute: async ({ taskRef, assigneeRefs, revisionOf }, toolCtx) => {
+    execute: async ({ taskRef, assigneeRefs }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -108,16 +108,19 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
+      // Resolve the ref BEFORE deciding revision-or-new: the server matches the
+      // resolved task against the open card's tasks (design D20), so it needs it in
+      // hand. A TaskRefResolveError propagates untouched — it is an AgentToolError,
+      // so wrapExecute keeps its text and the model self-corrects.
+      const resolvedTaskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+
       const revision = await resolveRevision({
         preview: ports.preview,
         actor,
-        revisionOf,
         openPreview,
         toolId: 'planner_assignTask',
+        resolvedTaskIds: [resolvedTaskId],
       });
-      if (revision.kind === 'refused') {
-        return { assigned: false, assigneeUserIds: [], refusal: revision.refusal };
-      }
 
       let taskId: string;
       if (revision.kind === 'revision') {
@@ -132,9 +135,7 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
         }
         taskId = fromCard;
       } else {
-        // A TaskRefResolveError propagates untouched — it is an AgentToolError, so
-        // wrapExecute keeps its text and the model self-corrects.
-        taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+        taskId = resolvedTaskId;
       }
       const snapshot = await ports.taskAssign.readForAssign({ ...actor, taskId });
       if (!snapshot) {

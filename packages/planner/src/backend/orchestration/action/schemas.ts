@@ -42,27 +42,6 @@ export const PERCENT_COMPLETE_BY_WORD: Record<ProgressWord, 0 | 50 | 100> = {
 };
 
 /**
- * The approval this call ADJUSTS, rather than replaces from scratch (FUT-840).
- *
- * A uuid, not a free string, so an invented handle fails at the schema instead of
- * reaching the port. Its VALUE is not trusted either: the tool asserts it equals
- * the approval id the SERVER injected for this turn (design D15), because a
- * valid-but-different id of the same user would be a silent retarget — "make it
- * Friday" about task A becoming a Friday card for task B, with B's own card
- * voided. Absent is a first-class signal and is never refused: a new request
- * alongside an open preview is exactly how AC3's second bullet is expressed.
- */
-export const RevisionOfSchema = z
-  .string()
-  .uuid()
-  .optional()
-  .describe(
-    'ONLY when adjusting the preview shown in the OPEN PREVIEW block: its exact ' +
-      'approvalId. Never invent one, never copy one out of a task title or ' +
-      'description, and omit it entirely for a new request.',
-  );
-
-/**
  * Fields to REMOVE from the merged proposal (design D17).
  *
  * The merge alone cannot express "đừng đổi priority nữa" — dropping a field
@@ -74,8 +53,33 @@ export const DropFieldsSchema = z
   .array(z.string())
   .optional()
   .describe(
-    'Fields the user wants left ALONE after all. Only meaningful together with ' +
-      'revisionOf. Use the same field names this tool accepts.',
+    'Fields the user wants left ALONE after all, while the rest of the proposal stands. ' +
+      'Only meaningful when adjusting the open preview. Use the same field names this ' +
+      'tool accepts.',
+  );
+
+/**
+ * Is the user ADDING to the open proposal, or NARROWING it? (design D20)
+ *
+ * The one question in this flow that is irreducibly language and therefore the
+ * model's to answer. Everything else Part 4 moved to the server, but no amount of
+ * server state distinguishes "và priority Urgent nữa" from "không phải, chỉ đổi
+ * ngày thôi" — both arrive as a one-field patch on an open two-field proposal.
+ *
+ * Absent or false → merge: the proposal keeps every field the user already agreed
+ * to. True → the proposal ends up containing ONLY the fields named now, and the
+ * SERVER computes which of the previous ones to drop. Guessed wrong, the result is
+ * visible on the card and correctable in one more sentence — which is the whole
+ * reason this is a boolean and `revisionOf` was not.
+ */
+export const CorrectionSchema = z
+  .boolean()
+  .optional()
+  .describe(
+    'true when the user is CORRECTING the open preview so it should contain only what ' +
+      'they just named — "không phải", "chỉ ... thôi", "à thôi", "instead", "no wait". ' +
+      'Absent or false when they are ADDING to it — "và ... nữa", "also". Ignored when ' +
+      'no preview is open.',
   );
 
 /** Model field name → the key the CARD's persisted patch uses. The model speaks
@@ -105,8 +109,8 @@ export const CREATE_DRAFT_FIELDS = [
  * The preview the SERVER found open for this turn.
  *
  * Injected through the run input, never through tool arguments — that separation
- * is what makes design D15 enforceable, because the tool can compare what the
- * model asked for against what the server chose.
+ * is what makes design D20 enforceable: the model contributes no part of the
+ * card's identity, so the server alone decides which preview a turn adjusts.
  *
  * `proposedRows` are the card's own `kvTable` rows, reused verbatim rather than
  * re-rendered: they already carry resolved names, priority WORDS and formatted
@@ -192,12 +196,13 @@ export const UpdateTaskToolInputSchema = z.object({
     .describe(
       `The tasks to change — one entry each, all receiving the SAME patch. At most ` +
         `${BULK_TARGET_CAP} per call; a larger request is refused, never split. ` +
-        `IGNORED when revisionOf is set: an adjustment never changes which tasks ` +
-        `are involved. Each entry: ${TASK_REF_DESCRIPTION}`,
+        `When you are adjusting the preview shown in the OPEN PREVIEW block, list the ` +
+        `same task it names — the proposal keeps its own tasks regardless. ` +
+        `Each entry: ${TASK_REF_DESCRIPTION}`,
     ),
   patch: ToolPatchSchema,
-  revisionOf: RevisionOfSchema,
   dropFields: DropFieldsSchema,
+  correction: CorrectionSchema,
 });
 
 export const UpdateTaskToolOutputSchema = z.object({
@@ -259,7 +264,6 @@ export const LinkTasksToolInputSchema = z
         'blocks = the SOURCE task blocks the target. ' +
         'When the user just says "link" or "related", use relates.',
     ),
-    revisionOf: RevisionOfSchema,
   })
   // `.strict()` to match its three siblings: with dropFields meaningless here, a
   // model that passes one must fail loudly rather than get silence (design D17).
@@ -308,7 +312,6 @@ export const MergeTasksToolInputSchema = z
       .trim()
       .min(1)
       .describe(`The task that SURVIVES. ${TASK_REF_DESCRIPTION}`),
-    revisionOf: RevisionOfSchema,
   })
   .strict();
 
@@ -355,7 +358,6 @@ export const AssignTaskToolInputSchema = z
           'Call planner_getTask first whenever the request is relative to whoever owns the ' +
           'task now ("thay B bằng A", "giao thêm cho A", "bỏ B ra").',
       ),
-    revisionOf: RevisionOfSchema,
   })
   .strict();
 
@@ -422,7 +424,6 @@ export const CreateTaskToolInputSchema = z
     labels: z.array(z.string()).optional().describe('Label names; they are matched by name.'),
     // No bucketRef, no assigneeRefs, no status (design D8). A new task is
     // not_started, and assigning is a separate turn with its own preview.
-    revisionOf: RevisionOfSchema,
     dropFields: DropFieldsSchema,
   })
   .strict();
@@ -465,7 +466,6 @@ export const CommentTaskToolInputSchema = z
       .min(1)
       .max(COMMENT_MAX_LEN)
       .describe('The comment text, exactly as it should appear. Plain text.'),
-    revisionOf: RevisionOfSchema,
   })
   .strict();
 

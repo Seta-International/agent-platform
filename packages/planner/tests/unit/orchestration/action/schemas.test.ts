@@ -397,36 +397,26 @@ describe('CommentTaskResumeSchema', () => {
   });
 });
 
-describe('revisionOf on every write tool (FUT-840)', () => {
+describe('adjusting a preview: correction and dropFields (FUT-840)', () => {
   const UUID = '7f3a1c2e-1111-4222-8333-444455556666';
 
-  it('update accepts a uuid revisionOf and a dropFields list', () => {
+  it('update accepts correction alongside a dropFields list', () => {
     const parsed = UpdateTaskToolInputSchema.parse({
       taskRefs: [TASK_A],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: UUID,
       dropFields: ['priority'],
+      correction: true,
     });
-    expect(parsed.revisionOf).toBe(UUID);
+    expect(parsed.correction).toBe(true);
     expect(parsed.dropFields).toEqual(['priority']);
   });
 
-  it('rejects a revisionOf that is not a uuid, so an invented handle never reaches the port', () => {
-    expect(() =>
-      UpdateTaskToolInputSchema.parse({
-        taskRefs: [TASK_A],
-        patch: { dueAt: '2026-08-21' },
-        revisionOf: 'the-open-one',
-      }),
-    ).toThrow();
-  });
-
-  it('leaves revisionOf undefined when absent — an ordinary new request', () => {
+  it('leaves correction undefined when absent — the user is ADDING, not narrowing', () => {
     const parsed = UpdateTaskToolInputSchema.parse({
       taskRefs: [TASK_A],
       patch: { dueAt: '2026-08-21' },
     });
-    expect(parsed.revisionOf).toBeUndefined();
+    expect(parsed.correction).toBeUndefined();
     expect(parsed.dropFields).toBeUndefined();
   });
 
@@ -463,8 +453,12 @@ describe('revisionOf on every write tool (FUT-840)', () => {
       'comment',
       () => CommentTaskToolInputSchema.parse({ taskRef: 't', body: 'hi', revisionOf: UUID }),
     ],
-  ])('%s accepts revisionOf', (_name, parse) => {
-    expect(parse().revisionOf).toBe(UUID);
+  ])('%s REJECTS revisionOf — the model is never asked for an approval id', (_name, parse) => {
+    // Design D20 replaced D15: the server decides which preview a turn adjusts, so
+    // the field is gone from the model's surface entirely. These schemas are
+    // .strict(), so a model reaching for the removed field fails loudly rather
+    // than being silently ignored.
+    expect(parse).toThrow();
   });
 
   it.each([
@@ -535,10 +529,13 @@ describe('OpenPreviewSchema (FUT-840)', () => {
       approvalId: '7f3a1c2e-1111-4222-8333-444455556666',
       toolId: 'planner_updateTask',
       intent: 'Update "Deploy API"',
+      taskIds: [TASK_A],
       proposedRows: [{ k: 'Due', v: '12 Aug 2026 → 21 Aug 2026' }],
     });
     expect(parsed.toolId).toBe('planner_updateTask');
     expect(parsed.proposedRows).toHaveLength(1);
+    // The server matches these against the tasks the turn resolved (design D20).
+    expect(parsed.taskIds).toEqual([TASK_A]);
   });
 
   it('is nullish on ActionInputSchema — most turns have no preview open', () => {

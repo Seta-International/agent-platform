@@ -22,8 +22,8 @@ export interface CreateTaskToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
   /** The preview the SERVER found open for this turn, or null (FUT-840). It
-   *  arrives through the run context and never through tool arguments, which is
-   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+   *  arrives through the run context and never through tool arguments, and the
+   *  server — not the model — decides whether this call adjusts it (design D20). */
   openPreview?: ActionOpenPreview | null;
 }
 
@@ -166,13 +166,12 @@ export function makeCreateTaskTool(deps: CreateTaskToolDeps) {
       const revision = await resolveRevision({
         preview: ports.preview,
         actor,
-        revisionOf: input.revisionOf,
         openPreview,
         toolId: 'planner_createTask',
+        // A draft has no task yet, so this turn resolved none. The card's own
+        // taskIds are empty too, which is why a create preview still matches.
+        resolvedTaskIds: [],
       });
-      if (revision.kind === 'refused') {
-        return { created: false, taskId: null, refusal: revision.refusal };
-      }
 
       // On a revision the plan comes FROM THE CARD: `planRef` is ignored, because
       // moving the plan moves the bucket and the board the task lands on.

@@ -118,24 +118,27 @@ describe('A2 instructions — assigning', () => {
 describe('instructionsText — the REVISION section (FUT-840)', () => {
   const text = instructionsText();
 
-  it('tells the model to call the SAME tool with revisionOf', () => {
-    expect(text).toMatch(/revisionOf/);
+  it('tells the model to call the SAME tool with the SAME task', () => {
+    // No approval id is named, because the model is never asked for one: the
+    // server decides which preview a turn adjusts (design D20).
     expect(text).toMatch(/same tool/i);
+    expect(text).toMatch(/same task/i);
+    expect(text).not.toMatch(/revisionOf/);
+    expect(text).not.toMatch(/approvalId/);
   });
 
-  it('tells it to send only the newly named fields and never to re-list the tasks', () => {
-    // Targets come from the card, so re-listing them is at best noise and at
-    // worst an attempt to retarget that the tool will ignore anyway.
+  it('tells it to send only the newly named fields', () => {
     expect(text).toMatch(/only the fields/i);
-    expect(text).toMatch(/do not list the tasks again/i);
+  });
+
+  it('names correction as the way to NARROW the proposal rather than add to it', () => {
+    expect(text).toMatch(/correction: true/);
+    expect(text).toMatch(/narrowing/i);
+    expect(text).toMatch(/adding/i);
   });
 
   it('names dropFields as the way to leave a field alone', () => {
     expect(text).toMatch(/dropFields/);
-  });
-
-  it('tells it NOT to revise when the user names a different task (design D5)', () => {
-    expect(text).toMatch(/different task/i);
   });
 
   it('tells it NOT to revise when the user asks for a different KIND of change (design D4)', () => {
@@ -150,8 +153,10 @@ describe('instructionsText — the REVISION section (FUT-840)', () => {
     expect(text).toMatch(/name the task/i);
   });
 
-  it('tells it to omit revisionOf for a new request', () => {
-    expect(text).toMatch(/leave revisionOf out/i);
+  it('tells it to quote the dates the tool returns rather than deriving them', () => {
+    // Production wrote "Thứ Hai, 15/08/2026" for a Saturday. Copying a rendered
+    // date is something a small model does reliably; deriving a weekday is not.
+    expect(text).toMatch(/quote the dates/i);
   });
 });
 
@@ -165,6 +170,7 @@ describe('the OPEN PREVIEW block survives the run input (FUT-840)', () => {
     approvalId: '7f3a1c2e-1111-4222-8333-444455556666',
     toolId: 'planner_updateTask',
     intent: 'Update "Deploy API"',
+    taskIds: ['66be2be2-394d-4184-b106-c412289fd1e1'],
     proposedRows: [{ k: 'Due', v: '12 Aug → 15 Aug' }],
   };
 

@@ -28,8 +28,8 @@ export interface UpdateTaskToolDeps {
   /** The orchestrator's run ctx: tenant/actor/abort. */
   ctx: SpecializedAgentRunCtx;
   /** The preview the SERVER found open for this turn, or null (FUT-840). It
-   *  arrives through the run context and never through tool arguments, which is
-   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+   *  arrives through the run context and never through tool arguments, and the
+   *  server — not the model — decides whether this call adjusts it (design D20). */
   openPreview?: ActionOpenPreview | null;
 }
 
@@ -136,7 +136,7 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
     // WeakMap that nothing reads at runtime, which is why the first pass calls
     // assertCanUpdateMany itself.
     rbac: 'planner.task.update',
-    execute: async ({ taskRefs, patch, revisionOf, dropFields }, toolCtx) => {
+    execute: async ({ taskRefs, patch, dropFields, correction }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -168,32 +168,67 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
+      // 1. The cap FIRST, before any resolution: 100 refs must not become 100
+      //    reads, and the refusal has to be a sentence rather than a schema error,
+      //    or the model splits the request into batches — which the AC forbids.
+      if (taskRefs.length > BULK_TARGET_CAP) {
+        return {
+          updated: false,
+          taskIds: [],
+          refusal:
+            `I can change at most ${BULK_TARGET_CAP} tasks in one request, and this one lists ` +
+            `${taskRefs.length}. Nothing was changed. Ask the user to narrow the list to ` +
+            `${BULK_TARGET_CAP} or fewer — do not split it into several smaller requests.`,
+        };
+      }
+
+      // 2. Resolve refs BEFORE deciding revision-or-new: the server matches the
+      //    resolved tasks against the open card's tasks (design D20), so it needs
+      //    them in hand. TaskRefResolveError is an AgentToolError, so wrapExecute
+      //    re-throws its text verbatim and the model self-corrects against the
+      //    real titles (the FUT-859 property).
+      const resolvedTaskIds: string[] = [];
+      for (const ref of taskRefs) {
+        resolvedTaskIds.push((await resolveTaskRef(toolCtx as never, ref)).taskId);
+      }
+      // Two refs for one task is an unclear intent, and would double-count the
+      // task in the preview.
+      if (new Set(resolvedTaskIds).size !== resolvedTaskIds.length) {
+        return {
+          updated: false,
+          taskIds: [],
+          refusal:
+            'Two of those references point at the same task. Say each task once and tell me ' +
+            'which change you want.',
+        };
+      }
+
       const revision = await resolveRevision({
         preview: ports.preview,
         actor,
-        revisionOf,
         openPreview,
         toolId: 'planner_updateTask',
+        resolvedTaskIds,
       });
-      if (revision.kind === 'refused') {
-        // The open preview is untouched: nothing here reached the read-model
-        // writer, so there is still exactly one resolvable card (AC5).
-        return { updated: false, taskIds: [], refusal: revision.refusal };
-      }
 
       let taskIds: string[];
       let normalized: UpdateTaskActionPatch;
 
       if (revision.kind === 'revision') {
-        // Targets come FROM THE CARD; `taskRefs` is ignored. This is what makes
-        // "no adjustment can move the change to another task" structural rather
-        // than a prompt promise (AC5.1).
+        // Targets come FROM THE CARD; the resolved refs are ignored. This is what
+        // makes "no adjustment can move the change to another task" structural
+        // rather than a prompt promise (AC5.1).
         taskIds = taskIdsFromArgsPatch(revision.previousArgsPatch);
         if (taskIds.length === 0) {
           return { updated: false, taskIds: [], refusal: INCOMPLETE_PREVIEW };
         }
         const previousPatch = (revision.previousArgsPatch.patch ?? {}) as UpdateTaskActionPatch;
-        const merged = mergePatches(previousPatch, toDomainPatch(patch), dropFields);
+        const next = toDomainPatch(patch);
+        const merged = mergePatches(
+          previousPatch,
+          next,
+          dropsFor(previousPatch, next, dropFields, correction),
+        );
         if ('refusal' in merged) {
           return { updated: false, taskIds: [], refusal: merged.refusal };
         }
@@ -208,47 +243,13 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
           };
         }
       } else {
-        // 1. The cap, BEFORE resolution: 100 refs must not become 100 reads, and
-        //    the refusal has to be a sentence rather than a schema error, or the
-        //    model splits the request into batches — which the AC forbids.
-        if (taskRefs.length > BULK_TARGET_CAP) {
-          return {
-            updated: false,
-            taskIds: [],
-            refusal:
-              `I can change at most ${BULK_TARGET_CAP} tasks in one request, and this one lists ` +
-              `${taskRefs.length}. Nothing was changed. Ask the user to narrow the list to ` +
-              `${BULK_TARGET_CAP} or fewer — do not split it into several smaller requests.`,
-          };
-        }
-
-        // 2. Cheapest check next: no DB, no resolution.
+        taskIds = resolvedTaskIds;
         normalized = toDomainPatch(patch);
         if (Object.keys(normalized).length === 0) {
           return {
             updated: false,
             taskIds: [],
             refusal: 'Tell me which value to set and I will show you a preview.',
-          };
-        }
-
-        // 3. One unresolvable ref refuses the WHOLE batch. TaskRefResolveError is
-        //    an AgentToolError, so wrapExecute re-throws its text verbatim and the
-        //    model self-corrects against the real titles (the FUT-859 property).
-        taskIds = [];
-        for (const ref of taskRefs) {
-          taskIds.push((await resolveTaskRef(toolCtx as never, ref)).taskId);
-        }
-
-        // 4. Two refs for one task is an unclear intent, and would double-count
-        //    the task in the preview.
-        if (new Set(taskIds).size !== taskIds.length) {
-          return {
-            updated: false,
-            taskIds: [],
-            refusal:
-              'Two of those references point at the same task. Say each task once and tell me ' +
-              'which change you want.',
           };
         }
       }
@@ -306,4 +307,43 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
       return { updated: false, taskIds };
     },
   });
+}
+
+/** Domain field name → the tool-facing name `mergePatches` expects in dropFields. */
+const TOOL_FIELD_BY_DOMAIN_FIELD: Record<string, string> = Object.fromEntries(
+  Object.entries(DOMAIN_FIELD_BY_TOOL_FIELD).map(([toolField, domainField]) => [
+    domainField,
+    toolField,
+  ]),
+);
+
+/**
+ * Which fields this adjustment removes from the proposal (design D20).
+ *
+ * `correction: true` means the user is narrowing the proposal, so every field the
+ * previous card set and this sentence did NOT restate comes off. The model says
+ * only WHETHER this is a correction — a language judgement; the server works out
+ * WHICH fields, which is bookkeeping and is where the model was unreliable.
+ *
+ * Unioned with the model's own `dropFields`, which stays for the case correction
+ * cannot express: "đừng đổi priority nữa" names a field with no value while the
+ * rest of the proposal stands.
+ *
+ * Only ever NARROWS the change, so it is AC5-safe by construction.
+ */
+export function dropsFor(
+  previous: UpdateTaskActionPatch,
+  next: UpdateTaskActionPatch,
+  dropFields: readonly string[] | undefined,
+  correction: boolean | undefined,
+): readonly string[] {
+  const out = [...(dropFields ?? [])];
+  if (correction) {
+    for (const domainField of Object.keys(previous)) {
+      if (domainField in next) continue;
+      const toolField = TOOL_FIELD_BY_DOMAIN_FIELD[domainField];
+      if (toolField && !out.includes(toolField)) out.push(toolField);
+    }
+  }
+  return out;
 }

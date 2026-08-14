@@ -280,21 +280,20 @@ describe('planner_linkTasks — the revision branch (FUT-840)', () => {
     const tool = makeLinkTasksTool({
       ports: { taskLink, preview } as never,
       ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
-      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+      openPreview:
+        over.openPreview === undefined
+          ? injectedPreview({ toolId: 'planner_linkTasks', taskIds: [TASK_A, TASK_B] })
+          : over.openPreview,
     });
     return { tool, taskLink, preview };
   }
 
   it('changes only the kind, keeping BOTH endpoints from the card', async () => {
-    // "Link A to C instead of B" is a NEW request: it collides with design D5 (a
-    // sentence naming a different task) and with AC5 (an adjustment never widens
-    // the change). Ignoring the refs can only ever narrow, so it is safe.
     const { tool } = buildRev();
     const { card } = await runFirstPass(tool, {
       sourceTaskRef: TASK_A,
-      targetTaskRef: THIRD_TASK,
+      targetTaskRef: TASK_B,
       kind: 'blocks',
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch).toEqual({
       action: 'link',
@@ -303,6 +302,24 @@ describe('planner_linkTasks — the revision branch (FUT-840)', () => {
       kind: 'blocks',
       idempotencyKey: expect.any(String),
     });
+    expect(card?.meta.supersedes).toBe(OPEN_ID);
+  });
+
+  it('"link A to C instead of B" is a NEW request, not a widened adjustment (AC5)', async () => {
+    // Design D20 decides this by matching the resolved pair against the card's own
+    // pair, so a third task never reaches the revision branch: the A→B card stays
+    // pending and confirmable, and A→C is proposed separately.
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: THIRD_TASK,
+      kind: 'blocks',
+    });
+    expect(card?.primary.argsPatch).toMatchObject({
+      sourceTaskId: TASK_A,
+      targetTaskId: THIRD_TASK,
+    });
+    expect(card?.meta.supersedes).toBeUndefined();
   });
 
   it('re-gates BOTH groups before suspending (AC5.2)', async () => {
@@ -318,7 +335,6 @@ describe('planner_linkTasks — the revision branch (FUT-840)', () => {
           sourceTaskRef: TASK_A,
           targetTaskRef: TASK_B,
           kind: 'blocks',
-          revisionOf: OPEN_ID,
         } as never,
         firstPassCtx(suspend),
       ),
@@ -335,7 +351,6 @@ describe('planner_linkTasks — the revision branch (FUT-840)', () => {
       sourceTaskRef: TASK_A,
       targetTaskRef: TASK_B,
       kind: 'blocks',
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/duplicates of each other/i);
@@ -347,24 +362,26 @@ describe('planner_linkTasks — the revision branch (FUT-840)', () => {
       sourceTaskRef: TASK_A,
       targetTaskRef: TASK_B,
       kind: 'blocks',
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
     expect(card?.meta.supersedes).toBe(OPEN_ID);
   });
 
-  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+  it('refuses via the mutex when the open preview belongs to a different tool (design D4)', async () => {
+    // D20 reaches D4's outcome through ONE mechanism: a merge card is not
+    // adjustable by the link tool, so this falls through to the new-card path,
+    // where the `task:` key that merge card holds refuses it in a sentence.
     const { tool } = buildRev({
-      loaded: { approvalId: OPEN_ID, toolId: 'planner_mergeTasks', argsPatch: openArgsPatch },
+      openPreview: injectedPreview({ toolId: 'planner_mergeTasks', taskIds: [TASK_A, TASK_B] }),
+      taken: [`task:${TASK_A}`],
     });
     const { out, suspend } = await runFirstPass(tool, {
       sourceTaskRef: TASK_A,
       targetTaskRef: TASK_B,
       kind: 'blocks',
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/different kind of change/i);
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
   });
 
   it('refuses a card missing an endpoint rather than rebuilding from half of it', async () => {
@@ -379,7 +396,6 @@ describe('planner_linkTasks — the revision branch (FUT-840)', () => {
       sourceTaskRef: TASK_A,
       targetTaskRef: TASK_B,
       kind: 'blocks',
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/incomplete/i);
