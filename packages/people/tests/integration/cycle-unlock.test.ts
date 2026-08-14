@@ -295,7 +295,7 @@ describe('readCycleUnlockPanel (FUT-781)', () => {
     });
   });
 
-  it('needs people.performance.read_org', async () => {
+  it('needs the same permission the panel acts with — people.performance.unlock', async () => {
     await withDb(async ({ pool }) => {
       const t = await seedTenant(pool);
       setMonthClock(() => NOW);
@@ -305,6 +305,20 @@ describe('readCycleUnlockPanel (FUT-781)', () => {
         roles: ['people.viewer'],
       });
       await expect(readCycleUnlockPanel(plain)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      // An org-viewer who cannot unlock has nothing to do on this panel either.
+      const orgViewerOnly = buildSession({
+        tenant_id: t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['people.manager'],
+        assignments: [{ role_slug: 'people.manager', scope_kind: 'tenant', scope_id: null }],
+      });
+      // Assert the permission, not just the code: people.manager fails several checks
+      // downstream, and only this one proves the panel's own gate rejected them.
+      await expect(readCycleUnlockPanel(orgViewerOnly)).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+        details: { permission: 'people.performance.unlock' },
+      });
     });
   });
 });
@@ -328,6 +342,28 @@ describe('readCycleStatus honors an active unlock (FUT-781)', () => {
       expect((await readCycleStatus(pmo, { month: UNLOCKABLE, account_id: other })).status).toBe(
         'locked',
       );
+    });
+  });
+
+  it('ignores an account the caller has no capacity on and cannot view org-wide', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2 });
+
+      // A plain performance reader with no allocation on that account must not learn
+      // its unlock state by guessing the id.
+      const outsider = buildSession({
+        tenant_id: t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['people.viewer'],
+        person_id: crypto.randomUUID(),
+      });
+      expect(
+        (await readCycleStatus(outsider, { month: UNLOCKABLE, account_id: accountId })).status,
+      ).toBe('locked');
     });
   });
 });
