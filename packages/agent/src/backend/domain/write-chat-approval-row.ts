@@ -191,12 +191,70 @@ async function reusePendingAssignCard(
   };
 }
 
-/** Filled in by FUT-840's supersede half. Declared here so the transaction body
- *  reads in its final order. */
+/**
+ * Void the approval this card replaces, inside the caller's transaction.
+ *
+ * Performed HERE rather than in the tool's first pass (design D8'). Superseding
+ * in the tool leaves a real window where the old card is void and the new one
+ * absent, opened by ANY read-model failure — `onApproval` swallows every one of
+ * them by design (spec §0 finding 5), so that window is not crash-only. Doing it
+ * inside the transaction that already exists means no committed instant has two
+ * pending cards for one task, and none has zero.
+ *
+ * Scoped by tenant + approver + `mastra_run_id IS NOT NULL`: the actor is
+ * replacing THEIR OWN chat proposal. Deliberately does NOT require
+ * `agent.workflow.run.cancel` — that permission is for cancelling somebody's
+ * run, which this is not. RBAC is re-checked at the callee by
+ * `approver_user_id = actor`.
+ *
+ * A row that is no longer `pending` is NOT an error. The user may have Confirmed
+ * the stale card while the revision was still narrating; Confirm wins, and this
+ * becomes a no-op. Safe because the `task:` key is free again, the new card's
+ * targets still came from the old card, and the fresh idempotency key means the
+ * final state is the merged patch — the user's intent. Throwing instead would
+ * destroy the new card of a user who did nothing wrong.
+ */
 async function supersedeReplacedApproval(
-  _client: PoolClient,
-  _args: { approvalId: string; tenantId: string; userId: string },
-): Promise<void> {}
+  client: PoolClient,
+  args: { approvalId: string; tenantId: string; userId: string },
+): Promise<void> {
+  const locked = await client.query<{ run_id: string }>(
+    `SELECT a.run_id
+       FROM agent.workflow_approvals a
+      WHERE a.approval_id       = $1
+        AND a.tenant_id         = $2
+        AND a.approver_user_id  = $3
+        AND a.status            = 'pending'
+        AND a.mastra_run_id IS NOT NULL
+      FOR UPDATE OF a`,
+    [args.approvalId, args.tenantId, args.userId],
+  );
+  const row = locked.rows[0];
+  if (!row) return;
+
+  await client.query(
+    `UPDATE agent.workflow_approvals
+        SET status           = 'superseded',
+            decision_payload = jsonb_build_object('reason', 'revised'),
+            decided_at       = now()
+      WHERE approval_id = $1`,
+    [args.approvalId],
+  );
+
+  // Close the synthetic run row (design D13). Safe for `superseded` precisely
+  // because nothing will ever resume it: `replayableDecision` requires
+  // `a.status='approved'` and `resumeRetry` requires
+  // `a.status IN ('approved','rejected','modified')`, so neither can reach a
+  // superseded row whatever its run status. The single-`l` spelling is what
+  // WORKFLOW_RUN_STATUS declares.
+  await client.query(
+    `UPDATE agent.workflow_runs
+        SET status = 'canceled', finished_at = now()
+      WHERE run_id = $1
+        AND status IN ('paused', 'running')`,
+    [row.run_id],
+  );
+}
 
 /**
  * Projects a native-suspend `approval` event into the workflow_runs +

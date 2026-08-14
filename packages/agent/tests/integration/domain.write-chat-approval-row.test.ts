@@ -708,3 +708,171 @@ describe('writeChatApprovalRow — the advisory lock makes AC1 an invariant (des
     });
   });
 });
+
+describe('writeChatApprovalRow — the atomic swap (FUT-840 design D8, AC1)', () => {
+  it('voids the old approval AND its run row, and inserts the new one, in ONE transaction', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const first = await write(pool, updateCard([taskId], tenantId, userId));
+
+      const revised = updateCard([taskId], tenantId, userId);
+      revised.meta.supersedes = first.approvalId;
+      const second = await write(pool, revised);
+
+      const old = await pool.query(
+        `SELECT status, decision_payload, decided_at FROM agent.workflow_approvals
+          WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+      expect(old.rows[0].status).toBe('superseded');
+      expect(old.rows[0].decision_payload).toEqual({ reason: 'revised' });
+      expect(old.rows[0].decided_at).not.toBeNull();
+
+      const oldRun = await pool.query(
+        `SELECT status, finished_at FROM agent.workflow_runs WHERE run_id = $1`,
+        [first.runId],
+      );
+      expect(oldRun.rows[0].status).toBe('canceled');
+      expect(oldRun.rows[0].finished_at).not.toBeNull();
+
+      // Exactly ONE pending row for the task: none has two, none has zero.
+      const pending = await pool.query(
+        `SELECT approval_id FROM agent.workflow_approvals
+          WHERE tenant_id = $1 AND status = 'pending'`,
+        [tenantId],
+      );
+      expect(pending.rows.map((r) => r.approval_id)).toEqual([second.approvalId]);
+    });
+  });
+
+  it('a supersedes target that is already APPROVED is a no-op, and the new row still lands', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const first = await write(pool, updateCard([taskId], tenantId, userId));
+      // The user Confirmed the stale card while the revision was still narrating.
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET status = 'approved' WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+
+      const revised = updateCard([taskId], tenantId, userId);
+      revised.meta.supersedes = first.approvalId;
+      // NOT an error: throwing would destroy the new card of a user who did
+      // nothing wrong. The task: key is free again, so the INSERT proceeds.
+      const second = await write(pool, revised);
+
+      expect(second.approvalId).not.toBe(first.approvalId);
+      const old = await pool.query(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+      expect(old.rows[0].status).toBe('approved');
+    });
+  });
+
+  it('a supersedes target already past expires_at but still pending is superseded normally', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const first = await write(pool, updateCard([taskId], tenantId, userId));
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET expires_at = now() - interval '1 hour'
+          WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+
+      const revised = updateCard([taskId], tenantId, userId);
+      revised.meta.supersedes = first.approvalId;
+      await write(pool, revised);
+
+      const old = await pool.query(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+      expect(old.rows[0].status).toBe('superseded');
+    });
+  });
+
+  it("does NOT supersede another user's approval", async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const victim = randomUUID();
+      const victimTask = randomUUID();
+      const theirs = await write(pool, updateCard([victimTask], tenantId, victim));
+
+      const attacker = randomUUID();
+      const revised = updateCard([randomUUID()], tenantId, attacker);
+      revised.meta.supersedes = theirs.approvalId;
+      await write(pool, revised);
+
+      const untouched = await pool.query(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [theirs.approvalId],
+      );
+      expect(untouched.rows[0].status).toBe('pending');
+    });
+  });
+
+  it("does NOT supersede another tenant's approval", async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const userId = randomUUID();
+      const theirs = await write(pool, updateCard([randomUUID()], randomUUID(), userId));
+
+      const revised = updateCard([randomUUID()], randomUUID(), userId);
+      revised.meta.supersedes = theirs.approvalId;
+      await write(pool, revised);
+
+      const untouched = await pool.query(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [theirs.approvalId],
+      );
+      expect(untouched.rows[0].status).toBe('pending');
+    });
+  });
+
+  it('a supersedes naming a row that does not exist is a no-op, not a crash', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const revised = updateCard([randomUUID()], tenantId, userId);
+      revised.meta.supersedes = randomUUID();
+      await expect(write(pool, revised)).resolves.toMatchObject({
+        approvalId: expect.any(String),
+      });
+    });
+  });
+
+  it('leaves the OLD card pending and inserts nothing when the transaction rolls back', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskA = randomUUID();
+      const taskB = randomUUID();
+      const first = await write(pool, updateCard([taskA], tenantId, userId));
+      // A second card holds taskB, so the revision below clashes on taskB and the
+      // whole transaction rolls back AFTER the supersede statement ran.
+      await write(pool, updateCard([taskB], tenantId, userId));
+
+      const revised = updateCard([taskA, taskB], tenantId, userId);
+      revised.meta.supersedes = first.approvalId;
+      await expect(write(pool, revised)).rejects.toBeInstanceOf(PendingTaskPreviewExistsError);
+
+      // The failure mode is "old card still pending, new card absent" — the user
+      // keeps a resolvable preview. Strictly better than losing both.
+      const old = await pool.query(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+      expect(old.rows[0].status).toBe('pending');
+      const oldRun = await pool.query(`SELECT status FROM agent.workflow_runs WHERE run_id = $1`, [
+        first.runId,
+      ]);
+      expect(oldRun.rows[0].status).toBe('paused');
+    });
+  });
+});
