@@ -1,6 +1,12 @@
 import { defineAgentTool, resolveTaskRef, type SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { buildCommentTaskApprovalCard } from './approval-card.ts';
 import type { ActionPorts } from './ports.ts';
+import {
+  INCOMPLETE_PREVIEW,
+  refuseIfPreviewOpen,
+  resolveRevision,
+  taskIdsFromArgsPatch,
+} from './revision.ts';
 import type { ActionOpenPreview } from './schemas.ts';
 import {
   CommentTaskResumeSchema,
@@ -30,7 +36,7 @@ export interface CommentTaskToolDeps {
  * gated, so it has neither an idempotency key nor agent attribution.
  */
 export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
-  const { ports, ctx } = deps;
+  const { ports, ctx, openPreview } = deps;
   const actor = { tenantId: ctx.tenantId, actorUserId: ctx.actorUserId };
 
   return defineAgentTool({
@@ -54,7 +60,7 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
     // Declarative metadata only — nothing reads it at runtime, which is why the
     // first pass calls assertCanComment itself.
     rbac: 'planner.task.comment.create',
-    execute: async ({ taskRef, body }, toolCtx) => {
+    execute: async ({ taskRef, body, revisionOf }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -87,7 +93,30 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
-      const taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+      const revision = await resolveRevision({
+        preview: ports.preview,
+        actor,
+        revisionOf,
+        openPreview,
+        toolId: 'planner_commentTask',
+      });
+      if (revision.kind === 'refused') {
+        return { commented: false, commentId: null, refusal: revision.refusal };
+      }
+
+      let taskId: string;
+      if (revision.kind === 'revision') {
+        // The task comes FROM THE CARD (AC5.1). The BODY is what is adjustable,
+        // and it is REPLACED rather than merged: a comment has one field, so "no,
+        // say it like this instead" means the new words, not the old plus the new.
+        const [fromCard] = taskIdsFromArgsPatch(revision.previousArgsPatch);
+        if (!fromCard) {
+          return { commented: false, commentId: null, refusal: INCOMPLETE_PREVIEW };
+        }
+        taskId = fromCard;
+      } else {
+        taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+      }
       // The read port the update tool already uses: a comment needs the same two
       // facts (title, group), and a second read path would be a second place for
       // the permission story to drift. It RAISES the planner's own NOT_FOUND /
@@ -108,6 +137,15 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
       // comment on it.
       await ports.comment.assertCanComment({ ...actor, groupId: task.groupId });
 
+      if (revision.kind === 'new') {
+        const clash = await refuseIfPreviewOpen({
+          preview: ports.preview,
+          actor,
+          taskIds: [taskId],
+        });
+        if (clash) return { commented: false, commentId: null, refusal: clash };
+      }
+
       const card = buildCommentTaskApprovalCard({
         taskId,
         title: task.title,
@@ -115,8 +153,10 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
         // Minted HERE and persisted on the card: resume may run in another
-        // process, so the key can only travel via proposed_payload.
+        // process, so the key can only travel via proposed_payload. FRESH on
+        // every revision (AC4).
         idempotencyKey: crypto.randomUUID(),
+        ...(revision.kind === 'revision' ? { supersedes: revision.previousApprovalId } : {}),
       });
 
       if (typeof agent?.suspend !== 'function') {
