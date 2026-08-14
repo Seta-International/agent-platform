@@ -385,7 +385,7 @@ async function main(): Promise<void> {
               (id, tenant_id, report_id, executive_summary, risk_issue, road_to_green,
                road_to_green_owner_id, road_to_green_due, overall_colour, declared_colours)
             VALUES
-              (${randomUUID()}, ${tenantId}, ${reportId}, ${summary}, ${null}, ${r2g},
+              (${randomUUID()}, ${tenantId}, ${reportId}, ${summary}, NULL, ${r2g},
                ${r2gOwner}, ${r2gDue}, ${overall}, ${sql`${JSON.stringify(decl)}::jsonb`})`,
       );
       reports++;
