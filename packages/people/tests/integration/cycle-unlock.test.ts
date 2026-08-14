@@ -1,13 +1,16 @@
 import { resetCoreDb } from '@seta/core/testing';
+import { createAccount } from '@seta/pm';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { performanceCycleUnlock } from '../../src/backend/db/schema.ts';
+import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { setMonthClock } from '../../src/backend/domain/month-clock.ts';
 import {
-  listCycleUnlocks,
   readCycleStatus,
+  readCycleUnlockPanel,
   relockCycle,
   resolveOverrideActive,
   unlockCycle,
@@ -19,158 +22,17 @@ const ctx = {
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-const MONTH = '2026-07';
+/** VN wall-clock → UTC instant. */
 function vn(y: number, m: number, d: number, h = 0): Date {
   return new Date(Date.UTC(y, m - 1, d, h, 0, 0, 0) - 7 * 3_600_000);
 }
 
-type UnlockRow = {
-  scope_kind: 'month' | 'project' | 'person';
-  scope_id: string | null;
-  action: 'unlock' | 'relock';
-  created_at: Date;
-};
-
-async function seedUnlocks(tenantId: string, rows: UnlockRow[]): Promise<void> {
-  await peopleDb()
-    .insert(performanceCycleUnlock)
-    .values(
-      rows.map((r) => ({
-        tenant_id: tenantId,
-        review_month: MONTH,
-        scope_kind: r.scope_kind,
-        scope_id: r.scope_id,
-        action: r.action,
-        reason: 'test',
-        actor_user_id: crypto.randomUUID(),
-        created_at: r.created_at,
-      })),
-    );
-}
+/** Aug 13 2026: July is the latest closed cycle, so July is the unlockable month. */
+const NOW = vn(2026, 8, 13, 10);
+const UNLOCKABLE = '2026-07';
+const OLDER = '2026-06';
 
 afterEach(() => setMonthClock());
-
-describe('resolveOverrideActive', () => {
-  it('false with no unlock rows', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        expect(await resolveOverrideActive(t.adminSession, { month: MONTH })).toBe(false);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('a month-wide unlock activates the override for any scope', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        await seedUnlocks(t.tenant_id, [
-          { scope_kind: 'month', scope_id: null, action: 'unlock', created_at: vn(2026, 8, 13) },
-        ]);
-        expect(await resolveOverrideActive(t.adminSession, { month: MONTH })).toBe(true);
-        expect(
-          await resolveOverrideActive(t.adminSession, {
-            month: MONTH,
-            person_id: crypto.randomUUID(),
-            project_id: crypto.randomUUID(),
-          }),
-        ).toBe(true);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('a later re-lock cancels an earlier unlock (latest row per scope wins)', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        await seedUnlocks(t.tenant_id, [
-          { scope_kind: 'month', scope_id: null, action: 'unlock', created_at: vn(2026, 8, 13, 9) },
-          {
-            scope_kind: 'month',
-            scope_id: null,
-            action: 'relock',
-            created_at: vn(2026, 8, 13, 10),
-          },
-        ]);
-        expect(await resolveOverrideActive(t.adminSession, { month: MONTH })).toBe(false);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('a person-scoped unlock only activates for that person', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const alice = crypto.randomUUID();
-        const bob = crypto.randomUUID();
-        await seedUnlocks(t.tenant_id, [
-          { scope_kind: 'person', scope_id: alice, action: 'unlock', created_at: vn(2026, 8, 13) },
-        ]);
-        expect(
-          await resolveOverrideActive(t.adminSession, { month: MONTH, person_id: alice }),
-        ).toBe(true);
-        expect(await resolveOverrideActive(t.adminSession, { month: MONTH, person_id: bob })).toBe(
-          false,
-        );
-        expect(await resolveOverrideActive(t.adminSession, { month: MONTH })).toBe(false);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('a project-scoped unlock only activates for that project', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const projA = crypto.randomUUID();
-        const projB = crypto.randomUUID();
-        await seedUnlocks(t.tenant_id, [
-          { scope_kind: 'project', scope_id: projA, action: 'unlock', created_at: vn(2026, 8, 13) },
-        ]);
-        expect(
-          await resolveOverrideActive(t.adminSession, { month: MONTH, project_id: projA }),
-        ).toBe(true);
-        expect(
-          await resolveOverrideActive(t.adminSession, { month: MONTH, project_id: projB }),
-        ).toBe(false);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-});
 
 function pmoSession(tenantId: string) {
   return buildSession({
@@ -182,166 +44,325 @@ function pmoSession(tenantId: string) {
   });
 }
 
-describe('unlockCycle / relockCycle (FUT-781, AC1-AC4)', () => {
-  it('rejects a caller without people.performance.unlock (PMO-only)', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
+function pmManagerSession(tenantId: string) {
+  return buildSession({
+    tenant_id: tenantId,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.manager'],
+    assignments: [{ role_slug: 'pm.manager', scope_kind: 'tenant', scope_id: null }],
+  });
+}
+
+/** Seed one real pm account so the panel can name it. */
+async function seedAccount(tenantId: string, adminSession: ReturnType<typeof buildSession>) {
+  const am = await createWorker({ session: adminSession, full_name: 'Ada AM' });
+  const { account_id } = await createAccount({
+    name: 'Contoso',
+    am_worker_id: am.worker_id,
+    session: pmManagerSession(tenantId),
+  });
+  return account_id;
+}
+
+async function withDb(fn: Parameters<typeof withTestDb>[1]): Promise<void> {
+  await withTestDb(ctx, async (args) => {
+    resetCoreDb();
+    resetPeopleDb();
+    resetPmDb();
+    initPools({ databaseUrl: args.databaseUrl });
+    try {
+      await fn(args);
+    } finally {
       resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const member = buildSession({
-          tenant_id: t.tenant_id,
-          user_id: crypto.randomUUID(),
-          roles: ['people.viewer'],
-          person_id: crypto.randomUUID(),
-        });
+      resetPmDb();
+      resetCoreDb();
+      await closePools();
+    }
+  });
+}
+
+describe('unlockCycle (FUT-781)', () => {
+  it('rejects a caller without people.performance.unlock', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      setMonthClock(() => NOW);
+      const member = buildSession({
+        tenant_id: t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['people.viewer'],
+        person_id: crypto.randomUUID(),
+      });
+      await expect(
+        unlockCycle(member, {
+          month: UNLOCKABLE,
+          account_id: crypto.randomUUID(),
+          days: 3,
+          reason: 'x',
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+  });
+
+  it('unlocks one account for N days and expires on its own', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      const entry = await unlockCycle(pmo, {
+        month: UNLOCKABLE,
+        account_id: accountId,
+        days: 3,
+        reason: 'Missed the makeup window',
+      });
+      expect(entry.action).toBe('unlock');
+      expect(new Date(entry.expires_at as string).getTime()).toBe(NOW.getTime() + 3 * 86_400_000);
+
+      expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: accountId })).toBe(
+        true,
+      );
+
+      // One minute past the deadline the window closes with no job involved.
+      setMonthClock(() => new Date(NOW.getTime() + 3 * 86_400_000 + 60_000));
+      expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: accountId })).toBe(
+        false,
+      );
+    });
+  });
+
+  it('leaves other accounts locked', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const other = crypto.randomUUID();
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      await unlockCycle(pmo, {
+        month: UNLOCKABLE,
+        account_id: accountId,
+        days: 2,
+        reason: 'Contoso only',
+      });
+      expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: other })).toBe(
+        false,
+      );
+    });
+  });
+
+  it('refuses any month other than the latest closed cycle', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      // Already signed off — view-only for good.
+      await expect(
+        unlockCycle(pmo, { month: OLDER, account_id: accountId, days: 1, reason: 'too late' }),
+      ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+      // Not evaluable yet — its window opens on the 25th.
+      await expect(
+        unlockCycle(pmo, { month: '2026-08', account_id: accountId, days: 1, reason: 'too early' }),
+      ).rejects.toMatchObject({ code: 'VALIDATION' });
+    });
+  });
+
+  it('caps the window at 5 days and requires at least 1', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      for (const days of [0, 6, 30]) {
         await expect(
-          unlockCycle(member, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'x' }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
+          unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days, reason: 'nope' }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
       }
+      const ok = await unlockCycle(pmo, {
+        month: UNLOCKABLE,
+        account_id: accountId,
+        days: 5,
+        reason: 'max window',
+      });
+      expect(ok.action).toBe('unlock');
     });
   });
 
-  it('unlock writes an audit row and activates the override; relock reverses it', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const pmo = pmoSession(t.tenant_id);
-
-        const entry = await unlockCycle(pmo, {
-          month: MONTH,
-          scope_kind: 'month',
-          scope_id: null,
-          reason: 'Payroll correction',
-        });
-        expect(entry.action).toBe('unlock');
-        expect(entry.reason).toBe('Payroll correction');
-        expect(entry.actor_user_id).toBe(pmo.user_id);
-        expect(await resolveOverrideActive(pmo, { month: MONTH })).toBe(true);
-
-        await relockCycle(pmo, {
-          month: MONTH,
-          scope_kind: 'month',
-          scope_id: null,
-          reason: 'Done',
-        });
-        expect(await resolveOverrideActive(pmo, { month: MONTH })).toBe(false);
-
-        const log = await listCycleUnlocks(pmo, MONTH);
-        expect(log.entries.map((e) => e.action)).toEqual(['relock', 'unlock']);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
+  it('requires a reason', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+      await expect(
+        unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: '   ' }),
+      ).rejects.toMatchObject({ code: 'VALIDATION' });
     });
   });
 
-  it('blocks a stale double-unlock (two-tab concurrency): already unlocked → CONFLICT', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const pmo = pmoSession(t.tenant_id);
-        await unlockCycle(pmo, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'a' });
-        await expect(
-          unlockCycle(pmo, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'b' }),
-        ).rejects.toMatchObject({ code: 'CONFLICT' });
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
+  it('blocks a second unlock while one is still running (two-tab guard)', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'a' });
+      await expect(
+        unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'b' }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
     });
   });
 
-  it('blocks a relock when the scope is already locked → CONFLICT', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const pmo = pmoSession(t.tenant_id);
-        await expect(
-          relockCycle(pmo, { month: MONTH, scope_kind: 'month', scope_id: null, reason: 'x' }),
-        ).rejects.toMatchObject({ code: 'CONFLICT' });
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
+  it('allows a fresh unlock once the previous one has expired', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+      await unlockCycle(pmo, {
+        month: UNLOCKABLE,
+        account_id: accountId,
+        days: 1,
+        reason: 'first',
+      });
 
-  it('a project-scoped unlock is independent of a person-scoped unlock', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const pmo = pmoSession(t.tenant_id);
-        const proj = crypto.randomUUID();
-        const person = crypto.randomUUID();
-        await unlockCycle(pmo, {
-          month: MONTH,
-          scope_kind: 'project',
-          scope_id: proj,
-          reason: 'proj',
-        });
-        // Same-scope re-unlock is blocked, but a different scope is unaffected.
-        const personEntry = await unlockCycle(pmo, {
-          month: MONTH,
-          scope_kind: 'person',
-          scope_id: person,
-          reason: 'person',
-        });
-        expect(personEntry.scope_kind).toBe('person');
-        expect(await resolveOverrideActive(pmo, { month: MONTH, project_id: proj })).toBe(true);
-        expect(await resolveOverrideActive(pmo, { month: MONTH, person_id: person })).toBe(true);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
+      setMonthClock(() => new Date(NOW.getTime() + 86_400_000 + 60_000));
+      const again = await unlockCycle(pmo, {
+        month: UNLOCKABLE,
+        account_id: accountId,
+        days: 5,
+        reason: 'still fixing',
+      });
+      expect(again.action).toBe('unlock');
+      expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: accountId })).toBe(
+        true,
+      );
     });
   });
 });
 
-describe('readCycleStatus honors manual unlock (FUT-781)', () => {
-  it('reports override in a locked window when the month is unlocked', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        // Aug 13 is a locked window for the July cycle.
-        setMonthClock(() => vn(2026, 8, 13, 10));
-        const before = await readCycleStatus(t.adminSession, { month: MONTH });
-        expect(before.status).toBe('locked');
+describe('relockCycle (FUT-781)', () => {
+  it('closes the window early and is refused when nothing is open', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
 
-        await seedUnlocks(t.tenant_id, [
-          { scope_kind: 'month', scope_id: null, action: 'unlock', created_at: vn(2026, 8, 13, 9) },
-        ]);
-        const after = await readCycleStatus(t.adminSession, { month: MONTH });
-        expect(after.status).toBe('override');
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
+      await expect(
+        relockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, reason: 'nothing open' }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 5, reason: 'open' });
+      const closed = await relockCycle(pmo, {
+        month: UNLOCKABLE,
+        account_id: accountId,
+        reason: 'done early',
+      });
+      expect(closed.action).toBe('relock');
+      expect(closed.expires_at).toBeNull();
+      expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: accountId })).toBe(
+        false,
+      );
+    });
+  });
+});
+
+describe('readCycleUnlockPanel (FUT-781)', () => {
+  it('names the unlockable month, each account state, and the trail newest-first', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      const before = await readCycleUnlockPanel(pmo);
+      expect(before.unlockable_month).toBe(UNLOCKABLE);
+      expect(before.accounts).toEqual([
+        { account_id: accountId, name: 'Contoso', unlocked_until: null },
+      ]);
+      expect(before.entries).toEqual([]);
+
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'fix' });
+      const after = await readCycleUnlockPanel(pmo);
+      expect(after.accounts[0]?.unlocked_until).toBe(
+        new Date(NOW.getTime() + 2 * 86_400_000).toISOString(),
+      );
+      expect(after.entries.map((e) => e.reason)).toEqual(['fix']);
+    });
+  });
+
+  it('reports an expired unlock as locked again', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 1, reason: 'fix' });
+
+      setMonthClock(() => new Date(NOW.getTime() + 2 * 86_400_000));
+      const view = await readCycleUnlockPanel(pmo);
+      expect(view.accounts[0]?.unlocked_until).toBeNull();
+      // The audit row survives — expiry never rewrites history.
+      expect(view.entries).toHaveLength(1);
+    });
+  });
+
+  it('needs people.performance.read_org', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      setMonthClock(() => NOW);
+      const plain = buildSession({
+        tenant_id: t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['people.viewer'],
+      });
+      await expect(readCycleUnlockPanel(plain)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+  });
+});
+
+describe('readCycleStatus honors an active unlock (FUT-781)', () => {
+  it('flips a locked month to override for the unlocked account only', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const other = crypto.randomUUID();
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+
+      expect((await readCycleStatus(pmo, { month: UNLOCKABLE })).status).toBe('locked');
+
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'fix' });
+
+      expect(
+        (await readCycleStatus(pmo, { month: UNLOCKABLE, account_id: accountId })).status,
+      ).toBe('override');
+      expect((await readCycleStatus(pmo, { month: UNLOCKABLE, account_id: other })).status).toBe(
+        'locked',
+      );
+    });
+  });
+});
+
+describe('cycle unlock storage', () => {
+  it('keeps every action as its own immutable row', async () => {
+    await withDb(async ({ pool }) => {
+      const t = await seedTenant(pool);
+      const accountId = await seedAccount(t.tenant_id, t.adminSession);
+      const pmo = pmoSession(t.tenant_id);
+      setMonthClock(() => NOW);
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'open' });
+      await relockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, reason: 'close' });
+
+      const rows = await peopleDb().select().from(performanceCycleUnlock);
+      expect(rows).toHaveLength(2);
+      expect(rows.every((r) => r.tenant_id === t.tenant_id)).toBe(true);
     });
   });
 });

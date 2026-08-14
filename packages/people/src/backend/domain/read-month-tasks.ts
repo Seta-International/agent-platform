@@ -11,7 +11,7 @@ import type {
 import { peopleDb } from '../db/client.ts';
 import { person, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { resolveOverrideActive } from './cycle-unlock.ts';
+import { unlockedAccountIds } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
 import { loadPerformanceCapacities } from './read-performance-context.ts';
 
@@ -129,18 +129,11 @@ export async function readMonthTasks(
   requirePermission(session, 'people.performance.read');
 
   const at = monthClockNow();
-  const overrideActive = await resolveOverrideActive(session, {
-    month: input.month,
-    person_id: session.person_id,
-  });
-  const { status: cycle_status } = classifyCycleStatus({
-    month: input.month,
-    at,
-    overrideActive,
-  });
+  // Without capacities there is no account in scope, so no manual unlock can apply.
+  const lockedStatus = classifyCycleStatus({ month: input.month, at }).status;
 
   if (!session.person_id) {
-    return { month: input.month, cycle_status, groups: [] };
+    return { month: input.month, cycle_status: lockedStatus, groups: [] };
   }
 
   const me = session.person_id;
@@ -152,10 +145,22 @@ export async function readMonthTasks(
       and(eq(person.id, me), eq(person.tenant_id, session.tenant_id), isNull(person.deleted_at)),
     );
   if (!p) {
-    return { month: input.month, cycle_status, groups: [] };
+    return { month: input.month, cycle_status: lockedStatus, groups: [] };
   }
 
   const capacities = await loadPerformanceCapacities(session, me, input.month);
+  // Unlock is per account (FUT-781): the to-do list reopens when any account the
+  // caller works on has an unlock window still running.
+  const openAccounts = await unlockedAccountIds(
+    session,
+    input.month,
+    capacities.map((c) => c.account_id),
+  );
+  const { status: cycle_status } = classifyCycleStatus({
+    month: input.month,
+    at,
+    overrideActive: openAccounts.size > 0,
+  });
   const groups: MonthTaskGroup[] = [];
 
   for (const capacity of capacities) {

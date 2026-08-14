@@ -127,8 +127,11 @@ export async function savePerformanceConfig(
   // window up front so the pin can be written atomically with the new revision.
   const at = monthClockNow();
   const month = vnYearMonth(at);
-  // A month-wide manual unlock (FUT-781) keeps the config window active.
-  const overrideActive = await resolveOverrideActive(session, { month });
+  // A manual unlock (FUT-781) on this account keeps its config window active.
+  const overrideActive = await resolveOverrideActive(session, {
+    month,
+    account_id: input.account_id,
+  });
   const { status } = classifyCycleStatus({ month, at, overrideActive });
   const applies_to_next_cycle = cycleWindowActive(status);
 

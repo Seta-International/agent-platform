@@ -14,11 +14,11 @@ export async function readCycleStatus(
 ): Promise<CycleStatusResponse> {
   requirePermission(session, 'people.performance.read');
   const at = monthClockNow();
-  // The badge reflects the viewer's own window: a month-wide unlock, or one scoped to
-  // this person, flips it to "override" (FUT-781).
+  // Unlock is per account (FUT-781), so the badge only flips to "override" for the
+  // account the caller is looking at. Without one there is nothing scoped to reopen.
   const overrideActive = await resolveOverrideActive(session, {
     month: input.month,
-    person_id: session.person_id,
+    account_id: input.account_id,
   });
   const { status, evaluated_at } = classifyCycleStatus({
     month: input.month,
