@@ -74,6 +74,32 @@ const ACTION_RE =
 const QUESTION_RE =
   /\b(what|which|how many|how much|when|where|who is|who's|whose|list|show me|do i have|are there|count)\b/i;
 
+// Adjusting the proposal already on screen → mutate (the A2 Action agent), which
+// receives the open preview and revises it (FUT-840).
+//
+// PLACEMENT IS THE MECHANISM. This sits AFTER QUESTION_RE on purpose (design
+// D12): "what should I make it?" satisfies the `make it` cue but is a question,
+// and letting ADJUST_RE see it first would send a read-only request to a write
+// agent. For the same reason RECOMMEND_RE and ACTION_RE run earlier — "who should
+// do this instead?" contains `instead`, and "à không, tìm task khác" contains
+// `à không`, yet both belong to the assignment tier.
+//
+// Deliberately NOT gated on whether a preview is actually open. Keeping it pure
+// text makes it unit-testable without a DB, and it is more correct for AC3: with
+// no preview open the sentence still reaches A2, which has no target and asks —
+// the required behaviour. Gating would drop it to the LLM fallback, which defaults
+// toward planner_qna, whose read-only agent answers by refusing.
+//
+// It catches ONLY the phrasings that fall through today. Anything already matched
+// by RECOMMEND / ASSIGN / MUTATE routes correctly without it — in particular an
+// assign revision ("giao cho Tuấn thay vào đó") is caught by ASSIGN_RE, which
+// returns `mutate`.
+//
+// No \b around a diacritic: JS \b is ASCII-only, so `\bđể` never matches — 'đ' is
+// not an ASCII word character. The `để … đi` branch anchors on whitespace instead.
+const ADJUST_RE =
+  /\b(make it|instead|no wait)\b|à không|thay vào đó|cho sang|để\s[^.?!]{0,30}\sđi\b/i;
+
 // Short confirmations / negations that are follow-ups to the previous turn.
 // When matched, re-use the previous turn's intent so the same orchestrator
 // handles the continuation (e.g. "yes" after "Would you like me to recommend?").
@@ -98,6 +124,7 @@ function inferIntentFromHistory(history?: ClassifierHistory): ChatIntent | undef
     if (MUTATE_RE.test(text)) return 'mutate';
     if (ACTION_RE.test(text)) return 'assignment';
     if (QUESTION_RE.test(text)) return 'planner_qna';
+    if (ADJUST_RE.test(text)) return 'mutate';
     break;
   }
   return undefined;
@@ -168,6 +195,7 @@ export function makeIntentClassifier(deps: IntentClassifierDeps) {
     if (MUTATE_RE.test(userText)) return 'mutate';
     if (ACTION_RE.test(userText)) return 'assignment';
     if (QUESTION_RE.test(userText)) return 'planner_qna';
+    if (ADJUST_RE.test(userText)) return 'mutate';
     // Short confirmation/negation ("yes", "ok", "không") → stay on the same
     // orchestrator that handled the previous turn so conversational follow-ups
     // don't lose context by routing to a different agent.

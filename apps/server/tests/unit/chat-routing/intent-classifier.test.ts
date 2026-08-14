@@ -386,3 +386,75 @@ describe('intent routing after FUT-806', () => {
     expect(await classify('ok', [{ role: 'user', content: text }])).toBe(expected);
   });
 });
+
+describe('ADJUST_RE — adjusting the open preview reaches A2 (FUT-840)', () => {
+  // A classifier that must never fall through: reaching the LLM means the
+  // regex missed, and the LLM fallback defaults toward planner_qna, whose
+  // read-only agent answers by refusing.
+  const classify = makeIntentClassifier({
+    resolveModel: () => {
+      throw new Error('resolveModel must not be reached');
+    },
+    classifyLlm: async () => {
+      throw new Error('the LLM fallback must not be reached for these phrasings');
+    },
+  });
+
+  it.each([
+    'make it next Friday',
+    'instead make it Friday',
+    'no wait, Friday',
+    'à không, thứ Sáu tuần sau',
+    'thay vào đó cho sang thứ Sáu',
+    'để tuần sau đi',
+  ])('routes %j to mutate', async (text) => {
+    expect(await classify(text)).toBe('mutate');
+  });
+
+  it.each([
+    // Caught by RECOMMEND_RE ("who should"), which runs FIRST — the agent must
+    // choose the person, so this belongs to the recommend pipeline even though it
+    // contains "instead".
+    ['who should do this instead?', 'assignment'],
+    // Caught by QUESTION_RE ("what"), which runs BEFORE ADJUST_RE. This ordering
+    // is the entire reason design D12 places ADJUST_RE where it does: the "make
+    // it" cue would otherwise pull a question into mutate.
+    ['what should I make it?', 'planner_qna'],
+    // Caught by ACTION_RE ("tìm task"), which runs before ADJUST_RE.
+    ['à không, tìm task khác', 'assignment'],
+  ])('does NOT let ADJUST_RE steal %j — it stays %s', async (text, expected) => {
+    expect(await classify(text)).toBe(expected);
+  });
+
+  it('routes an ASSIGN-shaped adjustment to mutate, so it reaches A2 like any other', async () => {
+    // The regression pin for a misreading a reviewer actually made: ASSIGN_RE
+    // returns 'mutate', which route-chat dispatches to A2 — so an assign revision
+    // is NOT special-cased and arrives with openPreview like everything else.
+    expect(await classify('giao cho Tuấn thay vào đó')).toBe('mutate');
+  });
+
+  it('keeps a bare adjustment out of the LLM even with no preview open', async () => {
+    // ADJUST_RE is deliberately NOT gated on whether a preview is open (D12):
+    // with none open the sentence still reaches A2, which has no target and asks
+    // — the behaviour AC3's fourth row requires.
+    expect(await classify('make it next Friday')).toBe('mutate');
+  });
+});
+
+describe('inferIntentFromHistory covers ADJUST_RE too (FUT-840)', () => {
+  it('continues on mutate after a bare "ok" following an adjustment', async () => {
+    const classify = makeIntentClassifier({
+      resolveModel: () => {
+        throw new Error('resolveModel must not be reached');
+      },
+      classifyLlm: async () => {
+        throw new Error('the LLM fallback must not be reached');
+      },
+    });
+    // Without ADJUST_RE in the history scan, the previous turn matches nothing
+    // and the confirmation falls through to the LLM.
+    expect(await classify('ok, do it', [{ role: 'user', content: 'make it next Friday' }])).toBe(
+      'mutate',
+    );
+  });
+});
