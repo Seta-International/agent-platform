@@ -24,8 +24,8 @@ export function emptyReassignRow(defaultFrom: string): ReassignTargetRow {
     // Both dates are required and default to today so the row starts in a valid state.
     date_from: defaultFrom,
     date_to: defaultFrom,
-    // Stored as a 0–1 fraction in the wizard UI (see pctToFraction); '1' = full allocation.
-    planned_pct: '1',
+    // Stored as a 0–1 fraction in the wizard UI (see pctToFraction); '' when unset (user must select).
+    planned_pct: '',
     bucket: 'billable',
     note: '',
   };
@@ -52,9 +52,6 @@ export function rangesOverlap(
 export const TARGET_ERROR = {
   pastStart: 'Start date cannot be in the past.',
   overlap: 'Overlaps another allocation on this project.',
-  missingDates: 'Start date and end date are required.',
-  missingStartDate: 'Start date is required.',
-  missingEndDate: 'End date is required.',
   invalidEndDate: 'End date cannot be before start date.',
 } as const;
 
@@ -71,9 +68,10 @@ interface ExistingSpan {
 
 /**
  * Per-row validation for the "Add project" allocations, returning an error message (or null)
- * for each target: (1) missing start/end date; (2) a start date before `today`; (3) an end date
- * before the start date; (4) a target that shares a project with another target row or an
- * existing allocation and overlaps it in time. Rows with no project yet defer project overlap check.
+ * for each target: (1) a start date before `today`; (2) an end date before the start date;
+ * (3) a target that shares a project with another target row or an existing allocation and
+ * overlaps it in time. Missing dates are gated by disabled Review Impact button, so no noisy
+ * inline missing-date error text is emitted. Rows with no project yet defer project overlap check.
  */
 export function targetAllocationErrors(
   targets: TargetSpan[],
@@ -83,9 +81,10 @@ export function targetAllocationErrors(
   return targets.map((t, i) => {
     const hasFrom = isValidIsoDate(t.date_from);
     const hasTo = isValidIsoDate(t.date_to);
-    if (!hasFrom && !hasTo) return TARGET_ERROR.missingDates;
-    if (!hasFrom) return TARGET_ERROR.missingStartDate;
-    if (!hasTo) return TARGET_ERROR.missingEndDate;
+    if (!hasFrom || !hasTo) {
+      if (hasFrom && t.date_from < today) return TARGET_ERROR.pastStart;
+      return null;
+    }
     if (t.date_from < today) return TARGET_ERROR.pastStart;
     if (t.date_to < t.date_from) return TARGET_ERROR.invalidEndDate;
     if (!t.project_id) return null;
