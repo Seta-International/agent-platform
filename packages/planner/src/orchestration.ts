@@ -27,6 +27,10 @@ export {
   type ActionOpenPreview,
   OpenPreviewSchema,
   type UpdateTaskResume,
+  // Exported so the invariant matrix can assert what the model may NOT send: with
+  // `revisionOf` deleted and the schema strict, FUT-824's "an id in hostile text
+  // buys no access" is true at the schema rather than by a runtime check.
+  UpdateTaskToolInputSchema,
 } from './backend/orchestration/action/schemas.ts';
 export {
   makeAssign,

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { recordApprovalDecision } from '@seta/agent';
+import { UpdateTaskToolInputSchema } from '@seta/planner/orchestration';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { makeActionPreviewPort, makeFindOpenPreview } from '../../src/action-preview-port.ts';
 import {
   keyOf,
   type ProposedCard,
+  pendingCardsFor,
   proposeThroughTool,
   realActionPorts,
   type SeededWorld,
@@ -68,7 +70,8 @@ async function fourTurnChain(
 
   for (const dueAt of ['2026-08-21', '2026-08-22', '2026-08-28']) {
     // Exactly what the router does: ask the server what is open, then hand that
-    // to the tool. The model's revisionOf has to equal it (design D15).
+    // to the tool. The model contributes NOTHING about the card's identity — the
+    // server derives the revision from what it found (design D20).
     const open = await findOpenPreview({
       tenantId: seeded.tenantId,
       actorUserId: seeded.actorUserId,
@@ -77,7 +80,7 @@ async function fourTurnChain(
     const world = worldFor(seeded, open);
     const next = await proposeThroughTool({
       tool: toolFor('planner_updateTask', world),
-      input: { taskRefs: [task.taskId], patch: { dueAt }, revisionOf: open!.approvalId },
+      input: { taskRefs: [task.taskId], patch: { dueAt } },
       world,
       threadId,
       pool,
@@ -203,7 +206,7 @@ describe('FUT-840 — N adjustments write nothing (AC2)', () => {
 });
 
 describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
-  it('a revisionOf naming ANOTHER pending approval of the same user is refused', () =>
+  it('an adjustment cannot reach a card the server did not find', () =>
     withActionTestDb(async ({ pool }) => {
       const seeded = await seedWorld(pool, {
         titles: ['Task A', 'Task B'],
@@ -219,7 +222,7 @@ describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
         threadId,
         pool,
       });
-      const cardB = await proposeThroughTool({
+      await proposeThroughTool({
         tool: toolFor('planner_updateTask', worldFor(seeded)),
         input: { taskRefs: [b!.taskId], patch: { dueAt: '2026-08-16' } },
         world: worldFor(seeded),
@@ -228,80 +231,68 @@ describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
       });
       expect(await countPending(pool, seeded.tenantId)).toBe(2);
 
-      // The server reports B's card open (it is the newest); the model quotes A's.
-      //
-      // Without design D15 this is a SILENT RETARGET: targets come from the card,
-      // so "make it Friday" about B becomes a Friday card for A, and A's own card
-      // is voided.
+      // The server found A's card; the turn names task B. Under design D20 the
+      // mismatch is decided server-side, so this never touches A — and because B
+      // already holds its own `task:` key, the mutex refuses it in a sentence.
+      // Under D15 the equivalent attack was a model-supplied id; there is now no
+      // field to express it in.
       const world = worldFor(seeded, {
-        approvalId: cardB.approvalId!,
+        approvalId: cardA.approvalId!,
         toolId: 'planner_updateTask',
-        intent: 'Update "Task B"',
-        taskIds: [b!.taskId],
+        intent: 'Update "Task A"',
+        taskIds: [a!.taskId],
         proposedRows: [],
       });
       const out = await proposeThroughTool({
         tool: toolFor('planner_updateTask', world),
-        input: {
-          taskRefs: [b!.taskId],
-          patch: { dueAt: '2026-08-21' },
-          revisionOf: cardA.approvalId,
-        },
+        input: { taskRefs: [b!.taskId], patch: { dueAt: '2026-08-21' } },
         world,
         threadId,
         pool,
       });
 
       expect(out.card).toBeUndefined();
-      expect(out.refusal).toMatch(/only change the preview that is open/i);
-      // Both cards must still be pending afterwards.
+      expect(out.refusal).toMatch(/already a proposal waiting/i);
+      // A is untouched: still pending, never decided.
+      const rowA = await pool.query(
+        'SELECT status, decided_at FROM agent.workflow_approvals WHERE approval_id = $1',
+        [cardA.approvalId],
+      );
+      expect(rowA.rows[0].status).toBe('pending');
+      expect(rowA.rows[0].decided_at).toBeNull();
       expect(await countPending(pool, seeded.tenantId)).toBe(2);
     }));
 
-  it("a revisionOf naming ANOTHER USER's pending approval is refused", () =>
+  it("another user's pending card is never the open preview", () =>
     withActionTestDb(async ({ pool }) => {
       const victim = await seedWorld(pool, {
         titles: ['Victim task'],
         due_at: '2026-08-12T16:59:00.000Z',
       });
+      const threadId = `thread-${randomUUID()}`;
       const victimCard = await proposeThroughTool({
         tool: toolFor('planner_updateTask', worldFor(victim)),
         input: { taskRefs: [victim.tasks[0]!.taskId], patch: { dueAt: '2026-08-15' } },
         world: worldFor(victim),
-        threadId: `thread-${randomUUID()}`,
+        threadId,
         pool,
       });
+      expect(victimCard.approvalId).toBeDefined();
 
-      // A different tenant entirely, whose actor quotes the victim's approval id.
+      // The lookup is the ONLY way a card's identity now reaches a tool, so the
+      // FUT-824 property moves here: scoped by tenant + approver, an attacker
+      // asking about the victim's own thread is told nothing is open. No id ever
+      // reaches a tool, so there is nothing to refuse further down.
       const attacker = await seedWorld(pool, {
         titles: ['Attacker task'],
         due_at: '2026-08-12T16:59:00.000Z',
       });
-      const world = worldFor(attacker, {
-        // Even with the id injected as though the server had found it, the load
-        // is scoped by tenant + approver, so it resolves to nothing.
-        approvalId: victimCard.approvalId!,
-        toolId: 'planner_updateTask',
-        intent: 'Update "Victim task"',
-        taskIds: [victim.tasks[0]!.taskId],
-        proposedRows: [],
+      const seen = await findOpenPreview({
+        tenantId: attacker.tenantId,
+        actorUserId: attacker.actorUserId,
+        threadId,
       });
-      const out = await proposeThroughTool({
-        tool: toolFor('planner_updateTask', world),
-        input: {
-          taskRefs: [attacker.tasks[0]!.taskId],
-          patch: { dueAt: '2026-08-21' },
-          revisionOf: victimCard.approvalId,
-        },
-        world,
-        threadId: `thread-${randomUUID()}`,
-        pool,
-      });
-
-      // This is the FUT-824 property at the revision layer: a UUID appearing in
-      // text buys no access.
-      expect(out.card).toBeUndefined();
-      expect(out.refusal).toMatch(/only change the preview that is open/i);
+      expect(seen).toBeNull();
       expect(await countPending(pool, victim.tenantId)).toBe(1);
     }));
 
@@ -342,6 +333,15 @@ describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
         [victimCard.approvalId],
       );
       expect(victimRow.rows[0].status).toBe('pending');
+
+      // FUT-824, now by construction: a uuid in hostile text has nowhere to go,
+      // because the schema has no field to put it in.
+      const parsed = UpdateTaskToolInputSchema.safeParse({
+        taskRefs: [hostile.tasks[0]!.taskId],
+        patch: { dueAt: '2026-08-15' },
+        revisionOf: victimCard.approvalId,
+      });
+      expect(parsed.success).toBe(false);
     }));
 
   it('an adjustment cannot move the change to another task (AC5.1)', () =>
@@ -361,34 +361,35 @@ describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
         pool,
       });
 
-      // revisionOf = A's card, taskRefs = [B]. taskRefs is ignored outright.
+      // A's card is open and the turn names B. Nothing holds B's `task:` key yet,
+      // so this is a plain new request: B gets its OWN card and A's is neither
+      // superseded nor retargeted.
       const open = await findOpenPreview({
         tenantId: seeded.tenantId,
         actorUserId: seeded.actorUserId,
         threadId,
       });
-      const world = worldFor(seeded, open);
-      const revised = await proposeThroughTool({
-        tool: toolFor('planner_updateTask', world),
-        input: {
-          taskRefs: [b!.taskId],
-          patch: { dueAt: '2026-08-21' },
-          revisionOf: cardA.approvalId,
-        },
-        world,
+      const forBCard = await proposeThroughTool({
+        tool: toolFor('planner_updateTask', worldFor(seeded, open)),
+        input: { taskRefs: [b!.taskId], patch: { dueAt: '2026-08-21' } },
+        world: worldFor(seeded, open),
         threadId,
         pool,
       });
 
-      const targets = revised.card!.primary.argsPatch.targets as Array<{ taskId: string }>;
-      expect(targets.map((t) => t.taskId)).toEqual([a!.taskId]);
-      // B must have no approval row at all.
-      const forB = await pool.query(
-        `SELECT count(*)::int AS n FROM agent.workflow_approvals
-          WHERE tenant_id = $1 AND proposed_payload::text LIKE $2`,
-        [seeded.tenantId, `%${b!.taskId}%`],
+      const targets = forBCard.card!.primary.argsPatch.targets as Array<{ taskId: string }>;
+      expect(targets.map((t) => t.taskId)).toEqual([b!.taskId]);
+      expect(forBCard.card!.meta.supersedes).toBeUndefined();
+
+      // A's proposal still says 15/08 and is still pending: the adjustment of one
+      // task never moved to the other, in either direction.
+      const rowA = await pool.query(
+        'SELECT status, proposed_payload FROM agent.workflow_approvals WHERE approval_id = $1',
+        [cardA.approvalId],
       );
-      expect(forB.rows[0].n).toBe(0);
+      expect(rowA.rows[0].status).toBe('pending');
+      expect(JSON.stringify(rowA.rows[0].proposed_payload)).toContain(a!.taskId);
+      expect(JSON.stringify(rowA.rows[0].proposed_payload)).not.toContain(b!.taskId);
     }));
 
   it('a create alongside an open update preview leaves BOTH confirmable (AC3)', () =>
@@ -517,5 +518,115 @@ describe('FUT-840 — the mutex holds across tools (AC1)', () => {
       expect(second.refusal).toBeNull();
       expect(second.approvalId).toBe(first.approvalId);
       expect(await countPending(pool, seeded.tenantId)).toBe(1);
+    }));
+});
+
+describe('FUT-840 — the conversation that failed on the UI (14/08)', () => {
+  it('narrows a proposal to just the due date without cancelling anything', () =>
+    withActionTestDb(async ({ pool }) => {
+      const seeded = await seedWorld(pool, {
+        titles: ['Implement Hiring screen'],
+        due_at: '2026-08-12T16:59:00.000Z',
+      });
+      const task = seeded.tasks[0]!;
+      const threadId = `thread-${randomUUID()}`;
+
+      // Turn 1 — the model proposes a status change nobody asked for, plus a date.
+      const first = await proposeThroughTool({
+        tool: toolFor('planner_updateTask', worldFor(seeded)),
+        input: { taskRefs: [task.taskId], patch: { dueAt: '2026-08-16', status: 'completed' } },
+        world: worldFor(seeded),
+        threadId,
+        pool,
+      });
+      expect(first.refusal).toBeNull();
+
+      // Turn 2 — "không phải, ý tôi là đổi ngày quá hạn sang ngày mai thôi".
+      // No id, no cancel, correction: true.
+      const open = await findOpenPreview({
+        tenantId: seeded.tenantId,
+        actorUserId: seeded.actorUserId,
+        threadId,
+      });
+      expect(open?.approvalId).toBe(first.approvalId);
+      const second = await proposeThroughTool({
+        tool: toolFor('planner_updateTask', worldFor(seeded, open)),
+        input: { taskRefs: [task.taskId], patch: { dueAt: '2026-08-15' }, correction: true },
+        world: worldFor(seeded, open),
+        threadId,
+        pool,
+      });
+
+      // It revised rather than refusing — a mutex refusal here was the bug.
+      expect(second.refusal).toBeNull();
+      expect(second.card!.meta.supersedes).toBe(first.approvalId);
+
+      // And the invented status is GONE, not merged forward.
+      expect(second.card!.primary.argsPatch.patch).toEqual({
+        due_at: expect.stringContaining('2026-08-15'),
+      });
+
+      // Exactly one card is resolvable, so "đúng" is unambiguous.
+      const pending = await pendingCardsFor(pool, seeded.tenantId, task.taskId);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]!.approvalId).toBe(second.approvalId);
+
+      // A fresh key, so confirming the survivor cannot replay turn 1's result.
+      expect(keyOf(second.card!)).not.toBe(keyOf(first.card!));
+    }));
+
+  it('keeps an agreed field when the user is adding rather than correcting', () =>
+    withActionTestDb(async ({ pool }) => {
+      const seeded = await seedWorld(pool, {
+        titles: ['Implement Hiring screen'],
+        due_at: '2026-08-12T16:59:00.000Z',
+      });
+      const task = seeded.tasks[0]!;
+      const threadId = `thread-${randomUUID()}`;
+
+      await proposeThroughTool({
+        tool: toolFor('planner_updateTask', worldFor(seeded)),
+        input: { taskRefs: [task.taskId], patch: { dueAt: '2026-08-15', priority: 'urgent' } },
+        world: worldFor(seeded),
+        threadId,
+        pool,
+      });
+      const open = await findOpenPreview({
+        tenantId: seeded.tenantId,
+        actorUserId: seeded.actorUserId,
+        threadId,
+      });
+      const second = await proposeThroughTool({
+        tool: toolFor('planner_updateTask', worldFor(seeded, open)),
+        input: { taskRefs: [task.taskId], patch: { dueAt: '2026-08-21' } },
+        world: worldFor(seeded, open),
+        threadId,
+        pool,
+      });
+
+      expect(second.card!.primary.argsPatch.patch).toMatchObject({
+        due_at: expect.stringContaining('2026-08-21'),
+        priority_number: 1,
+      });
+    }));
+
+  it('refuses to propose a change the task already has', () =>
+    withActionTestDb(async ({ pool }) => {
+      const seeded = await seedWorld(pool, {
+        titles: ['Implement Hiring screen'],
+        due_at: '2026-08-12T16:59:00.000Z',
+      });
+      const task = seeded.tasks[0]!;
+
+      // seedWorld leaves tasks at percent_complete 0 — `not_started`.
+      const out = await proposeThroughTool({
+        tool: toolFor('planner_updateTask', worldFor(seeded)),
+        input: { taskRefs: [task.taskId], patch: { status: 'not_started' } },
+        world: worldFor(seeded),
+        threadId: `thread-${randomUUID()}`,
+        pool,
+      });
+      expect(out.refusal).toContain('already like that');
+      expect(await pendingCardsFor(pool, seeded.tenantId, task.taskId)).toHaveLength(0);
     }));
 });

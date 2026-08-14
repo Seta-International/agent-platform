@@ -189,21 +189,26 @@ export type ToolPatch = z.infer<typeof ToolPatchSchema>;
  */
 export const BULK_TARGET_CAP = 20;
 
-export const UpdateTaskToolInputSchema = z.object({
-  taskRefs: z
-    .array(z.string().trim().min(1))
-    .min(1)
-    .describe(
-      `The tasks to change — one entry each, all receiving the SAME patch. At most ` +
-        `${BULK_TARGET_CAP} per call; a larger request is refused, never split. ` +
-        `When you are adjusting the preview shown in the OPEN PREVIEW block, list the ` +
-        `same task it names — the proposal keeps its own tasks regardless. ` +
-        `Each entry: ${TASK_REF_DESCRIPTION}`,
-    ),
-  patch: ToolPatchSchema,
-  dropFields: DropFieldsSchema,
-  correction: CorrectionSchema,
-});
+export const UpdateTaskToolInputSchema = z
+  .object({
+    taskRefs: z
+      .array(z.string().trim().min(1))
+      .min(1)
+      .describe(
+        `The tasks to change — one entry each, all receiving the SAME patch. At most ` +
+          `${BULK_TARGET_CAP} per call; a larger request is refused, never split. ` +
+          `When you are adjusting the preview shown in the OPEN PREVIEW block, list the ` +
+          `same task it names — the proposal keeps its own tasks regardless. ` +
+          `Each entry: ${TASK_REF_DESCRIPTION}`,
+      ),
+    patch: ToolPatchSchema,
+    dropFields: DropFieldsSchema,
+    correction: CorrectionSchema,
+  })
+  // `.strict()` to match its four siblings, and for the reason on
+  // LinkTasksToolInputSchema: a model reaching for the REMOVED `revisionOf` must
+  // fail loudly rather than get silence (FUT-824, design D20).
+  .strict();
 
 export const UpdateTaskToolOutputSchema = z.object({
   updated: z.boolean(),
