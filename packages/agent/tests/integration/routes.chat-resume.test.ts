@@ -1000,3 +1000,95 @@ describe('POST /api/agent/v1/chat/resume — a replaced card (FUT-840 design D13
     });
   });
 });
+
+describe('POST /api/agent/v1/chat/resume — a revised preview (FUT-840)', () => {
+  /** The SURVIVING card of a revision chain: `patch` carries BOTH the adjusted
+   *  due date and the priority the user never re-said, and `meta.supersedes`
+   *  names the card it replaced. */
+  function makeRevisedCard(taskId: string, supersedes: string) {
+    const base = makeActionCard(taskId);
+    return {
+      ...base,
+      primary: {
+        ...base.primary,
+        argsPatch: {
+          action: 'update',
+          targets: [{ taskId, expectedVersion: 4 }],
+          patch: { due_at: '2026-08-21T16:59:00.000Z', priority_number: 1 },
+          idempotencyKey: 'key-revision-3',
+        },
+      },
+      meta: { ...base.meta, supersedes, dedupKeys: [`task:${taskId}`] },
+    };
+  }
+
+  it('confirming the NEW card applies the MERGED patch with no route change', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const at = appWithRecorder();
+      const taskId = randomUUID();
+      const approvalId = await seedFor(
+        pool,
+        at,
+        makeRevisedCard(taskId, randomUUID()) as never,
+        'planner.action',
+      );
+
+      // selectArgsPatch reads the persisted card verbatim, so nothing in this
+      // route knows a revision happened. That is the whole reason AC4 needed no
+      // work: the merged values ride along inside argsPatch.
+      const res = await post(at.app, { approvalId, chosen: 'primary' });
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(at.calls[0]!.resume).toEqual({
+        action: 'update',
+        targets: [{ taskId, expectedVersion: 4 }],
+        patch: { due_at: '2026-08-21T16:59:00.000Z', priority_number: 1 },
+        idempotencyKey: 'key-revision-3',
+      });
+    });
+  });
+
+  it('confirming it twice yields ONE change, with the second refused as already decided', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const at = appWithRecorder();
+      const taskId = randomUUID();
+      const approvalId = await seedFor(
+        pool,
+        at,
+        makeRevisedCard(taskId, randomUUID()) as never,
+        'planner.action',
+      );
+
+      const first = await post(at.app, { approvalId, chosen: 'primary' });
+      expect(first.status).toBe(200);
+      await first.text();
+      // Double-confirm is covered twice over: FOR UPDATE on the approval row
+      // here, and the gateway's advisory lock on (tenant, idempotencyKey) if a
+      // resume ever did reach it.
+      const second = await post(at.app, { approvalId, chosen: 'decline' });
+      expect(second.status).toBe(409);
+      expect(at.calls).toHaveLength(1);
+    });
+  });
+
+  it('never re-validates the persisted card, so a card-schema change cannot break Confirm', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const at = appWithRecorder();
+      const taskId = randomUUID();
+      const card = makeRevisedCard(taskId, randomUUID()) as Record<string, unknown> & {
+        meta: Record<string, unknown>;
+      };
+      // A key no producer writes today — what a NEWER card would carry.
+      card.meta = { ...card.meta, aFieldFromTheFuture: 'x' };
+
+      const approvalId = await seedFor(pool, at, card as never, 'planner.action');
+      // parseResumeBodyForWorkflow validates only the REQUEST BODY; selectArgsPatch
+      // reads the card through a hand-rolled interface that touches
+      // primary/alternates/decline only, and `meta` is a z.object that strips
+      // unknown keys rather than rejecting them.
+      const res = await post(at.app, { approvalId, chosen: 'primary' });
+      expect(res.status).toBe(200);
+      await res.text();
+    });
+  });
+});
