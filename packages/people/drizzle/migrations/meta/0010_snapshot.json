@@ -1,5 +1,5 @@
 {
-  "id": "d45c152e-6eed-4dba-8e8b-d380caccd7cc",
+  "id": "b3a6c2a7-3989-43f7-aec0-ca15eb8df4b5",
   "prevId": "80a36fc7-c23e-418a-917f-5c69d5453d85",
   "version": "7",
   "dialect": "postgresql",
@@ -760,12 +760,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "actor_person_id": {
           "name": "actor_person_id",
           "type": "uuid",
@@ -841,10 +835,6 @@
         "perf_cycle_unlock_window": {
           "name": "perf_cycle_unlock_window",
           "value": "expires_at IS NULL OR expires_at <= created_at + interval '5 days'"
-        },
-        "perf_cycle_unlock_reason_present": {
-          "name": "perf_cycle_unlock_reason_present",
-          "value": "length(btrim(reason)) > 0"
         }
       },
       "isRLSEnabled": false

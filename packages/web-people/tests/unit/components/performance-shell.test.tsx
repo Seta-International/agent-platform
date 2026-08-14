@@ -43,7 +43,36 @@ describe('PerformanceShell', () => {
     pathname = '/people/performance';
   });
 
-  it('non-AM: no top tabs; shows cycle badge + context switcher', async () => {
+  it('capacity-less org viewer without unlock: no top tabs; shows cycle badge + switcher', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <PerformanceShell
+          role_slugs={['pm.pmo']}
+          capacities={[]}
+          default_capacity_index={-1}
+          can_view_org={true}
+          can_unlock={false}
+          as_of_month="2026-07"
+        >
+          <div>body</div>
+        </PerformanceShell>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.queryByTestId('performance-top-tabs')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('performance-sidebar')).not.toBeInTheDocument();
+    expect(screen.getByTestId('performance-context-switcher')).toHaveTextContent('Organization');
+    expect(screen.getByTestId('performance-cycle-badge-slot')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('cycle-status-badge')).toHaveTextContent(
+        'Open (25th–end of month)',
+      ),
+    );
+  });
+
+  it('unlock permission: Cycle unlock gets its own tab, and hides the period picker there', () => {
+    pathname = '/people/performance/cycle';
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
@@ -60,14 +89,14 @@ describe('PerformanceShell', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.queryByTestId('performance-top-tabs')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('performance-sidebar')).not.toBeInTheDocument();
-    expect(screen.getByTestId('performance-context-switcher')).toHaveTextContent('Organization');
-    expect(screen.getByTestId('performance-cycle-badge-slot')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByTestId('cycle-status-badge')).toHaveTextContent(
-        'Open (25th–end of month)',
-      ),
+    expect(screen.getByTestId('performance-top-tabs')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Reviews' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Cycle unlock' })).toBeChecked();
+    // The unlockable month is fixed by the server, so a period picker would be dead.
+    expect(screen.queryByTestId('performance-period-selector')).not.toBeInTheDocument();
+    // A permitted section must never bounce back to Reviews (scope sync stays on /cycle).
+    expect(navigate.mock.calls.map((c) => (c[0] as { to: string }).to)).not.toContain(
+      '/people/performance',
     );
   });
 

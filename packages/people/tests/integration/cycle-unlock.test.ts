@@ -97,7 +97,6 @@ describe('unlockCycle (FUT-781)', () => {
           month: UNLOCKABLE,
           account_id: crypto.randomUUID(),
           days: 3,
-          reason: 'x',
         }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
@@ -114,7 +113,6 @@ describe('unlockCycle (FUT-781)', () => {
         month: UNLOCKABLE,
         account_id: accountId,
         days: 3,
-        reason: 'Missed the makeup window',
       });
       expect(entry.action).toBe('unlock');
       expect(new Date(entry.expires_at as string).getTime()).toBe(NOW.getTime() + 3 * 86_400_000);
@@ -143,7 +141,6 @@ describe('unlockCycle (FUT-781)', () => {
         month: UNLOCKABLE,
         account_id: accountId,
         days: 2,
-        reason: 'Contoso only',
       });
       expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: other })).toBe(
         false,
@@ -160,12 +157,12 @@ describe('unlockCycle (FUT-781)', () => {
 
       // Already signed off — view-only for good.
       await expect(
-        unlockCycle(pmo, { month: OLDER, account_id: accountId, days: 1, reason: 'too late' }),
+        unlockCycle(pmo, { month: OLDER, account_id: accountId, days: 1 }),
       ).rejects.toMatchObject({ code: 'VALIDATION' });
 
       // Not evaluable yet — its window opens on the 25th.
       await expect(
-        unlockCycle(pmo, { month: '2026-08', account_id: accountId, days: 1, reason: 'too early' }),
+        unlockCycle(pmo, { month: '2026-08', account_id: accountId, days: 1 }),
       ).rejects.toMatchObject({ code: 'VALIDATION' });
     });
   });
@@ -179,28 +176,15 @@ describe('unlockCycle (FUT-781)', () => {
 
       for (const days of [0, 6, 30]) {
         await expect(
-          unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days, reason: 'nope' }),
+          unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days }),
         ).rejects.toMatchObject({ code: 'VALIDATION' });
       }
       const ok = await unlockCycle(pmo, {
         month: UNLOCKABLE,
         account_id: accountId,
         days: 5,
-        reason: 'max window',
       });
       expect(ok.action).toBe('unlock');
-    });
-  });
-
-  it('requires a reason', async () => {
-    await withDb(async ({ pool }) => {
-      const t = await seedTenant(pool);
-      const accountId = await seedAccount(t.tenant_id, t.adminSession);
-      const pmo = pmoSession(t.tenant_id);
-      setMonthClock(() => NOW);
-      await expect(
-        unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: '   ' }),
-      ).rejects.toMatchObject({ code: 'VALIDATION' });
     });
   });
 
@@ -211,9 +195,9 @@ describe('unlockCycle (FUT-781)', () => {
       const pmo = pmoSession(t.tenant_id);
       setMonthClock(() => NOW);
 
-      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'a' });
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2 });
       await expect(
-        unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'b' }),
+        unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2 }),
       ).rejects.toMatchObject({ code: 'CONFLICT' });
     });
   });
@@ -228,7 +212,6 @@ describe('unlockCycle (FUT-781)', () => {
         month: UNLOCKABLE,
         account_id: accountId,
         days: 1,
-        reason: 'first',
       });
 
       setMonthClock(() => new Date(NOW.getTime() + 86_400_000 + 60_000));
@@ -236,7 +219,6 @@ describe('unlockCycle (FUT-781)', () => {
         month: UNLOCKABLE,
         account_id: accountId,
         days: 5,
-        reason: 'still fixing',
       });
       expect(again.action).toBe('unlock');
       expect(await resolveOverrideActive(pmo, { month: UNLOCKABLE, account_id: accountId })).toBe(
@@ -255,14 +237,13 @@ describe('relockCycle (FUT-781)', () => {
       setMonthClock(() => NOW);
 
       await expect(
-        relockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, reason: 'nothing open' }),
+        relockCycle(pmo, { month: UNLOCKABLE, account_id: accountId }),
       ).rejects.toMatchObject({ code: 'CONFLICT' });
 
-      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 5, reason: 'open' });
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 5 });
       const closed = await relockCycle(pmo, {
         month: UNLOCKABLE,
         account_id: accountId,
-        reason: 'done early',
       });
       expect(closed.action).toBe('relock');
       expect(closed.expires_at).toBeNull();
@@ -288,12 +269,13 @@ describe('readCycleUnlockPanel (FUT-781)', () => {
       ]);
       expect(before.entries).toEqual([]);
 
-      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'fix' });
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2 });
       const after = await readCycleUnlockPanel(pmo);
       expect(after.accounts[0]?.unlocked_until).toBe(
         new Date(NOW.getTime() + 2 * 86_400_000).toISOString(),
       );
-      expect(after.entries.map((e) => e.reason)).toEqual(['fix']);
+      expect(after.entries.map((e) => e.action)).toEqual(['unlock']);
+      expect(after.entries[0]?.account_id).toBe(accountId);
     });
   });
 
@@ -303,7 +285,7 @@ describe('readCycleUnlockPanel (FUT-781)', () => {
       const accountId = await seedAccount(t.tenant_id, t.adminSession);
       const pmo = pmoSession(t.tenant_id);
       setMonthClock(() => NOW);
-      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 1, reason: 'fix' });
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 1 });
 
       setMonthClock(() => new Date(NOW.getTime() + 2 * 86_400_000));
       const view = await readCycleUnlockPanel(pmo);
@@ -338,7 +320,7 @@ describe('readCycleStatus honors an active unlock (FUT-781)', () => {
 
       expect((await readCycleStatus(pmo, { month: UNLOCKABLE })).status).toBe('locked');
 
-      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'fix' });
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2 });
 
       expect(
         (await readCycleStatus(pmo, { month: UNLOCKABLE, account_id: accountId })).status,
@@ -357,8 +339,8 @@ describe('cycle unlock storage', () => {
       const accountId = await seedAccount(t.tenant_id, t.adminSession);
       const pmo = pmoSession(t.tenant_id);
       setMonthClock(() => NOW);
-      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2, reason: 'open' });
-      await relockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, reason: 'close' });
+      await unlockCycle(pmo, { month: UNLOCKABLE, account_id: accountId, days: 2 });
+      await relockCycle(pmo, { month: UNLOCKABLE, account_id: accountId });
 
       const rows = await peopleDb().select().from(performanceCycleUnlock);
       expect(rows).toHaveLength(2);

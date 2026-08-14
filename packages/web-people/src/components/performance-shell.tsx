@@ -14,7 +14,7 @@ import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
 import { type ReactNode, useEffect, useMemo } from 'react';
 import type { PerformanceCapacity } from '../api/people-client.ts';
 import { usePerformanceScope } from '../hooks/use-performance-scope.ts';
-import { amTopTabs, isPerformancePathAllowed } from '../nav/performance-nav.ts';
+import { isPerformancePathAllowed, performanceTopTabs } from '../nav/performance-nav.ts';
 import { navIdFromPath } from '../nav/performance-path.ts';
 import type { PerformanceScopeSearch } from '../state/performance-scope.ts';
 import { PerformanceScopeProvider } from '../state/performance-scope-context.tsx';
@@ -58,7 +58,7 @@ export function PerformanceShell({
     as_of_month,
   });
 
-  const tabs = amTopTabs(resolved.capacity);
+  const tabs = performanceTopTabs({ capacity: resolved.capacity, canUnlock: can_unlock });
   const activeTab = navIdFromPath(pathname);
   const linkSearch = useMemo(() => ({ ...urlSearch, ...search }), [urlSearch, search]);
   const cycleMonth = resolved.month;
@@ -70,13 +70,20 @@ export function PerformanceShell({
     if (!path.startsWith('/people/performance')) return;
     // Already on the always-allowed home — nothing to enforce (avoids any loop).
     if (path === '/people/performance') return;
-    if (!isPerformancePathAllowed(pathname, role_slugs, resolved.capacity)) {
+    if (
+      !isPerformancePathAllowed({
+        pathname,
+        roleSlugs: role_slugs,
+        capacity: resolved.capacity,
+        canUnlock: can_unlock,
+      })
+    ) {
       // A section that doesn't fit the current capacity (e.g. switching to a
       // non-AM context while on the Configuration tab) is a navigation concern,
       // not a permission error: fall back to the Reviews home, keep the context.
       void navigate({ to: '/people/performance', search: linkSearch, replace: true });
     }
-  }, [navigate, pathname, resolved.capacity, role_slugs, linkSearch]);
+  }, [navigate, pathname, resolved.capacity, role_slugs, can_unlock, linkSearch]);
 
   return (
     <PerformanceScopeProvider
@@ -125,13 +132,13 @@ export function PerformanceShell({
         content={
           <LayoutContent padding={4}>
             <VStack gap={4} data-testid="performance-workspace">
-              {/* Controls row: section tabs (AM) on the left, cycle-period picker
-                  on the right — same row for every capacity. */}
+              {/* Controls row: section tabs on the left, cycle-period picker on the
+                  right — same row for every capacity. */}
               <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
                 {tabs.length > 0 ? (
                   <SegmentedControl
                     label="Performance section"
-                    value={activeTab === 'configuration' ? 'configuration' : 'reviews'}
+                    value={activeTab ?? 'reviews'}
                     onChange={(value) => {
                       const tab = tabs.find((t) => t.id === value);
                       if (!tab) return;
@@ -146,10 +153,10 @@ export function PerformanceShell({
                 ) : (
                   <span />
                 )}
-                {/* Configuration is account-scoped and always applies to the current
-                    cycle, so the period picker has no effect there — hide it to avoid
-                    a dead control. Every other section is month-driven. */}
-                {activeTab === 'configuration' ? (
+                {/* Configuration is account-scoped and Cycle unlock always targets the
+                    latest closed cycle, so the period picker has no effect in either —
+                    hide it to avoid a dead control. Every other section is month-driven. */}
+                {activeTab === 'configuration' || activeTab === 'cycle' ? (
                   <span />
                 ) : (
                   <CyclePeriodSelector

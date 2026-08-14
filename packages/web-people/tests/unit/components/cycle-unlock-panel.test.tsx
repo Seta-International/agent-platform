@@ -49,7 +49,6 @@ function entry(over: Partial<CycleUnlockEntry> = {}): CycleUnlockEntry {
     account_id: ACME,
     action: 'unlock',
     expires_at: '2026-08-15T02:00:00.000Z',
-    reason: 'Payroll correction',
     actor_person_id: null,
     actor_user_id: 'u1',
     created_at: '2026-08-13T02:00:00.000Z',
@@ -76,7 +75,6 @@ describe('CycleUnlockPanel', () => {
     render(<CycleUnlockPanel />, { wrapper: wrap(qc()) });
 
     const button = await screen.findByRole('button', { name: /Reopen account/ });
-    expect(button).toBeDisabled(); // reason is mandatory
 
     await user.click(screen.getByRole('combobox', { name: 'Account' }));
     await user.click(screen.getByRole('option', { name: 'Globex' }));
@@ -84,16 +82,12 @@ describe('CycleUnlockPanel', () => {
     await user.click(screen.getByRole('combobox', { name: 'Reopen for' }));
     await user.click(screen.getByRole('option', { name: '2 days' }));
 
-    await user.type(screen.getByRole('textbox', { name: /Reason/ }), 'Late TL reviews');
-    expect(button).toBeEnabled();
-
     await user.click(button);
     await waitFor(() =>
       expect(unlockCycle).toHaveBeenCalledWith({
         month: '2026-07',
         account_id: GLOBEX,
         days: 2,
-        reason: 'Late TL reviews',
       }),
     );
   });
@@ -131,14 +125,12 @@ describe('CycleUnlockPanel', () => {
     // No days picker while a window is already open — the only action is closing it.
     expect(screen.queryByRole('combobox', { name: 'Reopen for' })).not.toBeInTheDocument();
 
-    await user.type(screen.getByRole('textbox', { name: /Reason/ }), 'Corrections done');
     await user.click(screen.getByRole('button', { name: /Close now/ }));
 
     await waitFor(() =>
       expect(relockCycle).toHaveBeenCalledWith({
         month: '2026-07',
         account_id: ACME,
-        reason: 'Corrections done',
       }),
     );
   });
@@ -150,7 +142,7 @@ describe('CycleUnlockPanel', () => {
 
     expect(await screen.findByText(/Reopen Jul 2026/)).toBeInTheDocument();
     const trail = screen.getByTestId('cycle-unlock-trail');
-    expect(trail).toHaveTextContent('Payroll correction');
+    expect(trail).toHaveTextContent('Reopened');
     expect(trail).toHaveTextContent('Acme');
   });
 });

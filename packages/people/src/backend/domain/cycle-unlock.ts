@@ -25,7 +25,6 @@ function toEntry(row: UnlockRow): CycleUnlockEntry {
     account_id: row.account_id,
     action: row.action,
     expires_at: row.expires_at?.toISOString() ?? null,
-    reason: row.reason,
     actor_person_id: row.actor_person_id,
     actor_user_id: row.actor_user_id,
     created_at: row.created_at.toISOString(),
@@ -107,7 +106,6 @@ async function appendAction(
   input: {
     month: string;
     account_id: string;
-    reason: string;
     action: 'unlock' | 'relock';
     days?: number;
   },
@@ -116,10 +114,6 @@ async function appendAction(
   const at = monthClockNow();
   assertUnlockableMonth(input.month, at);
 
-  const reason = input.reason.trim();
-  if (reason.length === 0) {
-    throw new PeopleError('VALIDATION', 'reason: a justification is required');
-  }
   if (input.action === 'unlock') {
     const days = input.days;
     if (!Number.isInteger(days) || days === undefined || days < 1 || days > UNLOCK_MAX_DAYS) {
@@ -174,7 +168,6 @@ async function appendAction(
           account_id: input.account_id,
           action: input.action,
           expires_at: expiresAt,
-          reason,
           actor_person_id: session.person_id,
           actor_user_id: session.user_id,
           created_at: at,
@@ -196,7 +189,6 @@ async function appendAction(
           month: input.month,
           account_id: input.account_id,
           expires_at: expiresAt?.toISOString() ?? null,
-          reason,
           actor_user_id: session.user_id,
         },
       });

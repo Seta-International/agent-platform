@@ -113,7 +113,6 @@ export const cycleUnlockInput = z.object({
   month: monthYm,
   account_id: z.string().uuid(),
   days: z.number().int().min(1).max(UNLOCK_MAX_DAYS),
-  reason: z.string().trim().min(1).max(500),
 });
 export type CycleUnlockInput = z.infer<typeof cycleUnlockInput>;
 
@@ -121,7 +120,6 @@ export type CycleUnlockInput = z.infer<typeof cycleUnlockInput>;
 export const cycleRelockInput = z.object({
   month: monthYm,
   account_id: z.string().uuid(),
-  reason: z.string().trim().min(1).max(500),
 });
 export type CycleRelockInput = z.infer<typeof cycleRelockInput>;
 
@@ -132,7 +130,6 @@ export const cycleUnlockEntry = z.object({
   action: unlockAction,
   /** When the window closes; null on re-lock rows (effective immediately). */
   expires_at: z.string().datetime().nullable(),
-  reason: z.string(),
   actor_person_id: z.string().uuid().nullable(),
   actor_user_id: z.string().uuid(),
   created_at: z.string().datetime(),

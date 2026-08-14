@@ -5,5 +5,6 @@ export function navIdFromPath(pathname: string): PerformanceNavId | null {
   const path = pathname.replace(/\/$/, '') || '/';
   if (path === '/people/performance') return 'reviews';
   if (path === '/people/performance/configuration') return 'configuration';
+  if (path === '/people/performance/cycle') return 'cycle';
   return null;
 }
