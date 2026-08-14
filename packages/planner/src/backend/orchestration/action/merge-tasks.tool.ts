@@ -2,6 +2,7 @@ import { defineAgentTool, type SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { buildMergeApprovalCard } from './approval-card.ts';
 import type { ActionPorts } from './ports.ts';
 import { resolveTwoEndpoints } from './resolve-endpoints.ts';
+import type { ActionOpenPreview } from './schemas.ts';
 import {
   MergeTasksResumeSchema,
   MergeTasksSuspendSchema,
@@ -12,6 +13,10 @@ import {
 export interface MergeTasksToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /**

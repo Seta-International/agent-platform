@@ -2,6 +2,7 @@ import { defineAgentTool, resolveTaskRef, type SpecializedAgentRunCtx } from '@s
 import { buildBulkApprovalCard, buildUpdateApprovalCard } from './approval-card.ts';
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
+import type { ActionOpenPreview } from './schemas.ts';
 import {
   BULK_TARGET_CAP,
   PERCENT_COMPLETE_BY_WORD,
@@ -19,6 +20,10 @@ export interface UpdateTaskToolDeps {
   ports: ActionPorts;
   /** The orchestrator's run ctx: tenant/actor/abort. */
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /** Translate the model's vocabulary into the domain's.

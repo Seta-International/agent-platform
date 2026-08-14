@@ -19,10 +19,14 @@ import { pickModel } from '../assignment/model.ts';
 import { makeActionTools } from './orchestrator.tools.ts';
 import type { ActionPorts } from './ports.ts';
 import type { ActionResume } from './schemas.ts';
+import { OpenPreviewSchema } from './schemas.ts';
 
 export const ActionInputSchema = z.object({
   userText: z.string(),
   taskId: z.string().nullable(),
+  /** The newest pending A2 preview in this thread, found by the SERVER before the
+   *  turn was dispatched (FUT-840). Authoritative data, not chat history. */
+  openPreview: OpenPreviewSchema.nullish(),
 });
 export const ActionResultSchema = z.object({
   message: z.string(),
@@ -150,7 +154,7 @@ async function buildAction(
 ): Promise<BuiltAction> {
   const rc = buildAgentRequestContext(ctx);
 
-  const tools = makeActionTools({ ports: deps.ports, ctx });
+  const tools = makeActionTools({ ports: deps.ports, ctx, openPreview: input.openPreview ?? null });
 
   // Wrapped at CONSTRUCTION time, never at module load — a module-load call
   // would freeze the date at process start, the bug FUT-800 fixed.

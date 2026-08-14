@@ -6,6 +6,7 @@ import {
 import { buildCreateTaskApprovalCard } from './approval-card.ts';
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
+import type { ActionOpenPreview } from './schemas.ts';
 import {
   type CreateTaskDraft,
   CreateTaskResumeSchema,
@@ -17,6 +18,10 @@ import {
 export interface CreateTaskToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /** The same numbers the dedup workflow uses. Chat and the canvas must agree on

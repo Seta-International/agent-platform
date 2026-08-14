@@ -2,6 +2,7 @@ import { defineAgentTool, type SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { buildLinkApprovalCard } from './approval-card.ts';
 import type { ActionPorts } from './ports.ts';
 import { resolveTwoEndpoints } from './resolve-endpoints.ts';
+import type { ActionOpenPreview } from './schemas.ts';
 import {
   LinkTasksResumeSchema,
   LinkTasksSuspendSchema,
@@ -12,6 +13,10 @@ import {
 export interface LinkTasksToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /** How to say a kind in a refusal, matching the phrasing the task detail page

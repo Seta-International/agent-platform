@@ -10,7 +10,12 @@ export {
   type PlannerActionRuntime,
   type PlannerActionRuntimeDeps,
 } from './backend/orchestration/action/register.ts';
-export type { UpdateTaskResume } from './backend/orchestration/action/schemas.ts';
+// Part 3's chat router types its widened `action` dep with these (FUT-840).
+export {
+  type ActionOpenPreview,
+  OpenPreviewSchema,
+  type UpdateTaskResume,
+} from './backend/orchestration/action/schemas.ts';
 export {
   makeAssign,
   makeAvailability,

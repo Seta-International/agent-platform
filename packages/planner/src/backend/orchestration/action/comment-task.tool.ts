@@ -1,6 +1,7 @@
 import { defineAgentTool, resolveTaskRef, type SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { buildCommentTaskApprovalCard } from './approval-card.ts';
 import type { ActionPorts } from './ports.ts';
+import type { ActionOpenPreview } from './schemas.ts';
 import {
   CommentTaskResumeSchema,
   CommentTaskSuspendSchema,
@@ -11,6 +12,10 @@ import {
 export interface CommentTaskToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /**
