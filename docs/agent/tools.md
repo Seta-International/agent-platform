@@ -639,10 +639,15 @@ Mint the resume-critical values (version, idempotency key) on the suspending pas
 Resume may run in a different process after a page reload, and taking the patch from the client would
 let a caller confirm something the user never previewed.
 
-**C.1 Revising a preview — `revisionOf` and `dropFields` (FUT-840).**
-Each of A2's six write tools takes an optional `revisionOf` (the approval id of the preview being
-adjusted) and, where a partial change makes sense, `dropFields` (names the user wants left alone
-after all). The rule that gives them meaning:
+**C.1 Revising a preview — `correction` and `dropFields` (FUT-840).**
+**The server decides which preview a turn adjusts; the model is never asked for an approval id**
+(design D20). `resolveRevision` derives it from the card `findOpenPreview` returned, that card's
+`meta.toolId`, and the tasks the turn resolved — a mismatch on either falls through to the new-card
+path rather than refusing. The model's only contribution is `planner_updateTask`'s optional
+`correction: boolean` — is the user NARROWING the open proposal ("không phải", "chỉ … thôi") or
+ADDING to it ("và … nữa")? — plus, where a partial change makes sense, `dropFields` (names the user
+wants left alone after all). When `correction` is true the SERVER computes which previous fields to
+drop. The rule that gives them meaning:
 
 > **Targets always come from the CARD, never from the model's refs.**
 
@@ -653,9 +658,11 @@ what makes "an adjustment can never retarget or widen the change" a property of 
 prompt promise. `planner_mergeTasks` is the single deliberate exception: its refs may name the same
 two tasks in the opposite order, swapping which one survives, but never a different pair.
 
-`revisionOf` must EQUAL the approval id the server injected for that turn, and the card's
-`meta.toolId` must equal the calling tool — checked in that order, before the card is loaded. An
-absent `revisionOf` is never refused: a new request alongside an open preview is legitimate.
+Two further filters run server-side on `planner_updateTask`, both deterministic: `dropNoOps` deletes
+patch fields whose value already equals the task's stored value (a model that read the task and echoed
+its state back is not a change the user asked for), and the tool returns a pre-rendered `revised.diff`
+of from→to strings — weekday included — so the assistant quotes the saved proposal instead of deriving
+dates it gets wrong.
 
 **D. Request-level approval — `requireToolApproval` (boolean or function).**
 Set on the `stream()`/`generate()` call to gate _every_ tool, or pass a function `({ toolName, args, requestContext, workspace }) => boolean` to gate dynamically. A tool's own `requireApproval` always takes precedence. (Function form is unavailable for durable/stored agents — they fall back to gating everything.)

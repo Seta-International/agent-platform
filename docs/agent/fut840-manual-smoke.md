@@ -34,6 +34,12 @@ Debug a turn with `scripts/dev/trace-thread.sh <threadId>`; app logs are NDJSON 
 6. Repeat step 1, then type "và giao cho Tuấn nữa".
    → No second card. A2 asks you to confirm or cancel first.
    → The update preview is still confirmable.
+7. Repeat step 1, then type "không phải, chỉ đổi ngày quá hạn sang ngày mai thôi".
+   → The first card collapses to Superseded.
+   → The new card shows the new date and NO priority row.
+   → No "confirm or cancel first" sentence appears anywhere.
+   → A2's sentence quotes the weekday the tool returned — check it against
+     `TZ=Asia/Bangkok date -d <the date> +%A`.
 
 Inspect rows with
 `docker exec seta-ap-postgres-dev psql -U seta -d seta -c '<SQL>'`.

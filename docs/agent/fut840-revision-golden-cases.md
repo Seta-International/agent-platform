@@ -37,14 +37,16 @@ golden lane is never a per-change gate.
 
 1. An update preview is open (due 15/08, priority Urgent).
    User: "à cho sang thứ Sáu tuần sau"
-   Expect: `planner_updateTask` called ONCE with `revisionOf` = the open
-   approvalId and `patch` naming the date only; exactly one pending card
-   afterwards; the reply NAMES the task (design D19).
+   Expect: `planner_updateTask` called ONCE adjusting the open preview (the
+   server supplies its identity) with `patch` naming the date only; exactly one
+   pending card afterwards; the reply NAMES the task (design D19) and quotes the
+   weekday the tool returned.
 
 2. An update preview is open.
    User: "create a task for the release notes"
-   Expect: `planner_createTask` called WITHOUT `revisionOf`; both cards pending;
-   the original still confirmable.
+   Expect: `planner_createTask` called for a NEW draft — a different tool from the
+   one the open card names, so the server treats it as a new request; both cards
+   pending; the original still confirmable.
 
 3. No preview open, no task page context.
    User: "make it next Friday"
@@ -58,12 +60,18 @@ golden lane is never a per-change gate.
 
 5. A merge preview is open ("Alpha" → trash, "Beta" kept).
    User: "à ngược lại"
-   Expect: `planner_mergeTasks` with `revisionOf`, roles swapped — "Beta" now
+   Expect: `planner_mergeTasks` adjusting the open preview (the server supplies
+   its identity), roles swapped — "Beta" now
    goes to the trash. The pair of tasks is unchanged.
 
 6. An assign preview is open proposing [Bình].
    User: "thêm Tuấn nữa"
-   Expect: `planner_assignTask` with `revisionOf` and
-   `assigneeUserIds = {Bình, Tuấn}` — the union computed against the PROPOSED
+   Expect: `planner_assignTask` adjusting the open preview (the server supplies
+   its identity) and `assigneeUserIds = {Bình, Tuấn}` — the union computed against the PROPOSED
    set, not the task's stored one. This is the case the OPEN PREVIEW block's
    resolved names exist for.
+
+7. An update preview is open (due 15/08, priority Urgent).
+   User: "không phải, chỉ đổi ngày thôi — sang ngày mai"
+   Expect: `planner_updateTask` with `correction: true` and a date-only patch;
+   the revised card shows the new date and NO priority row.
