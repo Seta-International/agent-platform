@@ -6,7 +6,6 @@ import {
   fakePreviewPort,
   injectedPreview,
   OPEN_APPROVAL_ID,
-  OTHER_APPROVAL_ID,
   runFirstPass,
 } from './revision-test-kit.ts';
 
@@ -391,8 +390,6 @@ describe('planner_updateTask — resume pass', () => {
 });
 
 const OPEN_ID = OPEN_APPROVAL_ID;
-const OTHER_ID = OTHER_APPROVAL_ID;
-
 /** The persisted proposal a revision merges onto: due 15/08 AND priority Urgent. */
 function openArgsPatch(over: Record<string, unknown> = {}) {
   return {
