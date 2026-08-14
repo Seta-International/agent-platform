@@ -11,6 +11,7 @@ import { seedEdgeCases } from './phase-edge-cases.ts';
 import { seedHiring } from './phase-hiring.ts';
 import { seedOrgStructure } from './phase-org-structure.ts';
 import { seedPeopleIdentity } from './phase-people-identity.ts';
+import { seedPerformance } from './phase-performance.ts';
 import { seedPlanner } from './phase-planner.ts';
 import { seedPm } from './phase-pm.ts';
 import { seedPmWeekly } from './phase-pm-weekly.ts';
@@ -131,6 +132,9 @@ export async function seedFixtureCommand(opts: {
 
     await seedPmWeekly(session, pm.projectByCode, pm.pmByCode);
     log.info('phase: pm-weekly done');
+
+    await seedPerformance(session);
+    log.info('phase: performance done');
   } else {
     log.info('phases hiring + edge-cases skipped (demo-only; pass --demo to include)');
   }

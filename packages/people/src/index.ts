@@ -77,6 +77,7 @@ export { readPerformanceRollup } from './backend/domain/read-performance-rollup.
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
 export { savePerformanceConfig } from './backend/domain/save-performance-config.ts';
+export { seedDemoEvaluations } from './backend/domain/seed-demo-evaluations.ts';
 export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
