@@ -13,6 +13,16 @@ export type {
   DecideApprovalResult,
 } from './backend/domain/decide-approval.ts';
 export { decideApproval } from './backend/domain/decide-approval.ts';
+export type {
+  FindOpenChatPreviewOpts,
+  FindOpenPreviewsForTasksOpts,
+  OpenChatPreview,
+  PreviewScope,
+} from './backend/domain/find-open-chat-preview.ts';
+export {
+  findOpenChatPreview,
+  findOpenPreviewsForTasks,
+} from './backend/domain/find-open-chat-preview.ts';
 export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
 export { getWorkflowRun } from './backend/domain/get-workflow-run.ts';
 export type { GetWorkflowRunSnapshotOpts } from './backend/domain/get-workflow-run-snapshot.ts';
