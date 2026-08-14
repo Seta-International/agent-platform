@@ -73,6 +73,7 @@ export { readMonthTasks } from './backend/domain/read-month-tasks.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { readPerformanceConfig } from './backend/domain/read-performance-config.ts';
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
+export { readPerformanceRollup } from './backend/domain/read-performance-rollup.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
 export { savePerformanceConfig } from './backend/domain/save-performance-config.ts';

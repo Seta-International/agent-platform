@@ -8,6 +8,7 @@ import {
   evaluationWriteInput,
   monthTasksQuery,
   performanceContextInput,
+  performanceRollupQuery,
   savePerformanceConfigInput,
 } from '../../contracts.ts';
 import { readCycleUnlockPanel, relockCycle, unlockCycle } from '../domain/cycle-unlock.ts';
@@ -17,6 +18,7 @@ import { parseCycleMonthOrThrow, readCycleStatus } from '../domain/read-cycle-st
 import { readMonthTasks } from '../domain/read-month-tasks.ts';
 import { readPerformanceConfig } from '../domain/read-performance-config.ts';
 import { readPerformanceContext } from '../domain/read-performance-context.ts';
+import { readPerformanceRollup } from '../domain/read-performance-rollup.ts';
 import { savePerformanceConfig } from '../domain/save-performance-config.ts';
 
 export function registerPeoplePerformanceRoutes(app: Hono<SessionEnv>): void {
@@ -40,6 +42,16 @@ export function registerPeoplePerformanceRoutes(app: Hono<SessionEnv>): void {
       month: parseCycleMonthOrThrow(c.req.query('month')),
     });
     return c.json(await readMonthTasks(c.get('user'), input));
+  });
+
+  app.get('/api/people/v1/performance/rollup', async (c) => {
+    const input = performanceRollupQuery.parse({
+      month: parseCycleMonthOrThrow(c.req.query('month')),
+      scope: c.req.query('scope'),
+      account_id: c.req.query('account_id') ?? null,
+      project_id: c.req.query('project_id') ?? null,
+    });
+    return c.json(await readPerformanceRollup(c.get('user'), input));
   });
 
   app.get('/api/people/v1/performance/evaluation', async (c) => {
