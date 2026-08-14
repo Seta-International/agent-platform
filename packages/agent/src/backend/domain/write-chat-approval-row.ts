@@ -63,15 +63,16 @@ export interface WriteChatApprovalRowOpts {
    *  will resume this card. Defaults to whatever the card declares. */
   workflowId?: string;
   /**
-   * One-proposal-per-task mutex, keyed by a string the CARD declares. Defaults to
-   * `card.meta.dedupKey`; pass `null` to force it off.
+   * One-preview-per-task mutex, keyed by strings the CARD declares. Defaults to
+   * the card's own `meta.dedupKeys` (with the legacy `meta.dedupKey` lifted in);
+   * pass `[]` to force every mutex off.
    *
    * Keyed by declaration rather than by workflow id (design D7): the agent tier
    * may not import feature modules, so a list of "assignment-ish" tools kept here
    * would need hand-editing for every new action tool — which is how
    * planner_linkTasks ended up with the assignment resume contract.
    */
-  dedupKey?: string | null;
+  dedupKeys?: string[];
 }
 
 export interface WriteChatApprovalRowResult {
@@ -82,21 +83,42 @@ export interface WriteChatApprovalRowResult {
   cardInThread: boolean;
 }
 
-/** The prefix the assign mutex uses. The agent tier knows this ONE format and
- *  nothing else about the key — not the tool, not the module, not the runtime. */
-const ASSIGN_DEDUP_PREFIX = 'assign:';
+/** The prefix the assign mutex uses. The agent tier knows these TWO formats and
+ *  nothing else about the keys — not the tool, not the module, not the runtime. */
+export const ASSIGN_DEDUP_PREFIX = 'assign:';
+/** The prefix the generalized one-preview-per-task mutex uses (design D11). */
+export const TASK_DEDUP_PREFIX = 'task:';
 
 /**
- * The task a dedup key names, or null when the key is absent or is not an assign
- * key. The mutex needs a taskId because its lookup —
- * `getPendingAssignRunIdForTask` — spans the evented `planner.assignBySkill` run
- * as well as the chat card, and that query matches on `input_summary.taskId`.
- * A future non-assign dedup key therefore falls through to "no mutex" rather
- * than silently reusing the assign lookup.
+ * The keys a card declares, reading the plural field and falling back to the
+ * legacy singular one.
+ *
+ * The fallback is load-bearing for exactly ONE release (spec §3.2). There is no
+ * DDL and no backfill, but a card written before FUT-840 carries
+ * `meta.dedupKey: 'assign:<taskId>'`, and without this it would fall out of the
+ * assign mutex — making a second assignment proposal for that task possible —
+ * and out of `supersede-stale-assign-approvals`, leaving a stale assign card
+ * pending until the 72-hour sweeper. Delete the fallback, and `meta.dedupKey`
+ * with it, once no pending row can carry it.
  */
-function assignDedupTaskId(dedupKey: string | null | undefined): string | null {
-  if (!dedupKey?.startsWith(ASSIGN_DEDUP_PREFIX)) return null;
-  const taskId = dedupKey.slice(ASSIGN_DEDUP_PREFIX.length);
+export function dedupKeysFromCard(card: ApprovalCard): string[] {
+  const { dedupKeys, dedupKey } = card.meta;
+  if (dedupKeys && dedupKeys.length > 0) return dedupKeys;
+  return dedupKey ? [dedupKey] : [];
+}
+
+/**
+ * The task a key names, or null when the key carries a different prefix.
+ *
+ * The assign mutex needs a taskId because its lookup —
+ * `getPendingAssignRunIdForTask` — spans the evented `planner.assignBySkill` run
+ * as well as the chat card, and that query matches on `input_summary.taskId`. A
+ * key carrying an unknown prefix therefore falls through to "no mutex" rather
+ * than silently reusing another prefix's lookup.
+ */
+export function taskIdFromDedupKey(key: string, prefix: string): string | null {
+  if (!key.startsWith(prefix)) return null;
+  const taskId = key.slice(prefix.length);
   return taskId.length > 0 ? taskId : null;
 }
 
@@ -125,14 +147,16 @@ export async function writeChatApprovalRow(
     pool,
     approvalTtlHours = 72,
     workflowId = resumeWorkflowIdForCard(card),
-    dedupKey = card.meta.dedupKey ?? null,
+    dedupKeys = dedupKeysFromCard(card),
   } = opts;
 
   // Mutex: if a pending assignment proposal already exists for this task —
   // chat-HITL, native-suspend, or an in-flight evented assignBySkill run —
   // reuse it instead of inserting a competing card.
   const taskId = taskIdFromCard(card);
-  const mutexTaskId = assignDedupTaskId(dedupKey);
+  const mutexTaskId = dedupKeys
+    .map((k) => taskIdFromDedupKey(k, ASSIGN_DEDUP_PREFIX))
+    .find((id) => id !== null);
   if (mutexTaskId) {
     const existingRunId = await getPendingAssignRunIdForTask({ taskId: mutexTaskId, tenantId });
     if (existingRunId) {
