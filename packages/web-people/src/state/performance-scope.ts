@@ -14,6 +14,9 @@ export type PerformanceScopeSearch = {
    * to a capacity-holder without permission (FUT-781).
    */
   view?: 'organization';
+  /** Evaluation target (the /scoring form): who is being scored, on which project. */
+  subject?: string;
+  subject_project?: string;
 };
 
 export type ResolvedPerformanceScope =
@@ -42,7 +45,12 @@ export function parsePerformanceSearch(s: Record<string, unknown>): PerformanceS
   const month =
     typeof s.month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s.month) ? s.month : undefined;
   const view = s.view === 'organization' ? 'organization' : undefined;
-  return { kind, account, project, month, view };
+  const subject = typeof s.subject === 'string' && s.subject.length > 0 ? s.subject : undefined;
+  const subject_project =
+    typeof s.subject_project === 'string' && s.subject_project.length > 0
+      ? s.subject_project
+      : undefined;
+  return { kind, account, project, month, view, subject, subject_project };
 }
 
 /** True when the URL carries an explicit capacity/month context (not a bare path). */

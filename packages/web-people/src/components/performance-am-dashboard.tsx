@@ -12,6 +12,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { PerformanceRollup, RollupLeaf, RollupRow } from '../api/people-client.ts';
 import { performanceRollupOptions } from '../api/performance-query.ts';
@@ -25,7 +26,15 @@ type MemberRow = RollupLeaf & Record<string, unknown>;
 
 // ---- Project drill: members + team lead to evaluate ---------------------
 
-function ProjectDrillPanel({ rollup, project }: { rollup: PerformanceRollup; project: RollupRow }) {
+function ProjectDrillPanel({
+  rollup,
+  project,
+  onEvaluate,
+}: {
+  rollup: PerformanceRollup;
+  project: RollupRow;
+  onEvaluate: (personId: string) => void;
+}) {
   const columns = useMemo<TableColumn<MemberRow>[]>(
     () => [
       {
@@ -57,6 +66,7 @@ function ProjectDrillPanel({ rollup, project }: { rollup: PerformanceRollup; pro
                   size="sm"
                   variant={done ? 'ghost' : 'primary'}
                   label={done ? 'Edit review' : 'Evaluate'}
+                  onClick={() => onEvaluate(m.id)}
                 />
               </div>
             );
@@ -73,7 +83,7 @@ function ProjectDrillPanel({ rollup, project }: { rollup: PerformanceRollup; pro
         },
       },
     ],
-    [rollup.groups],
+    [rollup.groups, onEvaluate],
   );
 
   return (
@@ -113,6 +123,16 @@ export function PerformanceAmDashboard({
     performanceRollupOptions({ month, scope: 'account', account_id: accountId }),
   );
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const openEvaluation = (personId: string, forProject: string) =>
+    void navigate({
+      to: '/people/performance/scoring',
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        subject: personId,
+        subject_project: forProject,
+      }),
+    });
 
   return (
     <RollupBoundary query={query}>
@@ -187,7 +207,11 @@ export function PerformanceAmDashboard({
                 {active ? (
                   <>
                     <Divider />
-                    <ProjectDrillPanel rollup={rollup} project={active} />
+                    <ProjectDrillPanel
+                      rollup={rollup}
+                      project={active}
+                      onEvaluate={(personId) => openEvaluation(personId, active.id)}
+                    />
                   </>
                 ) : null}
               </VStack>

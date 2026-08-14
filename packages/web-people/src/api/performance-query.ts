@@ -3,6 +3,7 @@ import { performanceKeys } from '../state/performance-query-keys.ts';
 import {
   fetchCycleStatus,
   fetchCycleUnlockPanel,
+  fetchEvaluation,
   fetchMonthTasks,
   fetchPerformanceConfig,
   fetchPerformanceContext,
@@ -77,5 +78,19 @@ export function performanceRollupOptions(input: {
     queryKey: performanceKeys.rollup(input.month, input.scope, targetId),
     queryFn: () => fetchPerformanceRollup(input),
     staleTime: 30 * 1000,
+  });
+}
+
+/** The evaluation form for one subject on one project. */
+export function evaluationOptions(input: {
+  month: string;
+  subject_person_id: string;
+  project_id: string;
+}) {
+  return queryOptions({
+    queryKey: performanceKeys.evaluation(input.month, input.subject_person_id, input.project_id),
+    queryFn: () => fetchEvaluation(input),
+    // The form is the write surface — never hand it a cached version to save against.
+    staleTime: 0,
   });
 }

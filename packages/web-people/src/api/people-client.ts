@@ -606,3 +606,92 @@ export async function fetchPerformanceRollup(input: {
   });
   return handleResponse<PerformanceRollup>(res);
 }
+
+// --- Evaluation form (FUT-784) -------------------------------------------
+
+export type EvaluationCriterionView = {
+  criterion_id: string;
+  name: string;
+  weight: number;
+  sort: number;
+  score: number | null;
+  evidence: string;
+  /** True when the current score sits at an end of the scale, so evidence is required. */
+  evidence_required: boolean;
+};
+
+export type EvaluationGroupView = {
+  group_id: string;
+  code: string;
+  name: string;
+  weight: number;
+  sort: number;
+  criteria: EvaluationCriterionView[];
+};
+
+export type EvaluationView = {
+  month: string;
+  cycle_status: CycleStatus;
+  editable: boolean;
+  subject: {
+    person_id: string;
+    full_name: string;
+    project_id: string;
+    project_name: string;
+    account_id: string;
+  };
+  evaluator_capacity: 'tl' | 'am';
+  status: 'draft' | 'submitted';
+  version: number;
+  revision_id: string;
+  overall: number | null;
+  strengths: string;
+  improve: string;
+  top_action: string;
+  top_action_required: boolean;
+  submitted_at: string | null;
+  groups: EvaluationGroupView[];
+};
+
+export type EvaluationWriteBody = {
+  month: string;
+  subject_person_id: string;
+  project_id: string;
+  base_version: number;
+  scores: { criterion_id: string; score: number | null; evidence: string }[];
+  strengths: string;
+  improve: string;
+  top_action: string;
+};
+
+export async function fetchEvaluation(input: {
+  month: string;
+  subject_person_id: string;
+  project_id: string;
+}): Promise<EvaluationView> {
+  const params = new URLSearchParams(input);
+  const res = await fetch(`/api/people/v1/performance/evaluation?${params}`, {
+    credentials: 'include',
+  });
+  return handleResponse<EvaluationView>(res);
+}
+
+export async function saveEvaluationDraft(body: EvaluationWriteBody): Promise<EvaluationView> {
+  const res = await fetch('/api/people/v1/performance/evaluation', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<EvaluationView>(res);
+}
+
+export async function submitEvaluation(body: EvaluationWriteBody): Promise<EvaluationView> {
+  const res = await fetch('/api/people/v1/performance/evaluation/submit', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<EvaluationView>(res);
+}
