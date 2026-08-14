@@ -1,6 +1,6 @@
-import { findOpenPreviewsForTasks, loadChatPreviewById } from '@seta/agent';
+import { findOpenChatPreview, findOpenPreviewsForTasks, loadChatPreviewById } from '@seta/agent';
 import type { ApprovalCard } from '@seta/agent-sdk';
-import type { LoadedPreview, PreviewPort } from '@seta/planner/orchestration';
+import type { ActionOpenPreview, LoadedPreview, PreviewPort } from '@seta/planner/orchestration';
 
 /** The one runtime whose cards A2 may revise. The recommend runtime's cards are
  *  authored by planner.assignment-orchestrator and are deliberately out of scope
@@ -46,5 +46,47 @@ export function makeActionPreviewPort(): PreviewPort {
         dedupKeys,
       });
     },
+  };
+}
+
+/** The `kvTable` rows the card renders, which are already human: names resolved,
+ *  priority as WORDS, dates formatted. Reused verbatim for the prompt rather than
+ *  re-rendered from `argsPatch`, so the model reads exactly what the user is
+ *  looking at — with no second formatter and no name lookup. */
+function proposedRowsFromCard(card: ApprovalCard): Array<{ k: string; v: string }> {
+  for (const block of card.details ?? []) {
+    if (block.kind === 'kvTable') return block.rows;
+  }
+  return [];
+}
+
+/**
+ * The chat router's open-preview lookup, bound to the one revisable runtime.
+ *
+ * Returns only what the prompt and design D15 need: the approval id the tool
+ * compares the model's `revisionOf` against, the tool that owns the card, the
+ * card's own intent line (which names the task, for design D19), and the rows the
+ * user can see. The machine-readable `argsPatch` is deliberately NOT forwarded —
+ * Part 2's tools re-read the persisted card, so keeping the proposal out of the
+ * prompt means no argsPatch value can be smuggled back in through model text.
+ */
+export function makeFindOpenPreview() {
+  return async function findOpenPreview(args: {
+    tenantId: string;
+    actorUserId: string;
+    threadId: string;
+  }): Promise<ActionOpenPreview | null> {
+    const found = await findOpenChatPreview({
+      session: { tenant_id: args.tenantId, user_id: args.actorUserId },
+      threadId: args.threadId,
+      workflowIds: REVISABLE_WORKFLOW_IDS,
+    });
+    if (!found) return null;
+    return {
+      approvalId: found.approvalId,
+      toolId: found.card.meta.toolId,
+      intent: found.card.intent,
+      proposedRows: proposedRowsFromCard(found.card),
+    };
   };
 }
