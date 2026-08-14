@@ -4,33 +4,65 @@ import type { PerformanceCapacity } from '../api/people-client.ts';
  * Top-level Performance destinations (no secondary sidebar).
  * AM gets Reviews + Configuration via SegmentedControl; other roles have a single workspace.
  */
-export type PerformanceNavId = 'reviews' | 'configuration';
+export type PerformanceNavId = 'reviews' | 'configuration' | 'cycle';
 
 export type PerformanceTopTab = {
   id: PerformanceNavId;
   label: string;
-  to: '/people/performance' | '/people/performance/configuration';
+  to: '/people/performance' | '/people/performance/configuration' | '/people/performance/cycle';
 };
 
-/** AM-only top tabs. */
-export const AM_TOP_TABS: readonly PerformanceTopTab[] = [
-  { id: 'reviews', label: 'Reviews', to: '/people/performance' },
-  { id: 'configuration', label: 'Configuration', to: '/people/performance/configuration' },
-] as const;
+const REVIEWS_TAB: PerformanceTopTab = {
+  id: 'reviews',
+  label: 'Reviews',
+  to: '/people/performance',
+};
+const CONFIGURATION_TAB: PerformanceTopTab = {
+  id: 'configuration',
+  label: 'Configuration',
+  to: '/people/performance/configuration',
+};
+/** PMO manual unlock — its own workspace, never mixed into a dashboard. */
+const CYCLE_TAB: PerformanceTopTab = {
+  id: 'cycle',
+  label: 'Cycle unlock',
+  to: '/people/performance/cycle',
+};
 
-export function amTopTabs(capacity: PerformanceCapacity | null): readonly PerformanceTopTab[] {
-  return capacity?.kind === 'am' ? AM_TOP_TABS : [];
+/**
+ * Top tabs for the current capacity and permissions. A single tab is no tabs: the
+ * SegmentedControl only earns its place once there is somewhere else to go.
+ */
+export function performanceTopTabs({
+  capacity,
+  canUnlock,
+}: {
+  capacity: PerformanceCapacity | null;
+  canUnlock: boolean;
+}): readonly PerformanceTopTab[] {
+  const tabs: PerformanceTopTab[] = [REVIEWS_TAB];
+  if (capacity?.kind === 'am') tabs.push(CONFIGURATION_TAB);
+  if (canUnlock) tabs.push(CYCLE_TAB);
+  return tabs.length > 1 ? tabs : [];
 }
 
 /**
  * Whether the current path is allowed for this capacity / role set.
  * Deep links to legacy stubs (scoring, morale, …) stay reachable only when they match the role.
+ * Cycle unlock is gated on the permission rather than a role list, since the server
+ * checks `people.performance.unlock` and nothing else on every unlock call.
  */
-export function isPerformancePathAllowed(
-  pathname: string,
-  roleSlugs: readonly string[],
-  capacity: PerformanceCapacity | null,
-): boolean {
+export function isPerformancePathAllowed({
+  pathname,
+  roleSlugs,
+  capacity,
+  canUnlock,
+}: {
+  pathname: string;
+  roleSlugs: readonly string[];
+  capacity: PerformanceCapacity | null;
+  canUnlock: boolean;
+}): boolean {
   const path = pathname.replace(/\/$/, '') || '/';
   const kind = capacity?.kind;
   const strategic = roleSlugs.some(
@@ -44,28 +76,7 @@ export function isPerformancePathAllowed(
   if (path === '/people/performance/morale')
     return kind === 'member' || kind === 'tl' || kind === 'am';
   if (path === '/people/performance/history') return true;
-  if (path === '/people/performance/audit' || path === '/people/performance/cycle')
-    return strategic;
+  if (path === '/people/performance/cycle') return canUnlock;
+  if (path === '/people/performance/audit') return strategic;
   return false;
-}
-
-/** @deprecated Use isPerformancePathAllowed — kept for call sites during rename. */
-export function isPerformanceNavAllowed(
-  navId: string,
-  roleSlugs: readonly string[],
-  capacity: PerformanceCapacity | null,
-): boolean {
-  const path =
-    navId === 'reviews' || navId === 'dashboard'
-      ? '/people/performance'
-      : `/people/performance/${navId === 'configuration' ? 'configuration' : navId}`;
-  return isPerformancePathAllowed(path, roleSlugs, capacity);
-}
-
-/** @deprecated Sidebar filter removed — AM tabs via amTopTabs. */
-export function filterPerformanceNav(
-  _roleSlugs: readonly string[],
-  capacity: PerformanceCapacity | null,
-): PerformanceTopTab[] {
-  return [...amTopTabs(capacity)];
 }

@@ -50,8 +50,8 @@ describe('PerformanceHome in organization mode', () => {
     expect(screen.queryByText('Pillar scores by account')).not.toBeInTheDocument();
   });
 
-  it('hides the unlock panel unless the viewer holds the unlock permission', () => {
-    renderOrgHome({ role_slugs: ['pm.pmo'], can_view_org: true, can_unlock: false });
+  it('never mixes the unlock panel into the dashboard — it has its own tab', () => {
+    renderOrgHome({ role_slugs: ['pm.pmo'], can_view_org: true, can_unlock: true });
     expect(screen.queryByTestId('cycle-unlock-panel')).not.toBeInTheDocument();
   });
 });

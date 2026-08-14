@@ -17,7 +17,7 @@ import { PerformanceTlDashboard } from './performance-tl-dashboard.tsx';
  * keep the empty mount point so the shell tabs and routing stay wired.
  */
 export function PerformanceHome() {
-  const { resolved, role_slugs, can_view_org, can_unlock } = usePerformanceScopeContext();
+  const { resolved, role_slugs, can_view_org } = usePerformanceScopeContext();
   const capacity = resolved.capacity;
 
   if (capacity?.kind === 'am') {
@@ -68,7 +68,7 @@ export function PerformanceHome() {
   // org-viewer gets the same org home rather than a blank page.
   const dashboard = resolveDashboardId(role_slugs, capacity, can_view_org);
   if (dashboard === 'strategic' || (dashboard === 'hr' && can_view_org)) {
-    return <PerformanceStrategicDashboard month={resolved.month} canUnlock={can_unlock} />;
+    return <PerformanceStrategicDashboard month={resolved.month} />;
   }
 
   return <VStack data-testid="performance-home" />;

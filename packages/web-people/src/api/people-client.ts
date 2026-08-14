@@ -377,7 +377,6 @@ export type CycleUnlockEntry = {
   account_id: string;
   action: UnlockAction;
   expires_at: string | null;
-  reason: string;
   actor_person_id: string | null;
   actor_user_id: string;
   created_at: string;
@@ -402,13 +401,11 @@ export type CycleUnlockBody = {
   month: string;
   account_id: string;
   days: number;
-  reason: string;
 };
 
 export type CycleRelockBody = {
   month: string;
   account_id: string;
-  reason: string;
 };
 
 export async function fetchCycleUnlockPanel(): Promise<CycleUnlockPanelData> {

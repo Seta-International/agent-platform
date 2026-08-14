@@ -6,6 +6,7 @@ describe('navIdFromPath', () => {
     expect(navIdFromPath('/people/performance')).toBe('reviews');
     expect(navIdFromPath('/people/performance/')).toBe('reviews');
     expect(navIdFromPath('/people/performance/configuration')).toBe('configuration');
+    expect(navIdFromPath('/people/performance/cycle')).toBe('cycle');
     expect(navIdFromPath('/people/performance/scoring')).toBeNull();
     expect(navIdFromPath('/people/performance/unknown')).toBeNull();
   });

@@ -382,7 +382,6 @@ export const performanceCycleUnlock = peopleSchema.table(
     account_id: uuid('account_id').notNull(),
     action: textEnum('action', UNLOCK_ACTIONS).notNull(),
     expires_at: timestamp('expires_at', { withTimezone: true }),
-    reason: text('reason').notNull(),
     actor_person_id: uuid('actor_person_id'),
     actor_user_id: uuid('actor_user_id').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -397,6 +396,5 @@ export const performanceCycleUnlock = peopleSchema.table(
       'perf_cycle_unlock_window',
       sql`expires_at IS NULL OR expires_at <= created_at + interval '${sql.raw(String(UNLOCK_MAX_DAYS))} days'`,
     ),
-    check('perf_cycle_unlock_reason_present', sql`length(btrim(reason)) > 0`),
   ],
 );
