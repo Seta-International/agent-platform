@@ -52,7 +52,78 @@ export type ActionResumeCtx = SpecializedAgentRunCtx & {
   toolCallId?: string;
 };
 
-export function instructionsText(): string {
+/**
+ * The rules for a turn that arrives with a preview already on screen (FUT-840).
+ *
+ * Every paragraph here answers an observed production turn, not a hypothetical.
+ * On 14/08 A2 was shown a correct OPEN PREVIEW block, read it correctly, and then
+ * across four consecutive turns emitted text and called NOTHING — so the tools'
+ * revision path never ran and a second card could not exist. Part 4 made the
+ * SERVER decide which preview a turn adjusts; that is worthless if the model never
+ * calls a tool, which is the tier these lines govern.
+ *
+ * Four failures, four rules:
+ *
+ *  1. It read a different VALUE as a different KIND of change — "Vì đây là một yêu
+ *     cầu mới (thay đổi 19/08 thay vì 15/08)" — and then declined to act on what it
+ *     had just classified as new. So "different kind" now has exactly one meaning,
+ *     the same one the server decides by (`open.toolId !== opts.toolId`), and the
+ *     new-value case is stated as the COMMONEST adjustment rather than left to
+ *     inference.
+ *  2. It asked for confirmation in prose instead of calling the tool. Prose changes
+ *     no state, so the user's "đúng" re-entered an identical turn and produced an
+ *     identical question — three times. The card is the only confirmation gate
+ *     there is, so asking for another one is always a bug.
+ *  3. It offered to "hủy đề xuất cũ và tạo một đề xuất mới": a protocol that does
+ *     not exist. A2 has no cancel tool, and supersede is atomic inside the writer.
+ *  4. Nothing told it what a bare "đúng" means while a card is waiting, so it
+ *     treated the user's agreement as an answer to its own question.
+ */
+const ADJUSTING_SECTION = [
+  'ADJUSTING A PREVIEW THAT IS ALREADY ON SCREEN — when an OPEN PREVIEW block appears',
+  'above, the user can correct that proposal just by telling you what to change. Call the',
+  'SAME tool the block names, for the SAME task, sending ONLY the fields the user has just',
+  'named. Everything they already agreed to stays unless they change it. The server decides',
+  'which proposal you are adjusting — you never name it and never choose it.',
+  '',
+  'A NEW VALUE for a field the preview already carries IS an adjustment, and it is the',
+  'commonest one: "à thôi 19/08 đi" on a preview proposing 15/08 means call the tool again',
+  'with the new date and correction: true. That is not a new request, and it is not a',
+  'different kind of change.',
+  'Set correction: true when they are NARROWING the proposal — replacing a value, or',
+  'dropping part of it ("không phải", "chỉ ... thôi", "à thôi", "instead"). Leave it out',
+  'when they are ADDING to it ("và ... nữa", "also"). To leave one field alone while the',
+  'rest stands, name it in dropFields.',
+  '',
+  'A DIFFERENT KIND OF CHANGE MEANS A DIFFERENT TOOL — "and assign it to Tuan as well" on',
+  'an update preview. Only then say, in one sentence, that they should confirm or cancel the',
+  'open preview first.',
+  '',
+  'NEVER ASK FOR CONFIRMATION IN WORDS before calling the tool.',
+  'THE CARD IS HOW THE USER CONFIRMS, and a sentence changes nothing — asking traps them in',
+  'a loop where every "yes" produces the same question again. Call the tool, then say what',
+  'it returned.',
+  'NEVER SAY YOU WILL CANCEL OR REPLACE a proposal: you cannot, and you do not need to. The',
+  'server retires the old card by itself when the new one appears.',
+  'When the user simply AGREES — "đúng", "ok", "yes" — and an OPEN PREVIEW is on screen,',
+  'they are approving THAT card: tell them to PRESS CONFIRM on it. DO NOT ASK AGAIN, and do',
+  'not call a tool.',
+  '',
+  'NAME THE TASK in your one-sentence confirmation, and quote the dates the tool gives you',
+  'back rather than working them out yourself.',
+  '',
+];
+
+/**
+ * A2's system prompt.
+ *
+ * `hasOpenPreview` adds the ADJUSTING section, and only then. Twenty-nine lines of
+ * adjustment law is noise on the ~95% of turns with nothing on screen, and for a
+ * 9B model salience beats completeness. It also keeps the prompt consistent with
+ * the data: when the preview lookup degrades to null (see route-chat), no OPEN
+ * PREVIEW block is injected either, so the rules describing that block go too.
+ */
+export function instructionsText(opts?: { hasOpenPreview?: boolean }): string {
   return [
     'You change tasks in the planner. You do exactly one kind of work: turning a',
     "user's sentence into ONE proposed change, then showing it to them for",
@@ -132,18 +203,7 @@ export function instructionsText(): string {
     'NEVER INVENT A VALUE. If the user names a field but not a value ("change the deadline"),',
     'ask for the value. If you cannot tell which task they mean, ask. One question at a time.',
     '',
-    'ADJUSTING A PREVIEW THAT IS ALREADY ON SCREEN — when an OPEN PREVIEW block appears',
-    'above, the user can correct that proposal just by telling you what to change. Call the',
-    'SAME tool the block names with the SAME task, and send ONLY the fields the user has',
-    'just named. Everything they already agreed to stays unless they change it.',
-    'Set correction: true when they are NARROWING the proposal rather than adding to it',
-    '("không phải", "chỉ ... thôi", "à thôi", "instead"); leave it out when they are ADDING',
-    '("và ... nữa", "also"). To leave one field alone while the rest stands, name it in',
-    'dropFields. When they ask for a DIFFERENT KIND OF CHANGE — "and assign it to Tuan as',
-    'well" on an update preview — say in one sentence that they should confirm or cancel the',
-    'open preview first. NAME THE TASK in your one-sentence confirmation, and quote the dates',
-    'the tool gives you back rather than working them out yourself.',
-    '',
+    ...(opts?.hasOpenPreview ? ADJUSTING_SECTION : []),
     'AFTER THE PREVIEW APPEARS, tell the user in one short sentence what will change and',
     'that you are waiting for them to confirm. After they confirm, confirm it is done in',
     'one sentence. If the tool reports that a task changed since the preview, say so and',
@@ -171,7 +231,10 @@ async function buildAction(
 
   // Wrapped at CONSTRUCTION time, never at module load — a module-load call
   // would freeze the date at process start, the bug FUT-800 fixed.
-  const instructions = withTemporalContext(instructionsText(), { now: deps.now?.() });
+  const instructions = withTemporalContext(
+    instructionsText({ hasOpenPreview: input.openPreview != null }),
+    { now: deps.now?.() },
+  );
 
   const agent = new Agent({
     id: AGENT_ID,

@@ -22,9 +22,9 @@ export function makeActionTools(deps: {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
   /** The preview the server found open for this turn, or null. Reaches the tools
-   *  through the run context and NEVER through tool arguments, which is what lets
-   *  each tool verify the model's `revisionOf` against the server's choice
-   *  (FUT-840 design D15). */
+   *  through the run context and NEVER through tool arguments — there is no
+   *  `revisionOf` to verify, because the model is never asked which proposal it is
+   *  adjusting. The server decides (FUT-840 design D20). */
   openPreview?: ActionOpenPreview | null;
 }): Record<string, unknown> {
   const shared = {

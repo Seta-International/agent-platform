@@ -116,7 +116,10 @@ describe('A2 instructions — assigning', () => {
 });
 
 describe('instructionsText — the REVISION section (FUT-840)', () => {
-  const text = instructionsText();
+  // Only present when a preview is open: 29 lines of adjustment law is noise on
+  // the ~95% of turns with nothing on screen, and salience beats completeness for
+  // a 9B model.
+  const text = instructionsText({ hasOpenPreview: true });
 
   it('tells the model to call the SAME tool with the SAME task', () => {
     // No approval id is named, because the model is never asked for one: the
@@ -157,6 +160,74 @@ describe('instructionsText — the REVISION section (FUT-840)', () => {
     // Production wrote "Thứ Hai, 15/08/2026" for a Saturday. Copying a rendered
     // date is something a small model does reliably; deriving a weekday is not.
     expect(text).toMatch(/quote the dates/i);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// The four rules the 14/08 conversation proved were missing. A2 read the OPEN
+// PREVIEW block correctly and then, across four turns, emitted text and called
+// NOTHING — so `resolveRevision` never ran and no second card could exist. Part 4
+// fixed the tier below this one; these pin the tier that actually failed.
+// ───────────────────────────────────────────────────────────────────────────────
+describe('instructionsText — why the 14/08 conversation looped (FUT-840)', () => {
+  const text = instructionsText({ hasOpenPreview: true });
+
+  // The model said it out loud: "Vì đây là một yêu cầu mới (thay đổi 19/08 thay vì
+  // 15/08)". It read a different VALUE as a different KIND, which the old wording
+  // left open, and then declined to act on what it had classified as new.
+  it('says a new value for a field already in the preview IS an adjustment', () => {
+    expect(text).toMatch(/new value/i);
+    expect(text).toMatch(/19\/08/);
+    expect(text).toMatch(/not a new request/i);
+  });
+
+  // "different kind" now has one definition, and it is the same one the server
+  // decides by: `open.toolId !== opts.toolId` in revision.ts.
+  it('defines a different KIND of change as a different TOOL', () => {
+    expect(text).toMatch(/different kind of change means a different tool/i);
+  });
+
+  // The loop's engine. A2 asked "Bạn có xác nhận đổi ngày ... không?" instead of
+  // calling the tool; prose changes no state, so the user's "đúng" re-entered an
+  // identical turn and produced the identical question. Three times.
+  it('forbids asking for confirmation in words before calling the tool', () => {
+    expect(text).toMatch(/never ask for confirmation in words/i);
+    expect(text).toMatch(/the card is how the user confirms/i);
+  });
+
+  // It invented a protocol that does not exist: "tôi cần hủy đề xuất cũ và tạo một
+  // đề xuất mới". There is no cancel tool, and supersede is atomic in the writer.
+  it('forbids claiming it will cancel or replace a proposal', () => {
+    expect(text).toMatch(/never say you will cancel or replace/i);
+  });
+
+  // With a card on screen, a bare "đúng" is the user approving THAT card. Nothing
+  // in the prompt said so, so the model treated it as an answer to its own
+  // question and asked again.
+  it('tells it a bare agreement means press Confirm on the card', () => {
+    expect(text).toMatch(/press confirm/i);
+    expect(text).toMatch(/do not ask again/i);
+  });
+});
+
+describe('instructionsText — the ADJUSTING section is conditional', () => {
+  it('is absent when no preview is open', () => {
+    expect(instructionsText()).not.toMatch(/ADJUSTING A PREVIEW/);
+  });
+
+  it('is present when one is', () => {
+    expect(instructionsText({ hasOpenPreview: true })).toMatch(/ADJUSTING A PREVIEW/);
+  });
+
+  // The lookup degrades to null on a read-model hiccup (route-chat.ts), and then
+  // no OPEN PREVIEW block is injected either — so omitting the rules keeps the
+  // prompt consistent with the data instead of describing a block that is absent.
+  it('keeps every non-revision rule in both shapes', () => {
+    for (const text of [instructionsText(), instructionsText({ hasOpenPreview: true })]) {
+      expect(text).toMatch(/planner_mergeTasks/);
+      expect(text).toMatch(/20 tasks/);
+      expect(text).toMatch(/permanently delete/i);
+    }
   });
 });
 

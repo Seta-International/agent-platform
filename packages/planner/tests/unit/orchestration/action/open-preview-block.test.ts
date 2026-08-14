@@ -13,10 +13,18 @@ const preview = {
 };
 
 describe('renderOpenPreviewBlock', () => {
-  it('names the approval id the model must quote back as revisionOf', () => {
-    expect(renderOpenPreviewBlock(preview)).toContain(
-      'approvalId: 7f3a1c2e-1111-4222-8333-444455556666',
-    );
+  // Part 4 deleted `revisionOf`, so nothing the model can emit carries a card's
+  // identity (design D20). Printing it left 36 characters whose only observed use
+  // was the model narrating that it would cancel or replace "that approval" —
+  // something it has no tool for and the server does atomically anyway.
+  it('never shows the model the card identity it has no field to carry', () => {
+    const block = renderOpenPreviewBlock(preview);
+    expect(block).not.toContain('approvalId');
+    expect(block).not.toContain('7f3a1c2e-1111-4222-8333-444455556666');
+  });
+
+  it('says only the user can decide the card, so the model stops offering to', () => {
+    expect(renderOpenPreviewBlock(preview)).toMatch(/only they can/i);
   });
 
   it('names the tool that owns the card, so the model calls the SAME one', () => {
@@ -41,7 +49,7 @@ describe('renderOpenPreviewBlock', () => {
 
   it('degrades to a readable block when the card carried no kvTable rows', () => {
     const block = renderOpenPreviewBlock({ ...preview, proposedRows: [] });
-    expect(block).toContain('approvalId: 7f3a1c2e-1111-4222-8333-444455556666');
+    expect(block).toContain('tool: planner_updateTask');
     expect(block).not.toContain('undefined');
   });
 });
