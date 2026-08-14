@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { instructionsText } from '../../../../src/backend/orchestration/action/orchestrator.ts';
+import {
+  ActionInputSchema,
+  instructionsText,
+} from '../../../../src/backend/orchestration/action/orchestrator.ts';
 
 describe('A2 instructions', () => {
   it('no longer claims it cannot change several tasks at once', () => {
@@ -109,5 +112,77 @@ describe('A2 instructions — assigning', () => {
     const text = instructionsText();
     expect(text).toMatch(/comment/i);
     expect(text).toMatch(/do not summarise/i);
+  });
+});
+
+describe('instructionsText — the REVISION section (FUT-840)', () => {
+  const text = instructionsText();
+
+  it('tells the model to call the SAME tool with revisionOf', () => {
+    expect(text).toMatch(/revisionOf/);
+    expect(text).toMatch(/same tool/i);
+  });
+
+  it('tells it to send only the newly named fields and never to re-list the tasks', () => {
+    // Targets come from the card, so re-listing them is at best noise and at
+    // worst an attempt to retarget that the tool will ignore anyway.
+    expect(text).toMatch(/only the fields/i);
+    expect(text).toMatch(/do not list the tasks again/i);
+  });
+
+  it('names dropFields as the way to leave a field alone', () => {
+    expect(text).toMatch(/dropFields/);
+  });
+
+  it('tells it NOT to revise when the user names a different task (design D5)', () => {
+    expect(text).toMatch(/different task/i);
+  });
+
+  it('tells it NOT to revise when the user asks for a different KIND of change (design D4)', () => {
+    expect(text).toMatch(/different kind of change/i);
+    expect(text).toMatch(/confirm or cancel/i);
+  });
+
+  it('tells it to NAME THE TASK in the confirmation sentence (design D19)', () => {
+    // The newest preview is a database fact, not UI focus — a user scrolled to an
+    // older card can be mis-targeted, and naming the task makes that visible in
+    // the same breath.
+    expect(text).toMatch(/name the task/i);
+  });
+
+  it('tells it to omit revisionOf for a new request', () => {
+    expect(text).toMatch(/leave revisionOf out/i);
+  });
+});
+
+describe('the OPEN PREVIEW block survives the run input (FUT-840)', () => {
+  // buildAction is private and the plan forbids exporting it for a test, and this
+  // suite has no fake-model seam to record the assembled prompt. The two halves
+  // of "the block reaches the model" are therefore pinned separately: the block's
+  // own text in open-preview-block.test.ts, and the input carrying it here.
+  // Their JOIN — that buildAction concatenates them — is Tier 5 golden-lane work.
+  const openPreview = {
+    approvalId: '7f3a1c2e-1111-4222-8333-444455556666',
+    toolId: 'planner_updateTask',
+    intent: 'Update "Deploy API"',
+    proposedRows: [{ k: 'Due', v: '12 Aug → 15 Aug' }],
+  };
+
+  it('ActionInputSchema keeps openPreview verbatim rather than stripping it', () => {
+    const parsed = ActionInputSchema.parse({
+      userText: 'make it next Friday',
+      taskId: null,
+      openPreview,
+    });
+    expect(parsed.openPreview).toEqual(openPreview);
+  });
+
+  it('accepts a turn with nothing open', () => {
+    const parsed = ActionInputSchema.parse({
+      userText: 'make it next Friday',
+      taskId: null,
+      openPreview: null,
+    });
+    expect(parsed.openPreview).toBeNull();
   });
 });

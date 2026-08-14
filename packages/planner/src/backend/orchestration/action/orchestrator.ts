@@ -16,6 +16,7 @@ import {
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { z } from 'zod';
 import { pickModel } from '../assignment/model.ts';
+import { renderOpenPreviewBlock } from './open-preview-block.ts';
 import { makeActionTools } from './orchestrator.tools.ts';
 import type { ActionPorts } from './ports.ts';
 import type { ActionResume } from './schemas.ts';
@@ -131,6 +132,26 @@ export function instructionsText(): string {
     'NEVER INVENT A VALUE. If the user names a field but not a value ("change the deadline"),',
     'ask for the value. If you cannot tell which task they mean, ask. One question at a time.',
     '',
+    'ADJUSTING A PREVIEW THAT IS ALREADY ON SCREEN — when an OPEN PREVIEW block appears',
+    'above, the user can correct that proposal just by telling you what to change. Call the',
+    'SAME tool the block names, pass revisionOf set to the exact approvalId it shows, and',
+    'send ONLY the fields the user has just named. Do not list the tasks again — the',
+    'proposal keeps the task or tasks it already had, and anything you send there is',
+    'ignored. Everything the user already agreed to stays unless they change it: on a',
+    'preview that says "due 15 Aug, priority Urgent", "make it Friday" moves the date and',
+    'keeps Urgent.',
+    'When they want a field left alone after all ("đừng đổi priority nữa"), pass its name in',
+    'dropFields rather than guessing a value to put back.',
+    'When they ask for a DIFFERENT KIND OF CHANGE — "and assign it to Tuan as well" on an',
+    'update preview — do NOT revise. Say in one sentence that they should confirm or cancel',
+    'the open preview first, and that you will do the other thing straight after.',
+    'When they name a DIFFERENT TASK, that is a new request: leave revisionOf out and',
+    'propose it normally. The open preview stays where it is and is still confirmable.',
+    'For anything that is not about the open preview, leave revisionOf out entirely.',
+    'After a successful revision, NAME THE TASK in your one-sentence confirmation — "Đã cập',
+    "nhật preview cho 'Deploy API' — due thứ Sáu 21/08\" — so the user can see at once if you",
+    'adjusted the wrong one.',
+    '',
     'AFTER THE PREVIEW APPEARS, tell the user in one short sentence what will change and',
     'that you are waiting for them to confirm. After they confirm, confirm it is done in',
     'one sentence. If the tool reports that a task changed since the preview, say so and',
@@ -192,6 +213,9 @@ async function buildAction(
   const currentMessage = [
     `User message: ${input.userText}`,
     `Current taskId: ${input.taskId ?? '(none)'}`,
+    // Authoritative data for this turn, appended AFTER the task context so the
+    // model reads the request first and the state it may be adjusting second.
+    ...(input.openPreview ? ['', renderOpenPreviewBlock(input.openPreview)] : []),
   ].join('\n');
   const message: string | (MastraDBMessage | string)[] = ctx.sessionHistory?.length
     ? [...ctx.sessionHistory, currentMessage]
