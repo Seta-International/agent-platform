@@ -136,6 +136,46 @@ describe('GroupDetailHeader', () => {
     expect(screen.getByRole('button', { name: /Invite/ })).toBeDisabled();
   });
 
+  it('disables Invite on an M365-linked group even when canManage', async () => {
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: 'idle', synced_at: null, last_error: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader
+        {...baseProps}
+        canManage={true}
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+      />,
+    );
+    await screen.findByRole('heading', { name: 'Engineering' });
+    expect(screen.getByRole('button', { name: /Invite/ })).toBeDisabled();
+  });
+
+  it('says members live in Microsoft 365 when Invite is blocked by the link', async () => {
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: 'idle', synced_at: null, last_error: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader
+        {...baseProps}
+        canManage={true}
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+      />,
+    );
+    await screen.findByRole('heading', { name: 'Engineering' });
+    expect(screen.getByText(/managed in Microsoft 365/i)).toBeInTheDocument();
+  });
+
+  it('keeps Invite enabled on a native group', async () => {
+    renderInRouter(<GroupDetailHeader {...baseProps} canManage={true} group={{ ...baseGroup }} />);
+    await screen.findByRole('heading', { name: 'Engineering' });
+    expect(screen.getByRole('button', { name: /Invite/ })).not.toBeDisabled();
+  });
+
   it('calls onEditClick when the edit pencil is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();

@@ -136,6 +136,23 @@ describe('AddGroupMembersDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
+  it('explains a linked group in words instead of showing the raw error code', async () => {
+    server.use(
+      http.post(`/api/planner/v1/groups/${GROUP_ID}/members/bulk`, () =>
+        HttpResponse.json({ error: 'LINKED_GROUP_IMMUTABLE_MEMBERS' }, { status: 409 }),
+      ),
+    );
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(await screen.findByRole('checkbox', { name: /select alice/i }));
+    await user.click(screen.getByRole('button', { name: /add 1 member/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/managed in Microsoft 365/i);
+    expect(alert).not.toHaveTextContent('LINKED_GROUP_IMMUTABLE_MEMBERS');
+  });
+
   it('shows inline error and keeps dialog open on failure', async () => {
     server.use(
       http.post(`/api/planner/v1/groups/${GROUP_ID}/members/bulk`, () =>

@@ -50,6 +50,30 @@ describe('GroupRail', () => {
     expect(screen.getByRole('button', { name: /Add member/i })).toBeDisabled();
   });
 
+  it('disables the "Add" button on an M365-linked group even when canManage', () => {
+    render(
+      <GroupRail
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+        members={[makeMember()]}
+        canManage
+        onAddMember={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Add member/i })).toBeDisabled();
+  });
+
+  it('says members live in Microsoft 365 when "Add" is blocked by the link', () => {
+    render(
+      <GroupRail
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+        members={[makeMember()]}
+        canManage
+        onAddMember={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/managed in Microsoft 365/i)).toBeInTheDocument();
+  });
+
   it('calls onAddMember when "Add" is clicked', async () => {
     const user = userEvent.setup();
     const onAddMember = vi.fn();

@@ -16,8 +16,9 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { plannerClient } from '../api/planner-client';
+import { PlannerClientError, plannerClient } from '../api/planner-client';
 import { useAddGroupMembers } from '../hooks/mutations/add-group-members';
+import { LINKED_GROUP } from '../lib/permission-messages';
 import { plannerKeys } from '../state/query-keys';
 
 interface Props {
@@ -28,6 +29,13 @@ interface Props {
 }
 
 type Candidate = { user_id: string; display_name: string; email: string };
+
+function addMembersErrorMessage(e: unknown): string {
+  if (e instanceof PlannerClientError && e.code === 'LINKED_GROUP_IMMUTABLE_MEMBERS') {
+    return LINKED_GROUP.members;
+  }
+  return e instanceof Error ? e.message : "Couldn't add members.";
+}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState<T>(value);
@@ -83,7 +91,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
           reset();
           onOpenChange(false);
         },
-        onError: (e) => setError(e instanceof Error ? e.message : "Couldn't add members."),
+        onError: (e) => setError(addMembersErrorMessage(e)),
       },
     );
   }
