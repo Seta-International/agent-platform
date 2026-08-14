@@ -404,3 +404,89 @@ export const evaluationView = z.object({
   groups: z.array(evaluationGroupView),
 });
 export type EvaluationView = z.infer<typeof evaluationView>;
+
+// --- Dashboard roll-ups (FUT-784) ----------------------------------------
+
+/**
+ * Which slice of the org a dashboard is asking for. Each scope drills exactly one
+ * level: org → accounts → projects, account → projects → people, project → people,
+ * self → the caller's own projects.
+ */
+export const rollupScope = z.enum(['org', 'account', 'project', 'self']);
+export type RollupScope = z.infer<typeof rollupScope>;
+
+export const performanceRollupQuery = z.object({
+  month: monthYm,
+  scope: rollupScope,
+  account_id: z.string().uuid().nullish(),
+  project_id: z.string().uuid().nullish(),
+});
+export type PerformanceRollupQuery = z.infer<typeof performanceRollupQuery>;
+
+/** One heat-map column. Weights are whole percent and sum to 100 across the axis. */
+export const rollupGroupAxis = z.object({
+  group_id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  weight: z.number(),
+  sort: z.number().int(),
+});
+export type RollupGroupAxis = z.infer<typeof rollupGroupAxis>;
+
+const rollupRowShape = {
+  kind: z.enum(['account', 'project', 'person']),
+  id: z.string().uuid(),
+  name: z.string(),
+  /** Whoever owns the row: the AM of an account, the TL of a project, a person's role. */
+  subtitle: z.string(),
+  member_count: z.number().int().nonnegative(),
+  /** Submitted evaluations under this row, out of those expected. */
+  scored: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  /** group_id → mean score. A group with no submitted score is absent, never 0. */
+  scores: z.record(z.string().uuid(), z.number()),
+  /** Null while nothing under this row has been submitted — the UI renders "—". */
+  overall: z.number().nullable(),
+};
+
+export const rollupLeaf = z.object(rollupRowShape);
+export type RollupLeaf = z.infer<typeof rollupLeaf>;
+
+export const rollupRow = z.object({ ...rollupRowShape, children: z.array(rollupLeaf) });
+export type RollupRow = z.infer<typeof rollupRow>;
+
+/** A written review the signed-in person received this cycle (`scope: 'self'`). */
+export const receivedReview = z.object({
+  project_id: z.string().uuid(),
+  project_name: z.string(),
+  evaluator_name: z.string(),
+  evaluator_capacity: evaluatorCapacity,
+  status: evaluationStatus,
+  overall: z.number().nullable(),
+  scores: z.record(z.string().uuid(), z.number()),
+  strengths: z.string(),
+  improve: z.string(),
+  top_action: z.string(),
+  submitted_at: z.string().datetime().nullable(),
+});
+export type ReceivedReview = z.infer<typeof receivedReview>;
+
+/**
+ * One shape behind every Performance dashboard. `rows` are already at the requested
+ * level with a single level of drill-down in `children`, so the heat map never has to
+ * fetch again to expand a row.
+ */
+export const performanceRollupResponse = z.object({
+  month: monthYm,
+  cycle_status: cycleStatusEnum,
+  scope: rollupScope,
+  /** What the header names: the company, an account, a project, or the person. */
+  label: z.string(),
+  groups: z.array(rollupGroupAxis),
+  scored: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  overall: z.number().nullable(),
+  rows: z.array(rollupRow),
+  reviews: z.array(receivedReview),
+});
+export type PerformanceRollupResponse = z.infer<typeof performanceRollupResponse>;
