@@ -439,6 +439,8 @@ const rollupRowShape = {
   name: z.string(),
   /** Whoever owns the row: the AM of an account, the TL of a project, a person's role. */
   subtitle: z.string(),
+  /** Person rows only: this is the project's lead, so their evaluator is the AM. */
+  is_lead: z.boolean(),
   member_count: z.number().int().nonnegative(),
   /** Submitted evaluations under this row, out of those expected. */
   scored: z.number().int().nonnegative(),
@@ -483,6 +485,8 @@ export const performanceRollupResponse = z.object({
   /** What the header names: the company, an account, a project, or the person. */
   label: z.string(),
   groups: z.array(rollupGroupAxis),
+  /** group_id → mean across `rows`; the whole scope as one heat-map column. */
+  scores: z.record(z.string().uuid(), z.number()),
   scored: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
   overall: z.number().nullable(),

@@ -1,6 +1,6 @@
 import { HStack, Text, VStack } from '@seta/shared-ui';
 import type { CSSProperties, ReactNode } from 'react';
-import type { PerformanceGroupAxis } from '../mock/performance-scores.ts';
+import type { GroupAxis } from '../lib/performance-scores.ts';
 import { HeatCell, pillarColor } from './performance-score-bits.tsx';
 
 export type HeatColumn = {
@@ -8,9 +8,9 @@ export type HeatColumn = {
   title: string;
   /** Second header line, e.g. "4 ppl · Pham Quoc Bao ▸". */
   subtitle?: ReactNode;
-  /** group_id → score. */
+  /** group_id → score. A group with nothing submitted is absent, and renders as "—". */
   scores: Record<string, number>;
-  overall: number;
+  overall: number | null;
 };
 
 /**
@@ -28,7 +28,7 @@ export function PillarHeatmap({
   selectedId,
   onSelect,
 }: {
-  groups: readonly PerformanceGroupAxis[];
+  groups: readonly GroupAxis[];
   columns: readonly HeatColumn[];
   selectedId: string | null;
   onSelect?: (id: string) => void;

@@ -532,3 +532,77 @@ export async function savePerformanceConfig(
   });
   return handleResponse(res);
 }
+
+// --- Dashboard roll-ups (FUT-784) ----------------------------------------
+
+export type RollupScope = 'org' | 'account' | 'project' | 'self';
+
+/** One heat-map column: an evaluation group and the weight it carries. */
+export type RollupGroupAxis = {
+  group_id: string;
+  code: string;
+  name: string;
+  weight: number;
+  sort: number;
+};
+
+export type RollupLeaf = {
+  kind: 'account' | 'project' | 'person';
+  id: string;
+  name: string;
+  subtitle: string;
+  /** Person rows only: this is the project's lead, so their evaluator is the AM. */
+  is_lead: boolean;
+  member_count: number;
+  scored: number;
+  total: number;
+  /** group_id → mean score. Absent groups have nothing submitted — never render 0. */
+  scores: Record<string, number>;
+  overall: number | null;
+};
+
+export type RollupRow = RollupLeaf & { children: RollupLeaf[] };
+
+export type ReceivedReview = {
+  project_id: string;
+  project_name: string;
+  evaluator_name: string;
+  evaluator_capacity: 'tl' | 'am';
+  status: 'draft' | 'submitted';
+  overall: number | null;
+  scores: Record<string, number>;
+  strengths: string;
+  improve: string;
+  top_action: string;
+  submitted_at: string | null;
+};
+
+export type PerformanceRollup = {
+  month: string;
+  cycle_status: CycleStatus;
+  scope: RollupScope;
+  label: string;
+  groups: RollupGroupAxis[];
+  /** group_id → mean across `rows`; the whole scope as one heat-map column. */
+  scores: Record<string, number>;
+  scored: number;
+  total: number;
+  overall: number | null;
+  rows: RollupRow[];
+  reviews: ReceivedReview[];
+};
+
+export async function fetchPerformanceRollup(input: {
+  month: string;
+  scope: RollupScope;
+  account_id?: string | null;
+  project_id?: string | null;
+}): Promise<PerformanceRollup> {
+  const params = new URLSearchParams({ month: input.month, scope: input.scope });
+  if (input.account_id) params.set('account_id', input.account_id);
+  if (input.project_id) params.set('project_id', input.project_id);
+  const res = await fetch(`/api/people/v1/performance/rollup?${params}`, {
+    credentials: 'include',
+  });
+  return handleResponse<PerformanceRollup>(res);
+}

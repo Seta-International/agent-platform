@@ -11,57 +11,51 @@ import {
   Text,
   VStack,
 } from '@seta/shared-ui';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import type { PerformanceGroupAxis } from '../mock/performance-scores.ts';
-import {
-  type TlDashboardData,
-  type TlMemberRow,
-  type TlReviewState,
-  tlDashboardFixture,
-} from '../mock/performance-tl-fixture.ts';
+import type { PerformanceRollup, RollupRow } from '../api/people-client.ts';
+import { performanceRollupOptions } from '../api/performance-query.ts';
+import { formatScore, progressPct } from '../lib/performance-scores.ts';
 import { formatPerformanceMonth } from '../nav/performance-dashboard.ts';
 import { type HeatColumn, PillarHeatmap } from './performance-pillar-heatmap.tsx';
+import { CycleEmptyNote, RollupBoundary } from './performance-rollup-boundary.tsx';
 import { BandLegend, KpiTile } from './performance-score-bits.tsx';
 import { groupScoreColumns, PersonCell, totalColumn } from './performance-score-table.tsx';
 
-const MY_REVIEW_COPY: Record<TlReviewState, { value: string; hint: string }> = {
-  not_ready: { value: 'Not ready', hint: 'cycle open' },
-  pending: { value: 'Pending', hint: 'awaiting' },
-  submitted: { value: 'Submitted', hint: 'from your AM' },
-};
+type MemberRow = RollupRow & Record<string, unknown>;
 
 // ---- Evaluate-each-member table -----------------------------------------
 
 function EvaluateMembersTable({
-  groups,
-  project,
+  rollup,
+  members,
 }: {
-  groups: readonly PerformanceGroupAxis[];
-  project: TlDashboardData;
+  rollup: PerformanceRollup;
+  members: readonly RollupRow[];
 }) {
-  const columns = useMemo<TableColumn<TlMemberRow & Record<string, unknown>>[]>(
+  const columns = useMemo<TableColumn<MemberRow>[]>(
     () => [
       {
         key: 'name',
         header: 'Member',
         width: proportional(2),
-        renderCell: (m) => <PersonCell name={m.name} role={m.role} />,
+        renderCell: (m) => <PersonCell name={m.name} role={m.subtitle} />,
       },
-      ...groupScoreColumns<TlMemberRow & Record<string, unknown>>(groups, (m) => m.scores),
-      totalColumn<TlMemberRow & Record<string, unknown>>((m) => m.total),
+      ...groupScoreColumns<MemberRow>(rollup.groups, (m) => m.scores),
+      totalColumn<MemberRow>((m) => m.overall),
       {
         key: 'review',
         header: 'Review',
         align: 'end',
         width: pixel(200),
         renderCell: (m) => {
-          const evaluated = m.status === 'evaluated';
+          const evaluated = m.scored > 0;
           return (
             <HStack gap={2} vAlign="center" hAlign="end">
               {evaluated ? (
                 <Badge variant="success" label="Evaluated" />
               ) : (
-                <Badge variant="neutral" label="Auto · pending" />
+                <Badge variant="neutral" label="Not evaluated" />
               )}
               <Button size="sm" variant="secondary" label={evaluated ? 'Edit' : 'Evaluate'} />
             </HStack>
@@ -69,18 +63,18 @@ function EvaluateMembersTable({
         },
       },
     ],
-    [groups],
+    [rollup.groups],
   );
 
   return (
     <VStack gap={2}>
       <Text as="h3" size="base" weight="semibold">
-        {project.project_name} — evaluate each member
+        {rollup.label} — evaluate each member
       </Text>
-      <Table<TlMemberRow & Record<string, unknown>>
-        data={project.members as (TlMemberRow & Record<string, unknown>)[]}
+      <Table<MemberRow>
+        data={members as MemberRow[]}
         columns={columns}
-        idKey="member_id"
+        idKey="id"
         density="balanced"
         hasHover
         data-testid="evaluate-members-table"
@@ -91,79 +85,91 @@ function EvaluateMembersTable({
 
 // ---- Dashboard ----------------------------------------------------------
 
-export function PerformanceTlDashboard({
-  groups,
-  projectName,
-  month,
-}: {
-  groups: readonly PerformanceGroupAxis[];
-  projectName: string;
-  month: string;
-}) {
-  const cycleLabel = formatPerformanceMonth(month);
-  const data = useMemo(
-    () => tlDashboardFixture(groups, projectName, cycleLabel),
-    [groups, projectName, cycleLabel],
+/**
+ * The Team Lead's project view. The roll-up returns every person allocated to the
+ * project including the lead themselves; the lead's own row is their AM's review of
+ * them, so it is split out of the "people I evaluate" table.
+ */
+export function PerformanceTlDashboard({ projectId, month }: { projectId: string; month: string }) {
+  const query = useQuery(
+    performanceRollupOptions({ month, scope: 'project', project_id: projectId }),
   );
-  const review = MY_REVIEW_COPY[data.my_review_state];
-  const pct = data.team_size === 0 ? 0 : Math.round((data.evaluated_count / data.team_size) * 100);
-
-  const heatColumns: HeatColumn[] = [
-    {
-      id: data.project_id,
-      title: data.project_name,
-      subtitle: `${data.team_size} ppl ▾`,
-      scores: data.project_scores,
-      overall: data.project_overall,
-    },
-  ];
+  const cycleLabel = formatPerformanceMonth(month);
 
   return (
-    <VStack gap={4} data-testid="performance-home">
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiTile
-          label="My team"
-          value={`${data.team_size}`}
-          hint="to evaluate this month"
-          valueColor="var(--color-text-accent)"
-        />
-        <KpiTile
-          label="Evaluated"
-          value={`${data.evaluated_count}/${data.team_size}`}
-          hint={`${pct}% done`}
-          valueColor="var(--color-text-green)"
-        />
-        <KpiTile
-          label="Team avg"
-          value={data.team_avg.toFixed(2)}
-          hint="this period"
-          valueColor="var(--color-text-green)"
-        />
-        <KpiTile label="My review (AM)" value={review.value} hint={review.hint} />
-      </div>
+    <RollupBoundary query={query}>
+      {(rollup) => {
+        const mine = rollup.rows.find((r) => r.is_lead) ?? null;
+        const members = rollup.rows.filter((r) => !r.is_lead);
+        const evaluated = members.filter((m) => m.scored > 0).length;
 
-      {/* One cohesive block: project rollup heatmap → legend → evaluate members */}
-      <Card padding={4}>
-        <VStack gap={3}>
-          <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
-            <Text as="h2" size="lg" weight="semibold">
-              My project — pillar scores
-            </Text>
-            <Text size="sm" color="secondary">
-              rolls up from your member evaluations · {cycleLabel}
-            </Text>
-          </HStack>
+        const heatColumns: HeatColumn[] = [
+          {
+            id: projectId,
+            title: rollup.label,
+            subtitle: `${rollup.rows.length} ppl`,
+            scores: rollup.scores,
+            overall: rollup.overall,
+          },
+        ];
 
-          <PillarHeatmap groups={data.groups} columns={heatColumns} selectedId={data.project_id} />
+        return (
+          <VStack gap={4} data-testid="performance-home">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <KpiTile
+                label="My team"
+                value={`${members.length}`}
+                hint="to evaluate this month"
+                valueColor="var(--color-text-accent)"
+              />
+              <KpiTile
+                label="Evaluated"
+                value={`${evaluated}/${members.length}`}
+                hint={`${progressPct(evaluated, members.length)}% done`}
+                valueColor="var(--color-text-green)"
+              />
+              <KpiTile label="Team avg" value={formatScore(rollup.overall)} hint="this period" />
+              <KpiTile
+                label="My review (AM)"
+                value={mine && mine.scored > 0 ? formatScore(mine.overall) : 'Pending'}
+                hint={mine && mine.scored > 0 ? 'from your AM' : 'awaiting your AM'}
+              />
+            </div>
 
-          <BandLegend />
+            <Card padding={4}>
+              <VStack gap={3}>
+                <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
+                  <Text as="h2" size="lg" weight="semibold">
+                    My project — pillar scores
+                  </Text>
+                  <Text size="sm" color="secondary">
+                    rolls up from your member evaluations · {cycleLabel}
+                  </Text>
+                </HStack>
 
-          <Divider />
+                <PillarHeatmap
+                  groups={rollup.groups}
+                  columns={heatColumns}
+                  selectedId={projectId}
+                />
 
-          <EvaluateMembersTable groups={data.groups} project={data} />
-        </VStack>
-      </Card>
-    </VStack>
+                <BandLegend />
+                <CycleEmptyNote scored={rollup.scored} total={rollup.total} />
+
+                <Divider />
+
+                {members.length === 0 ? (
+                  <Text color="secondary">
+                    Nobody else is allocated to this project this cycle.
+                  </Text>
+                ) : (
+                  <EvaluateMembersTable rollup={rollup} members={members} />
+                )}
+              </VStack>
+            </Card>
+          </VStack>
+        );
+      }}
+    </RollupBoundary>
   );
 }
