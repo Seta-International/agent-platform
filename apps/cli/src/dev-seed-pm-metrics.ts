@@ -18,17 +18,20 @@ import { fileURLToPath } from 'node:url';
 import { coreDb } from '@seta/core/db';
 import { createUser, grantRole } from '@seta/identity';
 import { getCurrentIsoWeek } from '@seta/pm';
-import {
-  type BandCondition,
-  computeEntryStatus,
-  computeScoredValue,
-  kpiValuePrecision,
-  type RagStatus,
-} from '@seta/pm/contracts';
+import type { RagStatus } from '@seta/pm/contracts';
 import { closePools, initPools } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
 import { parseEnv } from './env.ts';
+import {
+  buildEntry,
+  CATEGORIES,
+  type CatalogMetric,
+  type KpiCategory,
+  previousIsoWeeks,
+  shift,
+  worst,
+} from './pm-demo-kpi.ts';
 
 const log = pino({ name: 'cli/dev-seed-pm-metrics' });
 
@@ -38,9 +41,6 @@ initPools({ databaseUrl: env.DATABASE_URL });
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@example.com';
 const WEEKS_BACK = 8; // current week + 7 prior — fills the 5-week trend and gives week-nav history.
-
-type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
-const CATEGORIES: readonly KpiCategory[] = ['quality', 'cost_capacity', 'delivery', 'process'];
 
 // ── Demo people (pm.person_projection is normally filled by the worker-projection subscriber;
 // we insert directly for the demo). ────────────────────────────────────────────────────────
@@ -334,62 +334,6 @@ function generatedProjects(): DemoProject[] {
 
 const PROJECTS: DemoProject[] = [...CURATED_PROJECTS, ...generatedProjects()];
 
-// ── ISO-week arithmetic (Dec 28 is always in the last ISO week of its year) ─────────────────
-function isoWeeksInYear(year: number): number {
-  const d = new Date(Date.UTC(year, 11, 28));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-}
-function previousIsoWeeks(
-  iso_year: number,
-  iso_week: number,
-  count: number,
-): { iso_year: number; iso_week: number }[] {
-  const weeks = [{ iso_year, iso_week }];
-  let y = iso_year;
-  let w = iso_week;
-  while (weeks.length < count) {
-    if (w > 1) w -= 1;
-    else {
-      y -= 1;
-      w = isoWeeksInYear(y);
-    }
-    weeks.push({ iso_year: y, iso_week: w });
-  }
-  return weeks;
-}
-
-// ── RAG helpers ─────────────────────────────────────────────────────────────────────────────
-const RANK: Record<RagStatus, number> = { green: 0, yellow: 1, red: 2 };
-const BY_RANK: RagStatus[] = ['green', 'yellow', 'red'];
-const shift = (s: RagStatus, n: number): RagStatus =>
-  BY_RANK[Math.max(0, Math.min(2, RANK[s] + n))]!;
-const worst = (xs: RagStatus[]): RagStatus =>
-  xs.reduce((w, s) => (RANK[s] > RANK[w] ? s : w), 'green' as RagStatus);
-const round4 = (x: number): number => Math.round(x * 10_000) / 10_000;
-
-/** A value comfortably in the interior of a band (not on a boundary), so rounding can't push
- * it into a neighbouring band. */
-function pickInterior(cond: BandCondition): number {
-  switch (cond.op) {
-    case 'lte':
-    case 'lt':
-      return cond.value > 0 ? round4(cond.value * 0.6) : round4(cond.value - 0.5);
-    case 'gte':
-    case 'gt':
-      return round4(cond.value + Math.max(0.03, Math.abs(cond.value) * 0.05));
-    case 'eq':
-      return cond.value;
-    case 'between':
-      return round4((cond.min + cond.max) / 2);
-    case 'or':
-    case 'and':
-      return pickInterior(cond.conditions[0]!);
-  }
-}
-
 /** Current-week base health, moved for the driver category across the trend (offset 0 = current
  * week = the "best" end for an improving project, the "worst" end for a worsening one). */
 function categoryTarget(p: DemoProject, offset: number): Record<KpiCategory, RagStatus> {
@@ -398,38 +342,6 @@ function categoryTarget(p: DemoProject, offset: number): Record<KpiCategory, Rag
   const step = Math.min(offset, 2);
   out[p.driver] = shift(p.base[p.driver], p.dir === 'improving' ? step : -step);
   return out;
-}
-
-interface CatalogMetric {
-  id: string;
-  category: KpiCategory;
-  component_count: 1 | 2;
-  green_band: BandCondition;
-  yellow_band: BandCondition;
-  red_band: BandCondition;
-}
-
-/** Build (component values, computed value, status) for one metric at a target RAG. */
-function buildEntry(m: CatalogMetric, target: RagStatus) {
-  const band = target === 'green' ? m.green_band : target === 'yellow' ? m.yellow_band : m.red_band;
-  const value = pickInterior(band);
-  let c1: number;
-  let c2: number | null;
-  if (m.component_count === 1) {
-    c1 = round4(value);
-    c2 = null;
-  } else {
-    c2 = 20; // readable denominator; the ratio c1/c2 reproduces `value`.
-    c1 = round4(value * c2);
-  }
-  const computed = computeScoredValue(
-    m.component_count,
-    c1,
-    c2,
-    kpiValuePrecision(m.green_band, m.yellow_band, m.red_band),
-  );
-  const status = computeEntryStatus(computed, m.green_band, m.yellow_band, m.red_band);
-  return { c1, c2, computed, status };
 }
 
 async function main(): Promise<void> {
