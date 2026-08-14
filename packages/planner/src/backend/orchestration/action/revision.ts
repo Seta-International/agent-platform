@@ -150,20 +150,25 @@ export async function refuseIfPreviewOpen(opts: {
 }
 
 /**
- * The tasks a persisted argsPatch is about.
+ * The tasks a persisted argsPatch is about — every card shape, because Part 4's
+ * server-side revision matching compares this against the tasks the turn
+ * resolved, and a shape it cannot read would silently match nothing.
  *
- * Two shapes, because the cards have two: update and bulk carry
- * `targets: [{ taskId, expectedVersion }]`, while assign and comment carry a bare
- * `taskId`. Link and merge name their endpoints with their own field names and
- * read them directly.
+ * Four shapes: update and bulk carry `targets: [{ taskId, expectedVersion }]`;
+ * assign and comment carry a bare `taskId`; link and merge name their two
+ * endpoints. A create draft has no task yet and correctly yields nothing.
  */
 export function taskIdsFromArgsPatch(argsPatch: Record<string, unknown>): string[] {
-  const { targets, taskId } = argsPatch;
+  const { targets, taskId, sourceTaskId, targetTaskId, duplicateTaskId, keepTaskId } = argsPatch;
   if (Array.isArray(targets)) {
     return targets
       .map((t) => (t as { taskId?: unknown } | null)?.taskId)
       .filter((id): id is string => typeof id === 'string');
   }
+  const pair = [sourceTaskId ?? duplicateTaskId, targetTaskId ?? keepTaskId].filter(
+    (id): id is string => typeof id === 'string',
+  );
+  if (pair.length > 0) return pair;
   return typeof taskId === 'string' ? [taskId] : [];
 }
 

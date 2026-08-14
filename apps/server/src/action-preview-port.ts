@@ -1,6 +1,11 @@
 import { findOpenChatPreview, findOpenPreviewsForTasks, loadChatPreviewById } from '@seta/agent';
 import type { ApprovalCard } from '@seta/agent-sdk';
-import type { ActionOpenPreview, LoadedPreview, PreviewPort } from '@seta/planner/orchestration';
+import {
+  type ActionOpenPreview,
+  type LoadedPreview,
+  type PreviewPort,
+  taskIdsFromArgsPatch,
+} from '@seta/planner/orchestration';
 
 /** The one runtime whose cards A2 may revise. The recommend runtime's cards are
  *  authored by planner.assignment-orchestrator and are deliberately out of scope
@@ -63,12 +68,15 @@ function proposedRowsFromCard(card: ApprovalCard): Array<{ k: string; v: string 
 /**
  * The chat router's open-preview lookup, bound to the one revisable runtime.
  *
- * Returns only what the prompt and design D15 need: the approval id the tool
- * compares the model's `revisionOf` against, the tool that owns the card, the
- * card's own intent line (which names the task, for design D19), and the rows the
- * user can see. The machine-readable `argsPatch` is deliberately NOT forwarded —
- * Part 2's tools re-read the persisted card, so keeping the proposal out of the
- * prompt means no argsPatch value can be smuggled back in through model text.
+ * Returns only what the prompt and design D20 need: the approval id the server
+ * revises without asking the model for it (design D20), the tool that owns the
+ * card, the card's own intent line (which names the task, for design D19), and the
+ * rows the user can see.
+ *
+ * The machine-readable `argsPatch` is still NOT forwarded — the tools re-read the
+ * persisted card — but `taskIds` is, because the server needs it to decide whether
+ * this turn adjusts the card. Ids are safe to forward precisely because the model
+ * never sends one back.
  */
 export function makeFindOpenPreview() {
   return async function findOpenPreview(args: {
@@ -86,6 +94,7 @@ export function makeFindOpenPreview() {
       approvalId: found.approvalId,
       toolId: found.card.meta.toolId,
       intent: found.card.intent,
+      taskIds: taskIdsFromArgsPatch(found.card.primary.argsPatch ?? {}),
       proposedRows: proposedRowsFromCard(found.card),
     };
   };

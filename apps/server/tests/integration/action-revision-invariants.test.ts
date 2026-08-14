@@ -237,6 +237,7 @@ describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
         approvalId: cardB.approvalId!,
         toolId: 'planner_updateTask',
         intent: 'Update "Task B"',
+        taskIds: [b!.taskId],
         proposedRows: [],
       });
       const out = await proposeThroughTool({
@@ -282,6 +283,7 @@ describe('FUT-840 — an adjustment never retargets or widens (AC5)', () => {
         approvalId: victimCard.approvalId!,
         toolId: 'planner_updateTask',
         intent: 'Update "Victim task"',
+        taskIds: [victim.tasks[0]!.taskId],
         proposedRows: [],
       });
       const out = await proposeThroughTool({

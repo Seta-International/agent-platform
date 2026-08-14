@@ -119,6 +119,11 @@ export const OpenPreviewSchema = z.object({
   /** The card's `intent`, e.g. `Update "Deploy API"` — it names the task, which
    *  design D19 requires A2 to echo back. */
   intent: z.string(),
+  /** The tasks the card is about, read off its persisted argsPatch. The server
+   *  matches these against the tasks the turn resolved to decide whether this
+   *  call adjusts the card or is a new request (design D20). Empty for a create
+   *  draft, which has no task yet. */
+  taskIds: z.array(z.string()),
   proposedRows: z.array(z.object({ k: z.string(), v: z.string() })),
 });
 export type ActionOpenPreview = z.infer<typeof OpenPreviewSchema>;

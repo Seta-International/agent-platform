@@ -37,6 +37,7 @@ const openPreview = {
   approvalId: OPEN_ID,
   toolId: 'planner_updateTask',
   intent: 'Update "Deploy API"',
+  taskIds: [TASK_A],
   proposedRows: [{ k: 'Due', v: '12 Aug → 15 Aug' }],
 };
 
@@ -258,6 +259,18 @@ describe('taskIdsFromArgsPatch', () => {
 
   it('reads the singular taskId shape assign and comment use', () => {
     expect(taskIdsFromArgsPatch({ taskId: 'a' })).toEqual(['a']);
+  });
+
+  it('reads both link endpoints', () => {
+    expect(taskIdsFromArgsPatch({ sourceTaskId: 'a', targetTaskId: 'b' })).toEqual(['a', 'b']);
+  });
+
+  it('reads both merge endpoints', () => {
+    expect(taskIdsFromArgsPatch({ duplicateTaskId: 'a', keepTaskId: 'b' })).toEqual(['a', 'b']);
+  });
+
+  it('returns nothing for a create draft, which has no task yet', () => {
+    expect(taskIdsFromArgsPatch({ draft: { title: 'x' } })).toEqual([]);
   });
 
   it('returns [] for a patch with neither, rather than throwing', () => {
