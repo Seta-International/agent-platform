@@ -22,7 +22,9 @@ describe('targetAllocationErrors', () => {
 
   it('allows a start date of today or later', () => {
     expect(targetAllocationErrors([span({ date_from: '2026-07-10' })], [], TODAY)).toEqual([null]);
-    expect(targetAllocationErrors([span({ date_from: '2026-09-01' })], [], TODAY)).toEqual([null]);
+    expect(
+      targetAllocationErrors([span({ date_from: '2026-09-01', date_to: '2026-10-01' })], [], TODAY),
+    ).toEqual([null]);
   });
 
   it('flags overlap with an existing allocation on the same project', () => {
@@ -52,11 +54,28 @@ describe('targetAllocationErrors', () => {
     ]);
   });
 
-  it('treats a null existing end date as open-ended (always overlaps a later start)', () => {
-    const existing = [{ project_id: 'p1', date_from: '2026-01-01', date_to: null }];
-    expect(targetAllocationErrors([span({ date_from: '2026-09-01' })], existing, TODAY)).toEqual([
-      TARGET_ERROR.overlap,
+  it('flags a missing start date', () => {
+    expect(targetAllocationErrors([span({ date_from: '' })], [], TODAY)).toEqual([
+      TARGET_ERROR.missingStartDate,
     ]);
+  });
+
+  it('flags a missing end date', () => {
+    expect(targetAllocationErrors([span({ date_to: '' })], [], TODAY)).toEqual([
+      TARGET_ERROR.missingEndDate,
+    ]);
+  });
+
+  it('flags missing both start and end date', () => {
+    expect(targetAllocationErrors([span({ date_from: '', date_to: '' })], [], TODAY)).toEqual([
+      TARGET_ERROR.missingDates,
+    ]);
+  });
+
+  it('flags an end date before start date', () => {
+    expect(
+      targetAllocationErrors([span({ date_from: '2026-07-20', date_to: '2026-07-10' })], [], TODAY),
+    ).toEqual([TARGET_ERROR.invalidEndDate]);
   });
 });
 

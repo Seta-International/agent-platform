@@ -50,6 +50,10 @@ export function rangesOverlap(
 export const TARGET_ERROR = {
   pastStart: 'Start date cannot be in the past.',
   overlap: 'Overlaps another allocation on this project.',
+  missingDates: 'Start date and end date are required.',
+  missingStartDate: 'Start date is required.',
+  missingEndDate: 'End date is required.',
+  invalidEndDate: 'End date cannot be before start date.',
 } as const;
 
 interface TargetSpan {
@@ -65,9 +69,9 @@ interface ExistingSpan {
 
 /**
  * Per-row validation for the "Add project" allocations, returning an error message (or null)
- * for each target: (1) a start date before `today` is invalid; (2) a target that shares a
- * project with another target row or an existing allocation and overlaps it in time is invalid.
- * Rows with missing/invalid dates or no project yet defer to the other required-field gating.
+ * for each target: (1) missing start/end date; (2) a start date before `today`; (3) an end date
+ * before the start date; (4) a target that shares a project with another target row or an
+ * existing allocation and overlaps it in time. Rows with no project yet defer project overlap check.
  */
 export function targetAllocationErrors(
   targets: TargetSpan[],
@@ -75,9 +79,15 @@ export function targetAllocationErrors(
   today: string,
 ): (string | null)[] {
   return targets.map((t, i) => {
-    if (isValidIsoDate(t.date_from) && t.date_from < today) return TARGET_ERROR.pastStart;
-    if (!t.project_id || !isValidIsoDate(t.date_from)) return null;
-    const tTo = isValidIsoDate(t.date_to) ? t.date_to : null;
+    const hasFrom = isValidIsoDate(t.date_from);
+    const hasTo = isValidIsoDate(t.date_to);
+    if (!hasFrom && !hasTo) return TARGET_ERROR.missingDates;
+    if (!hasFrom) return TARGET_ERROR.missingStartDate;
+    if (!hasTo) return TARGET_ERROR.missingEndDate;
+    if (t.date_from < today) return TARGET_ERROR.pastStart;
+    if (t.date_to < t.date_from) return TARGET_ERROR.invalidEndDate;
+    if (!t.project_id) return null;
+    const tTo = t.date_to;
     const clashesExisting = existing.some(
       (e) =>
         e.project_id === t.project_id &&

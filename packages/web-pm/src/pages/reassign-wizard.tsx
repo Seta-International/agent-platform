@@ -441,6 +441,33 @@ export function ReassignWizardDialog({
         targetErrors[i] == null,
     );
 
+  const reviewDisabledReason = useMemo(() => {
+    if (canReview) return null;
+    if (targetRows.length === 0) {
+      return 'Add at least one project allocation to review impact.';
+    }
+    for (const [i, r] of targetRows.entries()) {
+      const err = targetErrors[i];
+      if (err) return err;
+      if (!r.account_id || !r.project_id) {
+        return 'Select an account and project for all allocations.';
+      }
+      if (!r.planned_pct || Number(r.planned_pct) <= 0) {
+        return 'Select a valid allocation percentage.';
+      }
+      if (!isValidIsoDate(r.date_from) && !isValidIsoDate(r.date_to)) {
+        return 'Start date and end date are required.';
+      }
+      if (!isValidIsoDate(r.date_from)) {
+        return 'Start date is required.';
+      }
+      if (!isValidIsoDate(r.date_to)) {
+        return 'End date is required.';
+      }
+    }
+    return 'Complete all required fields to continue.';
+  }, [canReview, targetRows, targetErrors]);
+
   const dialogScrollRef = useRef<HTMLDivElement>(null);
 
   // Opening the Account/Project combobox autofocuses its search input, and the
@@ -746,8 +773,12 @@ export function ReassignWizardDialog({
                           <div className="text-left font-medium">
                             Allocation <span className="text-error">*</span>
                           </div>
-                          <div className="text-left font-medium">Start date</div>
-                          <div className="text-left font-medium">End date</div>
+                          <div className="text-left font-medium">
+                            Start date <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            End date <span className="text-error">*</span>
+                          </div>
                           <div className="text-left font-medium">Type</div>
                           <div className="text-left font-medium">Action</div>
                         </div>
@@ -790,13 +821,15 @@ export function ReassignWizardDialog({
               {step === 1 ? (
                 <>
                   <Button variant="ghost" label="Cancel" onClick={onClose} />
-                  <Button
-                    variant="primary"
-                    isDisabled={!canReview}
-                    label="Review impact"
-                    endContent={<ArrowRight className="size-4" />}
-                    onClick={() => void goToReview()}
-                  />
+                  <DisabledActionTooltip disabled={!canReview} reason={reviewDisabledReason}>
+                    <Button
+                      variant="primary"
+                      isDisabled={!canReview}
+                      label="Review impact"
+                      endContent={<ArrowRight className="size-4" />}
+                      onClick={() => void goToReview()}
+                    />
+                  </DisabledActionTooltip>
                 </>
               ) : (
                 <>
