@@ -303,3 +303,104 @@ export const savePerformanceConfigResponse = z.object({
   applies_to_next_cycle: z.boolean(),
 });
 export type SavePerformanceConfigResponse = z.infer<typeof savePerformanceConfigResponse>;
+
+// --- Evaluate (FUT-784) ---------------------------------------------------
+
+export const evaluationStatus = z.enum(['draft', 'submitted']);
+export type EvaluationStatus = z.infer<typeof evaluationStatus>;
+
+export const evaluatorCapacity = z.enum(['tl', 'am']);
+export type EvaluatorCapacity = z.infer<typeof evaluatorCapacity>;
+
+/** Criterion scores are whole numbers on this scale; nothing outside it is offered (AC2). */
+export const SCORE_MIN = 1;
+export const SCORE_MAX = 5;
+/** Below this a Top Action is mandatory (AC3). */
+export const TOP_ACTION_REQUIRED_BELOW = 4;
+
+export const evaluationScoreInput = z.object({
+  criterion_id: z.string().uuid(),
+  /** Null = not scored yet. A draft may hold nulls; a submit may not (AC4). */
+  score: z.number().int().min(SCORE_MIN).max(SCORE_MAX).nullable(),
+  evidence: z.string().trim().max(2000).default(''),
+});
+export type EvaluationScoreInput = z.infer<typeof evaluationScoreInput>;
+
+/** Which evaluation the form is for: one subject, on one project, for one month. */
+export const evaluationTargetQuery = z.object({
+  month: monthYm,
+  subject_person_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+});
+export type EvaluationTargetQuery = z.infer<typeof evaluationTargetQuery>;
+
+export const evaluationWriteInput = z.object({
+  month: monthYm,
+  subject_person_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  /**
+   * The version the form was loaded at — a mismatch means another tab wrote (AC8).
+   * Zero means "no evaluation existed when I loaded", so only an insert may follow.
+   */
+  base_version: z.number().int().nonnegative(),
+  scores: z.array(evaluationScoreInput),
+  strengths: z.string().trim().max(4000).default(''),
+  improve: z.string().trim().max(4000).default(''),
+  top_action: z.string().trim().max(1000).default(''),
+});
+export type EvaluationWriteInput = z.infer<typeof evaluationWriteInput>;
+
+export const evaluationCriterionView = z.object({
+  criterion_id: z.string().uuid(),
+  name: z.string(),
+  /** Read-only in the form (AC2). */
+  weight: z.number(),
+  sort: z.number().int(),
+  score: z.number().int().nullable(),
+  evidence: z.string(),
+  /** True when this criterion's current score makes evidence mandatory (AC3). */
+  evidence_required: z.boolean(),
+});
+export type EvaluationCriterionView = z.infer<typeof evaluationCriterionView>;
+
+export const evaluationGroupView = z.object({
+  group_id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  weight: z.number(),
+  sort: z.number().int(),
+  criteria: z.array(evaluationCriterionView),
+});
+export type EvaluationGroupView = z.infer<typeof evaluationGroupView>;
+
+/**
+ * The evaluation form (AC1). `overall` is null until the evaluation is submitted —
+ * the UI renders "—", never 0 and never an estimate (AC5).
+ */
+export const evaluationView = z.object({
+  month: monthYm,
+  cycle_status: cycleStatusEnum,
+  /** False for a closed month with no unlock — the form renders read-only (AC7). */
+  editable: z.boolean(),
+  subject: z.object({
+    person_id: z.string().uuid(),
+    full_name: z.string(),
+    project_id: z.string().uuid(),
+    project_name: z.string(),
+    account_id: z.string().uuid(),
+  }),
+  evaluator_capacity: evaluatorCapacity,
+  status: evaluationStatus,
+  /** 0 until the first save; every write bumps it. Echo it back as `base_version`. */
+  version: z.number().int().nonnegative(),
+  revision_id: z.string().uuid(),
+  overall: z.number().nullable(),
+  strengths: z.string(),
+  improve: z.string(),
+  top_action: z.string(),
+  /** True when any score is below 4, so a Top Action must be given (AC3). */
+  top_action_required: z.boolean(),
+  submitted_at: z.string().datetime().nullable(),
+  groups: z.array(evaluationGroupView),
+});
+export type EvaluationView = z.infer<typeof evaluationView>;

@@ -22,6 +22,11 @@ export {
 } from './backend/domain/cycle-unlock.ts';
 export { type DeleteOrgUnitInput, deleteOrgUnit } from './backend/domain/delete-org-unit.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
+export {
+  readEvaluation,
+  saveEvaluationDraft,
+  submitEvaluation,
+} from './backend/domain/evaluation.ts';
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
 export { listDirectory } from './backend/domain/list-directory.ts';
 export {

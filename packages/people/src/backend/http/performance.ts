@@ -4,11 +4,14 @@ import {
   cycleRelockInput,
   cycleStatusQuery,
   cycleUnlockInput,
+  evaluationTargetQuery,
+  evaluationWriteInput,
   monthTasksQuery,
   performanceContextInput,
   savePerformanceConfigInput,
 } from '../../contracts.ts';
 import { readCycleUnlockPanel, relockCycle, unlockCycle } from '../domain/cycle-unlock.ts';
+import { readEvaluation, saveEvaluationDraft, submitEvaluation } from '../domain/evaluation.ts';
 import { vnYearMonth } from '../domain/month-clock.ts';
 import { parseCycleMonthOrThrow, readCycleStatus } from '../domain/read-cycle-status.ts';
 import { readMonthTasks } from '../domain/read-month-tasks.ts';
@@ -37,6 +40,25 @@ export function registerPeoplePerformanceRoutes(app: Hono<SessionEnv>): void {
       month: parseCycleMonthOrThrow(c.req.query('month')),
     });
     return c.json(await readMonthTasks(c.get('user'), input));
+  });
+
+  app.get('/api/people/v1/performance/evaluation', async (c) => {
+    const input = evaluationTargetQuery.parse({
+      month: parseCycleMonthOrThrow(c.req.query('month')),
+      subject_person_id: c.req.query('subject_person_id'),
+      project_id: c.req.query('project_id'),
+    });
+    return c.json(await readEvaluation(c.get('user'), input));
+  });
+
+  app.put('/api/people/v1/performance/evaluation', async (c) => {
+    const input = evaluationWriteInput.parse(await c.req.json());
+    return c.json(await saveEvaluationDraft(c.get('user'), input));
+  });
+
+  app.post('/api/people/v1/performance/evaluation/submit', async (c) => {
+    const input = evaluationWriteInput.parse(await c.req.json());
+    return c.json(await submitEvaluation(c.get('user'), input));
   });
 
   app.get('/api/people/v1/performance/cycle-unlocks', async (c) => {
