@@ -1,5 +1,5 @@
 import type { ApprovalCard } from '@seta/agent-sdk';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { getPendingAssignRunIdForTask } from './get-pending-assign-run-for-task.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,6 +130,75 @@ function taskIdFromCard(card: ApprovalCard): string | null {
 }
 
 /**
+ * FUT-806's assign REUSE branch, unchanged in behaviour and moved inside the
+ * writer's transaction so it composes with the advisory lock.
+ *
+ * Returns the existing card's ids when there is one to reuse, null when the task
+ * has no assignment proposal in flight, and throws
+ * `PendingAssignmentExistsError` for the fail-open case: a pending evented run
+ * that has not reached its suspend step, so there is no approval row to hand
+ * back and racing it would spawn a duplicate.
+ *
+ * `getPendingAssignRunIdForTask` runs on its own connection (it takes no tx).
+ * Safe: the advisory lock already serializes concurrent turns on this key, so by
+ * the time this runs any competing turn has committed and is visible.
+ */
+async function reusePendingAssignCard(
+  client: PoolClient,
+  args: { taskId: string; tenantId: string; userId: string; threadId: string | null },
+): Promise<WriteChatApprovalRowResult | null> {
+  const existingRunId = await getPendingAssignRunIdForTask({
+    taskId: args.taskId,
+    tenantId: args.tenantId,
+  });
+  if (!existingRunId) return null;
+
+  const existing = await client.query<{
+    approval_id: string;
+    approver_user_id: string;
+    surface_chat_thread_id: string | null;
+  }>(
+    `SELECT approval_id, approver_user_id, surface_chat_thread_id
+       FROM agent.workflow_approvals
+      WHERE run_id = $1 AND status = 'pending'
+      ORDER BY created_at DESC LIMIT 1`,
+    [existingRunId],
+  );
+  const row = existing.rows[0];
+  if (!row) {
+    // A pending evented run exists but hasn't reached its suspend step, so there
+    // is no approval row to reuse. Fail open: skip writing a competing card
+    // rather than race the in-flight workflow.
+    throw new PendingAssignmentExistsError(args.taskId);
+  }
+
+  // The pending card follows its approver: when the same user re-asks from a new
+  // thread, rebind the card there so "the approval card above" stays true.
+  // Another approver's card is never moved.
+  const sameApprover = row.approver_user_id === args.userId;
+  if (sameApprover && args.threadId && row.surface_chat_thread_id !== args.threadId) {
+    await client.query(
+      `UPDATE agent.workflow_approvals
+          SET surface_chat_thread_id = $2
+        WHERE approval_id = $1 AND status = 'pending'`,
+      [row.approval_id, args.threadId],
+    );
+  }
+  return {
+    runId: existingRunId,
+    approvalId: row.approval_id,
+    cardInThread: sameApprover && args.threadId != null,
+  };
+}
+
+/** Filled in by FUT-840's supersede half. Declared here so the transaction body
+ *  reads in its final order. */
+async function supersedeReplacedApproval(
+  _client: PoolClient,
+  _args: { approvalId: string; tenantId: string; userId: string },
+): Promise<void> {}
+
+/**
  * Projects a native-suspend `approval` event into the workflow_runs +
  * workflow_approvals read-model rows. Idempotent per task. Returns the row ids
  * and whether the card lives in the caller's thread.
@@ -150,59 +219,78 @@ export async function writeChatApprovalRow(
     dedupKeys = dedupKeysFromCard(card),
   } = opts;
 
-  // Mutex: if a pending assignment proposal already exists for this task —
-  // chat-HITL, native-suspend, or an in-flight evented assignBySkill run —
-  // reuse it instead of inserting a competing card.
   const taskId = taskIdFromCard(card);
-  const mutexTaskId = dedupKeys
-    .map((k) => taskIdFromDedupKey(k, ASSIGN_DEDUP_PREFIX))
-    .find((id) => id !== null);
-  if (mutexTaskId) {
-    const existingRunId = await getPendingAssignRunIdForTask({ taskId: mutexTaskId, tenantId });
-    if (existingRunId) {
-      const existing = await pool.query<{
-        approval_id: string;
-        approver_user_id: string;
-        surface_chat_thread_id: string | null;
-      }>(
-        `SELECT approval_id, approver_user_id, surface_chat_thread_id
-           FROM agent.workflow_approvals
-          WHERE run_id = $1 AND status = 'pending'
-          ORDER BY created_at DESC LIMIT 1`,
-        [existingRunId],
-      );
-      const row = existing.rows[0];
-      if (row) {
-        // The pending card follows its approver: when the same user re-asks
-        // from a new thread, rebind the card there so "the approval card
-        // above" stays true. Another approver's card is never moved.
-        const sameApprover = row.approver_user_id === userId;
-        if (sameApprover && threadId && row.surface_chat_thread_id !== threadId) {
-          await pool.query(
-            `UPDATE agent.workflow_approvals
-                SET surface_chat_thread_id = $2
-              WHERE approval_id = $1 AND status = 'pending'`,
-            [row.approval_id, threadId],
-          );
-        }
-        return {
-          runId: existingRunId,
-          approvalId: row.approval_id,
-          cardInThread: sameApprover && threadId != null,
-        };
-      }
-      // A pending evented run exists but hasn't reached its suspend step, so
-      // there is no approval row to reuse. Fail open: skip writing a competing
-      // card rather than race the in-flight workflow.
-      throw new PendingAssignmentExistsError(mutexTaskId);
-    }
-  }
-
   const expiresAt = new Date(Date.now() + approvalTtlHours * 60 * 60 * 1000);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
+    // ── 1. Serialize every turn that touches one of these keys ───────────────
+    // A transaction-level advisory lock, not a pre-check (design D16): a
+    // pre-check plus a best-effort guard cannot honour AC1's "at no point are two
+    // previews for the same task waiting", because two concurrent turns both see
+    // a clear table and both INSERT. Taken in SORTED order so a 20-key bulk card
+    // and a single-key card cannot deadlock against each other; released on
+    // COMMIT/ROLLBACK with no bookkeeping.
+    //
+    // hashtext collisions would serialize two unrelated keys. That is a
+    // throughput nit, never a correctness bug: the checks below run inside the
+    // lock and decide on the real key string.
+    for (const key of [...dedupKeys].sort()) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${tenantId}:${key}`]);
+    }
+
+    // ── 2. Supersede the card this one replaces ──────────────────────────────
+    // BEFORE the mutex check, and this order is load-bearing: the row being
+    // voided holds the very `task:` key the new card declares, so checking the
+    // mutex first would make it refuse every single revision.
+    if (card.meta.supersedes) {
+      await supersedeReplacedApproval(client, {
+        approvalId: card.meta.supersedes,
+        tenantId,
+        userId,
+      });
+    }
+
+    // ── 3. The mutex, in DECLARATION order, first hit wins (design D11) ──────
+    // Two behaviours on purpose. `assign:` keeps FUT-806's REUSE, because its
+    // lookup also spans the evented planner.assignBySkill run and changing it is
+    // outside this story. `task:` REFUSES, because handing back a due-date card
+    // in reply to a rename request answers a question the user did not ask.
+    // Order matters: an A2 assign card carries BOTH keys, so without a stated
+    // precedence the same card satisfies a reuse rule and a refuse rule at once.
+    for (const key of dedupKeys) {
+      const assignTaskId = taskIdFromDedupKey(key, ASSIGN_DEDUP_PREFIX);
+      if (assignTaskId) {
+        const reused = await reusePendingAssignCard(client, {
+          taskId: assignTaskId,
+          tenantId,
+          userId,
+          threadId,
+        });
+        if (reused) {
+          await client.query('COMMIT');
+          return reused;
+        }
+        continue;
+      }
+      const previewTaskId = taskIdFromDedupKey(key, TASK_DEDUP_PREFIX);
+      if (previewTaskId) {
+        const clash = await client.query(
+          `SELECT 1 FROM agent.workflow_approvals
+            WHERE tenant_id = $1
+              AND status = 'pending'
+              AND jsonb_exists(proposed_payload -> 'meta' -> 'dedupKeys', $2)
+            LIMIT 1`,
+          [tenantId, key],
+        );
+        if (clash.rowCount && clash.rowCount > 0) {
+          throw new PendingTaskPreviewExistsError(previewTaskId);
+        }
+      }
+    }
+
+    // ── 4. The rows themselves ───────────────────────────────────────────────
     // Synthetic agentic-run row — required by the FK on workflow_approvals.
     const runRes = await client.query<{ run_id: string }>(
       `INSERT INTO agent.workflow_runs
@@ -246,5 +334,25 @@ export async function writeChatApprovalRow(
 export class PendingAssignmentExistsError extends Error {
   constructor(taskId: string) {
     super(`an assignment proposal is already in flight for task ${taskId}`);
+  }
+}
+
+/**
+ * A pending preview already exists for this task, so a second one is refused
+ * (design D11). Unlike the assign mutex, there is nothing to hand back: reusing
+ * a due-date card in reply to a rename request would answer a question the user
+ * did not ask.
+ *
+ * The mutex is per TENANT, matching the assign mutex (design D18), so the other
+ * card may belong to a different approver. The message therefore names the TASK
+ * and never the person.
+ */
+export class PendingTaskPreviewExistsError extends Error {
+  constructor(readonly taskId: string) {
+    super(
+      'There is already a proposal waiting for that task. ' +
+        'Confirm or cancel it first, then ask me again.',
+    );
+    this.name = 'PendingTaskPreviewExistsError';
   }
 }

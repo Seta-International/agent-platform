@@ -46,6 +46,9 @@ export type {
 export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-step.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
+// The one-preview-per-task refusal, public so a caller above the agent tier can
+// tell it apart from a genuine write failure (FUT-840 design D11).
+export { PendingTaskPreviewExistsError } from './backend/domain/write-chat-approval-row.ts';
 
 export { ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
 export { AgentRunStateRepository } from './backend/orchestration/run-state-repository.ts';
