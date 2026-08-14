@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
 import { useGroupSyncStatus } from '../hooks/queries/use-group-sync-status';
 import { useGroupSyncStream } from '../hooks/queries/use-group-sync-stream';
-import { PERMISSION_DENIED } from '../lib/permission-messages';
+import { LINKED_GROUP, PERMISSION_DENIED } from '../lib/permission-messages';
 import { LinkToM365Dialog } from './LinkToM365Dialog';
 import { ResolveConflictDialog } from './ResolveConflictDialog';
 import { SyncControlsMenu } from './SyncControlsMenu';
@@ -59,6 +59,7 @@ export function GroupDetailHeader({
   useGroupSyncStream(group.id);
 
   const isLinked = group.external_source !== 'native';
+  const canInvite = canManage && !isLinked;
   const syncData = syncStatusQuery.data;
   const rawSyncStatus = syncData && 'sync_status' in syncData ? syncData.sync_status : null;
   const syncedAt = syncData && 'synced_at' in syncData ? syncData.synced_at : null;
@@ -142,14 +143,17 @@ export function GroupDetailHeader({
             </DisabledActionTooltip>
           )}
           {!group.deleted_at && (
-            <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.invite}>
+            <DisabledActionTooltip
+              disabled={!canInvite}
+              reason={isLinked ? LINKED_GROUP.members : PERMISSION_DENIED.group.invite}
+            >
               <Button
                 size="sm"
                 variant="secondary"
                 label="Invite"
                 icon={<Users className="size-3" />}
                 onClick={onInviteClick}
-                isDisabled={!canManage}
+                isDisabled={!canInvite}
               />
             </DisabledActionTooltip>
           )}

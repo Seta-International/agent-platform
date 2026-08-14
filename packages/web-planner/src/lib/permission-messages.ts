@@ -37,3 +37,7 @@ export const PERMISSION_DENIED = {
     permanentDelete: "You don't have permission to permanently delete items.",
   },
 } as const;
+
+export const LINKED_GROUP = {
+  members: 'Members are managed in Microsoft 365. Add or remove them there.',
+} as const;

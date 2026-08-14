@@ -16,7 +16,7 @@ import type { ReactNode } from 'react';
 import type { GroupJoinRequestRow } from '../api/planner-client';
 import { buildActivityLabel } from '../lib/build-activity-label';
 import { absoluteActivityTime } from '../lib/format-activity-time';
-import { PERMISSION_DENIED } from '../lib/permission-messages';
+import { LINKED_GROUP, PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   group: GroupRow;
@@ -106,6 +106,8 @@ export function GroupRail({
   const memberCount = totalMemberCount ?? members.length;
   const visibleMembers = members.slice(0, shownMemberCount);
   const hasMore = memberCount > shownMemberCount;
+  const isLinkedGroup = group.external_source !== 'native';
+  const canAddMember = canManage && !isLinkedGroup;
 
   return (
     <aside className="flex flex-col gap-3 w-80">
@@ -118,14 +120,17 @@ export function GroupRail({
             </Text>
             <Badge variant="neutral" label={memberCount} />
           </div>
-          <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
+          <DisabledActionTooltip
+            disabled={!canAddMember}
+            reason={isLinkedGroup ? LINKED_GROUP.members : PERMISSION_DENIED.group.addMember}
+          >
             <IconButton
               size="sm"
               variant="ghost"
               onClick={onAddMember}
               label="Add member"
               icon={<Plus className="size-4" />}
-              isDisabled={!canManage}
+              isDisabled={!canAddMember}
             />
           </DisabledActionTooltip>
         </div>
