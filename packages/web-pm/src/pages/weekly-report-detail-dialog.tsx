@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addWeeklyReportComment,
@@ -326,6 +326,7 @@ export function WeeklyReportDetailDialog({
   // attempt, then clear live as each field is filled. Refs let the click scroll + focus the
   // first offending control.
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [riskAttempted, setRiskAttempted] = useState(false);
   const summaryRef = useRef<HTMLTextAreaElement>(null);
   const riskIssueRef = useRef<HTMLTextAreaElement>(null);
   const roadToGreenRef = useRef<HTMLTextAreaElement>(null);
@@ -358,6 +359,7 @@ export function WeeklyReportDetailDialog({
       }),
     onSuccess: () => {
       setSubmitAttempted(false); // a fresh reopen shouldn't inherit stale error styling
+      setRiskAttempted(false);
       toast.success('Report submitted');
       setFormOpen(false);
       invalidate();
@@ -397,18 +399,25 @@ export function WeeklyReportDetailDialog({
   const summaryError =
     submitAttempted && summaryMissing ? 'Add an executive summary before submitting.' : undefined;
   const riskIssueError =
-    submitAttempted && riskIssueMissing
-      ? 'Describe the risk or issue before submitting.'
-      : undefined;
+    riskAttempted && riskIssueMissing ? 'Describe the risk or issue before submitting.' : undefined;
   const roadToGreenError =
-    submitAttempted && roadToGreenMissing
+    riskAttempted && roadToGreenMissing
       ? 'A Road-to-Green action is required while a risk is active.'
       : undefined;
   const dueError =
-    submitAttempted && dueMissing ? 'Pick the week the Road-to-Green action is due.' : undefined;
+    riskAttempted && dueMissing ? 'Pick the week the Road-to-Green action is due.' : undefined;
+
+  const toggleActiveRisk = (v: boolean) => {
+    setHasActiveRisk(v);
+    setRiskIssue('');
+    setRoadToGreen('');
+    setRoadToGreenDue('');
+    setRiskAttempted(false);
+  };
 
   const handleSubmit = () => {
     setSubmitAttempted(true);
+    if (hasActiveRisk) setRiskAttempted(true);
     const target =
       riskNeedsFlag || allGreenBlocked
         ? pillarsRef
@@ -448,6 +457,7 @@ export function WeeklyReportDetailDialog({
     setHasActiveRisk(false);
     setColours(prefilledColours.current);
     setSubmitAttempted(false);
+    setRiskAttempted(false);
   };
 
   // Cancel falls back to the read view — except when the composer was the entry point (the
@@ -618,9 +628,7 @@ export function WeeklyReportDetailDialog({
                 <HStack gap={2} hAlign="between" vAlign="center">
                   {detail.stats.applied_count > 0 ? (
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 text-secondary"
+                      variant="secondary"
                       onClick={() =>
                         guardLeave(
                           () =>
@@ -635,10 +643,8 @@ export function WeeklyReportDetailDialog({
                             }),
                         )
                       }
-                    >
-                      KPI Explorer
-                      <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-                    </Button>
+                      label="KPI Explorer"
+                    />
                   ) : (
                     <span />
                   )}
@@ -915,11 +921,11 @@ export function WeeklyReportDetailDialog({
                           label="This project has active Risk / Issue this week"
                           description="Turn on if there is any risk or issue impacting the project this week."
                           value={hasActiveRisk}
-                          onChange={(v) => setHasActiveRisk(v)}
+                          onChange={toggleActiveRisk}
                         />
                       </div>
 
-                      {riskNeedsFlag && submitAttempted ? (
+                      {riskNeedsFlag && riskAttempted ? (
                         <Banner
                           status="error"
                           title="All four flags are Green. Set Q, C, D, or P to Amber or Red to report an active risk."
@@ -932,10 +938,22 @@ export function WeeklyReportDetailDialog({
                               title="Active risk detected: At least one of the 4 health flags (Q, C, D, P) must be Amber or Red."
                             />
                           ) : null}
-                          {allGreenBlocked ? (
+                          {kpiOverNorm ? (
+                            // The over-norm week is a fact that outlives the block, so the banner
+                            // stays put once a pillar carries the flag — only its wording settles
+                            // (no instruction left to give). While the week is still all-Green it
+                            // instructs, and turns red once it has actually refused a submit, so
+                            // the blocked click reads as a refusal and not a dead button — the
+                            // same escalation the risk banner above makes.
                             <Banner
-                              status="warning"
-                              title="KPIs are over norm this week. Set at least one of Q, C, D, or P to Amber or Red."
+                              status={allGreenBlocked && submitAttempted ? 'error' : 'warning'}
+                              title={
+                                !allGreenBlocked
+                                  ? 'KPIs are over norm this week.'
+                                  : submitAttempted
+                                    ? 'Report not submitted — KPIs are over norm this week. Set Q, C, D, or P to Amber or Red.'
+                                    : 'KPIs are over norm this week. Set at least one of Q, C, D, or P to Amber or Red.'
+                              }
                             />
                           ) : null}
                         </>

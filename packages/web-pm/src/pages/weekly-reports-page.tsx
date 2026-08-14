@@ -20,7 +20,7 @@ import {
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fetchAccounts, fetchProjects, fetchWeeklyReports } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import {
@@ -180,11 +180,6 @@ export function WeeklyReportsPage() {
     () => cards.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [cards, currentPage],
   );
-  const boardRef = useRef<HTMLDivElement>(null);
-  const goToPage = (next: number) => {
-    setPage(next);
-    boardRef.current?.scrollIntoView?.({ block: 'start' });
-  };
 
   const openComposer = () => {
     // Straight into the composer — the filtered project when manageable, else the first
@@ -230,7 +225,7 @@ export function WeeklyReportsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div ref={boardRef} className="space-y-4 p-6">
+          <div className="space-y-4 p-6">
             <div className="flex shrink-0 flex-wrap items-end gap-3">
               <Selector
                 label="Week"
@@ -450,7 +445,7 @@ export function WeeklyReportsPage() {
                 <div className="flex justify-center">
                   <Pagination
                     page={currentPage}
-                    onChange={goToPage}
+                    onChange={setPage}
                     totalItems={cards.length}
                     pageSize={PAGE_SIZE}
                     variant="compact"

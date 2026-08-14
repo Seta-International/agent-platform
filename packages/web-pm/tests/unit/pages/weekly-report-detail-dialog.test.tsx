@@ -221,6 +221,43 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
     expect(upsertMock).not.toHaveBeenCalled();
     expect(screen.getByText(/Set Q, C, D, or P to Amber or Red/)).toBeTruthy();
   });
+
+  it('reveals the risk block clean after a submit refused for the summary alone', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.click(submitButton());
+    expect(await screen.findByText(/Add an executive summary before submitting/)).toBeTruthy();
+
+    await user.click(riskSwitch());
+
+    expect(screen.queryByText(/Describe the risk or issue before submitting/)).toBeNull();
+    expect(screen.queryByText(/A Road-to-Green action is required/)).toBeNull();
+    expect(screen.queryByText(/Pick the week the Road-to-Green action is due/)).toBeNull();
+    expect(screen.queryByText(/All four flags are Green/)).toBeNull();
+    expect(screen.getByText(/Add an executive summary before submitting/)).toBeTruthy();
+  });
+
+  it('starts the risk block over when the switch is flipped off and on again', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.click(riskSwitch());
+    await user.type(field(/Risk \/ Issue/), 'Third-party sandbox is down.');
+    await user.type(field(/Road-to-Green action/), 'Escalate to the vendor account team.');
+    await user.click(submitButton());
+    expect(await screen.findByText(/Pick the week the Road-to-Green action is due/)).toBeTruthy();
+
+    await user.click(riskSwitch());
+    await user.click(riskSwitch());
+
+    expect((field(/Risk \/ Issue/) as HTMLTextAreaElement).value).toBe('');
+    expect((field(/Road-to-Green action/) as HTMLTextAreaElement).value).toBe('');
+    expect(screen.queryByText(/Pick the week the Road-to-Green action is due/)).toBeNull();
+    expect(screen.queryByText(/Describe the risk or issue before submitting/)).toBeNull();
+  });
 });
 
 describe('WeeklyReportDetailDialog — a viewer who is not the EM or PMO', () => {
@@ -303,6 +340,83 @@ describe('WeeklyReportDetailDialog — a week with no KPI figures', () => {
     await screen.findByRole('radiogroup', { name: /Q — Quality/ });
 
     expect(screen.getByText('Green', { selector: 'span' })).toBeTruthy();
+  });
+});
+
+describe('WeeklyReportDetailDialog — a week whose KPIs are over norm', () => {
+  const overNorm: WeeklyReportDetail = {
+    ...detail,
+    stats: {
+      applied_count: 6,
+      measured_count: 6,
+      yellow_count: 0,
+      red_count: 1,
+      worst: {
+        metric_id: 'm-2',
+        name: 'Defect Leakage',
+        computed_value: 1,
+        component_count: 2,
+        green_band: { op: 'lte', value: 0.05 },
+        status: 'red',
+      },
+    },
+  };
+
+  const overNormBanner = () =>
+    screen.getByText(/KPIs are over norm this week/).closest('[data-status]');
+
+  beforeEach(() => {
+    fetchDetailMock.mockResolvedValue(overNorm);
+    upsertMock.mockResolvedValue({ report_id: 'r-1', version: 1, overall_colour: 'yellow' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchDetailMock.mockReset();
+    upsertMock.mockReset();
+  });
+
+  it('warns before the reporter has tried to submit', async () => {
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    expect(overNormBanner()?.getAttribute('data-status')).toBe('warning');
+  });
+
+  it('turns the warning into an error that names the refusal when submit is refused', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.type(field(/Executive summary/), 'Steady week, no deviations.');
+    await user.click(submitButton());
+
+    expect(upsertMock).not.toHaveBeenCalled();
+    expect(overNormBanner()?.getAttribute('data-status')).toBe('error');
+    expect(screen.getByText(/Report not submitted/)).toBeTruthy();
+  });
+
+  it('keeps the over-norm fact on screen once a pillar carries the flag, minus the done instruction', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    const quality = await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.type(field(/Executive summary/), 'Defect leakage spiked on the payments module.');
+    await user.click(submitButton());
+    expect(upsertMock).not.toHaveBeenCalled();
+    expect(overNormBanner()?.getAttribute('data-status')).toBe('error');
+
+    await user.click(within(quality).getByRole('radio', { name: 'Amber' }));
+
+    const settled = overNormBanner();
+    expect(settled?.getAttribute('data-status')).toBe('warning');
+    expect(settled?.textContent).not.toMatch(/Set at least one|Set Q, C, D, or P/);
+
+    await user.click(submitButton());
+    await waitFor(() => expect(upsertMock).toHaveBeenCalled());
+    expect(upsertMock.mock.calls[0]?.[0]).toMatchObject({
+      category_colours: { quality: 'yellow' },
+    });
   });
 });
 
