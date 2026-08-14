@@ -149,13 +149,21 @@ export async function readMonthTasks(
   }
 
   const capacities = await loadPerformanceCapacities(session, me, input.month);
-  // Unlock is per account (FUT-781): the to-do list reopens when any account the
-  // caller works on has an unlock window still running.
+  // Unlock is per account (FUT-781), so each group carries its OWN window: reopening
+  // account A must not make a still-locked account B's cards editable.
   const openAccounts = await unlockedAccountIds(
     session,
     input.month,
     capacities.map((c) => c.account_id),
   );
+  const statusFor = (accountId: string) =>
+    classifyCycleStatus({
+      month: input.month,
+      at,
+      overrideActive: openAccounts.has(accountId),
+    }).status;
+  // The response-level status summarises the month — reopened as soon as anything the
+  // caller works on is. Per-group cards below are the authority on what is editable.
   const { status: cycle_status } = classifyCycleStatus({
     month: input.month,
     at,
@@ -184,7 +192,11 @@ export async function readMonthTasks(
     groups.push({
       capacity,
       label: capacityGroupLabel(capacity),
-      cards: buildCardsForCapacity({ capacity, cycleStatus: cycle_status, totalToScore }),
+      cards: buildCardsForCapacity({
+        capacity,
+        cycleStatus: statusFor(capacity.account_id),
+        totalToScore,
+      }),
     });
   }
 

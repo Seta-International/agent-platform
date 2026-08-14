@@ -1,8 +1,28 @@
 import type { SessionScope } from '@seta/core';
+import { can } from '@seta/shared-rbac';
 import type { CycleStatusQuery, CycleStatusResponse } from '../../contracts.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { resolveOverrideActive } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow, vnYearMonth } from './month-clock.ts';
+import { loadPerformanceCapacities } from './read-performance-context.ts';
+
+/**
+ * The account whose unlock state this caller may be told about. `account_id` arrives
+ * from the query string, so an arbitrary id would otherwise let any performance reader
+ * probe which accounts PMO has reopened. An org-viewer legitimately sees every account;
+ * everyone else only the ones they are allocated to this month.
+ */
+async function scopedAccountId(
+  session: SessionScope,
+  input: CycleStatusQuery,
+): Promise<string | null> {
+  const requested = input.account_id ?? null;
+  if (!requested) return null;
+  if (can(session, 'people.performance.read_org')) return requested;
+  if (!session.person_id) return null;
+  const capacities = await loadPerformanceCapacities(session, session.person_id, input.month);
+  return capacities.some((c) => c.account_id === requested) ? requested : null;
+}
 
 /**
  * Read the server-authoritative cycle window for a Performance month (FUT-694).
@@ -18,7 +38,7 @@ export async function readCycleStatus(
   // account the caller is looking at. Without one there is nothing scoped to reopen.
   const overrideActive = await resolveOverrideActive(session, {
     month: input.month,
-    account_id: input.account_id,
+    account_id: await scopedAccountId(session, input),
   });
   const { status, evaluated_at } = classifyCycleStatus({
     month: input.month,

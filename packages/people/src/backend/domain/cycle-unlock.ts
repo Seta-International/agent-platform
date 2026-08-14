@@ -215,9 +215,13 @@ export function relockCycle(
   return appendAction(session, { ...input, action: 'relock' });
 }
 
-/** Everything the PMO unlock panel renders (AC4 trail included). */
+/**
+ * Everything the PMO unlock panel renders (AC4 trail included). Gated on the same
+ * permission the panel's buttons need — a caller who could read it but never act
+ * would only ever see a workspace that rejects every action.
+ */
 export async function readCycleUnlockPanel(session: SessionScope): Promise<CycleUnlockPanel> {
-  requirePermission(session, 'people.performance.read_org');
+  requirePermission(session, 'people.performance.unlock');
   const at = monthClockNow();
   const month = latestClosedCycleMonth(at);
 
