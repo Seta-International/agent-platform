@@ -1,6 +1,12 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it, vi } from 'vitest';
 import { makeLinkTasksTool } from '../../../../src/backend/orchestration/action/link-tasks.tool.ts';
+import {
+  fakePreviewPort,
+  injectedPreview,
+  OPEN_APPROVAL_ID,
+  runFirstPass,
+} from './revision-test-kit.ts';
 
 const TASK_A = '66be2be2-394d-4184-b106-c412289fd1e1';
 const TASK_B = '9f1d3a10-2b44-4c55-8d66-ee7788990011';
@@ -36,11 +42,14 @@ function build(
     readPairLink: vi.fn(over.readPairLink ?? (async () => null)),
     link: vi.fn(async () => ({ linkId: 'l1', replayed: false })),
   };
+  // Every first pass now consults the preview port on the NEW-card path
+  // (FUT-840), so the default fake answers "nothing open, nothing taken".
+  const preview = fakePreviewPort({ taken: [] });
   const tool = makeLinkTasksTool({
-    ports: { taskLink } as never,
+    ports: { taskLink, preview } as never,
     ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
   });
-  return { tool, taskLink };
+  return { tool, taskLink, preview };
 }
 
 function rc() {
@@ -227,5 +236,163 @@ describe('planner_linkTasks — resume pass', () => {
       }),
     );
     expect(taskLink.readEndpoint).not.toHaveBeenCalled();
+  });
+});
+
+describe('planner_linkTasks — the revision branch (FUT-840)', () => {
+  const OPEN_ID = OPEN_APPROVAL_ID;
+  const THIRD_TASK = '11112222-3333-4444-8555-666677778888';
+  const openArgsPatch = {
+    action: 'link',
+    sourceTaskId: TASK_A,
+    targetTaskId: TASK_B,
+    kind: 'relates',
+    idempotencyKey: 'old-key',
+  };
+
+  function buildRev(
+    over: {
+      loaded?: { approvalId: string; toolId: string; argsPatch: Record<string, unknown> } | null;
+      taken?: string[];
+      openPreview?: ReturnType<typeof injectedPreview> | null;
+      assertCanLink?: () => Promise<void>;
+      readPairLink?: () => Promise<{ kind: string; direction: 'outgoing' | 'incoming' } | null>;
+      readEndpoint?: (a: { taskId: string }) => Promise<unknown>;
+    } = {},
+  ) {
+    const taskLink = {
+      readEndpoint: vi.fn(
+        over.readEndpoint ??
+          (async ({ taskId }: { taskId: string }) =>
+            snap(taskId, taskId === TASK_A ? 'Alpha' : 'Beta', taskId === TASK_A ? 'g1' : 'g2')),
+      ),
+      assertCanLink: vi.fn(over.assertCanLink ?? (async (_a: { groupIds: string[] }) => {})),
+      readPairLink: vi.fn(over.readPairLink ?? (async () => null)),
+      link: vi.fn(async () => ({ linkId: 'l1', replayed: false })),
+    };
+    const preview = fakePreviewPort({
+      loaded:
+        over.loaded === undefined
+          ? { approvalId: OPEN_ID, toolId: 'planner_linkTasks', argsPatch: openArgsPatch }
+          : over.loaded,
+      ...(over.taken ? { taken: over.taken } : {}),
+    });
+    const tool = makeLinkTasksTool({
+      ports: { taskLink, preview } as never,
+      ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
+      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+    });
+    return { tool, taskLink, preview };
+  }
+
+  it('changes only the kind, keeping BOTH endpoints from the card', async () => {
+    // "Link A to C instead of B" is a NEW request: it collides with design D5 (a
+    // sentence naming a different task) and with AC5 (an adjustment never widens
+    // the change). Ignoring the refs can only ever narrow, so it is safe.
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: THIRD_TASK,
+      kind: 'blocks',
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch).toEqual({
+      action: 'link',
+      sourceTaskId: TASK_A,
+      targetTaskId: TASK_B,
+      kind: 'blocks',
+      idempotencyKey: expect.any(String),
+    });
+  });
+
+  it('re-gates BOTH groups before suspending (AC5.2)', async () => {
+    const { tool, taskLink } = buildRev({
+      assertCanLink: async () => {
+        throw Object.assign(new Error('forbidden'), { code: 'FORBIDDEN' });
+      },
+    });
+    const suspend = vi.fn(async () => {});
+    await expect(
+      tool.execute!(
+        {
+          sourceTaskRef: TASK_A,
+          targetTaskRef: TASK_B,
+          kind: 'blocks',
+          revisionOf: OPEN_ID,
+        } as never,
+        firstPassCtx(suspend),
+      ),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(taskLink.assertCanLink.mock.calls[0]![0]).toMatchObject({ groupIds: ['g1', 'g2'] });
+  });
+
+  it('still refuses a pair that already carries a relationship', async () => {
+    const { tool } = buildRev({
+      readPairLink: async () => ({ kind: 'duplicates', direction: 'outgoing' }),
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: TASK_B,
+      kind: 'blocks',
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/duplicates of each other/i);
+  });
+
+  it('mints a fresh idempotency key and stamps meta.supersedes', async () => {
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: TASK_B,
+      kind: 'blocks',
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
+    expect(card?.meta.supersedes).toBe(OPEN_ID);
+  });
+
+  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+    const { tool } = buildRev({
+      loaded: { approvalId: OPEN_ID, toolId: 'planner_mergeTasks', argsPatch: openArgsPatch },
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: TASK_B,
+      kind: 'blocks',
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/different kind of change/i);
+  });
+
+  it('refuses a card missing an endpoint rather than rebuilding from half of it', async () => {
+    const { tool } = buildRev({
+      loaded: {
+        approvalId: OPEN_ID,
+        toolId: 'planner_linkTasks',
+        argsPatch: { action: 'link', sourceTaskId: TASK_A, kind: 'relates' },
+      },
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: TASK_B,
+      kind: 'blocks',
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/incomplete/i);
+  });
+
+  it('refuses a NEW card when either endpoint already has a pending preview (AC1)', async () => {
+    const { tool } = buildRev({ taken: [`task:${TASK_B}`], openPreview: null });
+    const { out, suspend } = await runFirstPass(tool, {
+      sourceTaskRef: TASK_A,
+      targetTaskRef: TASK_B,
+      kind: 'relates',
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
   });
 });

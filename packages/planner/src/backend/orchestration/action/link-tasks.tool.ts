@@ -2,7 +2,13 @@ import { defineAgentTool, type SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { buildLinkApprovalCard } from './approval-card.ts';
 import type { ActionPorts } from './ports.ts';
 import { resolveTwoEndpoints } from './resolve-endpoints.ts';
-import type { ActionOpenPreview } from './schemas.ts';
+import {
+  INCOMPLETE_PREVIEW,
+  refuseIfPreviewOpen,
+  resolveRevision,
+  stringField,
+} from './revision.ts';
+import type { ActionOpenPreview, ActionTaskSnapshot } from './schemas.ts';
 import {
   LinkTasksResumeSchema,
   LinkTasksSuspendSchema,
@@ -36,7 +42,7 @@ const KIND_PHRASE: Record<'relates' | 'duplicates' | 'blocks', string> = {
  * `resolveTwoEndpoints`, not a parameter.
  */
 export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
-  const { ports, ctx } = deps;
+  const { ports, ctx, openPreview } = deps;
   const actor = { tenantId: ctx.tenantId, actorUserId: ctx.actorUserId };
 
   return defineAgentTool({
@@ -61,7 +67,7 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
     resumeSchema: LinkTasksResumeSchema,
     // Declarative metadata only; the first pass gates for itself, on BOTH groups.
     rbac: 'planner.task.update',
-    execute: async ({ sourceTaskRef, targetTaskRef, kind }, toolCtx) => {
+    execute: async ({ sourceTaskRef, targetTaskRef, kind, revisionOf }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -89,26 +95,76 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
-      const resolved = await resolveTwoEndpoints({
-        port: ports.taskLink,
+      const revision = await resolveRevision({
+        preview: ports.preview,
         actor,
-        toolCtx,
-        sourceRef: sourceTaskRef,
-        targetRef: targetTaskRef,
+        revisionOf,
+        openPreview,
+        toolId: 'planner_linkTasks',
       });
-      if (!resolved.ok) {
-        return { linked: false, linkId: null, refusal: resolved.refusal };
+      if (revision.kind === 'refused') {
+        return { linked: false, linkId: null, refusal: revision.refusal };
+      }
+
+      let source: ActionTaskSnapshot;
+      let target: ActionTaskSnapshot;
+
+      if (revision.kind === 'revision') {
+        // BOTH endpoints are fixed, and only `kind` is adjustable. "Link A to C
+        // instead of B" is a new request — it collides with design D5 and with
+        // AC5 — so the model's refs are ignored here exactly as `taskRefs` are in
+        // the update tool. Ignoring can only ever narrow the change.
+        const sourceTaskId = stringField(revision.previousArgsPatch, 'sourceTaskId');
+        const targetTaskId = stringField(revision.previousArgsPatch, 'targetTaskId');
+        if (!sourceTaskId || !targetTaskId) {
+          return { linked: false, linkId: null, refusal: INCOMPLETE_PREVIEW };
+        }
+        // Re-read for current titles and current GROUPS: membership can change
+        // between two turns, so the re-gate below must run on what is true now.
+        const [fromCard, toCard] = await Promise.all([
+          ports.taskLink.readEndpoint({ ...actor, taskId: sourceTaskId }),
+          ports.taskLink.readEndpoint({ ...actor, taskId: targetTaskId }),
+        ]);
+        if (!fromCard || !toCard) {
+          return { linked: false, linkId: null, refusal: INCOMPLETE_PREVIEW };
+        }
+        source = fromCard;
+        target = toCard;
+        await ports.taskLink.assertCanLink({
+          ...actor,
+          groupIds: [source.groupId, target.groupId],
+        });
+      } else {
+        const resolved = await resolveTwoEndpoints({
+          port: ports.taskLink,
+          actor,
+          toolCtx,
+          sourceRef: sourceTaskRef,
+          targetRef: targetTaskRef,
+        });
+        if (!resolved.ok) {
+          return { linked: false, linkId: null, refusal: resolved.refusal };
+        }
+        source = resolved.source;
+        target = resolved.target;
+
+        const clash = await refuseIfPreviewOpen({
+          preview: ports.preview,
+          actor,
+          taskIds: [source.taskId, target.taskId],
+        });
+        if (clash) return { linked: false, linkId: null, refusal: clash };
       }
 
       // BEFORE the card, so an existing relationship is an answer rather than a
       // card that fails when the user presses Confirm.
       const pair = await ports.taskLink.readPairLink({
         ...actor,
-        sourceTaskId: resolved.source.taskId,
-        targetTaskId: resolved.target.taskId,
+        sourceTaskId: source.taskId,
+        targetTaskId: target.taskId,
       });
       if (pair) {
-        const both = `"${resolved.source.title}" and "${resolved.target.title}"`;
+        const both = `"${source.title}" and "${target.title}"`;
         const refusal =
           pair.kind !== kind
             ? `${both} are already marked as ${KIND_PHRASE[pair.kind]}. Remove that relationship first if you want a different one.`
@@ -119,14 +175,16 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
       }
 
       const card = buildLinkApprovalCard({
-        source: resolved.source,
-        target: resolved.target,
+        source,
+        target,
         kind,
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
         // Minted HERE and persisted on the card: resume may run in another
-        // process, so the key can only travel via proposed_payload.
+        // process, so the key can only travel via proposed_payload. FRESH on
+        // every revision (AC4).
         idempotencyKey: crypto.randomUUID(),
+        ...(revision.kind === 'revision' ? { supersedes: revision.previousApprovalId } : {}),
       });
 
       if (typeof agent?.suspend !== 'function') {
