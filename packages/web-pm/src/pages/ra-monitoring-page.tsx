@@ -569,37 +569,32 @@ export function RaMonitoringPage() {
       {
         key: 'name',
         header: 'Person',
-        // Only the first row per person is filled (grouped), so it no longer needs the
-        // widest share — but keep a floor that fits "Name + Over-allocated" on one line.
         width: proportional(1.4, { minWidth: 210 }),
-        renderCell: (r) => {
-          if (!firstInGroup.has(r.allocation_id)) return null;
-          return (
-            <div className="flex items-center gap-2">
-              {r.worker_name ? (
-                <span className="min-w-0 font-medium text-primary">{r.worker_name}</span>
-              ) : r.worker_id ? (
-                <span className="text-secondary">Unknown</span>
-              ) : (
-                <span className="italic text-secondary">Unfilled (TBD)</span>
-              )}
-              {r.status !== 'committed' ? (
-                <Badge
-                  variant="neutral"
-                  className="shrink-0 whitespace-nowrap font-normal capitalize text-secondary"
-                  label={r.status}
-                />
-              ) : null}
-              {r.worker_id && overWorkers.has(r.worker_id) ? (
-                <Badge
-                  variant="warning"
-                  className="shrink-0 whitespace-nowrap border-warning bg-warning-muted font-medium text-warning"
-                  label="Over"
-                />
-              ) : null}
-            </div>
-          );
-        },
+        renderCell: (r) => (
+          <div className="flex items-center gap-2">
+            {r.worker_name ? (
+              <span className="min-w-0 font-medium text-primary">{r.worker_name}</span>
+            ) : r.worker_id ? (
+              <span className="text-secondary">Unknown</span>
+            ) : (
+              <span className="italic text-secondary">Unfilled (TBD)</span>
+            )}
+            {r.status !== 'committed' ? (
+              <Badge
+                variant="neutral"
+                className="shrink-0 whitespace-nowrap font-normal capitalize text-secondary"
+                label={r.status}
+              />
+            ) : null}
+            {r.worker_id && overWorkers.has(r.worker_id) ? (
+              <Badge
+                variant="warning"
+                className="shrink-0 whitespace-nowrap border-warning bg-warning-muted font-medium text-warning"
+                label="Over"
+              />
+            ) : null}
+          </div>
+        ),
       },
       {
         key: 'seniority',
@@ -607,10 +602,7 @@ export function RaMonitoringPage() {
         // Short, bounded values ("Engineer", "Senior Engineer") — a fixed width keeps it
         // from stealing proportional space from the text-heavy columns.
         width: pixel(140),
-        renderCell: (r) => {
-          if (!firstInGroup.has(r.allocation_id)) return null;
-          return <span className="text-secondary">{r.worker_title ?? '—'}</span>;
-        },
+        renderCell: (r) => <span className="text-secondary">{r.worker_title ?? '—'}</span>,
       },
       {
         key: 'planned',
@@ -678,7 +670,7 @@ export function RaMonitoringPage() {
         renderCell: (r) => {
           // Row-scoped (FUT-353): only projects the caller manages get edit actions; rows
           // visible through wider read scope stay read-only.
-          if (!r.can_manage || !firstInGroup.has(r.allocation_id)) return null;
+          if (!r.can_manage || !r.worker_id) return null;
           return (
             <div className="flex justify-end gap-1">
               <Button
@@ -694,7 +686,7 @@ export function RaMonitoringPage() {
         },
       },
     ],
-    [firstInGroup, overWorkers, openReassignGroup, win],
+    [overWorkers, openReassignGroup, win],
   );
 
   // The Scope card must reflect the current filter context (FUT-841): the
