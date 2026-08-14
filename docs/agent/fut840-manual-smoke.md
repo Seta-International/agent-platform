@@ -41,5 +41,39 @@ Debug a turn with `scripts/dev/trace-thread.sh <threadId>`; app logs are NDJSON 
    → A2's sentence quotes the weekday the tool returned — check it against
      `TZ=Asia/Bangkok date -d <the date> +%A`.
 
+8. Repeat step 1, then type "À thôi đổi sang 19/8 đi", then "đúng".
+   → The first card collapses to Superseded, a new card shows 19/08.
+   → A2 never asks you to confirm the change in words, and never offers to cancel
+     the old proposal.
+   → The "đúng" turn points you at the card's Confirm button instead of re-asking.
+
+   This is the turn that failed on 14/08: A2 read the preview correctly and then
+   emitted text without calling any tool, four turns running, so no second card
+   could exist. Nothing below the model was broken — which is why the check is
+   "did a tool run at all".
+
 Inspect rows with
 `docker exec seta-ap-postgres-dev psql -U seta -d seta -c '<SQL>'`.
+
+## Did the model actually call a tool?
+
+Already recorded — `MastraStorageExporter` writes a span tree per turn, so a turn
+that narrated instead of acting is a query, not a missing metric. Any row here is
+step 8's failure mode:
+
+```sql
+SELECT r."startedAt", r."threadId"
+FROM agent.mastra_ai_spans r
+WHERE r."spanType" = 'agent_run'
+  AND r.name LIKE '%planner.action%'
+  AND NOT EXISTS (
+    SELECT 1 FROM agent.mastra_ai_spans t
+    WHERE t."traceId" = r."traceId" AND t."spanType" = 'tool_call'
+  )
+ORDER BY r."startedAt" DESC;
+```
+
+A legitimate hit exists — A2 asking which task the user meant, or refusing
+something it cannot do — so read the turn before judging it. What is never
+legitimate is a hit whose turn had an OPEN PREVIEW and a user sentence naming a
+new value.
