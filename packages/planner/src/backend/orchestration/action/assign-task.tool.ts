@@ -150,6 +150,10 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
           preview: ports.preview,
           actor,
           taskIds: [taskId],
+          // This card declares `assign:` FIRST, so a pending assignment proposal
+          // is reused by the writer, not refused (FUT-806). Only a card holding
+          // `task:` for some OTHER reason — an update, a comment — clashes.
+          reuseKeys: [`assign:${taskId}`],
         });
         if (clash) return { assigned: false, assigneeUserIds: [], refusal: clash };
       }

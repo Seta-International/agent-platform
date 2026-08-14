@@ -193,6 +193,50 @@ describe('refuseIfPreviewOpen', () => {
     expect(refusal).toMatch(/those tasks/i);
   });
 
+  it('does NOT refuse when a reuse key is already taken (FUT-806 precedence)', async () => {
+    // The writer evaluates a card's keys in declaration order and the FIRST hit
+    // wins. An assign card declares `assign:` before `task:`, so a pending assign
+    // proposal RESOLVES as reuse rather than clashing. A pre-check that asked
+    // only about `task:` would refuse the very case the writer handles, and
+    // FUT-806's "a second assignment request reuses the open card" would be gone.
+    const preview = previewPort({ taken: [`assign:${TASK_A}`, `task:${TASK_A}`] });
+    const refusal = await refuseIfPreviewOpen({
+      preview,
+      actor,
+      taskIds: [TASK_A],
+      reuseKeys: [`assign:${TASK_A}`],
+    });
+    expect(refusal).toBeNull();
+  });
+
+  it('still refuses when the task key is held by a card that is NOT reusable', async () => {
+    // A pending UPDATE card holds `task:`, and no assign proposal exists. The
+    // writer would fall through to `task:` and throw; refusing in a sentence here
+    // is the courtesy that turns that into an explanation.
+    const refusal = await refuseIfPreviewOpen({
+      preview: previewPort({ taken: [`task:${TASK_A}`] }),
+      actor,
+      taskIds: [TASK_A],
+      reuseKeys: [`assign:${TASK_A}`],
+    });
+    expect(refusal).toMatch(/already a proposal waiting/i);
+  });
+
+  it('asks about the reuse keys and the task keys in ONE round trip', async () => {
+    const preview = previewPort({ taken: [] });
+    await refuseIfPreviewOpen({
+      preview,
+      actor,
+      taskIds: [TASK_A],
+      reuseKeys: [`assign:${TASK_A}`],
+    });
+    expect(preview.takenDedupKeys).toHaveBeenCalledWith({
+      tenantId: 't1',
+      actorUserId: 'a1',
+      dedupKeys: [`assign:${TASK_A}`, `task:${TASK_A}`],
+    });
+  });
+
   it('asks nothing at all for an empty target list', async () => {
     const preview = previewPort();
     expect(await refuseIfPreviewOpen({ preview, actor, taskIds: [] })).toBeNull();
