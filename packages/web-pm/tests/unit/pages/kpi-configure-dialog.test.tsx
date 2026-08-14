@@ -172,7 +172,9 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
 
     const warning = await screen.findByText(/Its 2026-W32 figures/i);
     expect(warning).toHaveTextContent(/Quality flag/i);
-    expect(warning).toHaveTextContent(/stay saved/i);
+    expect(warning).toHaveTextContent(/are deleted/i);
+    expect(warning).toHaveTextContent(/blank cell/i);
+    expect(screen.getByRole('button', { name: /turn off and delete/i })).toBeVisible();
     expect(setAppliedMetricMock).not.toHaveBeenCalled();
   });
 
@@ -283,7 +285,7 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
 
     await uncheck('Defect Leakage');
     await screen.findByText(/Its 2026-W32 figures/i);
-    await user.click(screen.getByRole('button', { name: 'Turn off' }));
+    await user.click(screen.getByRole('button', { name: 'Turn off and delete' }));
 
     await waitFor(() =>
       expect(setAppliedMetricMock).toHaveBeenCalledWith(METRIC_ID, false, [PROJECT_ID]),

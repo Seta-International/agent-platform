@@ -254,7 +254,29 @@ export async function setAppliedMetric(
       const week = getCurrentIsoWeek();
       if (isWeekEditable(week.iso_year, week.iso_week)) {
         if (applied) await stampBaselineWeek(tx, session, project_ids, week);
-        else await unstampBaselineWeek(tx, session, project_ids, metric_id, week);
+        else {
+          await unstampBaselineWeek(tx, session, project_ids, metric_id, week);
+          await tx.delete(kpiRecordEntry).where(
+            and(
+              eq(kpiRecordEntry.tenant_id, session.tenant_id),
+              eq(kpiRecordEntry.metric_id, metric_id),
+              inArray(
+                kpiRecordEntry.record_id,
+                tx
+                  .select({ id: kpiRecord.id })
+                  .from(kpiRecord)
+                  .where(
+                    and(
+                      eq(kpiRecord.tenant_id, session.tenant_id),
+                      inArray(kpiRecord.project_id, project_ids),
+                      eq(kpiRecord.iso_year, week.iso_year),
+                      eq(kpiRecord.iso_week, week.iso_week),
+                    ),
+                  ),
+              ),
+            ),
+          );
+        }
       }
       await emit({
         tenantId: session.tenant_id,

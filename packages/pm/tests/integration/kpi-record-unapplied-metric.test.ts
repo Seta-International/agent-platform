@@ -68,7 +68,7 @@ describe('upsertKpiRecord and unapplied metrics', () => {
   beforeEach(() => setWeeklyReportClock(() => new Date('2026-07-15T03:00:00Z')));
   afterAll(() => setWeeklyReportClock());
 
-  it('leaves a previously-saved entry untouched when its metric is unapplied and the record is saved again', async () => {
+  it('clears the open week entry when its metric is unapplied, so re-applying starts blank', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -103,14 +103,21 @@ describe('upsertKpiRecord and unapplied metrics', () => {
           session: t.adminSession,
         });
 
-        // Metric B is later unapplied from the project (Configure Metrics) — the UI stops
-        // showing it, but the historical entry must not be destroyed by an unrelated edit.
+        // Metric B is later unapplied from the project (Configure Metrics). Turning it off
+        // drops the figure it was carrying this week — turning it back on is a fresh start,
+        // not a resurrection of the old number.
         await setAppliedMetric({
           metric_id: metricB,
           applied: false,
           project_ids: [projectId],
           session: t.adminSession,
         });
+
+        const afterUnapply = await pool.query(
+          `SELECT metric_id FROM pm.kpi_record_entry WHERE tenant_id = $1 AND record_id = $2`,
+          [t.tenant_id, first.record_id],
+        );
+        expect(afterUnapply.rows.map((r) => r.metric_id)).toEqual([metricA]);
 
         // User edits only metric A (metric B no longer appears in the form) and saves again.
         await upsertKpiRecord({
@@ -119,6 +126,13 @@ describe('upsertKpiRecord and unapplied metrics', () => {
           iso_week: 29,
           expected_version: first.version,
           entries: [{ metric_id: metricA, component_1_value: 4, component_2_value: null }],
+          session: t.adminSession,
+        });
+
+        await setAppliedMetric({
+          metric_id: metricB,
+          applied: true,
+          project_ids: [projectId],
           session: t.adminSession,
         });
 
@@ -131,7 +145,77 @@ describe('upsertKpiRecord and unapplied metrics', () => {
           entries.rows.map((r) => [r.metric_id, Number(r.component_1_value)]),
         );
         expect(byMetric.get(metricA)).toBe(4); // updated
-        expect(byMetric.get(metricB)).toBe(9); // untouched, still present
+        expect(byMetric.has(metricB)).toBe(false); // cleared by the unapply, stays blank
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('leaves a closed week untouched when a metric is unapplied', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const [metricA, metricB] = await seedTwoMetrics(pool, t.tenant_id);
+
+        for (const metric_id of [metricA, metricB]) {
+          await setAppliedMetric({
+            metric_id,
+            applied: true,
+            project_ids: [projectId],
+            session: t.adminSession,
+          });
+        }
+
+        const closedRecordId = crypto.randomUUID();
+        await pool.query(
+          `INSERT INTO pm.kpi_record (id, tenant_id, project_id, iso_year, iso_week, created_by)
+           VALUES ($1,$2,$3,2026,28,$4)`,
+          [closedRecordId, t.tenant_id, projectId, t.adminSession.user_id],
+        );
+        await pool.query(
+          `INSERT INTO pm.kpi_record_entry
+             (tenant_id, record_id, metric_id, component_1_value, computed_value, status, source)
+           VALUES ($1,$2,$3,7,7,'green','manual')`,
+          [t.tenant_id, closedRecordId, metricB],
+        );
+
+        const open = await upsertKpiRecord({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          entries: [
+            { metric_id: metricA, component_1_value: 3, component_2_value: null },
+            { metric_id: metricB, component_1_value: 9, component_2_value: null },
+          ],
+          session: t.adminSession,
+        });
+
+        await setAppliedMetric({
+          metric_id: metricB,
+          applied: false,
+          project_ids: [projectId],
+          session: t.adminSession,
+        });
+
+        const closed = await pool.query(
+          `SELECT component_1_value FROM pm.kpi_record_entry
+             WHERE tenant_id = $1 AND record_id = $2 AND metric_id = $3`,
+          [t.tenant_id, closedRecordId, metricB],
+        );
+        expect(Number(closed.rows[0]?.component_1_value)).toBe(7);
+
+        const openRows = await pool.query(
+          `SELECT metric_id FROM pm.kpi_record_entry WHERE tenant_id = $1 AND record_id = $2`,
+          [t.tenant_id, open.record_id],
+        );
+        expect(openRows.rows.map((r) => r.metric_id)).toEqual([metricA]);
       } finally {
         resetPmDb();
         resetCoreDb();
