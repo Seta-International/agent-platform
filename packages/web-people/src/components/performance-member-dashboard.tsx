@@ -4,43 +4,24 @@ import {
   Card,
   Divider,
   HStack,
-  pixel,
   proportional,
   Table,
   type TableColumn,
   Text,
   VStack,
 } from '@seta/shared-ui';
+import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
-import {
-  type MemberDashboardData,
-  type MemberProjectScore,
-  memberDashboardFixture,
-} from '../mock/performance-member-fixture.ts';
-import { type PerformanceGroupAxis, scoreBand } from '../mock/performance-scores.ts';
+import type { PerformanceRollup, ReceivedReview, RollupRow } from '../api/people-client.ts';
+import { performanceRollupOptions } from '../api/performance-query.ts';
+import { formatScore, type GroupAxis, scoreBand } from '../lib/performance-scores.ts';
 import { formatPerformanceMonth } from '../nav/performance-dashboard.ts';
+import { CycleEmptyNote, RollupBoundary } from './performance-rollup-boundary.tsx';
 import { bandLabel, bandTextColor, KpiTile, pillarColor } from './performance-score-bits.tsx';
 import { groupScoreColumns, totalColumn } from './performance-score-table.tsx';
 
-const SELF_ASSESSMENT_COPY: Record<
-  MemberDashboardData['self_assessment'],
-  { value: string; hint: string }
-> = {
-  not_started: { value: 'Not started', hint: 'do it first' },
-  in_progress: { value: 'In progress', hint: 'finish it' },
-  submitted: { value: 'Submitted', hint: 'done' },
-};
-
-const REVIEW_STATE_COPY: Record<
-  MemberDashboardData['review_state'],
-  { value: string; hint: string }
-> = {
-  not_ready: { value: 'Not ready', hint: 'awaiting lead' },
-  pending: { value: 'In review', hint: 'lead scoring' },
-  submitted: { value: 'Submitted', hint: 'review ready' },
-  locked: { value: 'Locked', hint: 'cycle closed' },
-};
+type ProjectRow = RollupRow & Record<string, unknown>;
 
 // ---- Section shell ------------------------------------------------------
 
@@ -79,56 +60,35 @@ function Section({
 
 // ---- My score by project ------------------------------------------------
 
-function ByProjectTable({
-  groups,
-  rows,
-}: {
-  groups: readonly PerformanceGroupAxis[];
-  rows: readonly MemberProjectScore[];
-}) {
-  const columns = useMemo<TableColumn<MemberProjectScore & Record<string, unknown>>[]>(
+function ByProjectTable({ rollup }: { rollup: PerformanceRollup }) {
+  const columns = useMemo<TableColumn<ProjectRow>[]>(
     () => [
       {
-        key: 'project_name',
+        key: 'name',
         header: 'Project',
         width: proportional(2),
         renderCell: (p) => (
           <VStack gap={0}>
             <Text weight="semibold" size="sm" className="leading-tight">
-              {p.project_name}
+              {p.name}
             </Text>
             <Text size="2xs" color="secondary">
-              {p.lead_label}
+              {p.subtitle ? `Lead: ${p.subtitle}` : 'No lead assigned'}
             </Text>
           </VStack>
         ),
       },
-      {
-        key: 'alloc_pct',
-        header: 'Alloc',
-        align: 'center',
-        width: pixel(84),
-        renderCell: (p) => (
-          <Text size="sm" className="tabular-nums">
-            {p.alloc_pct}%
-          </Text>
-        ),
-      },
-      ...groupScoreColumns<MemberProjectScore & Record<string, unknown>>(
-        groups,
-        (p) => p.scores,
-        120,
-      ),
-      totalColumn<MemberProjectScore & Record<string, unknown>>((p) => p.total),
+      ...groupScoreColumns<ProjectRow>(rollup.groups, (p) => p.scores, 120),
+      totalColumn<ProjectRow>((p) => p.overall),
     ],
-    [groups],
+    [rollup.groups],
   );
 
   return (
-    <Table<MemberProjectScore & Record<string, unknown>>
-      data={rows as (MemberProjectScore & Record<string, unknown>)[]}
+    <Table<ProjectRow>
+      data={rollup.rows as ProjectRow[]}
       columns={columns}
-      idKey="project_id"
+      idKey="id"
       density="balanced"
       hasHover
       data-testid="my-score-by-project"
@@ -138,7 +98,15 @@ function ByProjectTable({
 
 // ---- My review ----------------------------------------------------------
 
-function ReviewPillarTile({ index, name, score }: { index: number; name: string; score: number }) {
+function ReviewPillarTile({
+  index,
+  name,
+  score,
+}: {
+  index: number;
+  name: string;
+  score: number | null;
+}) {
   return (
     <Card padding={3} variant="muted">
       <VStack gap={1}>
@@ -151,37 +119,30 @@ function ReviewPillarTile({ index, name, score }: { index: number; name: string;
           className="tabular-nums leading-none"
           style={{ color: pillarColor(index) }}
         >
-          {score.toFixed(2)}
+          {formatScore(score)}
         </Text>
       </VStack>
     </Card>
   );
 }
 
-function MyReview({
-  groups,
-  review,
-}: {
-  groups: readonly PerformanceGroupAxis[];
-  review: NonNullable<MemberDashboardData['review']>;
-}) {
-  const band = scoreBand(review.overall);
+function MyReview({ groups, review }: { groups: readonly GroupAxis[]; review: ReceivedReview }) {
+  const band = review.overall == null ? null : scoreBand(review.overall);
   return (
     <VStack gap={4}>
       <HStack gap={2} vAlign="center" wrap="wrap">
         <Badge variant="info" label="Submitted" />
         <Text size="3xl" weight="semibold" className="tabular-nums leading-none">
-          {review.overall.toFixed(2)}
+          {formatScore(review.overall)}
         </Text>
-        <span
-          className="rounded-md px-2 py-0.5 font-medium text-sm"
-          style={{
-            background: 'var(--color-background-green)',
-            color: 'var(--color-text-green)',
-          }}
-        >
-          {bandLabel(band)}
-        </span>
+        {band ? (
+          <span
+            className="rounded-md px-2 py-0.5 font-medium text-sm"
+            style={{ color: bandTextColor(band) }}
+          >
+            {bandLabel(band)}
+          </span>
+        ) : null}
       </HStack>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -190,127 +151,132 @@ function MyReview({
             key={g.group_id}
             index={i}
             name={g.name}
-            score={review.pillars[g.group_id] ?? 0}
+            score={review.scores[g.group_id] ?? null}
           />
         ))}
       </div>
 
       <VStack gap={1.5}>
-        <Text size="sm">
-          <Text as="span" size="sm" weight="semibold" style={{ color: 'var(--color-text-green)' }}>
-            Strengths:
-          </Text>{' '}
-          {review.strengths}
-        </Text>
-        <Text size="sm">
-          <Text as="span" size="sm" weight="semibold" style={{ color: 'var(--color-text-red)' }}>
-            Improve:
-          </Text>{' '}
-          {review.improve}
-        </Text>
-        <Text size="sm">
-          <Text as="span" size="sm" weight="semibold">
-            Focus:
-          </Text>{' '}
-          {review.focus}
-        </Text>
+        {review.strengths ? (
+          <Text size="sm">
+            <Text
+              as="span"
+              size="sm"
+              weight="semibold"
+              style={{ color: 'var(--color-text-green)' }}
+            >
+              Strengths:
+            </Text>{' '}
+            {review.strengths}
+          </Text>
+        ) : null}
+        {review.improve ? (
+          <Text size="sm">
+            <Text as="span" size="sm" weight="semibold" style={{ color: 'var(--color-text-red)' }}>
+              Improve:
+            </Text>{' '}
+            {review.improve}
+          </Text>
+        ) : null}
+        {review.top_action ? (
+          <Text size="sm">
+            <Text as="span" size="sm" weight="semibold">
+              Top action:
+            </Text>{' '}
+            {review.top_action}
+          </Text>
+        ) : null}
       </VStack>
-
-      <HStack>
-        <Button
-          variant={review.acknowledged ? 'ghost' : 'primary'}
-          label={review.acknowledged ? 'Review acknowledged' : 'Acknowledge review'}
-          isDisabled={review.acknowledged}
-        />
-      </HStack>
     </VStack>
   );
 }
 
 // ---- Dashboard ----------------------------------------------------------
 
-export function PerformanceMemberDashboard({
-  groups,
-  memberLabel,
-  month,
-}: {
-  groups: readonly PerformanceGroupAxis[];
-  memberLabel: string;
-  month: string;
-}) {
+/**
+ * The member's own view: their score per project and the reviews their leads
+ * submitted this cycle. Nothing here is editable — a member reads their review, they
+ * do not write one.
+ */
+export function PerformanceMemberDashboard({ month }: { month: string }) {
+  const query = useQuery(performanceRollupOptions({ month, scope: 'self' }));
   const cycleLabel = formatPerformanceMonth(month);
-  const data = useMemo(
-    () => memberDashboardFixture(groups, memberLabel, cycleLabel),
-    [groups, memberLabel, cycleLabel],
-  );
-  const myBand = data.my_score == null ? null : scoreBand(data.my_score);
-  const self = SELF_ASSESSMENT_COPY[data.self_assessment];
-  const state = REVIEW_STATE_COPY[data.review_state];
 
   return (
-    <VStack gap={4} data-testid="performance-home">
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiTile
-          label="My score"
-          value={data.my_score == null ? '—' : data.my_score.toFixed(2)}
-          hint={myBand ? bandLabel(myBand) : 'awaiting review'}
-          valueColor={myBand ? bandTextColor(myBand) : undefined}
-        />
-        <KpiTile
-          label="Self-assessment"
-          value={self.value}
-          hint={self.hint}
-          valueColor="var(--color-text-accent)"
-        />
-        <KpiTile
-          label="Status"
-          value={state.value}
-          hint={state.hint}
-          valueColor="var(--color-text-accent)"
-        />
-        <KpiTile
-          label="Cycle"
-          value={cycleLabel}
-          hint="monthly review"
-          valueColor="var(--color-text-accent)"
-        />
-      </div>
+    <RollupBoundary query={query}>
+      {(rollup) => {
+        const band = rollup.overall == null ? null : scoreBand(rollup.overall);
+        const waiting = rollup.total - rollup.scored;
 
-      {/* Self-assessment prompt */}
-      <Section
-        title="My self-assessment"
-        meta={`${cycleLabel} · rate yourself before your lead reviews`}
-        action={
-          data.self_assessment === 'submitted' ? (
-            <Button variant="ghost" label="View self-assessment" />
-          ) : (
-            <Button variant="primary" label="Start self-assessment" />
-          )
-        }
-      >
-        <Divider />
-        <Text size="sm" color="secondary">
-          {data.self_assessment === 'not_started'
-            ? "You haven't self-assessed this month yet. It helps your lead calibrate."
-            : 'Your self-assessment is in progress — finish it before the review window closes.'}
-        </Text>
-      </Section>
+        return (
+          <VStack gap={4} data-testid="performance-home">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <KpiTile
+                label="My score"
+                value={formatScore(rollup.overall)}
+                hint={band ? bandLabel(band) : 'awaiting review'}
+                valueColor={band ? bandTextColor(band) : undefined}
+              />
+              <KpiTile
+                label="Reviews in"
+                value={`${rollup.scored}/${rollup.total}`}
+                hint={waiting > 0 ? `${waiting} still with your lead` : 'all leads have submitted'}
+                valueColor="var(--color-text-accent)"
+              />
+              <KpiTile
+                label="Projects"
+                value={`${rollup.rows.length}`}
+                hint="scored this cycle"
+                valueColor="var(--color-text-accent)"
+              />
+              <KpiTile
+                label="Cycle"
+                value={cycleLabel}
+                hint="monthly review"
+                valueColor="var(--color-text-accent)"
+              />
+            </div>
 
-      {/* Score by project */}
-      <Section
-        title="My score by project"
-        meta={`${cycleLabel} · ${data.by_project.length} projects · scored by each project lead`}
-      >
-        <ByProjectTable groups={data.groups} rows={data.by_project} />
-      </Section>
+            <Section
+              title="My score by project"
+              meta={`${cycleLabel} · ${rollup.rows.length} projects · scored by each project lead`}
+            >
+              {rollup.rows.length === 0 ? (
+                <Text color="secondary">
+                  You aren't allocated to a project this cycle, so there is nothing to score.
+                </Text>
+              ) : (
+                <>
+                  <ByProjectTable rollup={rollup} />
+                  <CycleEmptyNote scored={rollup.scored} total={rollup.total} />
+                </>
+              )}
+            </Section>
 
-      {/* Lead's review */}
-      {data.review ? (
-        <Section title="My review" meta={`${data.review.lead_label} · ${cycleLabel}`}>
-          <MyReview groups={data.groups} review={data.review} />
-        </Section>
-      ) : null}
-    </VStack>
+            {rollup.reviews.map((review) => (
+              <Section
+                key={review.project_id}
+                title={`My review — ${review.project_name}`}
+                meta={`${review.evaluator_name} (${review.evaluator_capacity.toUpperCase()}) · ${cycleLabel}`}
+              >
+                <Divider />
+                <MyReview groups={rollup.groups} review={review} />
+              </Section>
+            ))}
+
+            {rollup.rows.length > 0 && rollup.reviews.length === 0 ? (
+              <Section title="My review" meta={cycleLabel}>
+                <Text size="sm" color="secondary">
+                  No lead has submitted your review yet. It appears here as soon as one does.
+                </Text>
+                <HStack>
+                  <Button variant="ghost" label="Acknowledge review" isDisabled />
+                </HStack>
+              </Section>
+            ) : null}
+          </VStack>
+        );
+      }}
+    </RollupBoundary>
   );
 }

@@ -1,6 +1,6 @@
 import { Card, HStack, Text, VStack } from '@seta/shared-ui';
 import type { CSSProperties } from 'react';
-import { SCORE_BAND_LEGEND, type ScoreBand, scoreBand } from '../mock/performance-scores.ts';
+import { SCORE_BAND_LEGEND, type ScoreBand, scoreBand } from '../lib/performance-scores.ts';
 
 /** KPI stat tile shared across the capacity dashboards. */
 export function KpiTile({

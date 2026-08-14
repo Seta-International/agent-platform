@@ -1,9 +1,33 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PerformanceHome } from '../../../src/components/performance-home.tsx';
 import { PerformanceScopeProvider } from '../../../src/state/performance-scope-context.tsx';
+
+/** The org dashboard now reads the roll-up API; routing is what these tests assert. */
+const EMPTY_ROLLUP = {
+  month: '2026-08',
+  cycle_status: 'open',
+  scope: 'org',
+  label: 'Company',
+  groups: [],
+  scores: {},
+  scored: 0,
+  total: 0,
+  overall: null,
+  rows: [],
+  reviews: [],
+};
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(JSON.stringify(EMPTY_ROLLUP), { status: 200 })),
+  );
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 function renderOrgHome(opts: {
   role_slugs: string[];
@@ -32,17 +56,17 @@ function renderOrgHome(opts: {
 }
 
 describe('PerformanceHome in organization mode', () => {
-  it('shows the org dashboard to a PMO/BoD org-viewer', () => {
+  it('shows the org dashboard to a PMO/BoD org-viewer', async () => {
     renderOrgHome({ role_slugs: ['pm.pmo'], can_view_org: true });
-    expect(screen.getByText('Pillar scores by account')).toBeInTheDocument();
+    expect(await screen.findByText('Pillar scores by account')).toBeInTheDocument();
   });
 
-  it('shows the org dashboard when the org-viewer also holds people.manager', () => {
+  it('shows the org dashboard when the org-viewer also holds people.manager', async () => {
     // resolveDashboardId answers 'hr' for people.manager, but HR's own cycle-config
     // surface is a later ticket — an org-viewer must still get the org home rather
     // than a blank page (FUT-781).
     renderOrgHome({ role_slugs: ['people.manager', 'pm.pmo'], can_view_org: true });
-    expect(screen.getByText('Pillar scores by account')).toBeInTheDocument();
+    expect(await screen.findByText('Pillar scores by account')).toBeInTheDocument();
   });
 
   it('shows nothing to a capacity-less user without org access (no leak)', () => {

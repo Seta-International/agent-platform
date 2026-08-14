@@ -40,6 +40,7 @@ type RawNode = {
   id: string;
   name: string;
   subtitle: string;
+  is_lead: boolean;
   member_count: number;
   scored: number;
   total: number;
@@ -97,6 +98,7 @@ function toLeaf(node: RawNode): RollupLeaf {
     id: node.id,
     name: node.name,
     subtitle: node.subtitle,
+    is_lead: node.is_lead,
     member_count: node.member_count,
     scored: node.scored,
     total: node.total,
@@ -538,6 +540,7 @@ export async function readPerformanceRollup(
           id: a.person_id,
           name: p?.name ?? '',
           subtitle: p?.role ?? '',
+          is_lead: a.lead_person_id === a.person_id,
           member_count: 1,
           scored: evaluation ? 1 : 0,
           total: 1,
@@ -557,6 +560,7 @@ export async function readPerformanceRollup(
         id: projectId,
         name: projectById.get(projectId)?.name ?? '',
         subtitle: lead ? (people.get(lead)?.name ?? '') : '',
+        is_lead: false,
         children,
         member_count: children.length,
       },
@@ -582,6 +586,7 @@ export async function readPerformanceRollup(
             id: accountId,
             name: accountNames.get(accountId) ?? '',
             subtitle: amId ? (people.get(amId)?.name ?? '') : '',
+            is_lead: false,
             children,
           },
           axis,
@@ -625,6 +630,7 @@ export async function readPerformanceRollup(
     scope: input.scope,
     label,
     groups: axis,
+    scores: Object.fromEntries([...topScores].map(([k, v]) => [k, round2(v)])),
     scored: rows.reduce((s, r) => s + r.scored, 0),
     total: rows.reduce((s, r) => s + r.total, 0),
     overall: overall === null ? null : round2(overall),

@@ -13,6 +13,8 @@ export const performanceKeys = {
   cycleUnlocks: () => [...performanceKeys.all, 'cycleUnlocks'] as const,
   monthTasks: (month: string) => [...performanceKeys.all, 'monthTasks', month] as const,
   config: (accountId: string) => [...performanceKeys.all, 'config', accountId] as const,
+  rollup: (month: string, scope: string, targetId?: string | null) =>
+    [...performanceKeys.all, 'rollup', month, scope, targetId ?? null] as const,
   section: (section: string, resolved: ResolvedPerformanceScope) =>
     [...performanceKeys.all, section, scopeTuple(resolved)] as const,
 };

@@ -6,6 +6,8 @@ import {
   fetchMonthTasks,
   fetchPerformanceConfig,
   fetchPerformanceContext,
+  fetchPerformanceRollup,
+  type RollupScope,
 } from './people-client.ts';
 
 /**
@@ -57,5 +59,23 @@ export function performanceConfigOptions(accountId: string) {
     queryKey: performanceKeys.config(accountId),
     queryFn: () => fetchPerformanceConfig(accountId),
     staleTime: 0,
+  });
+}
+
+/**
+ * The roll-up behind every dashboard. One query per (month, scope, target), so
+ * switching capacity or cycle never merges two scopes' caches.
+ */
+export function performanceRollupOptions(input: {
+  month: string;
+  scope: RollupScope;
+  account_id?: string | null;
+  project_id?: string | null;
+}) {
+  const targetId = input.project_id ?? input.account_id ?? null;
+  return queryOptions({
+    queryKey: performanceKeys.rollup(input.month, input.scope, targetId),
+    queryFn: () => fetchPerformanceRollup(input),
+    staleTime: 30 * 1000,
   });
 }

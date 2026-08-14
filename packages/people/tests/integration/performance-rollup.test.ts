@@ -188,6 +188,9 @@ describe('performance roll-up (FUT-784)', () => {
 
       expect(rollup.scored).toBe(3);
       expect(rollup.total).toBe(3);
+      // The single-column heat map needs the project's own group means, not just the total.
+      expect(Object.values(rollup.scores).every((v) => v === 3.67)).toBe(true);
+      expect(rollup.rows.filter((r) => r.is_lead).map((r) => r.name)).toEqual(['Tom TL']);
       // Mia 4, Max 2, Tom 5 → 3.67 on every group, so 3.67 overall.
       expect(rollup.overall).toBe(3.67);
       const mia = rollup.rows.find((r) => r.id === f.mia.person_id);
