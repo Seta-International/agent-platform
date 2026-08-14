@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { LoadedPreview } from '../../../../src/backend/orchestration/action/ports.ts';
 import {
+  dropNoOps,
   refuseIfPreviewOpen,
   resolveRevision,
   taskIdsFromArgsPatch,
 } from '../../../../src/backend/orchestration/action/revision.ts';
+import type { ActionTaskSnapshot } from '../../../../src/backend/orchestration/action/schemas.ts';
 
 const OPEN_ID = '7f3a1c2e-1111-4222-8333-444455556666';
 const OTHER_ID = '11112222-3333-4444-8555-666677778888';
@@ -282,5 +284,49 @@ describe('taskIdsFromArgsPatch', () => {
     expect(taskIdsFromArgsPatch({ planId: 'p' })).toEqual([]);
     expect(taskIdsFromArgsPatch({ targets: 'nonsense' })).toEqual([]);
     expect(taskIdsFromArgsPatch({ targets: [{ expectedVersion: 1 }] })).toEqual([]);
+  });
+});
+
+const SNAP: ActionTaskSnapshot = {
+  taskId: 'a',
+  title: 'Implement Hiring screen',
+  description: null,
+  due_at: '2026-08-14T16:59:00.000Z',
+  start_at: null,
+  priority_number: 5,
+  percent_complete: 50,
+  version: 8,
+  groupId: 'g1',
+};
+
+describe('dropNoOps', () => {
+  it('removes a field whose value already equals the stored one', () => {
+    // The production case: the model read the task, then echoed percent_complete back.
+    expect(dropNoOps({ due_at: '2026-08-15T16:59:00.000Z', percent_complete: 50 }, [SNAP])).toEqual(
+      {
+        due_at: '2026-08-15T16:59:00.000Z',
+      },
+    );
+  });
+
+  it('keeps a field that really changes', () => {
+    expect(dropNoOps({ percent_complete: 100 }, [SNAP])).toEqual({ percent_complete: 100 });
+  });
+
+  it('compares dates as instants, not strings', () => {
+    expect(dropNoOps({ due_at: '2026-08-14T23:59:00+07:00' }, [SNAP])).toEqual({});
+  });
+
+  it('keeps a null that genuinely clears a set value', () => {
+    expect(dropNoOps({ due_at: null }, [SNAP])).toEqual({ due_at: null });
+  });
+
+  it('drops a null that clears an already-empty field', () => {
+    expect(dropNoOps({ start_at: null }, [SNAP])).toEqual({});
+  });
+
+  it('keeps a field that is a no-op for one task but not for another', () => {
+    const other = { ...SNAP, taskId: 'b', percent_complete: 0 };
+    expect(dropNoOps({ percent_complete: 50 }, [SNAP, other])).toEqual({ percent_complete: 50 });
   });
 });

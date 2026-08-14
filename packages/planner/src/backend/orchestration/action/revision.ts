@@ -1,5 +1,5 @@
 import type { ActorRef, PreviewPort } from './ports.ts';
-import type { ActionOpenPreview } from './schemas.ts';
+import type { ActionOpenPreview, ActionTaskSnapshot } from './schemas.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Is this call an ADJUSTMENT of the open preview, or a new request? (FUT-840)
@@ -168,6 +168,46 @@ export function taskIdsFromArgsPatch(argsPatch: Record<string, unknown>): string
   );
   if (pair.length > 0) return pair;
   return typeof taskId === 'string' ? [taskId] : [];
+}
+
+/** Same instant, whatever offset the writer used. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a === 'string' && typeof b === 'string') {
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    if (!Number.isNaN(ta) && !Number.isNaN(tb)) return ta === tb;
+  }
+  return false;
+}
+
+/**
+ * Remove patch fields that would change nothing (design D20).
+ *
+ * A model that calls `planner_getTask` and then writes the state it just read
+ * back into the patch produces a field the user never asked for — the observed
+ * `{ dueAt, status: "in_progress" }` on a task already at `in_progress`. A field
+ * whose value already equals the stored one is never a legitimate change, which
+ * makes this decidable in code: no keyword lists, no per-language phrasing, and
+ * no risk of discarding a field the user DID ask for. It cannot narrow anything
+ * the user would see change, because by definition nothing would change.
+ *
+ * Over a batch, a field survives if it changes ANY target. Dropping it because it
+ * is a no-op for one of twenty tasks would silently shrink the other nineteen.
+ */
+export function dropNoOps<T extends Record<string, unknown>>(
+  patch: T,
+  targets: readonly ActionTaskSnapshot[],
+): T {
+  if (targets.length === 0) return patch;
+  const out: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(patch)) {
+    const changesSomething = targets.some(
+      (t) => !sameValue(value, (t as unknown as Record<string, unknown>)[field]),
+    );
+    if (changesSomething) out[field] = value;
+  }
+  return out as T;
 }
 
 /** A persisted argsPatch field that must be a string, or undefined. */

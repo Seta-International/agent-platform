@@ -3,6 +3,7 @@ import { buildBulkApprovalCard, buildUpdateApprovalCard } from './approval-card.
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
 import {
+  dropNoOps,
   INCOMPLETE_PREVIEW,
   refuseIfPreviewOpen,
   resolveRevision,
@@ -262,6 +263,21 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
         ...actor,
         groupIds: targets.map((t) => t.groupId),
       });
+
+      // A field the model echoed back off its own read is not a change the user
+      // asked for. Applied AFTER the read because it needs the stored values, and
+      // BEFORE the card so the user never sees a row that does nothing.
+      normalized = dropNoOps(normalized, targets);
+      if (Object.keys(normalized).length === 0) {
+        return {
+          updated: false,
+          taskIds: [],
+          refusal:
+            targets.length === 1
+              ? 'That task is already like that, so there is nothing to change.'
+              : 'Those tasks are already like that, so there is nothing to change.',
+        };
+      }
 
       if (revision.kind === 'new') {
         // The mutex, as a sentence, before the model narrates anything. Skipped on
