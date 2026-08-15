@@ -94,7 +94,8 @@ export function PerformanceShell({
         can_unlock,
         resolved,
         search,
-        setMonth: (month) => setSearch({ month }),
+        // A different cycle is a different evaluation — close whatever is open first.
+        setMonth: (month) => setSearch({ month, subject: undefined, subject_project: undefined }),
       }}
     >
       <Layout

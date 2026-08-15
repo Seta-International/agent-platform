@@ -190,7 +190,38 @@ describe('evaluation form (FUT-784)', () => {
     });
   });
 
-  it('a draft may hold a 1 with no evidence yet; submit names that criterion', async () => {
+  it('a criterion can be scored on the half point', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+      const session = f.sessionFor(f.tl);
+      const target = { month, subject_person_id: f.member.person_id, project_id: f.project_id };
+      const empty = await readEvaluation(session, target);
+      const scores = scoreAll(empty, 4);
+      const half = scores[0];
+      if (!half) throw new Error('no criteria seeded');
+      half.score = 3.5;
+
+      const submitted = await submitEvaluation(session, {
+        ...target,
+        base_version: empty.version,
+        scores,
+        strengths: '',
+        improve: '',
+        top_action: 'Pair on the release checklist',
+      });
+
+      expect(
+        submitted.groups
+          .flatMap((g) => g.criteria)
+          .find((c) => c.criterion_id === half.criterion_id)?.score,
+      ).toBe(3.5);
+      // The half point pulls the weighted mean below a straight 4.
+      expect(submitted.overall).toBeLessThan(4);
+    });
+  });
+
+  it('a score at either end of the scale submits on its own — the form collects numbers only', async () => {
     await withFixture(async (f) => {
       const { month, at } = openWindowNow();
       setMonthClock(() => at);
@@ -211,24 +242,20 @@ describe('evaluation form (FUT-784)', () => {
         improve: '',
         top_action: 'Pair on the release checklist',
       });
-      const criterionName = draft.groups
-        .flatMap((g) => g.criteria)
-        .find((c) => c.criterion_id === low.criterion_id)?.name;
-      expect(criterionName).toBeTruthy();
-
-      await expect(
-        submitEvaluation(session, {
-          ...target,
-          base_version: draft.version,
-          scores,
-          strengths: '',
-          improve: '',
-          top_action: 'Pair on the release checklist',
-        }),
-      ).rejects.toMatchObject({
-        code: 'VALIDATION',
-        message: expect.stringContaining(criterionName as string),
+      const submitted = await submitEvaluation(session, {
+        ...target,
+        base_version: draft.version,
+        scores,
+        strengths: '',
+        improve: '',
+        top_action: 'Pair on the release checklist',
       });
+
+      expect(submitted.status).toBe('submitted');
+      expect(
+        submitted.groups.flatMap((g) => g.criteria).find((c) => c.criterion_id === low.criterion_id)
+          ?.score,
+      ).toBe(1);
     });
   });
 

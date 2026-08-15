@@ -129,7 +129,7 @@ describe('usePerformanceScope', () => {
     };
     const { result } = renderHook(() =>
       usePerformanceScope({
-        pathname: '/people/performance/scoring',
+        pathname: '/people/performance/configuration',
         capacities: [tlA, memberB],
         default_capacity_index: 0,
         can_view_org: false,
@@ -145,6 +145,37 @@ describe('usePerformanceScope', () => {
           project: 'proj-b',
         }),
         replace: true,
+      }),
+    );
+  });
+
+  it('switching capacity drops the open evaluation — it belongs to the project left behind', () => {
+    searchState = {
+      kind: 'tl',
+      project: 'proj-a',
+      account: 'acct-1',
+      month: '2026-07',
+      subject: 'person-1',
+      subject_project: 'proj-a',
+    };
+    const { result } = renderHook(() =>
+      usePerformanceScope({
+        pathname: '/people/performance',
+        capacities: [tlA, memberB],
+        default_capacity_index: 0,
+        can_view_org: false,
+        as_of_month: '2026-07',
+      }),
+    );
+
+    result.current.setCapacity(memberB);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: expect.objectContaining({
+          kind: 'member',
+          subject: undefined,
+          subject_project: undefined,
+        }),
       }),
     );
   });

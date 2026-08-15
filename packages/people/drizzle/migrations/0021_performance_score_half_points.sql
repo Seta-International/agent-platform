@@ -1,0 +1,2 @@
+ALTER TABLE "people"."performance_evaluation_score" ALTER COLUMN "score" SET DATA TYPE numeric(2, 1);--> statement-breakpoint
+ALTER TABLE "people"."performance_evaluation_score" ADD CONSTRAINT "perf_eval_score_step" CHECK ((score * 2) = trunc(score * 2));

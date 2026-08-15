@@ -27,6 +27,14 @@ export function progressPct(done: number, total: number): number {
   return total === 0 ? 0 : Math.round((done / total) * 100);
 }
 
+/**
+ * Weights come off the config as computed shares, so a stored 7% can arrive as
+ * 7.000000000000001. One decimal is the most a weight ever means.
+ */
+export function formatWeight(weight: number): string {
+  return `${Math.round(weight * 10) / 10}%`;
+}
+
 /** Scores are rendered to a fixed precision or an em dash — never as 0. */
 export function formatScore(value: number | null | undefined, digits = 2): string {
   return value == null ? '—' : value.toFixed(digits);

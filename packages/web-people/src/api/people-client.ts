@@ -615,9 +615,8 @@ export type EvaluationCriterionView = {
   weight: number;
   sort: number;
   score: number | null;
+  /** Kept so a note written before still round-trips; the form no longer collects one. */
   evidence: string;
-  /** True when the current score sits at an end of the scale, so evidence is required. */
-  evidence_required: boolean;
 };
 
 export type EvaluationGroupView = {
