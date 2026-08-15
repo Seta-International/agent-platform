@@ -194,19 +194,26 @@ function MyReview({ groups, review }: { groups: readonly GroupAxis[]; review: Re
 // ---- Dashboard ----------------------------------------------------------
 
 /**
- * The member's own view: their score per project and the reviews their leads
- * submitted this cycle. Nothing here is editable — a member reads their review, they
- * do not write one.
+ * The member's own view for ONE project — the capacity they picked in the switcher,
+ * which lists a member's projects separately. Nothing here is editable: a member reads
+ * the review their lead wrote, they do not write one.
  */
-export function PerformanceMemberDashboard({ month }: { month: string }) {
-  const query = useQuery(performanceRollupOptions({ month, scope: 'self' }));
+export function PerformanceMemberDashboard({
+  month,
+  projectId,
+}: {
+  month: string;
+  projectId: string;
+}) {
+  const query = useQuery(performanceRollupOptions({ month, scope: 'self', project_id: projectId }));
   const cycleLabel = formatPerformanceMonth(month);
 
   return (
     <RollupBoundary query={query}>
       {(rollup) => {
         const band = rollup.overall == null ? null : scoreBand(rollup.overall);
-        const waiting = rollup.total - rollup.scored;
+        const project = rollup.rows[0] ?? null;
+        const lead = project?.subtitle || 'no lead assigned';
 
         return (
           <VStack gap={4} data-testid="performance-home">
@@ -218,15 +225,15 @@ export function PerformanceMemberDashboard({ month }: { month: string }) {
                 valueColor={band ? bandTextColor(band) : undefined}
               />
               <KpiTile
-                label="Reviews in"
-                value={`${rollup.scored}/${rollup.total}`}
-                hint={waiting > 0 ? `${waiting} still with your lead` : 'all leads have submitted'}
+                label="Review"
+                value={rollup.scored > 0 ? 'Submitted' : 'Pending'}
+                hint={rollup.scored > 0 ? 'by your lead' : 'still with your lead'}
                 valueColor="var(--color-text-accent)"
               />
               <KpiTile
-                label="Projects"
-                value={`${rollup.rows.length}`}
-                hint="scored this cycle"
+                label="Project"
+                value={project?.name ?? '—'}
+                hint={`Lead: ${lead}`}
                 valueColor="var(--color-text-accent)"
               />
               <KpiTile
@@ -238,12 +245,12 @@ export function PerformanceMemberDashboard({ month }: { month: string }) {
             </div>
 
             <Section
-              title="My score by project"
-              meta={`${cycleLabel} · ${rollup.rows.length} projects · scored by each project lead`}
+              title="My pillar scores"
+              meta={`${cycleLabel} · ${project?.name ?? 'this project'} · scored by your project lead`}
             >
               {rollup.rows.length === 0 ? (
                 <Text color="secondary">
-                  You aren't allocated to a project this cycle, so there is nothing to score.
+                  You aren't allocated to this project this cycle, so there is nothing to score.
                 </Text>
               ) : (
                 <>

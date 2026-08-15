@@ -30,7 +30,7 @@ export function PerformanceHome() {
   }
 
   if (capacity?.kind === 'member') {
-    return <PerformanceMemberDashboard month={resolved.month} />;
+    return <PerformanceMemberDashboard month={resolved.month} projectId={capacity.project_id} />;
   }
 
   // No delivery capacity → org tier. Only an org-viewer (people.performance.read_org)

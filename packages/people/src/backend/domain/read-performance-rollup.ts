@@ -481,9 +481,16 @@ export async function readPerformanceRollup(
     accountIds = [proj.account_id];
     label = proj.name;
   } else {
-    if (!session.person_id)
+    if (!session.person_id) {
       throw new PeopleError('FORBIDDEN', 'No employee record linked to session');
-    allocations = await loadAllocations(session, input.month, { personId: session.person_id });
+    }
+    // A member reads one project at a time — the capacity they picked in the switcher.
+    // Without a project this answers every project they are on, which is what a
+    // month-wide summary wants but never what a project scorecard shows.
+    allocations = await loadAllocations(session, input.month, {
+      personId: session.person_id,
+      projectId: input.project_id ?? undefined,
+    });
     accountIds = [...new Set(allocations.map((a) => a.account_id))];
     const me = await loadPeople(session, [session.person_id]);
     label = me.get(session.person_id)?.name ?? '';
