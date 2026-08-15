@@ -11,7 +11,7 @@ import type {
   EvaluatorCapacity,
   PerformanceConfigGroupView,
 } from '../../contracts.ts';
-import { SCORE_MAX, SCORE_MIN, TOP_ACTION_REQUIRED_BELOW } from '../../contracts.ts';
+import { TOP_ACTION_REQUIRED_BELOW } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
 import {
   performanceConfigMonthPin,
@@ -32,11 +32,6 @@ type ScoreRow = { criterion_id: string; score: number; evidence: string };
 /** The windows in which an evaluation may still be written. */
 function windowOpen(status: CycleStatus): boolean {
   return status === 'open' || status === 'makeup' || status === 'override';
-}
-
-/** Evidence is mandatory at the ends of the scale (AC3). */
-function evidenceRequired(score: number | null): boolean {
-  return score === SCORE_MIN || score === SCORE_MAX;
 }
 
 /**
@@ -193,7 +188,9 @@ async function loadScores(evaluationId: string): Promise<Map<string, ScoreRow>> 
     })
     .from(performanceEvaluationScore)
     .where(eq(performanceEvaluationScore.evaluation_id, evaluationId));
-  return new Map(rows.map((r) => [r.criterion_id, r]));
+  // `score` is numeric, so the driver hands back a string — the whole domain works in
+  // numbers, and a half point compared as text would sort and average as nonsense.
+  return new Map(rows.map((r) => [r.criterion_id, { ...r, score: Number(r.score) }]));
 }
 
 /**
@@ -252,7 +249,6 @@ function buildView(args: {
         sort: c.sort,
         score,
         evidence: s?.evidence ?? '',
-        evidence_required: evidenceRequired(score),
       };
     }),
   }));
@@ -333,9 +329,12 @@ function normalizeScores(
 }
 
 /**
- * Submit-time completeness (AC4): every criterion scored, evidence wherever the score is
- * at the ends of the scale, and a Top Action whenever anything scored below 4. The first
- * failure names the exact field so the FE can point at it instead of saying "incomplete".
+ * Submit-time completeness (AC4): every criterion scored, and a Top Action whenever
+ * anything scored below 4. The first failure names the exact field so the FE can point
+ * at it instead of saying "incomplete".
+ *
+ * Evidence is not part of this: the form collects scores only, so a rule demanding prose
+ * the evaluator has no field for would make the ends of the scale unsubmittable.
  */
 function assertSubmittable(
   groups: PerformanceConfigGroupView[],
@@ -350,13 +349,6 @@ function assertSubmittable(
         throw new PeopleError('VALIDATION', `Score “${c.name}” before submitting.`, {
           criterion_id: c.id,
         });
-      }
-      if (evidenceRequired(s.score) && s.evidence.length === 0) {
-        throw new PeopleError(
-          'VALIDATION',
-          `A score of ${s.score} needs evidence — add it to “${c.name}”.`,
-          { criterion_id: c.id },
-        );
       }
       if (s.score < TOP_ACTION_REQUIRED_BELOW) anyBelowBar = true;
     }
@@ -478,7 +470,7 @@ async function writeEvaluation(
             tenant_id: session.tenant_id,
             evaluation_id: written.id,
             criterion_id: s.criterion_id,
-            score: s.score,
+            score: String(s.score),
             evidence: s.evidence,
           })),
         );

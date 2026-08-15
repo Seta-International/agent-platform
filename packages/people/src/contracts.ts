@@ -315,13 +315,15 @@ export type EvaluatorCapacity = z.infer<typeof evaluatorCapacity>;
 /** Criterion scores are whole numbers on this scale; nothing outside it is offered (AC2). */
 export const SCORE_MIN = 1;
 export const SCORE_MAX = 5;
+/** The scale moves in half points: 1, 1.5, … 5. */
+export const SCORE_STEP = 0.5;
 /** Below this a Top Action is mandatory (AC3). */
 export const TOP_ACTION_REQUIRED_BELOW = 4;
 
 export const evaluationScoreInput = z.object({
   criterion_id: z.string().uuid(),
   /** Null = not scored yet. A draft may hold nulls; a submit may not (AC4). */
-  score: z.number().int().min(SCORE_MIN).max(SCORE_MAX).nullable(),
+  score: z.number().multipleOf(SCORE_STEP).min(SCORE_MIN).max(SCORE_MAX).nullable(),
   evidence: z.string().trim().max(2000).default(''),
 });
 export type EvaluationScoreInput = z.infer<typeof evaluationScoreInput>;
@@ -356,10 +358,12 @@ export const evaluationCriterionView = z.object({
   /** Read-only in the form (AC2). */
   weight: z.number(),
   sort: z.number().int(),
-  score: z.number().int().nullable(),
+  score: z.number().nullable(),
+  /**
+   * Carried through writes so an older note survives, but the form no longer asks for
+   * one — an evaluation is a set of scores.
+   */
   evidence: z.string(),
-  /** True when this criterion's current score makes evidence mandatory (AC3). */
-  evidence_required: z.boolean(),
 });
 export type EvaluationCriterionView = z.infer<typeof evaluationCriterionView>;
 

@@ -283,7 +283,8 @@ async function loadEvaluationScores(
     const groups = perEval.get(s.evaluation_id) ?? new Map();
     const cur = groups.get(s.group_id) ?? { sum: 0, weight: 0 };
     const w = num(s.weight);
-    cur.sum += w * s.score;
+    // `score` is numeric — the driver hands it back as text (see loadScores).
+    cur.sum += w * num(s.score);
     cur.weight += w;
     groups.set(s.group_id, cur);
     perEval.set(s.evaluation_id, groups);

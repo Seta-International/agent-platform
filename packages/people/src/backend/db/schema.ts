@@ -354,7 +354,7 @@ export const performanceConfigMonthPin = peopleSchema.table(
 export const EVALUATION_STATUSES = ['draft', 'submitted'] as const;
 /** Who is doing the scoring: a TL scores project members, an AM scores TLs. */
 export const EVALUATOR_CAPACITIES = ['tl', 'am'] as const;
-/** Criterion scores are whole numbers on this scale (FUT-784 AC2). */
+/** Criterion scores run this scale in half points — 1, 1.5, … 5 (FUT-784 AC2). */
 export const SCORE_MIN = 1;
 export const SCORE_MAX = 5;
 
@@ -420,10 +420,8 @@ export const performanceEvaluation = peopleSchema.table(
  * One score per criterion of the evaluation's frozen revision. A criterion with no row
  * is simply unscored, which is how a draft in progress looks.
  *
- * Evidence at the ends of the scale (FUT-784 AC3) is deliberately NOT a check here: it
- * is a submit-time rule, and a CHECK on this table cannot see the parent's status, so it
- * would also reject the half-filled draft the evaluator saves while still typing the
- * evidence. `submitEvaluation` enforces it instead.
+ * `evidence` is no longer collected by the form; the column stays so notes written before
+ * that survive, and so a write never has to blank them.
  */
 export const performanceEvaluationScore = peopleSchema.table(
   'performance_evaluation_score',
@@ -435,7 +433,8 @@ export const performanceEvaluationScore = peopleSchema.table(
     criterion_id: uuid('criterion_id')
       .notNull()
       .references(() => performanceConfigCriterion.id),
-    score: integer('score').notNull(),
+    // numeric, not integer: the scale steps by a half point.
+    score: numeric('score', { precision: 2, scale: 1 }).notNull(),
     evidence: text('evidence').notNull().default(''),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -445,6 +444,8 @@ export const performanceEvaluationScore = peopleSchema.table(
       'perf_eval_score_range',
       sql`score >= ${sql.raw(String(SCORE_MIN))} AND score <= ${sql.raw(String(SCORE_MAX))}`,
     ),
+    // Half points only — 3.5 is a score, 3.4 is a typo.
+    check('perf_eval_score_step', sql`(score * 2) = trunc(score * 2)`),
   ],
 );
 

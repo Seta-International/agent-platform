@@ -59,9 +59,10 @@ describe('isPerformancePathAllowed', () => {
     expect(allowed('/people/performance/configuration', [], tl)).toBe(false);
   });
 
-  it('scoring is TL/AM; self-assessment is member', () => {
-    expect(allowed('/people/performance/scoring', [], tl)).toBe(true);
-    expect(allowed('/people/performance/scoring', [], member)).toBe(false);
+  it('self-assessment is member; evaluating has no path of its own', () => {
+    // An evaluation opens as a dialog over the dashboard, so the old /scoring page is
+    // gone — a stale deep link falls back to Reviews rather than to an empty screen.
+    expect(allowed('/people/performance/scoring', [], tl)).toBe(false);
     expect(allowed('/people/performance/self-assessment', [], member)).toBe(true);
     expect(allowed('/people/performance/self-assessment', [], tl)).toBe(false);
   });

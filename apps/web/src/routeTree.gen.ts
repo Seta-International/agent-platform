@@ -69,7 +69,6 @@ import { Route as PeoplePerformanceConfigurationRouteImport } from './../../../p
 import { Route as PeoplePerformanceCycleRouteImport } from './../../../packages/web-people/src/routes/performance/cycle'
 import { Route as PeoplePerformanceHistoryRouteImport } from './../../../packages/web-people/src/routes/performance/history'
 import { Route as PeoplePerformanceMoraleRouteImport } from './../../../packages/web-people/src/routes/performance/morale'
-import { Route as PeoplePerformanceScoringRouteImport } from './../../../packages/web-people/src/routes/performance/scoring'
 import { Route as PeoplePerformanceSelfAssessmentRouteImport } from './../../../packages/web-people/src/routes/performance/self-assessment'
 import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
 import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
@@ -397,12 +396,6 @@ const PeoplePerformanceMoraleRoute = PeoplePerformanceMoraleRouteImport.update({
   path: '/morale',
   getParentRoute: () => PeoplePerformanceRouteRoute,
 } as any)
-const PeoplePerformanceScoringRoute =
-  PeoplePerformanceScoringRouteImport.update({
-    id: '/scoring',
-    path: '/scoring',
-    getParentRoute: () => PeoplePerformanceRouteRoute,
-  } as any)
 const PeoplePerformanceSelfAssessmentRoute =
   PeoplePerformanceSelfAssessmentRouteImport.update({
     id: '/self-assessment',
@@ -544,7 +537,6 @@ export interface FileRoutesByFullPath {
   '/people/performance/cycle': typeof PeoplePerformanceCycleRoute
   '/people/performance/history': typeof PeoplePerformanceHistoryRoute
   '/people/performance/morale': typeof PeoplePerformanceMoraleRoute
-  '/people/performance/scoring': typeof PeoplePerformanceScoringRoute
   '/people/performance/self-assessment': typeof PeoplePerformanceSelfAssessmentRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
@@ -615,7 +607,6 @@ export interface FileRoutesByTo {
   '/people/performance/cycle': typeof PeoplePerformanceCycleRoute
   '/people/performance/history': typeof PeoplePerformanceHistoryRoute
   '/people/performance/morale': typeof PeoplePerformanceMoraleRoute
-  '/people/performance/scoring': typeof PeoplePerformanceScoringRoute
   '/people/performance/self-assessment': typeof PeoplePerformanceSelfAssessmentRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
@@ -696,7 +687,6 @@ export interface FileRoutesById {
   '/_authed/people/performance/cycle': typeof PeoplePerformanceCycleRoute
   '/_authed/people/performance/history': typeof PeoplePerformanceHistoryRoute
   '/_authed/people/performance/morale': typeof PeoplePerformanceMoraleRoute
-  '/_authed/people/performance/scoring': typeof PeoplePerformanceScoringRoute
   '/_authed/people/performance/self-assessment': typeof PeoplePerformanceSelfAssessmentRoute
   '/_authed/planner/groups_/$groupId': typeof PlannerGroupsGroupIdRoute
   '/_authed/planner/groups_/discover': typeof PlannerGroupsDiscoverRoute
@@ -777,7 +767,6 @@ export interface FileRouteTypes {
     | '/people/performance/cycle'
     | '/people/performance/history'
     | '/people/performance/morale'
-    | '/people/performance/scoring'
     | '/people/performance/self-assessment'
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
@@ -848,7 +837,6 @@ export interface FileRouteTypes {
     | '/people/performance/cycle'
     | '/people/performance/history'
     | '/people/performance/morale'
-    | '/people/performance/scoring'
     | '/people/performance/self-assessment'
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
@@ -928,7 +916,6 @@ export interface FileRouteTypes {
     | '/_authed/people/performance/cycle'
     | '/_authed/people/performance/history'
     | '/_authed/people/performance/morale'
-    | '/_authed/people/performance/scoring'
     | '/_authed/people/performance/self-assessment'
     | '/_authed/planner/groups_/$groupId'
     | '/_authed/planner/groups_/discover'
@@ -1384,13 +1371,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeoplePerformanceMoraleRouteImport
       parentRoute: typeof PeoplePerformanceRouteRoute
     }
-    '/_authed/people/performance/scoring': {
-      id: '/_authed/people/performance/scoring'
-      path: '/scoring'
-      fullPath: '/people/performance/scoring'
-      preLoaderRoute: typeof PeoplePerformanceScoringRouteImport
-      parentRoute: typeof PeoplePerformanceRouteRoute
-    }
     '/_authed/people/performance/self-assessment': {
       id: '/_authed/people/performance/self-assessment'
       path: '/self-assessment'
@@ -1606,7 +1586,6 @@ interface PeoplePerformanceRouteRouteChildren {
   PeoplePerformanceCycleRoute: typeof PeoplePerformanceCycleRoute
   PeoplePerformanceHistoryRoute: typeof PeoplePerformanceHistoryRoute
   PeoplePerformanceMoraleRoute: typeof PeoplePerformanceMoraleRoute
-  PeoplePerformanceScoringRoute: typeof PeoplePerformanceScoringRoute
   PeoplePerformanceSelfAssessmentRoute: typeof PeoplePerformanceSelfAssessmentRoute
   PeoplePerformanceIndexRoute: typeof PeoplePerformanceIndexRoute
 }
@@ -1618,7 +1597,6 @@ const PeoplePerformanceRouteRouteChildren: PeoplePerformanceRouteRouteChildren =
     PeoplePerformanceCycleRoute: PeoplePerformanceCycleRoute,
     PeoplePerformanceHistoryRoute: PeoplePerformanceHistoryRoute,
     PeoplePerformanceMoraleRoute: PeoplePerformanceMoraleRoute,
-    PeoplePerformanceScoringRoute: PeoplePerformanceScoringRoute,
     PeoplePerformanceSelfAssessmentRoute: PeoplePerformanceSelfAssessmentRoute,
     PeoplePerformanceIndexRoute: PeoplePerformanceIndexRoute,
   }

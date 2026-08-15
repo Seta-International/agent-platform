@@ -12,11 +12,12 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { PerformanceRollup, RollupLeaf, RollupRow } from '../api/people-client.ts';
 import { performanceRollupOptions } from '../api/performance-query.ts';
+import { useEvaluateTarget } from '../hooks/use-evaluate-target.ts';
 import { formatScore } from '../lib/performance-scores.ts';
+import { EvaluateDialog } from './evaluate-dialog.tsx';
 import { type HeatColumn, PillarHeatmap } from './performance-pillar-heatmap.tsx';
 import { CycleEmptyNote, RollupBoundary } from './performance-rollup-boundary.tsx';
 import { BandLegend, KpiTile } from './performance-score-bits.tsx';
@@ -123,16 +124,7 @@ export function PerformanceAmDashboard({
     performanceRollupOptions({ month, scope: 'account', account_id: accountId }),
   );
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const openEvaluation = (personId: string, forProject: string) =>
-    void navigate({
-      to: '/people/performance/scoring',
-      search: (prev: Record<string, unknown>) => ({
-        ...prev,
-        subject: personId,
-        subject_project: forProject,
-      }),
-    });
+  const evaluate = useEvaluateTarget();
 
   return (
     <RollupBoundary query={query}>
@@ -210,12 +202,26 @@ export function PerformanceAmDashboard({
                     <ProjectDrillPanel
                       rollup={rollup}
                       project={active}
-                      onEvaluate={(personId) => openEvaluation(personId, active.id)}
+                      onEvaluate={(personId) => evaluate.open(personId, active.id)}
                     />
                   </>
                 ) : null}
               </VStack>
             </Card>
+
+            {evaluate.target ? (
+              <EvaluateDialog
+                month={month}
+                subjectPersonId={evaluate.target.subjectPersonId}
+                projectId={evaluate.target.projectId}
+                subjectName={
+                  rollup.rows
+                    .flatMap((p) => p.children)
+                    .find((c) => c.id === evaluate.target?.subjectPersonId)?.name
+                }
+                onClose={evaluate.close}
+              />
+            ) : null}
           </VStack>
         );
       }}

@@ -52,7 +52,7 @@ export function performanceTopTabs({
 
 /**
  * Whether the current path is allowed for this capacity / role set.
- * Deep links to legacy stubs (scoring, morale, …) stay reachable only when they match the role.
+ * Deep links to legacy stubs (morale, history, …) stay reachable only when they match the role.
  * Cycle unlock is gated on the permission rather than a role list, since the server
  * checks `people.performance.unlock` and nothing else on every unlock call — plus the
  * organization view, so switching into a delivery capacity falls back to Reviews.
@@ -76,7 +76,7 @@ export function isPerformancePathAllowed({
 
   if (path === '/people/performance') return true;
   if (path === '/people/performance/configuration') return kind === 'am';
-  if (path === '/people/performance/scoring') return kind === 'tl' || kind === 'am';
+  // Evaluating someone is a dialog over the dashboard (`?subject=…`), not a path.
   if (path === '/people/performance/self-assessment') return kind === 'member';
   if (path === '/people/performance/morale')
     return kind === 'member' || kind === 'tl' || kind === 'am';
