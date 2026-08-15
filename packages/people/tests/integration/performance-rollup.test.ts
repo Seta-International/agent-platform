@@ -278,6 +278,35 @@ describe('performance roll-up (FUT-784)', () => {
     });
   });
 
+  it('self scope is one project at a time — the capacity the member is looking at', async () => {
+    await withFixture(async (f, month) => {
+      // Mia also sits on Borealis this cycle, scored lower there.
+      await peopleDb().insert(workerAllocationProjection).values({
+        allocation_id: crypto.randomUUID(),
+        tenant_id: f.t.tenant_id,
+        person_id: f.mia.person_id,
+        project_id: f.borealis,
+        account_id: f.account_id,
+        lead_person_id: f.ben.person_id,
+        active: true,
+      });
+      await seedScores(f, month);
+      await submitFlat(f, f.ben, f.mia, f.borealis, month, 2);
+
+      const both = await readPerformanceRollup(f.sessionFor(f.mia), { scope: 'self', month });
+      expect(both.rows).toHaveLength(2);
+
+      const atlasOnly = await readPerformanceRollup(f.sessionFor(f.mia), {
+        scope: 'self',
+        month,
+        project_id: f.atlas,
+      });
+      expect(atlasOnly.rows.map((r) => r.name)).toEqual(['Atlas']);
+      expect(atlasOnly.overall).toBe(4);
+      expect(atlasOnly.reviews.map((r) => r.project_name)).toEqual(['Atlas']);
+    });
+  });
+
   it('a member cannot read another project or the account they are not AM of', async () => {
     await withFixture(async (f, month) => {
       await expect(
