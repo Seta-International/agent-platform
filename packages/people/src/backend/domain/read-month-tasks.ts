@@ -99,6 +99,12 @@ async function projectsSelfAssessed(
         eq(performanceEvaluation.tenant_id, tenantId),
         eq(performanceEvaluation.review_month, month),
         eq(performanceEvaluation.subject_person_id, personId),
+        // Redundant by the `perf_eval_self_capacity` CHECK, and there to put an index
+        // within reach: `perf_eval_by_evaluator` is exactly (tenant, evaluator, month).
+        // Without it the best available index is (tenant, account, month), which reads
+        // every evaluation in the tenant for the month and filters the rest away — fine
+        // at demo size, proportional to the whole company once a cycle is real.
+        eq(performanceEvaluation.evaluator_person_id, personId),
         eq(performanceEvaluation.evaluator_capacity, 'self'),
         eq(performanceEvaluation.status, 'submitted'),
       ),

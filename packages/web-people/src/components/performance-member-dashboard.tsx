@@ -5,6 +5,7 @@ import {
   Divider,
   HStack,
   proportional,
+  Spinner,
   Table,
   type TableColumn,
   Text,
@@ -286,6 +287,63 @@ function MySelfAssessment({
     />
   );
 
+  /**
+   * Nothing to show yet is its own state, not a closed cycle. The roll-up resolves first
+   * and paints this section, so without the split every load would claim the window had
+   * passed for a moment — and a failed request would say it for good.
+   */
+  const body = () => {
+    if (query.isPending) return <Spinner />;
+    if (query.isError || !view) {
+      return (
+        <HStack gap={2} vAlign="center" wrap="wrap">
+          <Text size="sm" color="secondary">
+            Couldn't load your self-assessment.
+          </Text>
+          <Button size="sm" variant="ghost" label="Retry" onClick={() => void query.refetch()} />
+        </HStack>
+      );
+    }
+    if (!filed) {
+      return (
+        <Text size="sm" color="secondary">
+          {view.editable
+            ? 'Score yourself against the same criteria your lead uses, so you know your own view before the review conversation. Your scores are kept out of the official average.'
+            : 'This cycle is closed, so the self-assessment window has passed.'}
+        </Text>
+      );
+    }
+    return (
+      <VStack gap={3}>
+        <HStack gap={2} vAlign="center" wrap="wrap">
+          <Badge
+            variant={submitted ? 'info' : 'neutral'}
+            label={submitted ? 'Submitted' : 'Draft'}
+          />
+          <Text size="3xl" weight="semibold" className="tabular-nums leading-none">
+            {formatScore(view.overall)}
+          </Text>
+        </HStack>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {groups.map((g, i) => (
+            <ReviewPillarTile
+              key={g.group_id}
+              index={i}
+              name={g.name}
+              score={scores[g.group_id] ?? null}
+            />
+          ))}
+        </div>
+        {view.overall != null && reviewOverall != null ? (
+          <GapToReview mine={view.overall} theirs={reviewOverall} />
+        ) : null}
+        <Text size="xsm" color="secondary">
+          Your own scores, kept out of the official average.
+        </Text>
+      </VStack>
+    );
+  };
+
   return (
     <Section
       // The meta stays to the cycle alone: anything longer wraps the header and drops the
@@ -294,41 +352,7 @@ function MySelfAssessment({
       meta={cycleLabel}
       action={button}
     >
-      {!filed ? (
-        <Text size="sm" color="secondary">
-          {view?.editable
-            ? 'Score yourself against the same criteria your lead uses, so you know your own view before the review conversation. Your scores are kept out of the official average.'
-            : 'This cycle is closed, so the self-assessment window has passed.'}
-        </Text>
-      ) : (
-        <VStack gap={3}>
-          <HStack gap={2} vAlign="center" wrap="wrap">
-            <Badge
-              variant={submitted ? 'info' : 'neutral'}
-              label={submitted ? 'Submitted' : 'Draft'}
-            />
-            <Text size="3xl" weight="semibold" className="tabular-nums leading-none">
-              {formatScore(view?.overall ?? null)}
-            </Text>
-          </HStack>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {groups.map((g, i) => (
-              <ReviewPillarTile
-                key={g.group_id}
-                index={i}
-                name={g.name}
-                score={scores[g.group_id] ?? null}
-              />
-            ))}
-          </div>
-          {view?.overall != null && reviewOverall != null ? (
-            <GapToReview mine={view.overall} theirs={reviewOverall} />
-          ) : null}
-          <Text size="xsm" color="secondary">
-            Your own scores, kept out of the official average.
-          </Text>
-        </VStack>
-      )}
+      {body()}
     </Section>
   );
 }
@@ -446,6 +470,7 @@ export function PerformanceMemberDashboard({
                 subjectPersonId={personId}
                 projectId={projectId}
                 subjectName={rollup.label}
+                isSelfAssessment
                 onClose={() => setSelfOpen(false)}
               />
             ) : null}

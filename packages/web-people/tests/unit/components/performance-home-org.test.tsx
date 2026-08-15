@@ -39,6 +39,7 @@ function renderOrgHome(opts: {
     <QueryClientProvider client={qc}>
       <PerformanceScopeProvider
         value={{
+          person_id: '99999999-9999-4999-8999-999999999999',
           role_slugs: opts.role_slugs,
           capacities: [],
           can_view_org: opts.can_view_org,

@@ -158,6 +158,7 @@ export function EvaluateDialog({
   subjectPersonId,
   projectId,
   subjectName,
+  isSelfAssessment = false,
   onClose,
 }: {
   month: string;
@@ -165,6 +166,11 @@ export function EvaluateDialog({
   projectId: string;
   /** Known from the row that opened this — keeps the title steady while the form loads. */
   subjectName?: string;
+  /**
+   * The caller already knows whether this is the member's own form; without it the header
+   * spends the first frames addressing them by name, in a title written for their manager.
+   */
+  isSelfAssessment?: boolean;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -239,12 +245,14 @@ export function EvaluateDialog({
   const name = view?.subject.full_name ?? subjectName ?? '';
   // Scoring yourself is the same form, but naming the subject would have it address the
   // reader in the third person — and "as SELF" is not a seat anyone holds (FUT-779).
-  const isSelf = view?.evaluator_capacity === 'self';
-  const title = isSelf
-    ? `My self-assessment · ${view.subject.project_name}`
-    : name
+  const isSelf = view ? view.evaluator_capacity === 'self' : isSelfAssessment;
+  const title = !isSelf
+    ? name
       ? `Evaluate · ${name}`
-      : 'Evaluate';
+      : 'Evaluate'
+    : view
+      ? `My self-assessment · ${view.subject.project_name}`
+      : 'My self-assessment';
   const subtitle = !view
     ? formatPerformanceMonth(month)
     : isSelf

@@ -196,6 +196,27 @@ describe('EvaluateDialog', () => {
     expect(screen.queryByLabelText(/Evidence/)).not.toBeInTheDocument();
   });
 
+  it('a self-assessment never addresses the member in the third person, even before it loads', async () => {
+    vi.mocked(fetchEvaluation).mockReturnValue(new Promise(() => {}));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <EvaluateDialog
+        month="2026-08"
+        subjectPersonId={SUBJECT}
+        projectId={PROJECT}
+        subjectName="Mia Member"
+        isSelfAssessment
+        onClose={vi.fn()}
+      />,
+      { wrapper: wrap(qc) },
+    );
+
+    // The caller already knows whose form this is; waiting for the fetch to say so puts
+    // the member's own name in a header written for their manager.
+    expect(await screen.findByText('My self-assessment')).toBeInTheDocument();
+    expect(screen.queryByText('Evaluate · Mia Member')).not.toBeInTheDocument();
+  });
+
   it('a closed cycle is read-only — no way to save or submit', async () => {
     vi.mocked(fetchEvaluation).mockResolvedValue(view({ editable: false, cycle_status: 'locked' }));
     renderDialog();
