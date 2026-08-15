@@ -1,5 +1,4 @@
 import {
-  Badge,
   Button,
   Card,
   Divider,
@@ -51,23 +50,20 @@ function EvaluateMembersTable({
         key: 'review',
         header: 'Review',
         align: 'end',
-        width: pixel(200),
+        width: pixel(120),
+        // One control per row, nothing else: the scores already say who has been
+        // evaluated (a whole row of em dashes is the "not yet"), so a status badge beside
+        // them only made the column ragged. The button carries the state instead —
+        // filled for work still owed, quiet for a review already written.
         renderCell: (m) => {
           const evaluated = m.scored > 0;
           return (
-            <HStack gap={2} vAlign="center" hAlign="end">
-              {evaluated ? (
-                <Badge variant="success" label="Evaluated" />
-              ) : (
-                <Badge variant="neutral" label="Not evaluated" />
-              )}
-              <Button
-                size="sm"
-                variant="secondary"
-                label={evaluated ? 'Edit' : 'Evaluate'}
-                onClick={() => onEvaluate(m.id)}
-              />
-            </HStack>
+            <Button
+              size="sm"
+              variant={evaluated ? 'ghost' : 'primary'}
+              label={evaluated ? 'Edit' : 'Evaluate'}
+              onClick={() => onEvaluate(m.id)}
+            />
           );
         },
       },
