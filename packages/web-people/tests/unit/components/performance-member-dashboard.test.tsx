@@ -191,6 +191,27 @@ describe('PerformanceMemberDashboard — self-assessment (FUT-779)', () => {
     expect(screen.queryByRole('button', { name: 'Start self-assessment' })).not.toBeInTheDocument();
   });
 
+  it('does not claim the cycle is closed while the form is still loading', async () => {
+    vi.mocked(fetchPerformanceRollup).mockResolvedValue(rollup());
+    // The roll-up resolves first, so the section paints before its own query settles.
+    vi.mocked(fetchEvaluation).mockReturnValue(new Promise(() => {}));
+    renderDashboard();
+
+    expect(await screen.findByText('My self-assessment')).toBeInTheDocument();
+    // "Not loaded yet" is not "the window has passed" — saying so sends the member away
+    // from a cycle they can still file in.
+    expect(screen.queryByText(/window has passed/i)).not.toBeInTheDocument();
+  });
+
+  it('says the form could not be loaded rather than blaming the cycle', async () => {
+    vi.mocked(fetchPerformanceRollup).mockResolvedValue(rollup());
+    vi.mocked(fetchEvaluation).mockRejectedValue(new Error('HTTP 500'));
+    renderDashboard();
+
+    expect(await screen.findByText(/couldn't load your self-assessment/i)).toBeInTheDocument();
+    expect(screen.queryByText(/window has passed/i)).not.toBeInTheDocument();
+  });
+
   it('says nothing can be filed once the cycle is closed', async () => {
     vi.mocked(fetchPerformanceRollup).mockResolvedValue(rollup({ cycle_status: 'locked' }));
     vi.mocked(fetchEvaluation).mockResolvedValue(
