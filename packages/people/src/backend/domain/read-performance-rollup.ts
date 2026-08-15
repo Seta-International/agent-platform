@@ -1,8 +1,9 @@
 import type { SessionScope } from '@seta/core';
 import { listAccountIdsManagedBy, listAccounts } from '@seta/pm';
 import { can } from '@seta/shared-rbac';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type {
+  EvaluatorCapacity,
   PerformanceRollupQuery,
   PerformanceRollupResponse,
   ReceivedReview,
@@ -222,7 +223,8 @@ async function loadEvaluationScores(
       overall: number | null;
       scores: ScoreMap;
       evaluator_person_id: string;
-      evaluator_capacity: 'tl' | 'am';
+      /** Never `self` — the query below excludes those (FUT-779 AC3). */
+      evaluator_capacity: EvaluatorCapacity;
       strengths: string;
       improve: string;
       top_action: string;
@@ -253,6 +255,10 @@ async function loadEvaluationScores(
         eq(performanceEvaluation.tenant_id, session.tenant_id),
         eq(performanceEvaluation.review_month, month),
         eq(performanceEvaluation.status, 'submitted'),
+        // A self-assessment is never an official score (FUT-779 AC3). Every roll-up on
+        // every dashboard — project, personal, team and account — is built from this one
+        // query, so excluding it here is what keeps it out of all of them.
+        ne(performanceEvaluation.evaluator_capacity, 'self'),
       ),
     );
   const kept = rows.filter((r) => wanted.has(`${r.subject_person_id}:${r.project_id}`));

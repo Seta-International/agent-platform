@@ -443,7 +443,7 @@ describe('evaluation form (FUT-784)', () => {
     });
   });
 
-  it('nobody evaluates themselves', async () => {
+  it('a lead never writes their own review — that one belongs to the AM', async () => {
     await withFixture(async (f) => {
       const { month, at } = openWindowNow();
       setMonthClock(() => at);
@@ -454,6 +454,95 @@ describe('evaluation form (FUT-784)', () => {
           project_id: f.project_id,
         }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+  });
+});
+
+describe('self-assessment (FUT-779)', () => {
+  it('a member loads their own form off the same account axis', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+
+      const mine = await readEvaluation(f.sessionFor(f.member), {
+        month,
+        subject_person_id: f.member.person_id,
+        project_id: f.project_id,
+      });
+      const managers = await readEvaluation(f.sessionFor(f.tl), {
+        month,
+        subject_person_id: f.member.person_id,
+        project_id: f.project_id,
+      });
+
+      expect(mine.evaluator_capacity).toBe('self');
+      expect(mine.subject.full_name).toBe('Mia Member');
+      // AC1 — the criteria and weights are the manager's, so the two views compare.
+      expect(mine.groups).toEqual(managers.groups);
+    });
+  });
+
+  it('the self-assessment and the TL review are separate rows, neither overwriting the other', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+      const target = { month, subject_person_id: f.member.person_id, project_id: f.project_id };
+
+      const mineForm = await readEvaluation(f.sessionFor(f.member), target);
+      await submitEvaluation(f.sessionFor(f.member), {
+        ...target,
+        base_version: mineForm.version,
+        scores: scoreAll(mineForm, 5),
+        strengths: 'my own read',
+        improve: '',
+        top_action: '',
+      });
+
+      const tlForm = await readEvaluation(f.sessionFor(f.tl), target);
+      // AC3 — the TL's form is untouched by what the member wrote about themselves.
+      expect(tlForm.version).toBe(0);
+      expect(tlForm.strengths).toBe('');
+      const tlSaved = await submitEvaluation(f.sessionFor(f.tl), {
+        ...target,
+        base_version: tlForm.version,
+        scores: scoreAll(tlForm, 3),
+        strengths: "the lead's read",
+        improve: '',
+        top_action: 'pair on reviews',
+      });
+
+      expect(tlSaved.overall).toBe(3);
+      const mineAfter = await readEvaluation(f.sessionFor(f.member), target);
+      expect(mineAfter.overall).toBe(5);
+      expect(mineAfter.strengths).toBe('my own read');
+    });
+  });
+
+  it('a lead has no self-assessment on the project they lead', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+      await expect(
+        readEvaluation(f.sessionFor(f.tl), {
+          month,
+          subject_person_id: f.tl.person_id,
+          project_id: f.project_id,
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+  });
+
+  it('nobody writes a self-assessment for a project they are not on', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+      await expect(
+        readEvaluation(f.sessionFor(f.outsider), {
+          month,
+          subject_person_id: f.outsider.person_id,
+          project_id: f.project_id,
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDATION' });
     });
   });
 });

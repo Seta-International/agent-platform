@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { listAccountIdsManagedBy } from '@seta/pm';
-import { and, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, not, or, sql } from 'drizzle-orm';
 import type {
   EvaluationCriterionView,
   EvaluationScoreInput,
@@ -35,9 +35,24 @@ function windowOpen(status: CycleStatus): boolean {
 }
 
 /**
+ * The self-assessment and the manager review share a (subject, project, month) but are
+ * separate rows, so every read and write has to say which one it means. Keyed on who
+ * wrote it rather than on the capacity: a mid-cycle lead change flips a manager review
+ * between `tl` and `am`, and that must not read as a different row.
+ */
+function writtenBySeat(capacity: EvaluatorCapacity) {
+  const self = eq(
+    performanceEvaluation.evaluator_person_id,
+    performanceEvaluation.subject_person_id,
+  );
+  return capacity === 'self' ? self : not(self);
+}
+
+/**
  * Who the caller is allowed to be for this (subject, project): the project's TL scores
- * its members, the account's AM scores the project's TL. Anyone else — including another
- * member of the same project — is refused, and nobody scores themselves (AC8).
+ * its members, the account's AM scores the project's TL, and a member scores themselves
+ * (FUT-779). Anyone else — including another member of the same project — is refused,
+ * and a lead never writes their own review, since that one is the AM's (AC8).
  */
 async function resolveTarget(
   session: SessionScope,
@@ -52,9 +67,6 @@ async function resolveTarget(
   requirePermission(session, 'people.performance.read');
   const me = session.person_id;
   if (!me) throw new PeopleError('FORBIDDEN', 'No employee record linked to session');
-  if (me === input.subject_person_id) {
-    throw new PeopleError('FORBIDDEN', 'An evaluation is never written about yourself');
-  }
 
   const db = peopleDb();
   const [project] = await db
@@ -116,11 +128,25 @@ async function resolveTarget(
     subject_name: subject.full_name ?? '',
   };
 
-  if (allocation.lead_person_id === me) return { ...base, capacity: 'tl' };
-
   // The TL of a project leads themselves in the allocation grid, so "subject is the
   // project lead" is exactly the case the AM owns.
   const subjectIsLead = allocation.lead_person_id === input.subject_person_id;
+
+  if (me === input.subject_person_id) {
+    // Only members self-assess (FUT-779). A lead's own review comes from their AM, so
+    // letting them file one here would put two readings of the same person side by side
+    // with nobody able to say which is the review.
+    if (subjectIsLead) {
+      throw new PeopleError(
+        'FORBIDDEN',
+        'Your own review on the project you lead is written by your AM.',
+      );
+    }
+    return { ...base, capacity: 'self' };
+  }
+
+  if (allocation.lead_person_id === me) return { ...base, capacity: 'tl' };
+
   if (subjectIsLead) {
     const managed = await listAccountIdsManagedBy(me, session.tenant_id);
     if (managed.includes(project.account_id)) return { ...base, capacity: 'am' };
@@ -163,6 +189,7 @@ async function resolveRevisionId(
 async function loadEvaluation(
   session: SessionScope,
   input: EvaluationTargetQuery,
+  capacity: EvaluatorCapacity,
 ): Promise<EvaluationRow | undefined> {
   const [row] = await peopleDb()
     .select()
@@ -173,6 +200,7 @@ async function loadEvaluation(
         eq(performanceEvaluation.review_month, input.month),
         eq(performanceEvaluation.subject_person_id, input.subject_person_id),
         eq(performanceEvaluation.project_id, input.project_id),
+        writtenBySeat(capacity),
       ),
     )
     .limit(1);
@@ -294,7 +322,7 @@ export async function readEvaluation(
     overrideActive,
   });
 
-  const row = await loadEvaluation(session, input);
+  const row = await loadEvaluation(session, input, target.capacity);
   const revisionId = await resolveRevisionId(session, target.account_id, input.month, row);
   const groups = await loadRevisionTree(revisionId);
   const scores = row ? await loadScores(row.id) : new Map<string, ScoreRow>();
@@ -396,8 +424,10 @@ async function writeEvaluation(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       // Serialize the two-tab race on this one evaluation so the version check below
-      // cannot be read stale by a concurrent write.
-      const lockKey = `perf-eval:${session.tenant_id}:${input.month}:${input.subject_person_id}:${input.project_id}`;
+      // cannot be read stale by a concurrent write. Keyed per seat: a member saving their
+      // self-assessment must not queue behind their TL saving the review.
+      const seat = target.capacity === 'self' ? 'self' : 'manager';
+      const lockKey = `perf-eval:${session.tenant_id}:${input.month}:${input.subject_person_id}:${input.project_id}:${seat}`;
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}::text, 0))`);
 
       const [existing] = await tx
@@ -409,6 +439,7 @@ async function writeEvaluation(
             eq(performanceEvaluation.review_month, input.month),
             eq(performanceEvaluation.subject_person_id, input.subject_person_id),
             eq(performanceEvaluation.project_id, input.project_id),
+            writtenBySeat(target.capacity),
           ),
         )
         .limit(1);

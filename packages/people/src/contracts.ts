@@ -309,7 +309,11 @@ export type SavePerformanceConfigResponse = z.infer<typeof savePerformanceConfig
 export const evaluationStatus = z.enum(['draft', 'submitted']);
 export type EvaluationStatus = z.infer<typeof evaluationStatus>;
 
-export const evaluatorCapacity = z.enum(['tl', 'am']);
+/**
+ * Which seat the evaluation is written from. `self` is a member's own assessment
+ * (FUT-779) — same criteria, same scale, but it never reaches an official score.
+ */
+export const evaluatorCapacity = z.enum(['tl', 'am', 'self']);
 export type EvaluatorCapacity = z.infer<typeof evaluatorCapacity>;
 
 /** Criterion scores are whole numbers on this scale; nothing outside it is offered (AC2). */

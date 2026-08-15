@@ -106,6 +106,13 @@
       "when": 1786814735787,
       "tag": "0021_performance_score_half_points",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786819657563,
+      "tag": "0022_performance_self_assessment",
+      "breakpoints": true
     }
   ]
 }

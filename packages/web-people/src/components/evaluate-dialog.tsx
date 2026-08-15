@@ -237,9 +237,19 @@ export function EvaluateDialog({
   );
 
   const name = view?.subject.full_name ?? subjectName ?? '';
-  const subtitle = view
-    ? `${view.subject.project_name} · ${formatPerformanceMonth(view.month)} · as ${view.evaluator_capacity.toUpperCase()}`
-    : formatPerformanceMonth(month);
+  // Scoring yourself is the same form, but naming the subject would have it address the
+  // reader in the third person — and "as SELF" is not a seat anyone holds (FUT-779).
+  const isSelf = view?.evaluator_capacity === 'self';
+  const title = isSelf
+    ? `My self-assessment · ${view.subject.project_name}`
+    : name
+      ? `Evaluate · ${name}`
+      : 'Evaluate';
+  const subtitle = !view
+    ? formatPerformanceMonth(month)
+    : isSelf
+      ? `${formatPerformanceMonth(view.month)} · your own scores, kept out of the official average`
+      : `${view.subject.project_name} · ${formatPerformanceMonth(view.month)} · as ${view.evaluator_capacity.toUpperCase()}`;
 
   return (
     <Dialog
@@ -256,7 +266,7 @@ export function EvaluateDialog({
       <Layout
         header={
           <DialogHeader
-            title={name ? `Evaluate · ${name}` : 'Evaluate'}
+            title={title}
             subtitle={subtitle}
             onOpenChange={(open) => {
               if (!open) onClose();

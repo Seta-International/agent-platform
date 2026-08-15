@@ -76,8 +76,8 @@ export function isPerformancePathAllowed({
 
   if (path === '/people/performance') return true;
   if (path === '/people/performance/configuration') return kind === 'am';
-  // Evaluating someone is a dialog over the dashboard (`?subject=…`), not a path.
-  if (path === '/people/performance/self-assessment') return kind === 'member';
+  // Evaluating someone is a dialog over the dashboard (`?subject=…`), not a path — and a
+  // member scoring themselves is the same dialog, opened from their own dashboard.
   if (path === '/people/performance/morale')
     return kind === 'member' || kind === 'tl' || kind === 'am';
   if (path === '/people/performance/history') return true;

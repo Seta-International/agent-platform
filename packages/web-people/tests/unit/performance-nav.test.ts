@@ -59,11 +59,12 @@ describe('isPerformancePathAllowed', () => {
     expect(allowed('/people/performance/configuration', [], tl)).toBe(false);
   });
 
-  it('self-assessment is member; evaluating has no path of its own', () => {
-    // An evaluation opens as a dialog over the dashboard, so the old /scoring page is
-    // gone — a stale deep link falls back to Reviews rather than to an empty screen.
+  it('scoring anyone, yourself included, has no path of its own', () => {
+    // Every evaluation opens as a dialog over the dashboard, so neither the old /scoring
+    // page nor the self-assessment stub survives — a stale deep link falls back to
+    // Reviews rather than to an empty screen.
     expect(allowed('/people/performance/scoring', [], tl)).toBe(false);
-    expect(allowed('/people/performance/self-assessment', [], member)).toBe(true);
+    expect(allowed('/people/performance/self-assessment', [], member)).toBe(false);
     expect(allowed('/people/performance/self-assessment', [], tl)).toBe(false);
   });
 

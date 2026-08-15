@@ -12,7 +12,7 @@ import { PerformanceTlDashboard } from './performance-tl-dashboard.tsx';
  * the scores and the progress counters all come from the server.
  */
 export function PerformanceHome() {
-  const { resolved, role_slugs, can_view_org } = usePerformanceScopeContext();
+  const { resolved, role_slugs, can_view_org, person_id } = usePerformanceScopeContext();
   const capacity = resolved.capacity;
 
   if (capacity?.kind === 'am') {
@@ -30,7 +30,13 @@ export function PerformanceHome() {
   }
 
   if (capacity?.kind === 'member') {
-    return <PerformanceMemberDashboard month={resolved.month} projectId={capacity.project_id} />;
+    return (
+      <PerformanceMemberDashboard
+        month={resolved.month}
+        projectId={capacity.project_id}
+        personId={person_id}
+      />
+    );
   }
 
   // No delivery capacity → org tier. Only an org-viewer (people.performance.read_org)

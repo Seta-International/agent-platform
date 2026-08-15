@@ -23,6 +23,8 @@ import { CycleStatusBadgeLoader } from './cycle-status-badge-loader.tsx';
 import { ProjectContextSwitcher } from './project-context-switcher.tsx';
 
 export type PerformanceShellProps = {
+  /** The signed-in person, handed down for their own self-assessment (FUT-779). */
+  person_id: string;
   role_slugs: readonly string[];
   capacities: readonly PerformanceCapacity[];
   default_capacity_index: number;
@@ -39,6 +41,7 @@ export type PerformanceShellProps = {
  * AM top tabs (Reviews | Configuration). No secondary sidebar.
  */
 export function PerformanceShell({
+  person_id,
   role_slugs,
   capacities,
   default_capacity_index,
@@ -88,6 +91,7 @@ export function PerformanceShell({
   return (
     <PerformanceScopeProvider
       value={{
+        person_id,
         role_slugs,
         capacities,
         can_view_org,

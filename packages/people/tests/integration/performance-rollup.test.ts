@@ -278,6 +278,37 @@ describe('performance roll-up (FUT-784)', () => {
     });
   });
 
+  it('a submitted self-assessment moves no official number on any dashboard (FUT-779 AC3)', async () => {
+    await withFixture(async (f, month) => {
+      await seedScores(f, month);
+      const pmo = f.sessionFor(f.ada, ['pm.pmo']);
+      const everyDashboard = async () => ({
+        project: await readPerformanceRollup(f.sessionFor(f.tom), {
+          scope: 'project',
+          month,
+          project_id: f.atlas,
+        }),
+        account: await readPerformanceRollup(f.sessionFor(f.ada), {
+          scope: 'account',
+          month,
+          account_id: f.account_id,
+        }),
+        org: await readPerformanceRollup(pmo, { scope: 'org', month }),
+        mine: await readPerformanceRollup(f.sessionFor(f.mia), { scope: 'self', month }),
+      });
+
+      const before = await everyDashboard();
+      // Mia rates herself a 1 where her TL gave her a 4 — the widest gap the scale allows,
+      // so any leak into the averages shows up rather than rounding away.
+      await submitFlat(f, f.mia, f.mia, f.atlas, month, 1);
+      const after = await everyDashboard();
+
+      expect(after).toEqual(before);
+      // Her personal page still shows the one review she received, not two.
+      expect(after.mine.reviews.map((r) => r.evaluator_capacity)).toEqual(['tl']);
+    });
+  });
+
   it('self scope is one project at a time — the capacity the member is looking at', async () => {
     await withFixture(async (f, month) => {
       // Mia also sits on Borealis this cycle, scored lower there.

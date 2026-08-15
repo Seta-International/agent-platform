@@ -12,7 +12,7 @@ import {
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { setMonthClock, vnYearMonth } from '../../src/backend/domain/month-clock.ts';
-import { readMonthTasks, unlockCycle } from '../../src/index.ts';
+import { readEvaluation, readMonthTasks, submitEvaluation, unlockCycle } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -111,9 +111,9 @@ describe('readMonthTasks (FUT-695 / TC-19..21)', () => {
         expect(result.cycle_status).toBe('open');
         expect(result.groups).toHaveLength(1);
         expect(result.groups[0]?.label).toBe('As TL · Atlas');
+        // No self-assessment card: a lead's own review is written by their AM (FUT-779).
         expect(result.groups[0]?.cards).toEqual([
           { kind: 'unscored', unscored: 3, total: 3, interactive: true },
-          { kind: 'self_assessment', submitted: false, interactive: true },
           { kind: 'morale', submitted: false, interactive: true },
         ]);
       } finally {
@@ -347,6 +347,32 @@ describe('readMonthTasks (FUT-695 / TC-19..21)', () => {
         expect(result.groups.map((g) => g.label)).toEqual(['As TL · Alpha', 'As Member · Beta']);
         expect(result.groups[0]?.cards.some((c) => c.kind === 'unscored')).toBe(true);
         expect(result.groups[1]?.cards.map((c) => c.kind)).toEqual(['self_assessment', 'morale']);
+        expect(result.groups[1]?.cards[0]).toEqual({
+          kind: 'self_assessment',
+          submitted: false,
+          interactive: true,
+        });
+
+        // Filing it ticks the card off — the to-do list has to know it is done (FUT-779).
+        const target = { month, subject_person_id: me, project_id: projB };
+        const form = await readEvaluation(session, target);
+        await submitEvaluation(session, {
+          ...target,
+          base_version: form.version,
+          scores: form.groups.flatMap((g) =>
+            g.criteria.map((c) => ({ criterion_id: c.criterion_id, score: 4, evidence: '' })),
+          ),
+          strengths: 'a fair month',
+          improve: '',
+          top_action: '',
+        });
+
+        const after = await readMonthTasks(session, { month });
+        expect(after.groups[1]?.cards[0]).toEqual({
+          kind: 'self_assessment',
+          submitted: true,
+          interactive: true,
+        });
       } finally {
         resetPeopleDb();
         resetPmDb();
