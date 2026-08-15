@@ -567,6 +567,7 @@ export type ReceivedReview = {
   project_id: string;
   project_name: string;
   evaluator_name: string;
+  /** Never `self`: a self-assessment is not a review anyone received (FUT-779 AC3). */
   evaluator_capacity: 'tl' | 'am';
   status: 'draft' | 'submitted';
   overall: number | null;
@@ -639,7 +640,8 @@ export type EvaluationView = {
     project_name: string;
     account_id: string;
   };
-  evaluator_capacity: 'tl' | 'am';
+  /** `self` when the member is scoring themselves (FUT-779). */
+  evaluator_capacity: 'tl' | 'am' | 'self';
   status: 'draft' | 'submitted';
   version: number;
   revision_id: string;

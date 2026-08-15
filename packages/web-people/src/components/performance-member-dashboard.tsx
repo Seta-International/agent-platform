@@ -12,11 +12,17 @@ import {
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
-import type { PerformanceRollup, ReceivedReview, RollupRow } from '../api/people-client.ts';
-import { performanceRollupOptions } from '../api/performance-query.ts';
+import { useMemo, useState } from 'react';
+import type {
+  EvaluationView,
+  PerformanceRollup,
+  ReceivedReview,
+  RollupRow,
+} from '../api/people-client.ts';
+import { evaluationOptions, performanceRollupOptions } from '../api/performance-query.ts';
 import { formatScore, type GroupAxis, scoreBand } from '../lib/performance-scores.ts';
 import { formatPerformanceMonth } from '../nav/performance-dashboard.ts';
+import { EvaluateDialog } from './evaluate-dialog.tsx';
 import { CycleEmptyNote, RollupBoundary } from './performance-rollup-boundary.tsx';
 import { bandLabel, bandTextColor, KpiTile, pillarColor } from './performance-score-bits.tsx';
 import { groupScoreColumns, totalColumn } from './performance-score-table.tsx';
@@ -191,22 +197,162 @@ function MyReview({ groups, review }: { groups: readonly GroupAxis[]; review: Re
   );
 }
 
+// ---- My self-assessment -------------------------------------------------
+
+/** Group means of the member's own scores, from the form itself (never the roll-up). */
+function selfGroupScores(view: EvaluationView): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const g of view.groups) {
+    let weight = 0;
+    let acc = 0;
+    for (const c of g.criteria) {
+      if (c.score === null) continue;
+      weight += c.weight;
+      acc += c.weight * c.score;
+    }
+    if (weight > 0) out[g.group_id] = acc / weight;
+  }
+  return out;
+}
+
+/**
+ * How the member's own reading sits against the review they were given. Stated as a gap
+ * because that is the thing worth carrying into the conversation — two numbers side by
+ * side leave the reader doing the subtraction.
+ */
+function GapToReview({ mine, theirs }: { mine: number; theirs: number }) {
+  const gap = Math.round(Math.abs(mine - theirs) * 10) / 10;
+  if (gap === 0) {
+    return (
+      <Text size="sm" color="secondary">
+        Your view matches your lead's review.
+      </Text>
+    );
+  }
+  return (
+    <Text size="sm" color="secondary">
+      Your view sits{' '}
+      <Text
+        as="span"
+        size="sm"
+        weight="semibold"
+        style={{ color: mine > theirs ? 'var(--color-text-green)' : 'var(--color-text-red)' }}
+      >
+        {gap.toFixed(1)} {mine > theirs ? 'above' : 'below'}
+      </Text>{' '}
+      your lead's review.
+    </Text>
+  );
+}
+
+/**
+ * The member's own scoring of themselves (FUT-779). Deliberately built from the same
+ * pillar tiles as "My review" directly below it: the two readings of one person are
+ * meant to be compared, and repeating the form is what makes them comparable at a
+ * glance. It never joins an average — the meta line says so rather than leaving the
+ * member to wonder why their number does not move the project score.
+ */
+function MySelfAssessment({
+  month,
+  projectId,
+  personId,
+  groups,
+  reviewOverall,
+  cycleLabel,
+  onOpen,
+}: {
+  month: string;
+  projectId: string;
+  personId: string;
+  groups: readonly GroupAxis[];
+  reviewOverall: number | null;
+  cycleLabel: string;
+  onOpen: () => void;
+}) {
+  const query = useQuery(
+    evaluationOptions({ month, subject_person_id: personId, project_id: projectId }),
+  );
+  const view = query.data;
+  const scores = view ? selfGroupScores(view) : {};
+  const filed = Object.keys(scores).length > 0;
+  const submitted = view?.status === 'submitted';
+
+  const button = !view?.editable ? null : (
+    <Button
+      size="sm"
+      variant={filed ? 'ghost' : 'primary'}
+      label={filed ? 'Edit self-assessment' : 'Start self-assessment'}
+      onClick={onOpen}
+    />
+  );
+
+  return (
+    <Section
+      // The meta stays to the cycle alone: anything longer wraps the header and drops the
+      // control onto a line of its own, where a quiet button reads as stray text.
+      title="My self-assessment"
+      meta={cycleLabel}
+      action={button}
+    >
+      {!filed ? (
+        <Text size="sm" color="secondary">
+          {view?.editable
+            ? 'Score yourself against the same criteria your lead uses, so you know your own view before the review conversation. Your scores are kept out of the official average.'
+            : 'This cycle is closed, so the self-assessment window has passed.'}
+        </Text>
+      ) : (
+        <VStack gap={3}>
+          <HStack gap={2} vAlign="center" wrap="wrap">
+            <Badge
+              variant={submitted ? 'info' : 'neutral'}
+              label={submitted ? 'Submitted' : 'Draft'}
+            />
+            <Text size="3xl" weight="semibold" className="tabular-nums leading-none">
+              {formatScore(view?.overall ?? null)}
+            </Text>
+          </HStack>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {groups.map((g, i) => (
+              <ReviewPillarTile
+                key={g.group_id}
+                index={i}
+                name={g.name}
+                score={scores[g.group_id] ?? null}
+              />
+            ))}
+          </div>
+          {view?.overall != null && reviewOverall != null ? (
+            <GapToReview mine={view.overall} theirs={reviewOverall} />
+          ) : null}
+          <Text size="xsm" color="secondary">
+            Your own scores, kept out of the official average.
+          </Text>
+        </VStack>
+      )}
+    </Section>
+  );
+}
+
 // ---- Dashboard ----------------------------------------------------------
 
 /**
  * The member's own view for ONE project — the capacity they picked in the switcher,
- * which lists a member's projects separately. Nothing here is editable: a member reads
- * the review their lead wrote, they do not write one.
+ * which lists a member's projects separately. The review their lead wrote is read-only;
+ * the one thing a member writes here is their own assessment.
  */
 export function PerformanceMemberDashboard({
   month,
   projectId,
+  personId,
 }: {
   month: string;
   projectId: string;
+  /** The signed-in person — the subject of their own assessment. */
+  personId: string;
 }) {
   const query = useQuery(performanceRollupOptions({ month, scope: 'self', project_id: projectId }));
   const cycleLabel = formatPerformanceMonth(month);
+  const [selfOpen, setSelfOpen] = useState(false);
 
   return (
     <RollupBoundary query={query}>
@@ -260,6 +406,18 @@ export function PerformanceMemberDashboard({
               )}
             </Section>
 
+            {rollup.rows.length > 0 ? (
+              <MySelfAssessment
+                month={month}
+                projectId={projectId}
+                personId={personId}
+                groups={rollup.groups}
+                reviewOverall={rollup.reviews[0]?.overall ?? null}
+                cycleLabel={cycleLabel}
+                onOpen={() => setSelfOpen(true)}
+              />
+            ) : null}
+
             {rollup.reviews.map((review) => (
               <Section
                 key={review.project_id}
@@ -280,6 +438,16 @@ export function PerformanceMemberDashboard({
                   <Button variant="ghost" label="Acknowledge review" isDisabled />
                 </HStack>
               </Section>
+            ) : null}
+
+            {selfOpen ? (
+              <EvaluateDialog
+                month={month}
+                subjectPersonId={personId}
+                projectId={projectId}
+                subjectName={rollup.label}
+                onClose={() => setSelfOpen(false)}
+              />
             ) : null}
           </VStack>
         );

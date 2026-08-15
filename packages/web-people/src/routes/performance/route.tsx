@@ -13,6 +13,7 @@ function PerformanceLayout() {
     <PerformanceGate>
       {(ctx) => (
         <PerformanceShell
+          person_id={ctx.person.person_id}
           role_slugs={ctx.role_slugs}
           capacities={ctx.capacities}
           default_capacity_index={ctx.default_capacity_index}
