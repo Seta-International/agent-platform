@@ -308,17 +308,19 @@ export function EvaluateDialog({
 
                 {view.groups.map((group, index) => (
                   <VStack key={group.group_id} gap={2}>
+                    {/* A pillar heads a block of criteria, so it outranks them on the page:
+                        larger than the rows beneath it, and in the pillar's own colour. */}
                     <HStack gap={2} vAlign="center">
                       <Text
                         as="h3"
-                        size="xsm"
+                        size="base"
                         weight="semibold"
                         className="uppercase tracking-wide"
                         style={{ color: pillarColor(index) }}
                       >
                         {group.name}
                       </Text>
-                      <Text size="2xs" color="secondary" className="tabular-nums">
+                      <Text size="xsm" color="secondary" className="tabular-nums">
                         {formatWeight(group.weight)}
                       </Text>
                     </HStack>
@@ -349,7 +351,7 @@ export function EvaluateDialog({
 
                 {readOnly && !strengths && !improve && !topAction ? null : (
                   <VStack gap={2}>
-                    <Text as="h3" size="xsm" weight="semibold" className="uppercase tracking-wide">
+                    <Text as="h3" size="base" weight="semibold" className="uppercase tracking-wide">
                       Written review
                     </Text>
                     <Divider />
