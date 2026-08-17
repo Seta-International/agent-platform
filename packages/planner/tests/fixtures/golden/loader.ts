@@ -12,7 +12,11 @@ import { parse as parseYaml } from 'yaml';
 import { type GoldenCase, GoldenCaseSchema } from './schema.ts';
 
 const FACTS_URL = new URL('./manifests/golden-facts.json', import.meta.url);
-const CASES_DIR = new URL('./cases/', import.meta.url);
+
+/** The A1 (query) dataset — the default, so every existing call site is unchanged. */
+export const QUERY_CASES_DIR = new URL('./cases/', import.meta.url);
+/** The A2 (action) dataset. One harness, two datasets (design D5). */
+export const ACTION_CASES_DIR = new URL('./action/cases/', import.meta.url);
 
 type Suite = 'smoke' | 'regression' | 'nightly';
 
@@ -47,6 +51,8 @@ export interface LoadOptions {
   suite?: Suite;
   includeHoldout?: boolean;
   includeAll?: boolean;
+  /** Which dataset to read. Defaults to `QUERY_CASES_DIR`. */
+  casesDir?: URL;
 }
 
 /**
@@ -55,7 +61,7 @@ export interface LoadOptions {
  * `suite` (if given) and are not holdout (unless `includeHoldout`).
  */
 export function loadGoldenCases(opts: LoadOptions = {}): GoldenCase[] {
-  const all = readAllCases();
+  const all = readAllCases(opts.casesDir ?? QUERY_CASES_DIR);
   if (opts.includeAll) return all;
   return all.filter((c) => {
     if (opts.suite && !c.suites.includes(opts.suite)) return false;
@@ -64,14 +70,14 @@ export function loadGoldenCases(opts: LoadOptions = {}): GoldenCase[] {
   });
 }
 
-function readAllCases(): GoldenCase[] {
-  if (!existsSync(CASES_DIR)) return [];
-  const files = readdirSync(CASES_DIR)
+function readAllCases(dir: URL): GoldenCase[] {
+  if (!existsSync(dir)) return [];
+  const files = readdirSync(dir)
     .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
     .sort();
   const cases: GoldenCase[] = [];
   for (const file of files) {
-    const raw = readFileSync(new URL(file, CASES_DIR), 'utf8');
+    const raw = readFileSync(new URL(file, dir), 'utf8');
     const parsed = parseYaml(raw);
     const docs = Array.isArray(parsed) ? parsed : [parsed];
     for (const doc of docs) {

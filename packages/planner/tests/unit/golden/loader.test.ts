@@ -1,5 +1,11 @@
 import { expect, it } from 'vitest';
-import { loadGoldenCases, resolveFactRef, toEvalCase } from '../../fixtures/golden/loader.ts';
+import {
+  ACTION_CASES_DIR,
+  loadGoldenCases,
+  QUERY_CASES_DIR,
+  resolveFactRef,
+  toEvalCase,
+} from '../../fixtures/golden/loader.ts';
 
 it('selects by suite and always excludes holdout by default', () => {
   const smoke = loadGoldenCases({ suite: 'smoke' });
@@ -52,4 +58,16 @@ it('down-projects an agent case to an EvalCase with resolved facts as groundTrut
   expect(evalCase.groundTruth).toMatchObject({
     'facts.users.00000000-bbbb-4000-8000-000000000002.openTaskCount': 12,
   });
+});
+
+it('defaults to the A1 dataset and can be pointed at the A2 dataset', () => {
+  const a1 = loadGoldenCases({ includeAll: true });
+  const explicit = loadGoldenCases({ includeAll: true, casesDir: QUERY_CASES_DIR });
+  expect(explicit.map((c) => c.id)).toEqual(a1.map((c) => c.id));
+
+  // The A2 directory may be empty until Part 4 authors it; what must hold is
+  // that pointing at it returns something DISJOINT from A1 rather than A1 again.
+  const a2 = loadGoldenCases({ includeAll: true, casesDir: ACTION_CASES_DIR });
+  const a1Ids = new Set(a1.map((c) => c.id));
+  expect(a2.some((c) => a1Ids.has(c.id))).toBe(false);
 });
