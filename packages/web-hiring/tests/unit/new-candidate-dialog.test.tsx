@@ -95,7 +95,7 @@ describe('NewCandidateDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
     await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
     await waitFor(() =>
-      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
+      expect(qc.getQueryState(['hiring', 'requisitions', 'options'])?.status).toBe('success'),
     );
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
@@ -138,7 +138,7 @@ describe('NewCandidateDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
     await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
     await waitFor(() =>
-      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
+      expect(qc.getQueryState(['hiring', 'requisitions', 'options'])?.status).toBe('success'),
     );
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),

@@ -54,7 +54,7 @@ describe('TransferDialog', () => {
     expect(within(dialog).getByRole('heading', { name: 'Change role' })).toBeInTheDocument();
     // Wait for query to load so effectiveTarget resolves to r2 (excludes current r1)
     await waitFor(() =>
-      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
+      expect(qc.getQueryState(['hiring', 'requisitions', 'options'])?.status).toBe('success'),
     );
     // The trigger shows the selected value (Frontend Eng = r2, since r1 is excluded)
     await waitFor(() =>
@@ -97,7 +97,7 @@ describe('TransferDialog', () => {
     );
     const dialog = screen.getByRole('dialog');
     await waitFor(() =>
-      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
+      expect(qc.getQueryState(['hiring', 'requisitions', 'options'])?.status).toBe('success'),
     );
     await waitFor(() =>
       expect(within(dialog).getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
