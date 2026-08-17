@@ -303,6 +303,22 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
   });
 
+  it('removes the last remaining new allocation row, collapsing the table back to none', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard([allocation({ date_to: '2026-12-23' })], [{ id: 'acc1', label: 'Aeris' }]);
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    expect(screen.getByLabelText('Account')).toBeInTheDocument();
+
+    const removeRow = screen.getByRole('button', { name: 'Remove' });
+    expect(removeRow).toBeEnabled();
+
+    await user.click(removeRow);
+
+    expect(screen.queryByLabelText('Account')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+  });
+
   it('does not offer 0 as a selectable allocation on a new project (a 0% allocation is invalid)', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
