@@ -88,6 +88,21 @@ function searchReturnedData(call: ToolCall): boolean {
 }
 
 /**
+ * Facts about the turn that the STREAM knows and the text cannot say.
+ *
+ * A suspended turn has no assembled result — `finalize()` is never called — so
+ * its `answer` is only the narration emitted before the card. Deciding the
+ * behaviour from that text is guesswork; the `tool-call-suspended` chunk is
+ * proof. Same for a resumed Confirm, which is a completed run by construction.
+ */
+export interface ObservedSignals {
+  /** The turn ended at a `tool-call-suspended` chunk. */
+  suspended?: boolean;
+  /** The turn was a resume (Confirm) that ran to completion. */
+  applied?: boolean;
+}
+
+/**
  * Classifies observed behavior from the answer + trajectory. Priority order is
  * significant:
  *   1. blank answer            → empty
@@ -98,7 +113,16 @@ function searchReturnedData(call: ToolCall): boolean {
  *   5. empty collection result → empty
  *   6. otherwise               → answer
  */
-function deriveObservedBehavior(answer: string, trajectory: Trajectory): string {
+export function deriveObservedBehavior(
+  answer: string,
+  trajectory: Trajectory,
+  signals: ObservedSignals = {},
+): string {
+  // Stream truth beats phrasing, always. Ordered applied-first because a resume
+  // is never also a suspend.
+  if (signals.applied) return 'applied';
+  if (signals.suspended) return 'confirm';
+
   const a = answer.trim();
   if (a.length === 0) return 'empty';
   const lower = a.toLowerCase();
@@ -122,6 +146,7 @@ export function ctxFromCase(
   c: GoldenCase,
   trajectory: Trajectory,
   answer: string,
+  signals: ObservedSignals = {},
 ): PolicyEvalContext {
   if (c.kind !== 'agent' && c.kind !== 'conversation') {
     throw new Error(`ctxFromCase: unsupported kind "${c.kind}"`);
@@ -145,7 +170,7 @@ export function ctxFromCase(
   return {
     trajectory,
     constraints,
-    observedBehavior: deriveObservedBehavior(answer, trajectory),
+    observedBehavior: deriveObservedBehavior(answer, trajectory, signals),
     expectedBehaviorValue: expected.behavior,
     answer,
     expectedDelegationTool: constraints.requiredTools[0],

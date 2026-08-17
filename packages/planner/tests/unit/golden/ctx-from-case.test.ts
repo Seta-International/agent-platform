@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { ctxFromCase } from '../../fixtures/golden/ctx-from-case.ts';
+import { ctxFromCase, deriveObservedBehavior } from '../../fixtures/golden/ctx-from-case.ts';
 import type { Trajectory } from '../../fixtures/golden/policy/trajectory.ts';
 import type { GoldenCase } from '../../fixtures/golden/schema.ts';
 
@@ -243,4 +243,30 @@ it('classifies a populated collection result as answer', () => {
   };
   const ctx = ctxFromCase(agentCase('answer'), traj, 'You have 1 task due this week.');
   expect(ctx.observedBehavior).toBe('answer');
+});
+
+// --- FUT-825: write-turn signals and the Vietnamese classifier ---------------
+
+const emptyTrajectory: Trajectory = { toolCalls: [] };
+
+it('classifies a suspended turn as confirm even when the narration reads like a question', () => {
+  // The exact production shape: A2 narrates "…confirm?" and the card is the
+  // real gate. Text alone would call this a clarify.
+  expect(
+    deriveObservedBehavior(
+      'Đổi due date của Deploy API sang 19/08 — bạn xác nhận nhé?',
+      emptyTrajectory,
+      { suspended: true },
+    ),
+  ).toBe('confirm');
+});
+
+it('classifies a resumed turn as applied', () => {
+  expect(
+    deriveObservedBehavior('Đã đổi due date sang 19/08.', emptyTrajectory, { applied: true }),
+  ).toBe('applied');
+});
+
+it('leaves classification unchanged when no write signal is given', () => {
+  expect(deriveObservedBehavior('Tuan has 12 open tasks.', emptyTrajectory)).toBe('answer');
 });
