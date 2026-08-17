@@ -14,12 +14,16 @@ import {
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertProjectManageable } from './assert-project-manageable.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
 import { buildProjectScope } from './scope.ts';
 
 function tagRangeError(
   err: unknown,
-  details: { field: 'source'; index?: number } | { field: 'target'; index: number },
+  details:
+    | { field: 'source'; index?: number }
+    | { field: 'target'; index: number }
+    | { field: 'existing'; index: number },
   projectName: string,
 ): unknown {
   if (err instanceof PmError) {
@@ -695,6 +699,90 @@ async function resolveGroupReassignment(
   return { resolvedSources, resolvedTargets };
 }
 
+async function resolveExistingEdits(
+  input: ReassignWorkerAllocationsInput & { session: SessionScope },
+) {
+  const { worker_id, session } = input;
+  const existing_edits = input.existing_edits ?? [];
+  if (existing_edits.length === 0) return [];
+
+  const ids = Array.from(new Set(existing_edits.map((e) => e.allocation_id)));
+  const currentRows = await pmDb()
+    .select()
+    .from(allocation)
+    .where(
+      and(
+        inArray(allocation.id, ids),
+        eq(allocation.person_id, worker_id),
+        tenantScoped(allocation.tenant_id, session),
+        isNull(allocation.deleted_at),
+      ),
+    );
+  if (currentRows.length !== ids.length) {
+    throw new PmError('NOT_FOUND', 'one or more allocations not found for this worker');
+  }
+
+  const resolved: Array<{
+    current: (typeof currentRows)[number];
+    input: (typeof existing_edits)[number];
+    proj: Awaited<ReturnType<typeof loadProject>>;
+  }> = [];
+  for (const [index, edit] of existing_edits.entries()) {
+    const current = currentRows.find((r) => r.id === edit.allocation_id);
+    if (!current) throw new PmError('NOT_FOUND', 'allocation not found for this worker');
+
+    await assertProjectManageable(current.project_id, session);
+    if (edit.project_id !== current.project_id) {
+      await assertProjectManageable(edit.project_id, session);
+    }
+    if (edit.expected_version !== undefined && edit.expected_version !== current.version) {
+      throw new PmError('CONFLICT', 'version mismatch');
+    }
+
+    const proj = await loadProject(edit.project_id, session);
+    try {
+      assertWithinProjectRange({
+        project_date_from: proj.date_from,
+        project_date_to: proj.date_to,
+        date_from: edit.date_from,
+        date_to: edit.date_to ?? null,
+      });
+    } catch (err) {
+      throw tagRangeError(err, { field: 'existing', index }, proj.name);
+    }
+    resolved.push({ current, input: edit, proj });
+  }
+
+  return resolved;
+}
+
+type ResolvedExistingEdit = Awaited<ReturnType<typeof resolveExistingEdits>>[number];
+
+function existingEditChanges(e: ResolvedExistingEdit): Record<string, unknown> {
+  const changes: Record<string, unknown> = {};
+  if (e.input.project_id !== e.current.project_id) changes.project_id = e.input.project_id;
+  if (Number(e.current.planned_pct ?? 0) !== e.input.planned_pct) {
+    changes.planned_pct = e.input.planned_pct.toString();
+  }
+  if ((e.current.date_from ?? null) !== e.input.date_from) changes.date_from = e.input.date_from;
+  if ((e.current.date_to ?? null) !== (e.input.date_to ?? null)) {
+    changes.date_to = e.input.date_to ?? null;
+  }
+  if (e.current.bucket !== (e.input.bucket ?? 'billable')) {
+    changes.bucket = e.input.bucket ?? 'billable';
+  }
+  if ((e.current.note ?? null) !== (e.input.note ?? null)) changes.note = e.input.note ?? null;
+  return changes;
+}
+
+function existingEditCandidates(edits: ResolvedExistingEdit[]): CandidateSegment[] {
+  return edits.map((e) => ({
+    date_from: e.input.date_from,
+    date_to: e.input.date_to ?? null,
+    planned_pct: e.input.planned_pct,
+  }));
+}
+
 /**
  * Like {@link reassignAllocation}, but ends every one of a PM-chosen subset of
  * a worker's allocations on the same date in one transaction, then creates the
@@ -708,16 +796,21 @@ export async function reassignWorkerAllocations(
   requirePermission(session, 'pm.project.manage');
 
   const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
+  const resolvedEdits = await resolveExistingEdits(input);
 
   const { peak_pct } = await computeCombinedPeak({
     worker_id,
-    exclude_allocation_ids: resolvedSources.map((s) => s.current.id),
+    exclude_allocation_ids: [
+      ...resolvedSources.map((s) => s.current.id),
+      ...resolvedEdits.map((e) => e.current.id),
+    ],
     candidates: [
       ...resolvedSources.map((s) => ({
         date_from: s.current.date_from as string,
         date_to: source.date_to,
         planned_pct: Number(s.current.planned_pct),
       })),
+      ...existingEditCandidates(resolvedEdits),
       ...resolvedTargets.map((t) => ({
         date_from: t.input.date_from,
         date_to: t.input.date_to ?? null,
@@ -745,6 +838,65 @@ export async function reassignWorkerAllocations(
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
+      for (const e of resolvedEdits) {
+        const changes = existingEditChanges(e);
+        const fields = Object.keys(changes);
+        if (fields.length === 0) continue;
+
+        const rangeMoved =
+          changes.date_from !== undefined ||
+          changes.date_to !== undefined ||
+          changes.project_id !== undefined;
+        if (rangeMoved) {
+          await assertNoProjectOverlap(tx, {
+            tenant_id: session.tenant_id,
+            worker_id,
+            project_id: e.input.project_id,
+            date_from: e.input.date_from,
+            date_to: e.input.date_to ?? null,
+            excludeId: e.current.id,
+          });
+        }
+
+        const nextVersion = e.current.version + 1;
+        const updatedRows = await tx
+          .update(allocation)
+          .set({ ...changes, version: nextVersion, updated_at: new Date() })
+          .where(
+            and(
+              eq(allocation.id, e.current.id),
+              eq(allocation.version, e.current.version),
+              isNull(allocation.deleted_at),
+            ),
+          )
+          .returning({ id: allocation.id });
+        if (updatedRows.length === 0) {
+          throw new PmError('CONFLICT', 'allocation was modified concurrently');
+        }
+        updated.push({ allocation_id: e.current.id, version: nextVersion });
+
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'pm.allocation',
+          aggregateId: e.current.id,
+          eventType: PM_ALLOCATION_UPDATED,
+          eventVersion: 1,
+          payload: {
+            allocation_id: e.current.id,
+            project_id: e.input.project_id,
+            worker_id,
+            account_id: e.proj.account_id,
+            tenant_id: session.tenant_id,
+            planned_pct: e.input.planned_pct,
+            lead_worker_id: e.proj.pm_worker_id ?? null,
+            date_from: e.input.date_from,
+            date_to: e.input.date_to ?? null,
+            bucket: e.input.bucket ?? 'billable',
+            fields,
+          },
+        });
+      }
+
       for (const s of resolvedSources) {
         const nextVersion = s.current.version + 1;
         const updatedRows = await tx
@@ -853,6 +1005,7 @@ export async function previewReassignWorkerAllocations(
   requirePermission(session, 'pm.project.manage');
 
   const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
+  const resolvedEdits = await resolveExistingEdits(input);
 
   const [
     worker_name,
@@ -869,13 +1022,17 @@ export async function previewReassignWorkerAllocations(
     loadWorkerName(worker_id, session),
     computeCombinedPeak({
       worker_id,
-      exclude_allocation_ids: resolvedSources.map((s) => s.current.id),
+      exclude_allocation_ids: [
+        ...resolvedSources.map((s) => s.current.id),
+        ...resolvedEdits.map((e) => e.current.id),
+      ],
       candidates: [
         ...resolvedSources.map((s) => ({
           date_from: s.current.date_from as string,
           date_to: source.date_to,
           planned_pct: Number(s.current.planned_pct),
         })),
+        ...existingEditCandidates(resolvedEdits),
         ...resolvedTargets.map((t) => ({
           date_from: t.input.date_from,
           date_to: t.input.date_to ?? null,

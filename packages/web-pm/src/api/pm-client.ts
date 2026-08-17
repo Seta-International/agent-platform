@@ -693,12 +693,24 @@ export interface ReassignGroupPreviewResult {
   restricted_segments?: RestrictedSegment[];
 }
 
+export interface ExistingAllocationEdit {
+  allocation_id: string;
+  project_id: string;
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+  bucket: 'billable' | 'internal' | 'bench';
+  note: string | null;
+  expected_version: number;
+}
+
 export interface ReassignWorkerAllocationsBody {
   worker_id: string;
   allocation_ids: string[];
   source: {
     date_to: string;
   };
+  existing_edits?: ExistingAllocationEdit[];
   targets: Array<{
     project_id: string;
     date_from: string;

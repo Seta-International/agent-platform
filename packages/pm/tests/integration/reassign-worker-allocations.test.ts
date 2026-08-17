@@ -488,6 +488,209 @@ describe('reassignWorkerAllocations', () => {
     });
   });
 
+  it('scores unsaved edits to existing allocations in the preview without writing them', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const newProj = await seedProject(t.adminSession, 'NewProj');
+        const worker = crypto.randomUUID();
+
+        const existing = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const preview = await previewReassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' },
+          existing_edits: [
+            {
+              allocation_id: existing.allocation_id,
+              project_id: watchtower,
+              date_from: '2026-01-01',
+              date_to: '2026-06-30',
+              planned_pct: 100,
+              bucket: 'billable',
+              expected_version: 1,
+            },
+          ],
+          targets: [
+            {
+              project_id: newProj,
+              date_from: '2026-07-01',
+              date_to: '2026-12-31',
+              planned_pct: 50,
+              bucket: 'billable',
+            },
+          ],
+          session: t.adminSession,
+        });
+
+        expect(preview.peak_pct).toBe(100);
+        expect(preview.exceeds).toBe(false);
+
+        const [row] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, existing.allocation_id));
+        expect(row?.date_to).toBe('2026-12-31');
+        expect(row?.version).toBe(1);
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
+        expect(rows).toHaveLength(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('applies existing_edits and the new targets together on confirm', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const newProj = await seedProject(t.adminSession, 'NewProj');
+        const worker = crypto.randomUUID();
+
+        const existing = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const result = await reassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' },
+          existing_edits: [
+            {
+              allocation_id: existing.allocation_id,
+              project_id: watchtower,
+              date_from: '2026-01-01',
+              date_to: '2026-06-30',
+              planned_pct: 80,
+              bucket: 'internal',
+              note: 'wrapping up',
+              expected_version: 1,
+            },
+          ],
+          targets: [
+            {
+              project_id: newProj,
+              date_from: '2026-07-01',
+              date_to: '2026-12-31',
+              planned_pct: 50,
+              bucket: 'billable',
+            },
+          ],
+          session: t.adminSession,
+        });
+
+        expect(result.updated).toEqual([{ allocation_id: existing.allocation_id, version: 2 }]);
+        expect(result.target_ids).toHaveLength(1);
+
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
+        expect(rows).toHaveLength(2);
+        const edited = rows.find((r) => r.id === existing.allocation_id);
+        expect(edited?.date_to).toBe('2026-06-30');
+        expect(edited?.planned_pct).toBe('80.0000');
+        expect(edited?.bucket).toBe('internal');
+        expect(edited?.note).toBe('wrapping up');
+        expect(edited?.version).toBe(2);
+
+        const updatedEvents = await readEvents(pool, t.tenant_id, 'pm.allocation.updated');
+        expect(updatedEvents).toHaveLength(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('rejects the whole confirm — creating no target — when an existing edit carries a stale version', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const newProj = await seedProject(t.adminSession, 'NewProj');
+        const worker = crypto.randomUUID();
+
+        const existing = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        await expect(
+          reassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [],
+            source: { date_to: '2026-01-01' },
+            existing_edits: [
+              {
+                allocation_id: existing.allocation_id,
+                project_id: watchtower,
+                date_from: '2026-01-01',
+                date_to: '2026-06-30',
+                planned_pct: 100,
+                bucket: 'billable',
+                expected_version: 99,
+              },
+            ],
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                date_to: '2026-12-31',
+                planned_pct: 50,
+                bucket: 'billable',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        ).rejects.toThrow(/version mismatch/i);
+
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.date_to).toBe('2026-12-31');
+        expect(rows[0]?.version).toBe(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('flags restricted allocations when the worker has allocations outside the caller permission scope', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

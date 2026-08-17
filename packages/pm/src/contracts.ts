@@ -713,6 +713,20 @@ export const reassignWorkerAllocationsInput = z.object({
   source: z.object({
     date_to: z.string(),
   }),
+  existing_edits: z
+    .array(
+      z.object({
+        allocation_id: z.string().uuid(),
+        project_id: z.string().uuid(),
+        date_from: z.string(),
+        date_to: z.string().nullable().optional(),
+        planned_pct: z.number().min(0).max(100),
+        bucket: z.enum(['billable', 'internal', 'bench']).optional().default('billable'),
+        note: z.string().nullable().optional(),
+        expected_version: z.number().int().optional(),
+      }),
+    )
+    .optional(),
   targets: z
     .array(
       z.object({
