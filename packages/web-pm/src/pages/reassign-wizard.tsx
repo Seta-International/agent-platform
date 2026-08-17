@@ -795,7 +795,6 @@ export function ReassignWizardDialog({
                               )
                             }
                             onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
-                            canRemove={targetRows.length > 1}
                           />
                         ))}
                       </div>
@@ -920,7 +919,6 @@ function TargetRowFields({
   projects,
   onChange,
   onRemove,
-  canRemove,
   error,
 }: {
   row: ReassignTargetRow;
@@ -928,7 +926,6 @@ function TargetRowFields({
   projects: ProjectListRow[];
   onChange: (patch: Partial<ReassignTargetRow>) => void;
   onRemove: () => void;
-  canRemove: boolean;
   error: string | null;
 }) {
   const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
@@ -1029,7 +1026,6 @@ function TargetRowFields({
           isIconOnly
           icon={<Trash2 className="size-4" />}
           label="Remove"
-          isDisabled={!canRemove}
           onClick={onRemove}
         />
       </div>
