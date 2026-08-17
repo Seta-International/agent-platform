@@ -155,3 +155,55 @@ export function routingAccuracy(t: Trajectory, expectedDelegationTool: string): 
     ? { passed: true, detail: `routed via ${expectedDelegationTool}` }
     : { passed: false, detail: `expected delegation tool ${expectedDelegationTool} not called` };
 }
+
+/** What a case asked of the database for one turn. `'none'` is BR-03's assertion. */
+export type ExpectedDbEffects =
+  | 'none'
+  | { rowsChanged: number; after: { table: string; id: string; [column: string]: unknown }[] };
+
+/** What the driver observed by diffing the tenant's rows across the turn. */
+export interface ObservedDbEffects {
+  rowsChanged: number;
+  /** One string per failed column assertion, formatted by the driver. */
+  mismatches: string[];
+  /** `table:id` of every row that changed — diagnostic only. */
+  changedKeys?: string[];
+}
+
+/**
+ * Compares a turn's declared database effect against the observed one.
+ *
+ * Pure by design: the driver owns the two snapshots and the SQL, this owns the
+ * verdict — the same split every other scorer in this file follows.
+ *
+ * An ABSENT expectation fails, deliberately. A case that asserts nothing about
+ * rows must not claim a db-backed metric.
+ */
+export function dbEffects(io: {
+  expected?: ExpectedDbEffects;
+  observed: ObservedDbEffects;
+}): ScorerOutcome {
+  if (io.expected === undefined) {
+    return { passed: false, detail: 'no dbEffects declared — nothing asserted about rows' };
+  }
+  if (io.expected === 'none') {
+    return io.observed.rowsChanged === 0
+      ? { passed: true, detail: 'no rows changed' }
+      : {
+          passed: false,
+          detail: `expected no write, ${io.observed.rowsChanged} row(s) changed: ${(
+            io.observed.changedKeys ?? []
+          ).join(', ')}`,
+        };
+  }
+  if (io.observed.rowsChanged !== io.expected.rowsChanged) {
+    return {
+      passed: false,
+      detail: `rowsChanged ${io.observed.rowsChanged}, expected ${io.expected.rowsChanged}`,
+    };
+  }
+  if (io.observed.mismatches.length > 0) {
+    return { passed: false, detail: io.observed.mismatches.join('; ') };
+  }
+  return { passed: true, detail: `${io.observed.rowsChanged} row(s) changed as expected` };
+}

@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import {
+  dbEffects,
   expectedBehavior,
   noFabrication,
   readOnlySafety,
@@ -192,4 +193,51 @@ it('routing_accuracy passes when the expected delegation tool was called', () =>
   const t = traj(['planner_queryTasksAgent', 'planner_queryTasks']);
   expect(routingAccuracy(t, 'planner_queryTasksAgent').passed).toBe(true);
   expect(routingAccuracy(t, 'planner_teamInfoAgent').passed).toBe(false);
+});
+
+// --- FUT-825: db_effects -----------------------------------------------------
+
+it('db_effects passes when nothing was written and none was expected', () => {
+  expect(dbEffects({ expected: 'none', observed: { rowsChanged: 0, mismatches: [] } }).passed).toBe(
+    true,
+  );
+});
+
+it('db_effects fails when a row changed before Confirm', () => {
+  const out = dbEffects({
+    expected: 'none',
+    observed: { rowsChanged: 1, mismatches: [], changedKeys: ['tasks:11111111'] },
+  });
+  expect(out.passed).toBe(false);
+  expect(out.detail).toContain('expected no write');
+});
+
+it('db_effects fails on the wrong number of changed rows', () => {
+  const out = dbEffects({
+    expected: { rowsChanged: 1, after: [] },
+    observed: { rowsChanged: 3, mismatches: [] },
+  });
+  expect(out.passed).toBe(false);
+  expect(out.detail).toContain('rowsChanged 3');
+});
+
+it('db_effects fails on a column mismatch the driver found', () => {
+  const out = dbEffects({
+    expected: { rowsChanged: 1, after: [] },
+    observed: {
+      rowsChanged: 1,
+      mismatches: ['tasks:abc.due_at expected 2026-08-19, got 2026-08-15'],
+    },
+  });
+  expect(out.passed).toBe(false);
+  expect(out.detail).toContain('due_at');
+});
+
+it('db_effects is NOT vacuously true when the case declared no expectation', () => {
+  // A case with no dbEffects must not silently pass a db-backed metric as if it
+  // had asserted something. Failing here is what stops M3 from being satisfied
+  // by silence (the weak-case failure mode FUT-829 hunts).
+  expect(
+    dbEffects({ expected: undefined, observed: { rowsChanged: 0, mismatches: [] } }).passed,
+  ).toBe(false);
 });
