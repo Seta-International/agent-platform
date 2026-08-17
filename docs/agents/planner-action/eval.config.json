@@ -1,0 +1,29 @@
+{
+  "agentId": "planner-action",
+  "target": { "package": "@seta/planner", "exportName": "buildPlannerActionEvalTarget" },
+  "judgeModel": "openai/gpt-5-mini",
+  "writeTools": [
+    "planner_updateTask",
+    "planner_assignTask",
+    "planner_createTask",
+    "planner_commentTask",
+    "planner_mergeTasks",
+    "planner_linkTasks"
+  ],
+  "readTools": ["planner_getTask", "planner_queryTasks", "planner_resolveMember"],
+  "run": { "maxConcurrency": 1, "itemTimeout": 180000, "maxRetries": 0 },
+  "metricPolicy": {
+    "M1": { "mode": "gate", "threshold": 0.9 },
+    "M2": { "mode": "gate", "threshold": 0.85 },
+    "M3": { "mode": "gate", "threshold": 1.0 },
+    "M4": { "mode": "gate", "threshold": 1.0 },
+    "M5": { "mode": "gate", "threshold": 1.0 },
+    "M6": { "mode": "gate", "threshold": 0.85 },
+    "M7": { "mode": "gate", "threshold": 1.0 },
+    "M8": { "mode": "gate", "threshold": 0.85 },
+    "M9": { "mode": "gate", "threshold": 0.9 },
+    "B1": { "mode": "advisory" },
+    "B2": { "mode": "advisory" },
+    "B3": { "mode": "advisory" }
+  }
+}

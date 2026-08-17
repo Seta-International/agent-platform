@@ -14,36 +14,67 @@ export interface MetricOverride {
   reason: string;
 }
 
-interface EvalConfig {
-  metricPolicy?: Record<string, { mode: MetricMode }>;
+interface MetricEntry {
+  mode: MetricMode;
+  /** Minimum pass RATE across the cases that claim this metric. Absent ⇒ 1: A1's
+   *  binary gate is the same rule with no tolerance. */
+  threshold?: number;
 }
 
-const CONFIG_URL = new URL(
+interface EvalConfig {
+  metricPolicy?: Record<string, MetricEntry>;
+}
+
+export const QUERY_CONFIG_URL = new URL(
   '../../../../../docs/agents/planner-query/eval.config.json',
   import.meta.url,
 );
+export const ACTION_CONFIG_URL = new URL(
+  '../../../../../docs/agents/planner-action/eval.config.json',
+  import.meta.url,
+);
 
-let cachedPolicy: Record<string, { mode: MetricMode }> | null = null;
+// Keyed by URL string: two agents, two configs, one process (the corpus
+// self-tests in FUT-829 read both in the same run).
+const cache = new Map<string, Record<string, MetricEntry>>();
 
-function loadPolicy(): Record<string, { mode: MetricMode }> {
-  if (cachedPolicy) return cachedPolicy;
-  const config = JSON.parse(readFileSync(CONFIG_URL, 'utf8')) as EvalConfig;
-  cachedPolicy = config.metricPolicy ?? {};
-  return cachedPolicy;
+function loadPolicy(url: URL): Record<string, MetricEntry> {
+  const key = url.href;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const config = JSON.parse(readFileSync(url, 'utf8')) as EvalConfig;
+  const policy = config.metricPolicy ?? {};
+  cache.set(key, policy);
+  return policy;
+}
+
+function entry(metricId: string, url: URL): MetricEntry {
+  const found = loadPolicy(url)[metricId];
+  if (!found) {
+    throw new Error(`metric-policy: unknown metric "${metricId}" (not in ${url.pathname})`);
+  }
+  return found;
 }
 
 /**
- * Resolves a metric's mode. A per-case `override` wins, but only when it
- * carries a non-empty `reason`; otherwise the central registry decides.
- * Throws if the metric is absent from the registry and not overridden — an
- * unknown metric must not silently default to advisory.
+ * Resolves a metric's mode. A per-case `override` wins, but only when it carries
+ * a non-empty `reason`; otherwise the named agent config decides. Throws if the
+ * metric is absent and not overridden — an unknown metric must not silently
+ * default to advisory.
  */
-export function resolveMetricMode(metricId: string, override?: MetricOverride): MetricMode {
+export function resolveMetricMode(
+  metricId: string,
+  override?: MetricOverride,
+  configUrl: URL = QUERY_CONFIG_URL,
+): MetricMode {
   if (override && override.reason.trim().length > 0) return override.mode;
-  const policy = loadPolicy();
-  const entry = policy[metricId];
-  if (!entry) {
-    throw new Error(`metric-policy: unknown metric "${metricId}" (not in eval.config.json)`);
-  }
-  return entry.mode;
+  return entry(metricId, configUrl).mode;
+}
+
+/** The metric's minimum pass rate. 1 when the config declares none. */
+export function resolveMetricThreshold(
+  metricId: string,
+  configUrl: URL = QUERY_CONFIG_URL,
+): number {
+  return entry(metricId, configUrl).threshold ?? 1;
 }
