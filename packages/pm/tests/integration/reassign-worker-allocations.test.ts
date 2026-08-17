@@ -558,4 +558,256 @@ describe('reassignWorkerAllocations', () => {
       }
     });
   });
+
+  // FUT-881: in-place edits + new targets commit atomically in one transaction. The preview
+  // must score the EDITED book (no pre-persist), and the confirm must apply edits + inserts
+  // together — never a partial "edit saved, new row pending" state.
+  it('FUT-881: commits an existing-row edit and a new target atomically at confirm', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const newProj = await seedProject(t.adminSession, 'NewProj');
+        const worker = crypto.randomUUID();
+
+        const a1 = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 30,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const [fresh] = await pmDb()
+          .select({ version: allocation.version })
+          .from(allocation)
+          .where(eq(allocation.id, a1.allocation_id));
+
+        const result = await reassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' }, // unused — nothing is being ended
+          updates: [
+            {
+              allocation_id: a1.allocation_id,
+              planned_pct: 60,
+              date_to: '2026-06-30',
+              bucket: 'internal',
+              expected_version: fresh?.version,
+            },
+          ],
+          targets: [
+            {
+              project_id: newProj,
+              date_from: '2026-07-01',
+              planned_pct: 100,
+              bucket: 'billable',
+              date_to: '2026-12-31',
+            },
+          ],
+          session: t.adminSession,
+        });
+
+        expect(result.updated).toEqual([{ allocation_id: a1.allocation_id, version: 2 }]);
+        expect(result.target_ids).toHaveLength(1);
+
+        // The edited row reflects the new values.
+        const [editedRow] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, a1.allocation_id));
+        expect(editedRow?.planned_pct).toBe('60.0000');
+        expect(editedRow?.date_to).toBe('2026-06-30');
+        expect(editedRow?.bucket).toBe('internal');
+        expect(editedRow?.version).toBe(2);
+
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
+        const created = rows.find((r) => r.project_id === newProj);
+        expect(created).toBeDefined();
+        expect(created?.planned_pct).toBe('100.0000');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-881: an edits-only confirm (no new targets) updates the row without ending anything', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const worker = crypto.randomUUID();
+
+        const a1 = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 30,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const [fresh] = await pmDb()
+          .select({ version: allocation.version })
+          .from(allocation)
+          .where(eq(allocation.id, a1.allocation_id));
+        const result = await reassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' },
+          updates: [
+            {
+              allocation_id: a1.allocation_id,
+              planned_pct: 80,
+              expected_version: fresh?.version,
+            },
+          ],
+          targets: [],
+          session: t.adminSession,
+        });
+
+        expect(result.updated).toEqual([{ allocation_id: a1.allocation_id, version: 2 }]);
+        expect(result.target_ids).toHaveLength(0);
+
+        const [row] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, a1.allocation_id));
+        expect(row?.planned_pct).toBe('80.0000');
+        expect(row?.date_to).toBe('2026-12-31'); // untouched — nothing was ended
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-881: preview scores the edited book WITHOUT persisting it', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const worker = crypto.randomUUID();
+
+        // 100% on Watchtower. Previewing an edit that drops it to 50% must report 50%
+        // (the edited value), and must NOT write it to the DB.
+        const a1 = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const preview = await previewReassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: '2026-01-01' },
+          updates: [
+            {
+              allocation_id: a1.allocation_id,
+              planned_pct: 50,
+            },
+          ],
+          targets: [],
+          session: t.adminSession,
+        });
+
+        expect(preview.peak_pct).toBe(50);
+        expect(preview.exceeds).toBe(false);
+
+        // Preview is a dry run — the DB row is unchanged.
+        const [row] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, a1.allocation_id));
+        expect(row?.planned_pct).toBe('100.0000');
+        expect(row?.version).toBe(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-881: rejects a stale expected_version on an update and persists nothing', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const newProj = await seedProject(t.adminSession, 'NewProj');
+        const worker = crypto.randomUUID();
+
+        const a1 = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 30,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        await expect(
+          reassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [],
+            source: { date_to: '2026-01-01' },
+            updates: [
+              {
+                allocation_id: a1.allocation_id,
+                planned_pct: 50,
+                expected_version: 999, // stale — real version is 1
+              },
+            ],
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                planned_pct: 100,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        ).rejects.toThrow(/concurrently|version/i);
+
+        // Atomicity: nothing was applied — the edit is rejected and no target was inserted.
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.planned_pct).toBe('30.0000');
+        expect(rows[0]?.version).toBe(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
