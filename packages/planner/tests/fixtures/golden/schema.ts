@@ -6,7 +6,20 @@
 // agent | retrieval | conversation shapes.
 import { z } from 'zod';
 
-const Behavior = z.enum(['answer', 'empty', 'clarify', 'refuse', 'partial', 'error-recovery']);
+const Behavior = z.enum([
+  'answer',
+  'empty',
+  'clarify',
+  'refuse',
+  'partial',
+  'error-recovery',
+  // A2 write terminal states (FUT-825). `confirm` = the turn stopped at a preview
+  // card and wrote nothing; `applied` = the change was written after the user
+  // pressed Confirm. No A1 case can observe either: `planner-query`'s
+  // `forbiddenTools` denies every write tool, so no query turn can ever suspend.
+  'confirm',
+  'applied',
+]);
 const Suites = z.array(z.enum(['smoke', 'regression', 'nightly'])).min(1);
 
 const Trajectory = z
