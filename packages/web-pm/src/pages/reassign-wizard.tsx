@@ -1,15 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, Building2, Check, FolderKanban, Info, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Building2, FolderKanban, Info, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import {
-  type ExistingAllocationEdit,
   type ProjectListRow,
   previewReassignWorkerAllocations,
   type RaMonitoringAllocation,
   type ReassignGroupPreviewResult,
+  type ReassignWorkerAllocationsBody,
+  type ReassignWorkerAllocationUpdate,
   reassignWorkerAllocations,
   removeAllocation,
-  updateAllocation,
 } from '../api/pm-client.ts';
 import {
   AlertDialog,
@@ -112,14 +112,10 @@ export function ReassignWizardDialog({
   const [targetRows, setTargetRows] = useState<ReassignTargetRow[]>([]);
   const [preview, setPreview] = useState<ReassignGroupPreviewResult | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<RaMonitoringAllocation | null>(null);
-  // Pending per-row save awaiting confirmation because its end date is in the past — saving it
-  // would drop the allocation out of RA Monitoring's active window, so we warn before applying.
-  const [pastEndConfirm, setPastEndConfirm] = useState<{
-    allocationId: string;
-    draft: RowDraft;
-    expectedVersion: number;
-  } | null>(null);
-  const [pastEndOnConfirm, setPastEndOnConfirm] = useState(false);
+  // FUT-881: an in-flight edit whose draft end date is in the past would drop that allocation
+  // out of RA Monitoring's active window on Confirm. Warn once before previewing (nothing is
+  // persisted yet); confirming the warning just proceeds to the normal Review → Confirm flow.
+  const [confirmPastEnd, setConfirmPastEnd] = useState(false);
   // Locally reflects a row already saved directly on this screen, so it shows
   // the new values immediately without waiting on the parent's allocations
   // query to refetch.
@@ -134,7 +130,6 @@ export function ReassignWizardDialog({
         date_to: string;
         bucket: Bucket;
         note: string | null;
-        version: number;
       }
     >
   >({});
@@ -163,8 +158,7 @@ export function ReassignWizardDialog({
       setTargetRows(seedRow ? [{ ...emptyReassignRow(todayIso()), ...seedRow }] : []);
       setPreview(null);
       setConfirmTarget(null);
-      setPastEndConfirm(null);
-      setPastEndOnConfirm(false);
+      setConfirmPastEnd(false);
       setSavedOverrides({});
       setRowDrafts({});
     }
@@ -190,10 +184,6 @@ export function ReassignWizardDialog({
     };
   }
 
-  function effectiveVersion(a: RaMonitoringAllocation): number {
-    return savedOverrides[a.allocation_id]?.version ?? a.version;
-  }
-
   function draftFor(a: RaMonitoringAllocation): RowDraft {
     const existing = rowDrafts[a.allocation_id];
     if (existing) return existing;
@@ -216,41 +206,87 @@ export function ReassignWizardDialog({
       [a.allocation_id]: { ...draftFor(a), ...patch },
     }));
   }
+  // Same validation for the existing ("update") rows: a start edited into the past, or an
+  // overlap between two of this person's allocations on one project. Keyed by allocation id;
+  // gates Review impact (a row with an error can't be submitted) and surfaces above the Add
+  // project button. Cheap (a handful of rows) and depends on per-render draft state, so it's
+  // computed inline rather than memoized.
+  const existingErrors = existingAllocationErrors(
+    futureAllocations.map((a) => {
+      const eff = effectiveRow(a);
+      const draft = draftFor(a);
+      return {
+        id: a.allocation_id,
+        project_id: draft.project_id,
+        date_from: draft.date_from,
+        date_to: draft.date_to,
+        locked: !!eff.date_from && eff.date_from < todayIso(),
+      };
+    }),
+    todayIso(),
+  );
 
-  const saveRowMutation = useMutation({
-    mutationFn: (vars: { allocationId: string; draft: RowDraft; expectedVersion: number }) =>
-      updateAllocation(vars.allocationId, {
-        project_id: vars.draft.project_id,
-        planned_pct: fractionToPct(vars.draft.planned_pct),
-        date_from: vars.draft.date_from,
-        date_to: vars.draft.date_to || null,
-        bucket: vars.draft.bucket,
-        note: vars.draft.note || null,
-        expected_version: vars.expectedVersion,
-      }),
-    onSuccess: (result, vars) => {
-      // A past end date is confirmed up front through the AlertDialog below (it spells out that
-      // the row will leave RA Monitoring's active window), so a successful save just needs the
-      // standard confirmation. Close the past-end dialog in case this save came from it.
-      toast({ body: 'Allocation updated' });
-      setPastEndConfirm(null);
-      setSavedOverrides((m) => ({
-        ...m,
-        [vars.allocationId]: {
-          account_id: vars.draft.account_id,
-          project_id: vars.draft.project_id,
-          // savedOverrides mirror the backend's percentage semantics (feeds effectiveRow/timeline).
-          planned_pct: fractionToPct(vars.draft.planned_pct),
-          date_from: vars.draft.date_from,
-          date_to: vars.draft.date_to,
-          bucket: vars.draft.bucket,
-          note: vars.draft.note || null,
-          version: result.version,
-        },
-      }));
-      onReassigned();
-    },
-    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
+  // FUT-881: the in-place edits to send on Review/Confirm — every dirty, valid existing row.
+  // Drafts stay local until Confirm persists them; the backend previews the edited book, so
+  // these are computed identically for both preview and the final atomic save. Like
+  // `existingErrors`, it reads the latest draft/error state every render — cheap and correct,
+  // so it's a plain computation rather than a memoized one.
+  const dirtyUpdates: ReassignWorkerAllocationUpdate[] = [];
+  for (const a of futureAllocations) {
+    const d = rowDrafts[a.allocation_id];
+    if (!d) continue;
+    if (!d.account_id || !d.project_id || existingErrors[a.allocation_id] != null) continue;
+    const eff = effectiveRow(a);
+    const changed = existingRowChanged(
+      {
+        account_id: d.account_id,
+        project_id: d.project_id,
+        planned_pct: fractionToPct(d.planned_pct),
+        date_from: d.date_from,
+        date_to: d.date_to,
+        bucket: d.bucket,
+        note: d.note,
+      },
+      {
+        account_id: eff.account_id,
+        project_id: eff.project_id,
+        planned_pct: eff.planned_pct,
+        date_from: eff.date_from ?? '',
+        date_to: eff.date_to ?? '',
+        bucket: eff.bucket,
+        note: eff.note ?? '',
+      },
+    );
+    if (!changed) continue;
+    const update: ReassignWorkerAllocationUpdate = {
+      allocation_id: a.allocation_id,
+      expected_version: a.version,
+    };
+    if (d.project_id !== eff.project_id) update.project_id = d.project_id;
+    if (fractionToPct(d.planned_pct) !== eff.planned_pct)
+      update.planned_pct = fractionToPct(d.planned_pct);
+    if (d.date_from !== (eff.date_from ?? '')) update.date_from = d.date_from || null;
+    if (d.date_to !== (eff.date_to ?? '')) update.date_to = d.date_to || null;
+    if (d.bucket !== eff.bucket) update.bucket = d.bucket;
+    if (d.note !== eff.note) update.note = d.note || null;
+    dirtyUpdates.push(update);
+  }
+
+  // The request both Review (preview) and Confirm send. `source` is unused here — the wizard
+  // never ends an existing allocation — but the contract requires it; nothing is being ended.
+  const buildReassignRequest = (): ReassignWorkerAllocationsBody => ({
+    worker_id: target?.worker_id as string,
+    allocation_ids: [],
+    source: { date_to: todayIso() },
+    updates: dirtyUpdates,
+    targets: targetRows.map((r) => ({
+      project_id: r.project_id,
+      date_from: r.date_from,
+      planned_pct: fractionToPct(r.planned_pct),
+      bucket: r.bucket,
+      date_to: r.date_to || null,
+      note: r.note.trim() || null,
+    })),
   });
 
   const removeMutation = useMutation({
@@ -269,41 +305,16 @@ export function ReassignWizardDialog({
   });
 
   const previewMutation = useMutation({
-    mutationFn: () =>
-      previewReassignWorkerAllocations({
-        worker_id: target?.worker_id as string,
-        allocation_ids: [],
-        source: { date_to: todayIso() }, // unused — no existing allocation is being ended here
-        existing_edits: pendingExistingEdits(),
-        targets: targetRows.map((r) => ({
-          project_id: r.project_id,
-          date_from: r.date_from,
-          planned_pct: fractionToPct(r.planned_pct),
-          bucket: r.bucket,
-          date_to: r.date_to || null,
-          note: r.note.trim() || null,
-        })),
-      }),
+    // FUT-881: preview and confirm send the SAME payload — edits ride along so the preview
+    // scores the EDITED book (the backend excludes the edited rows from the worker sweep and
+    // re-injects their new state), and confirm applies the whole batch atomically.
+    mutationFn: () => previewReassignWorkerAllocations(buildReassignRequest()),
     onSuccess: (result) => setPreview(result),
     onError: () => setPreview(null),
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      reassignWorkerAllocations({
-        worker_id: target?.worker_id as string,
-        allocation_ids: [],
-        source: { date_to: todayIso() }, // unused — no existing allocation is being ended here
-        existing_edits: pendingExistingEdits(),
-        targets: targetRows.map((r) => ({
-          project_id: r.project_id,
-          date_from: r.date_from,
-          planned_pct: fractionToPct(r.planned_pct),
-          bucket: r.bucket,
-          date_to: r.date_to || null,
-          note: r.note.trim() || null,
-        })),
-      }),
+    mutationFn: () => reassignWorkerAllocations(buildReassignRequest()),
     onSuccess: (result) => {
       if (result.warnings.length > 0) {
         toast({
@@ -311,58 +322,72 @@ export function ReassignWizardDialog({
             .map((w) => `${w.project_name} (${w.peak_pct}%)`)
             .join(', ')}`,
         });
-      } else {
-        toast({ body: 'Reassigned' });
+      } else if (dirtyUpdates.length > 0 || targetRows.length > 0) {
+        // FUT-881: a single confirm can carry both an existing-row edit and a new project,
+        // so the toast names the actual operation instead of always saying "Reassigned".
+        const editedCount = dirtyUpdates.length;
+        const addedCount = targetRows.length;
+        if (addedCount === 0 && editedCount === 1) {
+          toast({ body: 'Allocation updated' });
+        } else {
+          const parts = [];
+          if (editedCount > 0)
+            parts.push(`${editedCount} allocation${editedCount === 1 ? '' : 's'} updated`);
+          if (addedCount > 0)
+            parts.push(`${addedCount} project allocation${addedCount === 1 ? '' : 's'} added`);
+          toast({ body: `Saved: ${parts.join(' and ')}` });
+        }
       }
-      setPastEndOnConfirm(false);
+      // Reflect the committed edits locally so the UI shows the new values before the parent
+      // query refetches — same handledIn as the old per-row save.
+      if (dirtyUpdates.length > 0) {
+        setSavedOverrides((m) => {
+          const next = { ...m };
+          for (const u of dirtyUpdates) {
+            const alloc = futureAllocations.find((a) => a.allocation_id === u.allocation_id);
+            const draft = alloc ? rowDrafts[alloc.allocation_id] : undefined;
+            if (!draft) continue;
+            next[u.allocation_id] = {
+              account_id: draft.account_id,
+              project_id: draft.project_id,
+              planned_pct: fractionToPct(draft.planned_pct),
+              date_from: draft.date_from,
+              date_to: draft.date_to,
+              bucket: draft.bucket,
+              note: draft.note || null,
+            };
+          }
+          return next;
+        });
+        setRowDrafts((m) => {
+          const next = { ...m };
+          for (const u of dirtyUpdates) delete next[u.allocation_id];
+          return next;
+        });
+      }
       onReassigned();
       onClose();
     },
   });
 
-  function pendingExistingEdits(): ExistingAllocationEdit[] {
-    return futureAllocations.flatMap((a) => {
-      if (!rowDrafts[a.allocation_id]) return [];
-      const d = draftFor(a);
-      if (!d.account_id || !d.project_id || existingErrors[a.allocation_id] != null) return [];
-      const eff = effectiveRow(a);
-      const changed = existingRowChanged(
-        {
-          account_id: d.account_id,
-          project_id: d.project_id,
-          planned_pct: fractionToPct(d.planned_pct),
-          date_from: d.date_from,
-          date_to: d.date_to,
-          bucket: d.bucket,
-          note: d.note,
-        },
-        {
-          account_id: eff.account_id,
-          project_id: eff.project_id,
-          planned_pct: eff.planned_pct,
-          date_from: eff.date_from ?? '',
-          date_to: eff.date_to ?? '',
-          bucket: eff.bucket,
-          note: eff.note ?? '',
-        },
-      );
-      if (!changed) return [];
-      return [
-        {
-          allocation_id: a.allocation_id,
-          project_id: d.project_id,
-          date_from: d.date_from,
-          date_to: d.date_to || null,
-          planned_pct: fractionToPct(d.planned_pct),
-          bucket: d.bucket,
-          note: d.note || null,
-          expected_version: effectiveVersion(a),
-        },
-      ];
-    });
-  }
-
   function goToReview() {
+    // FUT-881: no per-row immediate save, and no pre-persist here either. Edits stay drafts and
+    // are submitted together with any new projects at Confirm — the single atomic save point.
+    // The reviews below preview the EDITED book (the backend scopes the peak over the edited
+    // rows), so nothing must hit the DB before the user confirms.
+
+    // A dirty edit whose end moved into the past would silently drop that row out of RA
+    // Monitoring's active window once saved (FUT-747). Warn up front — before any preview —
+    // and let the user back out; confirming continues to the normal Review step.
+    if (
+      !confirmPastEnd &&
+      dirtyUpdates.some((u) => u.date_to !== undefined && endDateIsInPast(u.date_to, todayIso()))
+    ) {
+      setConfirmPastEnd(true);
+      return;
+    }
+    setConfirmPastEnd(false);
+
     setPreview(null);
     setStep(2);
     previewMutation.mutate();
@@ -373,25 +398,6 @@ export function ReassignWizardDialog({
   const targetErrors = useMemo(
     () => targetAllocationErrors(targetRows, allocations, todayIso()),
     [targetRows, allocations],
-  );
-
-  // Same validation for the existing ("update") rows: a start edited into the past, or an
-  // overlap between two of this person's allocations on one project. Keyed by allocation id;
-  // gates each row's own Save and surfaces above the Add project button. Cheap (a handful of
-  // rows) and depends on per-render draft state, so it's computed inline rather than memoized.
-  const existingErrors = existingAllocationErrors(
-    futureAllocations.map((a) => {
-      const eff = effectiveRow(a);
-      const draft = draftFor(a);
-      return {
-        id: a.allocation_id,
-        project_id: draft.project_id,
-        date_from: draft.date_from,
-        date_to: draft.date_to,
-        locked: !!eff.date_from && eff.date_from < todayIso(),
-      };
-    }),
-    todayIso(),
   );
 
   // Unique formatted validation messages for the existing rows (FUT-847). Deduplicated so that
@@ -410,10 +416,10 @@ export function ReassignWizardDialog({
     ),
   );
 
-  // Start and end date are both mandatory for a new allocation — Review impact stays disabled
-  // until every target row has a project, a positive allocation, two valid calendar dates, and
-  // no validation error.
-  const canReview =
+  // FUT-881: Review impact is the SINGLE save workflow for the whole dialog — it must enable on
+  // any in-flight change, whether that's edits to existing allocations or a new project row. A
+  // new allocation additionally needs a project, a positive %, two valid dates, and no error.
+  const targetsValid =
     targetRows.length > 0 &&
     targetRows.every(
       (r, i) =>
@@ -423,17 +429,30 @@ export function ReassignWizardDialog({
         isValidIsoDate(r.date_to) &&
         targetErrors[i] == null,
     );
+  // dirtyUpdates already only collects VALID, actually-changed rows (row errors and missing
+  // account/project are filtered out), so a non-empty dirtyUpdates is exactly "a valid edit
+  // is waiting to be reviewed". An invalid edit keeps Review disabled — it must be fixed first,
+  // mirrored by the disabled reason below.
+  const editsReviewable = dirtyUpdates.length > 0;
+  const canReview = targetsValid || editsReviewable;
+
+  // How many existing rows have an in-progress draft at all (valid or not) — used to tell
+  // "no changes yet" apart from "a dirty row still has an error".
+  const anyDirtyCount = useMemo(
+    () => futureAllocations.filter((a) => rowDrafts[a.allocation_id]).length,
+    [futureAllocations, rowDrafts],
+  );
 
   const reviewDisabledReason = useMemo(() => {
     if (canReview) return null;
-    if (targetRows.length === 0) {
-      return 'Add at least one project allocation to review impact.';
+    if (targetRows.length === 0 && anyDirtyCount === 0) {
+      return 'Make a change to review impact.';
     }
     for (const [i, r] of targetRows.entries()) {
       const err = targetErrors[i];
       if (err) return err;
       if (!r.account_id || !r.project_id) {
-        return 'Select an account and project for all allocations.';
+        return 'Select an account and project for all new allocations.';
       }
       if (!r.planned_pct || Number(r.planned_pct) <= 0) {
         return 'Select a valid allocation percentage.';
@@ -448,8 +467,11 @@ export function ReassignWizardDialog({
         return 'End date is required.';
       }
     }
+    if (anyDirtyCount > 0) {
+      return 'Fix the field errors on the edited allocations before reviewing impact.';
+    }
     return 'Complete all required fields to continue.';
-  }, [canReview, targetRows, targetErrors]);
+  }, [canReview, targetRows, targetErrors, anyDirtyCount]);
 
   const dialogScrollRef = useRef<HTMLDivElement>(null);
 
@@ -662,34 +684,8 @@ export function ReassignWizardDialog({
                               onChange={(note) => updateRowDraft(a, { note })}
                             />
                             <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                isIconOnly
-                                icon={<Check className="size-3.5 text-[var(--color-success)]" />}
-                                label={`Save ${a.project_name}`}
-                                isDisabled={
-                                  saveRowMutation.isPending ||
-                                  !draft.account_id ||
-                                  !draft.project_id ||
-                                  existingErrors[a.allocation_id] != null
-                                }
-                                onClick={() => {
-                                  const vars = {
-                                    allocationId: a.allocation_id,
-                                    draft,
-                                    expectedVersion: a.version,
-                                  };
-                                  // A past end date silently drops the row out of the active
-                                  // window — confirm the consequence before applying, rather
-                                  // than saving first and explaining afterwards.
-                                  if (endDateIsInPast(draft.date_to, todayIso())) {
-                                    setPastEndConfirm(vars);
-                                  } else {
-                                    saveRowMutation.mutate(vars);
-                                  }
-                                }}
-                              />
+                              {/* FUT-881: no per-row immediate save — every change (edit or add)
+                                  goes through Review impact → Confirm as one atomic save. */}
                               {/* FUT-876: an allocation that has already started carries an
                                   effective (historical) portion — deleting it would erase realized
                                   allocation data. The button is disabled and the DisabledActionTooltip
@@ -820,16 +816,7 @@ export function ReassignWizardDialog({
                     variant="primary"
                     isDisabled={mutation.isPending || previewMutation.isError}
                     label={mutation.isPending ? 'Confirming…' : 'Confirm'}
-                    onClick={() => {
-                      const endsInPast = pendingExistingEdits().some((e) =>
-                        endDateIsInPast(e.date_to, todayIso()),
-                      );
-                      if (endsInPast) {
-                        setPastEndOnConfirm(true);
-                      } else {
-                        mutation.mutate();
-                      }
-                    }}
+                    onClick={() => mutation.mutate()}
                   />
                 </>
               )}
@@ -859,21 +846,19 @@ export function ReassignWizardDialog({
       />
 
       <AlertDialog
-        isOpen={pastEndConfirm !== null || pastEndOnConfirm}
+        isOpen={confirmPastEnd}
         onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            setPastEndConfirm(null);
-            setPastEndOnConfirm(false);
-          }
+          if (!isOpen) setConfirmPastEnd(false);
         }}
         title="End this allocation in the past?"
-        description="The end date is before today, so once saved this allocation moves out of RA Monitoring's active window and no longer appears in this list. Widen the active-period filter to see ended allocations. Continue?"
-        actionLabel={pastEndConfirm ? 'Save anyway' : 'Confirm anyway'}
+        description="An edited end date is before today, so once confirmed this allocation moves out of RA Monitoring's active window and no longer appears in this list. Widen the active-period filter to see it. Continue to Review impact?"
+        actionLabel="Continue"
         actionVariant="primary"
-        isActionLoading={saveRowMutation.isPending || mutation.isPending}
         onAction={() => {
-          if (pastEndConfirm) saveRowMutation.mutate(pastEndConfirm);
-          else mutation.mutate();
+          setConfirmPastEnd(false);
+          setPreview(null);
+          setStep(2);
+          previewMutation.mutate();
         }}
       />
     </>
