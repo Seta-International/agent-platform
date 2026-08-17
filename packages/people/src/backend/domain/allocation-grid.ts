@@ -188,54 +188,18 @@ export async function getAllocationGrid(
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
 
-  const rows: AllocationGridRow[] = raw.map((r) => {
-    const pct = r.planned_pct == null ? null : Number(r.planned_pct);
-    const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : yearStart;
-    const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : yearEnd;
-    const months: (number | null)[] = [];
-    let mm = 0;
-    for (let m = 0; m < 12; m++) {
-      const [mStart, mEnd] = monthBounds(year, m);
-      const active = pct != null && from <= mEnd && to >= mStart;
-      if (active && pct != null) {
-        const ovStart = from > mStart ? from : mStart;
-        const ovEnd = to < mEnd ? to : mEnd;
-        const mWorkingDays = workingDays(mStart, mEnd);
-        const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
-        const monthPct = Math.round(pct * frac * 100) / 100;
-        months.push(monthPct);
-        mm += (pct / 100) * frac;
-      } else {
-        months.push(null);
-      }
-    }
-    return {
-      worker_id: r.worker_id,
-      employee_no: r.employee_no,
-      is_account_am: amByAccount.get(r.account_id) === r.worker_id,
-      full_name: r.full_name,
-      account_id: r.account_id,
-      account_name: r.account_name,
-      project_id: r.project_id,
-      project_name: r.project_name,
-      bucket: r.bucket,
-      months,
-      total_mm: Math.round(mm * 100) / 100,
-    };
-  });
-
   // Facets cover the viewer's full scope (computed before filtering) so the dropdowns stay stable
   // as filters narrow the visible rows.
   const accountFacets = new Map<string, string>();
   const projectFacets = new Map<string, { name: string; account_id: string }>();
-  for (const r of rows) {
+  for (const r of raw) {
     accountFacets.set(r.account_id, r.account_name);
     projectFacets.set(r.project_id, { name: r.project_name ?? '—', account_id: r.account_id });
   }
 
-  // Row-level and worker-level filters (account, project, bucket, search)
+  // Row-level filters (account, project, bucket, search)
   const q = foldText((query.search ?? '').trim());
-  const rowMatches = (r: AllocationGridRow): boolean => {
+  const rawMatches = (r: RawRow): boolean => {
     if (query.accountId && r.account_id !== query.accountId) return false;
     if (query.projectId && r.project_id !== query.projectId) return false;
     if (query.bucket && r.bucket !== query.bucket) return false;
@@ -249,13 +213,90 @@ export async function getAllocationGrid(
     return true;
   };
 
-  const filteredRawIndices: number[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    if (rowMatches(rows[i]!)) filteredRawIndices.push(i);
+  const filteredRaw = raw.filter(rawMatches);
+
+  // Group allocations for the same project (or account for AMs) under each worker into a single row (FUT-850).
+  interface ProjectGroup {
+    worker_id: string;
+    employee_no: string | null;
+    full_name: string;
+    account_id: string;
+    account_name: string;
+    project_id: string;
+    project_name: string | null;
+    is_account_am: boolean;
+    records: RawRow[];
   }
 
-  const filteredRaw = filteredRawIndices.map((i) => raw[i]!);
-  const filteredRows = filteredRawIndices.map((i) => rows[i]!);
+  const groupMap = new Map<string, ProjectGroup>();
+  for (const r of filteredRaw) {
+    const isAm = amByAccount.get(r.account_id) === r.worker_id;
+    const groupKey = `${r.worker_id}::${isAm ? `am:${r.account_id}` : `proj:${r.project_id}`}`;
+    let group = groupMap.get(groupKey);
+    if (!group) {
+      group = {
+        worker_id: r.worker_id,
+        employee_no: r.employee_no,
+        full_name: r.full_name,
+        account_id: r.account_id,
+        account_name: r.account_name,
+        project_id: r.project_id,
+        project_name: r.project_name,
+        is_account_am: isAm,
+        records: [],
+      };
+      groupMap.set(groupKey, group);
+    }
+    group.records.push(r);
+  }
+
+  const rows: AllocationGridRow[] = Array.from(groupMap.values()).map((g) => {
+    let bucket: 'billable' | 'internal' | 'bench' | null = null;
+    const buckets = g.records.map((r) => r.bucket).filter(Boolean);
+    if (buckets.includes('billable')) bucket = 'billable';
+    else if (buckets.includes('internal')) bucket = 'internal';
+    else if (buckets.includes('bench')) bucket = 'bench';
+    else if (buckets.length > 0) bucket = buckets[0] ?? null;
+
+    const months: (number | null)[] = [];
+    let mm = 0;
+    for (let m = 0; m < 12; m++) {
+      const [mStart, mEnd] = monthBounds(year, m);
+      const mWorkingDays = workingDays(mStart, mEnd);
+      let monthTotalPct = 0;
+      let hasActive = false;
+
+      for (const r of g.records) {
+        const pct = r.planned_pct == null ? null : Number(r.planned_pct);
+        const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : yearStart;
+        const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : yearEnd;
+        const active = pct != null && from <= mEnd && to >= mStart;
+        if (active && pct != null) {
+          hasActive = true;
+          const ovStart = from > mStart ? from : mStart;
+          const ovEnd = to < mEnd ? to : mEnd;
+          const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
+          monthTotalPct += pct * frac;
+          mm += (pct / 100) * frac;
+        }
+      }
+      months.push(hasActive ? Math.round(monthTotalPct * 100) / 100 : null);
+    }
+
+    return {
+      worker_id: g.worker_id,
+      employee_no: g.employee_no,
+      is_account_am: g.is_account_am,
+      full_name: g.full_name,
+      account_id: g.account_id,
+      account_name: g.account_name,
+      project_id: g.project_id,
+      project_name: g.project_name,
+      bucket,
+      months,
+      total_mm: Math.round(mm * 100) / 100,
+    };
+  });
 
   // Per-worker month totals for the filtered scope
   const filteredRawByWorker = new Map<string, RawRow[]>();
@@ -320,7 +361,7 @@ export async function getAllocationGrid(
     return true;
   };
 
-  const outRows = filteredRows.filter((r) => workerMatchesStatus(r.worker_id));
+  const outRows = rows.filter((r) => workerMatchesStatus(r.worker_id));
   const keptWorkers = new Set(outRows.map((r) => r.worker_id));
   const outTotals = filteredWorkerTotals.filter((w) => keptWorkers.has(w.worker_id));
 

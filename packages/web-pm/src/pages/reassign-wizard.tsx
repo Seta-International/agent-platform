@@ -26,6 +26,7 @@ import {
   LayoutContent,
   type SearchableItem,
   Selector,
+  Tooltip,
   Typeahead,
   useToast,
 } from './_ui-compat.tsx';
@@ -56,9 +57,11 @@ type Step = 1 | 2;
 // bug). Account / Project / Note flex; allocation, dates, type and actions are fixed. Applied via
 // inline style because Tailwind's JIT can't see an interpolated arbitrary `grid-cols-[…]` value.
 const EXISTING_GRID =
-  'minmax(7.5rem,1.1fr) minmax(9rem,1.4fr) 4.25rem 11.25rem 11.25rem 6.75rem minmax(7.5rem,1.1fr) 4.75rem';
+  'minmax(7.5rem,1.1fr) minmax(9rem,1.4fr) 5.5rem 11.25rem 11.25rem 6.75rem minmax(7.5rem,1.1fr) 4.75rem';
 const TARGET_GRID =
-  'minmax(7.5rem,1.1fr) minmax(9rem,1.4fr) 4.25rem 11.25rem 11.25rem 6.75rem 3rem';
+  'minmax(7.5rem,1.1fr) minmax(9rem,1.4fr) 5.5rem 11.25rem 11.25rem 6.75rem minmax(7.5rem,1.1fr) 3rem';
+
+const NOTE_MAX_LENGTH = 200;
 
 interface RowDraft {
   account_id: string;
@@ -282,6 +285,7 @@ export function ReassignWizardDialog({
       planned_pct: fractionToPct(r.planned_pct),
       bucket: r.bucket,
       date_to: r.date_to || null,
+      note: r.note.trim() || null,
     })),
   });
 
@@ -366,13 +370,7 @@ export function ReassignWizardDialog({
     },
   });
 
-  // Existing-row edits (e.g. shortening an allocation's end date so it stops overlapping a new
-  // one) live only as local drafts until saved. The over-allocation preview reads the worker's
-  // book from the DB, so an unsaved edit is invisible to it — the FUT-748 defect: Review impact
-  // still counts the allocation at its old length and warns about a phantom over-allocation
-  // (and confirming would leave the real overlap in place). Persist any pending, valid edits
-  // first so the preview — and the final saved state — reflect exactly what's on screen.
-  async function goToReview() {
+  function goToReview() {
     // FUT-881: no per-row immediate save, and no pre-persist here either. Edits stay drafts and
     // are submitted together with any new projects at Confirm — the single atomic save point.
     // The reviews below preview the EDITED book (the backend scopes the peak over the edited
@@ -534,7 +532,7 @@ export function ReassignWizardDialog({
               ) : (
                 <div className="space-y-4">
                   <div className="overflow-x-auto">
-                    <div className="min-w-[1068px] overflow-hidden rounded-md border border-border">
+                    <div className="min-w-[1088px] overflow-hidden rounded-md border border-border">
                       <div
                         className="grid gap-2 bg-card px-2 py-2 text-sm text-secondary"
                         style={{ gridTemplateColumns: EXISTING_GRID }}
@@ -679,13 +677,11 @@ export function ReassignWizardDialog({
                               isDisabled={startLocked}
                               onChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
                             />
-                            <Input
+                            <NoteField
                               label={`Note for ${a.project_name}`}
-                              isLabelHidden
-                              size="sm"
                               isDisabled={startLocked}
                               value={draft.note}
-                              onChange={(value) => updateRowDraft(a, { note: value })}
+                              onChange={(note) => updateRowDraft(a, { note })}
                             />
                             <div className="flex items-center gap-1">
                               {/* FUT-881: no per-row immediate save — every change (edit or add)
@@ -740,7 +736,7 @@ export function ReassignWizardDialog({
 
                   {targetRows.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <div className="min-w-[912px] overflow-hidden rounded-md border border-border">
+                      <div className="min-w-[1060px] overflow-hidden rounded-md border border-border">
                         <div
                           className="grid gap-2 bg-card px-2 py-2 text-sm text-secondary"
                           style={{ gridTemplateColumns: TARGET_GRID }}
@@ -761,6 +757,7 @@ export function ReassignWizardDialog({
                             End date <span className="text-error">*</span>
                           </div>
                           <div className="text-left font-medium">Type</div>
+                          <div className="text-left font-medium">Note</div>
                           <div className="text-left font-medium">Action</div>
                         </div>
                         {targetRows.map((row, i) => (
@@ -776,7 +773,6 @@ export function ReassignWizardDialog({
                               )
                             }
                             onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
-                            canRemove={targetRows.length > 1}
                           />
                         ))}
                       </div>
@@ -789,8 +785,9 @@ export function ReassignWizardDialog({
                   >
                     <Info className="size-4 shrink-0 text-accent" />
                     <div>
-                      <strong className="text-primary">Note:</strong> new allocation(s) added above
-                      will be applied after you review and confirm in the next step.
+                      <strong className="text-primary">Note:</strong> new allocation(s) and any
+                      unsaved edits above will be applied after you review and confirm in the next
+                      step.
                     </div>
                   </div>
                 </div>
@@ -808,7 +805,7 @@ export function ReassignWizardDialog({
                       isDisabled={!canReview}
                       label="Review impact"
                       endContent={<ArrowRight className="size-4" />}
-                      onClick={() => void goToReview()}
+                      onClick={goToReview}
                     />
                   </DisabledActionTooltip>
                 </>
@@ -897,13 +894,75 @@ function AllocationSelect({
   );
 }
 
+function noteLimitFor(current: string) {
+  return Math.max(NOTE_MAX_LENGTH, current.length);
+}
+
+function capNoteGrowth(next: string, current: string) {
+  if (next.length <= current.length) return next;
+  return next.slice(0, noteLimitFor(current));
+}
+
+function NoteField({
+  label,
+  value,
+  isDisabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  isDisabled?: boolean;
+  onChange: (note: string) => void;
+}) {
+  const toast = useToast();
+  const limit = noteLimitFor(value);
+  const isFull = !isDisabled && value.length >= limit;
+
+  return (
+    <Tooltip
+      content={
+        isFull ? (
+          <>
+            {value}
+            <span className="mt-1 block opacity-70">{`Full — ${limit} characters max.`}</span>
+          </>
+        ) : (
+          value
+        )
+      }
+      isEnabled={value.trim() !== ''}
+      focusTrigger="never"
+      placement="above"
+    >
+      <Input
+        label={label}
+        isLabelHidden
+        size="sm"
+        isDisabled={isDisabled}
+        value={value}
+        status={isFull ? { type: 'warning' } : undefined}
+        onChange={(next) => {
+          const capped = capNoteGrowth(next, value);
+          if (next.length - capped.length > 1) {
+            toast({
+              body: `Note trimmed to ${limit} characters.`,
+              uniqueID: 'note-length-cap',
+              collisionBehavior: 'overwrite',
+            });
+          }
+          onChange(capped);
+        }}
+      />
+    </Tooltip>
+  );
+}
+
 function TargetRowFields({
   row,
   accountOptions,
   projects,
   onChange,
   onRemove,
-  canRemove,
   error,
 }: {
   row: ReassignTargetRow;
@@ -911,7 +970,6 @@ function TargetRowFields({
   projects: ProjectListRow[];
   onChange: (patch: Partial<ReassignTargetRow>) => void;
   onRemove: () => void;
-  canRemove: boolean;
   error: string | null;
 }) {
   const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
@@ -1006,13 +1064,13 @@ function TargetRowFields({
           value={row.bucket}
           onChange={(v) => onChange({ bucket: v as Bucket })}
         />
+        <NoteField label="Note" value={row.note} onChange={(note) => onChange({ note })} />
         <Button
           size="sm"
           variant="ghost"
           isIconOnly
           icon={<Trash2 className="size-4" />}
           label="Remove"
-          isDisabled={!canRemove}
           onClick={onRemove}
         />
       </div>

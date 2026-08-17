@@ -36,6 +36,7 @@ vi.mock('../../../src/api/pm-client.ts', async () => {
 });
 
 afterEach(() => {
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -219,6 +220,97 @@ describe('ReassignWizardDialog', () => {
     expect(updateAllocation).not.toHaveBeenCalled();
   });
 
+  describe('an existing-row edit and a new project ride one confirm together (FUT-887/FUT-881)', () => {
+    const PROJECTS: ProjectListRow[] = [
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'Aeris - Watchtower',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p2',
+        account_id: 'acc1',
+        name: 'Aeris - Finch Mobile',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ];
+
+    async function editEndDateThenReview(user: ReturnType<typeof userEvent.setup>) {
+      renderWizard(
+        [allocation({ date_to: '2026-12-23', version: 3 })],
+        [{ id: 'acc1', label: 'Aeris' }],
+        PROJECTS,
+      );
+
+      const dialog = screen.getByRole('dialog');
+
+      const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
+      await user.clear(endDateInput);
+      await user.type(endDateInput, NEW_END);
+
+      await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+      await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+      await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+      await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+      await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+      await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+      return dialog;
+    }
+
+    const expectedEdit = () =>
+      expect.objectContaining({
+        allocation_id: 'a1',
+        date_to: NEW_END,
+        expected_version: 3,
+      });
+
+    it('sends the edit to the preview instead of saving it', async () => {
+      const user = userEvent.setup({ delay: null });
+      await editEndDateThenReview(user);
+
+      expect(updateAllocation).not.toHaveBeenCalled();
+      expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updates: [expectedEdit()],
+          targets: [expect.objectContaining({ project_id: 'p2' })],
+        }),
+      );
+    });
+
+    it('applies the edit only once Confirm is pressed', async () => {
+      const user = userEvent.setup({ delay: null });
+      const dialog = await editEndDateThenReview(user);
+
+      await user.click(await within(dialog).findByRole('button', { name: 'Confirm' }));
+
+      expect(updateAllocation).not.toHaveBeenCalled();
+      expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updates: [expectedEdit()],
+          targets: [expect.objectContaining({ project_id: 'p2' })],
+        }),
+      );
+    });
+
+    it('writes nothing when the review is closed instead of confirmed', async () => {
+      const user = userEvent.setup({ delay: null });
+      const dialog = await editEndDateThenReview(user);
+
+      await user.click(await within(dialog).findByRole('button', { name: 'Back' }));
+
+      expect(updateAllocation).not.toHaveBeenCalled();
+      expect(reassignWorkerAllocations).not.toHaveBeenCalled();
+    });
+  });
+
   it('locks a past-start allocation to end date and delete only', () => {
     renderWizard([allocation({ date_from: PAST_START, date_to: '2026-12-23' })]);
 
@@ -355,6 +447,97 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
 
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+  });
+
+  it('carries a note typed on a new project row through to the preview and the confirmed write', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+    const dialog = screen.getByRole('dialog');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    await user.type(within(dialog).getByLabelText('Note'), 'Backfill for Q3 ramp');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targets: [expect.objectContaining({ project_id: 'p2', note: 'Backfill for Q3 ramp' })],
+      }),
+    );
+
+    await user.click(await within(dialog).findByRole('button', { name: 'Confirm' }));
+
+    expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targets: [expect.objectContaining({ project_id: 'p2', note: 'Backfill for Q3 ramp' })],
+      }),
+    );
+  });
+
+  it('sends no note when the new project row leaves it empty', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+    const dialog = screen.getByRole('dialog');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
+      expect.objectContaining({ targets: [expect.objectContaining({ note: null })] }),
+    );
+  });
+
+  it('removes the last remaining new allocation row, collapsing the table back to none', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard([allocation({ date_to: '2026-12-23' })], [{ id: 'acc1', label: 'Aeris' }]);
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    expect(screen.getByLabelText('Account')).toBeInTheDocument();
+
+    const removeRow = screen.getByRole('button', { name: 'Remove' });
+    expect(removeRow).toBeEnabled();
+
+    await user.click(removeRow);
+
+    expect(screen.queryByLabelText('Account')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
   });
 
   it('does not offer 0 as a selectable allocation on a new project (a 0% allocation is invalid)', async () => {
@@ -833,5 +1016,106 @@ describe('ReassignWizardDialog', () => {
       .getAllByRole('alert')
       .filter((el) => el.textContent?.includes('Overlaps another allocation'));
     expect(after).toHaveLength(0);
+  });
+
+  describe('note field', () => {
+    const OVER_CAP = 'Washington DC and Northern Virginia coverage. '.repeat(9);
+    const sleepPastTooltipDelay = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+    it('caps an existing row note at 200 characters', () => {
+      renderWizard([allocation()]);
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+
+      fireEvent.change(noteInput, { target: { value: OVER_CAP } });
+
+      expect(noteInput.value).toBe(OVER_CAP.slice(0, 200));
+    });
+
+    it('caps a new project row note at 200 characters', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([allocation({ date_to: '2026-12-23' })], [{ id: 'acc1', label: 'Aeris' }]);
+
+      await user.click(screen.getByRole('button', { name: 'Add project' }));
+      const noteInput = screen.getByLabelText('Note') as HTMLInputElement;
+
+      fireEvent.change(noteInput, { target: { value: OVER_CAP } });
+
+      expect(noteInput.value).toBe(OVER_CAP.slice(0, 200));
+    });
+
+    it('keeps a stored note that already exceeds the cap, blocking only further growth', () => {
+      const legacy = 'x'.repeat(260);
+      renderWizard([allocation({ note: legacy })]);
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+      expect(noteInput.value).toBe(legacy);
+
+      fireEvent.change(noteInput, { target: { value: `${legacy}y` } });
+      expect(noteInput.value).toBe(legacy);
+
+      fireEvent.change(noteInput, { target: { value: legacy.slice(0, 40) } });
+      expect(noteInput.value).toBe(legacy.slice(0, 40));
+    });
+
+    it('flags the field as full at the cap and clears the flag once room is made', () => {
+      renderWizard([allocation()]);
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+
+      fireEvent.change(noteInput, { target: { value: 'x'.repeat(200) } });
+      expect(noteInput.closest('.astryx-text-input')).toHaveAttribute('data-status', 'warning');
+
+      fireEvent.change(noteInput, { target: { value: 'x'.repeat(199) } });
+      expect(noteInput.closest('.astryx-text-input')).not.toHaveAttribute('data-status', 'warning');
+    });
+
+    it('tells the user when a pasted note gets trimmed', async () => {
+      renderWizard([allocation()]);
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+
+      fireEvent.change(noteInput, { target: { value: OVER_CAP } });
+
+      // The toast viewport and Astryx's live region both carry the message, and both sit
+      // outside the RTL container (so they survive cleanup between tests) — assert on the
+      // message appearing at all, and elsewhere on it not appearing anew.
+      expect(await screen.findAllByText('Note trimmed to 200 characters.')).not.toHaveLength(0);
+    });
+
+    it('stays quiet when a single keystroke is refused at the cap', () => {
+      const full = 'x'.repeat(200);
+      renderWizard([allocation({ note: full })]);
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+      const before = screen.queryAllByText(/trimmed to 200 characters/i).length;
+
+      fireEvent.change(noteInput, { target: { value: `${full}y` } });
+
+      expect(screen.queryAllByText(/trimmed to 200 characters/i).length).toBeLessThanOrEqual(
+        before,
+      );
+    });
+
+    it('explains the limit in the hover tooltip once the note is full', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([allocation({ note: 'x'.repeat(200) })]);
+
+      await user.hover(screen.getByLabelText(/note for/i));
+
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Full — 200 characters max.');
+    });
+
+    it('reveals the full note on hover, and stays quiet while there is none to read', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([allocation({ note: null })]);
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+
+      await user.hover(noteInput);
+      await sleepPastTooltipDelay();
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+      await user.unhover(noteInput);
+      const note = 'Washington DC and Northern Virginia coverage through the handover.';
+      fireEvent.change(noteInput, { target: { value: note } });
+      await user.hover(noteInput);
+
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(note);
+    });
   });
 });

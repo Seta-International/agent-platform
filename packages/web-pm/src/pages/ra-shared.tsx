@@ -13,6 +13,7 @@ export interface ReassignTargetRow {
   planned_pct: string;
   bucket: Bucket;
   date_to: string;
+  note: string;
 }
 
 export function emptyReassignRow(defaultFrom: string): ReassignTargetRow {
@@ -26,6 +27,7 @@ export function emptyReassignRow(defaultFrom: string): ReassignTargetRow {
     // Stored as a 0–1 fraction in the wizard UI (see pctToFraction); '1' = full allocation.
     planned_pct: '1',
     bucket: 'billable',
+    note: '',
   };
 }
 
@@ -224,14 +226,6 @@ export interface ExistingRowState {
   note: string;
 }
 
-/**
- * True when the PM's in-progress draft for an existing allocation differs from its saved/DB
- * values. The over-allocation impact preview reads the worker's book from the DB, so a dirty
- * row must be persisted before previewing — otherwise Review impact scores a stale allocation.
- * That is the FUT-748 defect: shorten an allocation so it no longer overlaps a new one, and the
- * preview (blind to the unsaved edit) still counts it at its old length and warns about a
- * phantom over-allocation — while confirming would leave the real overlap in place.
- */
 export function existingRowChanged(draft: ExistingRowState, saved: ExistingRowState): boolean {
   return (
     draft.account_id !== saved.account_id ||
