@@ -478,6 +478,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     await user.type(within(dialog).getByLabelText('Note'), 'Backfill for Q3 ramp');
 
@@ -522,6 +524,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
     await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
 
     expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
@@ -1131,5 +1135,85 @@ describe('ReassignWizardDialog', () => {
 
       expect(await screen.findByRole('tooltip')).toHaveTextContent(note);
     });
+  });
+
+  it('FUT-853: toast after confirm describes the worker total % rather than attributing it to a single project', async () => {
+    const user = userEvent.setup({ delay: null });
+
+    vi.mocked(previewReassignWorkerAllocations).mockResolvedValue({
+      worker_name: 'An Đình Luận',
+      sources: [],
+      targets: [
+        {
+          project_name: 'Motion Global',
+          account_name: 'Motion Global',
+          bucket: 'billable',
+          date_from: FUTURE_START,
+          date_to: NEW_END,
+          planned_pct: 100,
+        },
+      ],
+      peak_pct: 200,
+      exceeds: true,
+      peak_from: FUTURE_START,
+      peak_to: NEW_END,
+      over_allocation_periods: [{ date_from: FUTURE_START, date_to: NEW_END, peak_pct: 200 }],
+      has_restricted_allocations: false,
+      restricted_segments: [],
+    });
+
+    // After confirm, the reassign API returns a single warning describing the worker's combined %.
+    vi.mocked(reassignWorkerAllocations).mockResolvedValue({
+      updated: [],
+      target_ids: ['new-alloc-1'],
+      warnings: [
+        {
+          peak_pct: 200,
+          over_allocation_periods: [{ date_from: FUTURE_START, date_to: NEW_END, peak_pct: 200 }],
+        },
+      ],
+    });
+
+    renderWizard(
+      [allocation({ date_from: FUTURE_START, date_to: NEW_END })],
+      [{ id: 'acc-mg', label: 'Motion Global' }],
+      [
+        {
+          project_id: 'p-mg',
+          account_id: 'acc-mg',
+          name: 'Motion Global',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+          can_report: true,
+        },
+      ],
+    );
+
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Motion Global' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
+
+    // Go to review step.
+    await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+
+    // Confirm the allocation.
+    const confirmButton = await within(dialog).findByRole('button', { name: 'Confirm' });
+    await user.click(confirmButton);
+
+    // Toast must display the clear general over-allocation notification.
+    expect(
+      await screen.findByText('Saved — but the total allocation now exceeds 100%'),
+    ).toBeInTheDocument();
+
+    // The old format "Motion Global (200%)" must NOT appear — it wrongly attributed
+    // 200% to a single project instead of the employee's combined workload.
+    expect(screen.queryByText(/Motion Global \(200%\)/)).not.toBeInTheDocument();
   });
 });

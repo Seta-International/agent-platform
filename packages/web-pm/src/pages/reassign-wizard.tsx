@@ -317,10 +317,9 @@ export function ReassignWizardDialog({
     mutationFn: () => reassignWorkerAllocations(buildReassignRequest()),
     onSuccess: (result) => {
       if (result.warnings.length > 0) {
+        // FUT-853: clear, general over-allocation notification without confusing per-project attribution.
         toast({
-          body: `Saved — but this now exceeds 100% at: ${result.warnings
-            .map((w) => `${w.project_name} (${w.peak_pct}%)`)
-            .join(', ')}`,
+          body: 'Saved — but the total allocation now exceeds 100%',
         });
       } else if (dirtyUpdates.length > 0 || targetRows.length > 0) {
         // FUT-881: a single confirm can carry both an existing-row edit and a new project,

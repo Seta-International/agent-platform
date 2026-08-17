@@ -10,6 +10,7 @@ import {
   createAllocation,
   previewReassignAllocation,
   reassignAllocation,
+  reassignWorkerAllocations,
   submitCharter,
 } from '../../src/index.ts';
 import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
@@ -792,8 +793,72 @@ describe('previewReassignAllocation', () => {
           session: t.adminSession,
         });
 
+        // FUT-853: warnings now carry the worker's combined peak + over-allocation periods,
+        // not a per-project attribution. There is exactly one warning entry for the worker.
         expect(result.warnings).toHaveLength(1);
-        expect(result.warnings[0]).toMatchObject({ project_name: 'CRM', peak_pct: 150 });
+        expect(result.warnings[0]).toMatchObject({
+          peak_pct: 150,
+          over_allocation_periods: expect.arrayContaining([
+            expect.objectContaining({ peak_pct: 150 }),
+          ]),
+        });
+        // The old project_name field must no longer be present.
+        expect(result.warnings[0]).not.toHaveProperty('project_name');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-853: reassignWorkerAllocations warning describes the combined peak — not a per-project %', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const existing = await seedProject(t.adminSession, 'ExistingProj');
+        const motionGlobal = await seedProject(t.adminSession, 'Motion Global');
+        const worker = crypto.randomUUID();
+
+        // Worker already has 100% on ExistingProj.
+        await createAllocation({
+          project_id: existing,
+          worker_id: worker,
+          date_from: '2026-08-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        // Add 100% on Motion Global with overlapping dates via reassignWorkerAllocations.
+        const result = await reassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          source: { date_to: new Date().toISOString().slice(0, 10) }, // unused (no source ending)
+          targets: [
+            {
+              project_id: motionGlobal,
+              date_from: '2026-09-01',
+              planned_pct: 100,
+              bucket: 'billable',
+              date_to: '2026-12-31',
+            },
+          ],
+          session: t.adminSession,
+        });
+
+        // Combined total = 200% during Sep–Dec overlap.
+        expect(result.warnings).toHaveLength(1);
+        const w = result.warnings[0];
+        expect(w?.peak_pct).toBe(200);
+        expect(w?.over_allocation_periods.length).toBeGreaterThan(0);
+        // No project_name — the warning is about the worker, not the project.
+        expect(w).not.toHaveProperty('project_name');
       } finally {
         resetPmDb();
         resetCoreDb();
