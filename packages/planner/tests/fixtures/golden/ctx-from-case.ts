@@ -30,6 +30,18 @@ const REFUSE_RE =
 const CLARIFY_RE =
   /\b(which one|which of|did you mean|do you mean|more than one|multiple (?:match|group|task|plan|user|member|people)|ambiguous|please specify|could you specify|can you clarify|need more detail)\b/;
 
+/** Vietnamese refusal phrasings (FUT-825 / design D9). Deliberately NOT a bare
+ *  `tôi không` — "Tôi không rõ bạn muốn task nào" is a clarification, and the
+ *  refuse branch runs first, so a loose pattern here would swallow it. */
+const REFUSE_VI_RE =
+  /(không thể|không được phép|không có quyền|chưa có quyền|không hỗ trợ|chỉ có thể|không xo[áa] (?:vĩnh viễn|được)|vượt quá giới hạn|quá giới hạn)/;
+
+/** Vietnamese disambiguation phrasings. Paired with the same `?` requirement as
+ *  the English pattern, so a statement that merely contains "ngày nào" in prose
+ *  is not misread as a question. */
+const CLARIFY_VI_RE =
+  /((?:task|việc|công việc|cái|người|ngày|giá trị|nhóm|plan) nào|ý bạn là|bạn muốn nói|có (?:hai|nhiều|nhiều hơn một)|vui lòng cho biết|bạn cho tôi biết|\bhay\b)/;
+
 /** Failure narration: the agent telling the user it could not retrieve data.
  *  A secondary signal for error-recovery when the tool returned a graceful
  *  `{error}` (ok:true) rather than throwing. */
@@ -127,8 +139,8 @@ export function deriveObservedBehavior(
   if (a.length === 0) return 'empty';
   const lower = a.toLowerCase();
 
-  if (REFUSE_RE.test(lower)) return 'refuse';
-  if (CLARIFY_RE.test(lower) && a.includes('?')) return 'clarify';
+  if (REFUSE_RE.test(lower) || REFUSE_VI_RE.test(lower)) return 'refuse';
+  if ((CLARIFY_RE.test(lower) || CLARIFY_VI_RE.test(lower)) && a.includes('?')) return 'clarify';
 
   const anyFailed = trajectory.toolCalls.some(callFailed);
   if (anyFailed || FAILURE_TEXT_RE.test(lower)) return 'error-recovery';

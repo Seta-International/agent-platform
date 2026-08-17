@@ -270,3 +270,36 @@ it('classifies a resumed turn as applied', () => {
 it('leaves classification unchanged when no write signal is given', () => {
   expect(deriveObservedBehavior('Tuan has 12 open tasks.', emptyTrajectory)).toBe('answer');
 });
+
+it('recognises Vietnamese refusals', () => {
+  for (const answer of [
+    'Tôi không thể xoá vĩnh viễn một task.',
+    'Bạn không có quyền sửa task trong nhóm đó.',
+    'Yêu cầu này vượt quá giới hạn 20 task mỗi lần, nên tôi không thay đổi gì cả.',
+    'Tôi chỉ có thể thay đổi task, không trả lời câu hỏi chung.',
+  ]) {
+    expect(deriveObservedBehavior(answer, emptyTrajectory)).toBe('refuse');
+  }
+});
+
+it('recognises Vietnamese disambiguation questions', () => {
+  for (const answer of [
+    'Có hai task tên "Deploy API" — bạn muốn đổi task nào?',
+    'Ý bạn là task nào trong hai task này?',
+    'Bạn muốn đặt due date là ngày nào?',
+    'Thứ Sáu 14/08 hay 21/08?',
+  ]) {
+    expect(deriveObservedBehavior(answer, emptyTrajectory)).toBe('clarify');
+  }
+});
+
+it('does not misread an ordinary Vietnamese confirmation as refuse or clarify', () => {
+  // The narration A2 emits on a HAPPY turn. Must stay `answer` when no suspend
+  // signal is supplied, or every happy case would score as a refusal.
+  for (const answer of [
+    'Đã đổi due date của "Deploy API" sang 19/08.',
+    'Tôi đã tạo bản xem trước cho việc gán "Deploy API" cho Tuấn.',
+  ]) {
+    expect(deriveObservedBehavior(answer, emptyTrajectory)).toBe('answer');
+  }
+});
