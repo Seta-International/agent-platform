@@ -953,4 +953,211 @@ describe('getAllocationGrid', () => {
       }
     });
   });
+
+  it('groups multiple allocation records for the same project into a single row preserving periods (FUT-850)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+        const projB = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'FUT-850 Grouped Resource',
+        });
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            {
+              project_id: projA,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Project Alpha',
+            },
+            {
+              project_id: projB,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Project Beta',
+            },
+          ]);
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            // Period 1 on Alpha: Jan 1 - Mar 31 (Q1) at 50%
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-03-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+            // Period 2 on Alpha: Jul 1 - Sep 30 (Q3) at 100%
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-07-01',
+              date_to: '2026-09-30',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+            // Single period on Beta: May 1 - Jun 30 at 80%
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projB,
+              account_id: accountId,
+              date_from: '2026-05-01',
+              date_to: '2026-06-30',
+              planned_pct: '80',
+              bucket: 'internal',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const workerRows = grid.rows.filter((r) => r.worker_id === personId);
+
+        // Crucial: 2 distinct projects must yield exactly 2 rows (NOT 3 rows)
+        expect(workerRows).toHaveLength(2);
+
+        const alphaRow = workerRows.find((r) => r.project_id === projA)!;
+        expect(alphaRow).toBeDefined();
+        // Jan-Mar: 50%, Apr-Jun: null, Jul-Sep: 100%, Oct-Dec: null
+        expect(alphaRow.months).toEqual([
+          50,
+          50,
+          50,
+          null,
+          null,
+          null,
+          100,
+          100,
+          100,
+          null,
+          null,
+          null,
+        ]);
+        // Total MM: 0.5 * 3 + 1.0 * 3 = 4.5
+        expect(alphaRow.total_mm).toBe(4.5);
+        expect(alphaRow.bucket).toBe('billable');
+
+        const betaRow = workerRows.find((r) => r.project_id === projB)!;
+        expect(betaRow).toBeDefined();
+        expect(betaRow.months).toEqual([
+          null,
+          null,
+          null,
+          null,
+          80,
+          80,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        ]);
+        expect(betaRow.total_mm).toBe(1.6);
+        expect(betaRow.bucket).toBe('internal');
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('groups multiple sequential allocation records for the same project in the same month (FUT-850)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'FUT-850 Intra-Month Resource',
+        });
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            {
+              project_id: projA,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Project Alpha',
+            },
+          ]);
+        // Two sequential allocations in January: Jan 1-15 (60%) and Jan 16-31 (40%)
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-01-15',
+              planned_pct: '60',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-16',
+              date_to: '2026-01-31',
+              planned_pct: '40',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const workerRows = grid.rows.filter((r) => r.worker_id === personId);
+
+        expect(workerRows).toHaveLength(1);
+        const row = workerRows[0]!;
+        // Jan 2026 has 22 working days (11 in 1-15, 11 in 16-31) -> 60*0.5 + 40*0.5 = 50%
+        expect(row.months[0]).toBe(50);
+        // MM: (0.6/100)*0.5 + (0.4/100)*0.5 = 0.003 + 0.002 = 0.005 -> 0.5 MM equivalent for Jan
+        expect(row.total_mm).toBe(0.5);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
