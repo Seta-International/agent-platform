@@ -497,6 +497,7 @@ describe('WeeklyReportsPage — pagination', () => {
   const pager = () => within(screen.getByRole('navigation', { name: 'Weekly report pages' }));
   const prevButton = () => pager().getByRole('button', { name: /previous page/i });
   const nextButton = () => pager().getByRole('button', { name: /next page/i });
+  const pageSizeSelector = () => screen.getByRole('combobox', { name: 'Items per page' });
 
   beforeEach(() => {
     routerState.search = { iso_year: 2026, iso_week: 32 };
@@ -511,8 +512,8 @@ describe('WeeklyReportsPage — pagination', () => {
     renderPage();
 
     await screen.findByRole('heading', { name: 'Project 01' });
-    expect(cardButtons()).toHaveLength(12);
-    expect(screen.queryByRole('heading', { name: 'Project 13' })).not.toBeInTheDocument();
+    expect(cardButtons()).toHaveLength(10);
+    expect(screen.queryByRole('heading', { name: 'Project 11' })).not.toBeInTheDocument();
     expect(pager().getByText('Page 1 of 2')).toBeInTheDocument();
     expect(prevButton()).toBeDisabled();
     expect(nextButton()).toBeEnabled();
@@ -533,8 +534,8 @@ describe('WeeklyReportsPage — pagination', () => {
     await screen.findByRole('heading', { name: 'Project 01' });
     await user.click(nextButton());
 
-    expect(await screen.findByRole('heading', { name: 'Project 13' })).toBeInTheDocument();
-    expect(cardButtons()).toHaveLength(2);
+    expect(await screen.findByRole('heading', { name: 'Project 11' })).toBeInTheDocument();
+    expect(cardButtons()).toHaveLength(4);
     expect(pager().getByText('Page 2 of 2')).toBeInTheDocument();
     expect(nextButton()).toBeDisabled();
 
@@ -566,6 +567,49 @@ describe('WeeklyReportsPage — pagination', () => {
     expect(pager().getByText('Page 1 of 1')).toBeInTheDocument();
     expect(prevButton()).toBeDisabled();
     expect(nextButton()).toBeDisabled();
+  });
+
+  it('offers the same page sizes as the rest of the app, starting at 10', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    await user.click(pageSizeSelector());
+
+    expect(await screen.findByRole('option', { name: '10' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '25' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '50' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '100' })).toBeInTheDocument();
+  });
+
+  it('shows more cards per page when a bigger page size is chosen', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    await user.click(pageSizeSelector());
+    await user.click(await screen.findByRole('option', { name: '25' }));
+
+    expect(await screen.findByRole('heading', { name: 'Project 11' })).toBeInTheDocument();
+    expect(cardButtons()).toHaveLength(14);
+    expect(pager().getByText('Page 1 of 1')).toBeInTheDocument();
+  });
+
+  it('returns to the first page when the page size changes', async () => {
+    fetchWeeklyReportsMock.mockResolvedValue(board(60));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Project 01' });
+    await user.click(nextButton());
+    await user.click(nextButton());
+    expect(pager().getByText('Page 3 of 6')).toBeInTheDocument();
+
+    await user.click(pageSizeSelector());
+    await user.click(await screen.findByRole('option', { name: '25' }));
+
+    expect(await screen.findByRole('heading', { name: 'Project 01' })).toBeInTheDocument();
+    expect(pager().getByText('Page 1 of 3')).toBeInTheDocument();
   });
 
   it('offers no controls when the week has no project', async () => {

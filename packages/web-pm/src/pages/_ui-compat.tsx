@@ -158,7 +158,9 @@ export function Button({
       {...rest}
       aria-label={isIconOnly && typeof label === 'string' ? label : undefined}
     >
-      {icon}
+      {icon ? (
+        <span className="inline-flex shrink-0 items-center justify-center">{icon}</span>
+      ) : null}
       {isIconOnly ? null : (children ?? label)}
       {endContent}
     </button>
