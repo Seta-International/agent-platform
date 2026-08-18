@@ -131,12 +131,14 @@ export async function seedPmWeekly(
       else log.warn({ metric: metric.name, target }, 'no figures land this metric in that band');
     }
 
+    const pm = pmByCode.get(code);
+    const pmSession = pm ? { ...session, person_id: pm.workerId } : session;
+
     if (entries.length > 0) {
-      await upsertKpiRecord({ project_id, ...week, entries, session });
+      await upsertKpiRecord({ project_id, ...week, entries, session: pmSession });
       records += 1;
     }
 
-    const pm = pmByCode.get(code);
     if (!profile.report || !pm) continue;
     try {
       await upsertWeeklyReport({
@@ -146,7 +148,7 @@ export async function seedPmWeekly(
         risk_issue: profile.report.risk ?? null,
         road_to_green: profile.report.roadToGreen ?? null,
         road_to_green_due: profile.report.roadToGreen ? nextFriday(week) : null,
-        session: { ...session, person_id: pm.workerId },
+        session: pmSession,
       });
       reports += 1;
     } catch (err) {

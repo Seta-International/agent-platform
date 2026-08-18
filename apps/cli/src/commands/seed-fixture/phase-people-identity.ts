@@ -48,6 +48,7 @@ export async function seedPeopleIdentity(
         phone: e.phone || undefined,
         gender: gender.success ? gender.data : undefined,
         start_date: hireDate ?? undefined,
+        job_title: e.primary_role || undefined,
         session,
       });
       workerId = created.worker_id;
@@ -72,9 +73,10 @@ export async function seedPeopleIdentity(
     if (hireDate) {
       await coreDb().execute(
         sql`UPDATE people.employment_period
-              SET start_date = ${hireDate}, lifecycle_stage = 'active'
+              SET start_date = ${hireDate}, lifecycle_stage = 'active',
+                  job_title = coalesce(job_title, ${e.primary_role || null})
             WHERE person_id = ${workerId} AND end_date IS NULL
-              AND (start_date IS DISTINCT FROM ${hireDate}::date OR lifecycle_stage <> 'active')`,
+              AND (start_date IS DISTINCT FROM ${hireDate}::date OR lifecycle_stage <> 'active' OR job_title IS DISTINCT FROM ${e.primary_role || null})`,
       );
       await coreDb().execute(
         sql`UPDATE people.person
@@ -123,6 +125,20 @@ export async function seedPeopleIdentity(
 
     map.set(e.id, { workerId, userId });
   }
+
+  // Backfill pm.person_projection for all seeded workers so PM allocation views
+  // (e.g. RA Monitoring seniority column) have up-to-date worker names & job titles.
+  await coreDb().execute(
+    sql`INSERT INTO pm.person_projection (person_id, tenant_id, full_name, job_title, updated_at)
+        SELECT p.id, p.tenant_id, p.full_name, ep.job_title, now()
+        FROM people.person p
+        LEFT JOIN people.employment_period ep ON ep.person_id = p.id AND ep.end_date IS NULL
+        WHERE p.tenant_id = ${session.tenant_id} AND p.deleted_at IS NULL
+        ON CONFLICT (person_id) DO UPDATE
+        SET full_name = EXCLUDED.full_name,
+            job_title = EXCLUDED.job_title,
+            updated_at = now()`,
+  );
 
   return map;
 }
