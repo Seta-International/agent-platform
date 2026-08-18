@@ -106,8 +106,11 @@ export const FIXTURE_BUILDERS: Record<string, Builder> = {
   },
 
   /** A task in a group of the SAME tenant that the actors are not members of. */
+  // Keyed by its own name, not `task`: MU-015 composes this WITH `plainTask`, and two
+  // builders minting the same key is what the runner's duplicate guard exists to
+  // reject — it would otherwise point an assertion at whichever row won.
   crossGroupTask: async (ctx) => ({
-    task: await insertTask(ctx, {
+    crossGroupTask: await insertTask(ctx, {
       title: 'Secret roadmap',
       planId: ctx.world.otherPlanId,
       bucketId: ctx.world.otherBucketId,
