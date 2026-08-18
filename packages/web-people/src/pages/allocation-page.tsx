@@ -385,7 +385,8 @@ export function AllocationPage() {
   const columnSettingsState = useTableColumnSettingsState({
     columns: ALLOCATION_COLUMN_OPTIONS,
     activeColumnKeys,
-    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+    onChangeActiveColumnKeys: (keys) =>
+      setActiveColumnKeys(DEFAULT_ALLOCATION_COLUMN_KEYS.filter((k) => keys.includes(k))),
   });
   const columnSettings = useTableColumnSettings<AllocationRow>(
     columnSettingsState.columnSettingsConfig,

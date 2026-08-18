@@ -91,6 +91,31 @@ describe('AllocationPage (Astryx Table migration)', () => {
     expect(within(table).queryByText('Employee ID')).not.toBeInTheDocument();
   });
 
+  it('restores re-enabled columns to their default position', async () => {
+    const user = userEvent.setup();
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Employee ID' }));
+    expect(headerNames()).not.toContain('Account');
+    expect(headerNames()).not.toContain('Employee ID');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Employee ID' }));
+
+    const headers = headerNames();
+    expect(headers.indexOf('Employee ID')).toBeLessThan(headers.indexOf('Account'));
+    expect(headers.indexOf('Account')).toBeLessThan(headers.indexOf('Project'));
+  });
+
   it('lists Name in the Columns popover as a fixed, non-toggleable column', async () => {
     const user = userEvent.setup();
     mockFetchAllocationGrid.mockResolvedValue(baseGrid);
