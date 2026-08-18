@@ -32,6 +32,7 @@ function renderCase(cr: CaseReport): string {
   if (cr.question) lines.push(`- **Question:** ${cr.question}`);
   if (cr.answer !== undefined) lines.push(`- **Answer:** ${cr.answer || '(empty)'}`);
   if (cr.skipped) lines.push(`- **Skipped:** ${cr.skipped}`);
+  if (cr.runError) lines.push(`- **Run error:** ${cr.runError}`);
 
   for (const turn of cr.turns ?? []) {
     lines.push(`- **Turn ${turn.index}:** ${turn.answer || '(no text)'}`);

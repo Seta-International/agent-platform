@@ -251,3 +251,36 @@ it('marks a conversation case skipped when no seam is supplied', async () => {
   expect(report.cases[0]!.skipped).toBeTruthy();
   expect(report.gateFailures).toEqual([]);
 });
+
+it('records WHY a conversation run threw, so a dead model is not read as a dead agent', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => {
+      throw new Error('Cannot connect to API: Connect Timeout Error');
+    },
+  });
+  expect(report.cases[0]!.runError).toContain('Connect Timeout Error');
+  expect(report.cases[0]!.policies.every((p) => p.verdict === 'error')).toBe(true);
+});
+
+it('keeps the turns a case DID complete when it broke mid-conversation', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    // Two turns ran; the third could not, because turn 1 never opened a card.
+    runConversation: async () =>
+      ({
+        turns: [suspendTurn, suspendTurn],
+        error: 'RV-008 decides with no open preview',
+      }) as never,
+  });
+  const cr = report.cases[0]!;
+  expect(cr.runError).toContain('no open preview');
+  expect(cr.turns).toHaveLength(2);
+  expect(cr.policies.every((p) => p.verdict === 'error')).toBe(true);
+});

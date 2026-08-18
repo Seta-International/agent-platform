@@ -54,6 +54,10 @@ export interface ConversationRunOutput {
   /** The case with every `fixtures.*` reference resolved. `runGoldenEval` scores
    *  against THIS, not the file, because the ids only exist at run time. */
   resolvedCase?: GoldenCase;
+  /** Set when the case broke PART WAY through. `turns` then holds the turns that
+   *  did complete: the evidence for which turn went wrong lives in them, and
+   *  throwing would have discarded it. */
+  error?: string;
 }
 
 export interface PolicyReport {
@@ -82,6 +86,9 @@ export interface CaseReport {
   }[];
   /** Set when the case was not evaluated at all, with the reason. */
   skipped?: string;
+  /** Why the run seam threw. Without it an unreachable model and a broken agent
+   *  produce the same all-`error` report, and the first triage step is a guess. */
+  runError?: string;
   policies: PolicyReport[];
 }
 
@@ -155,12 +162,14 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
       }
 
       let run: ConversationRunOutput | null = null;
-      let runError = false;
+      let runError: string | undefined;
       try {
         run = await params.runConversation(c);
-      } catch {
-        runError = true;
+      } catch (err) {
+        runError = err instanceof Error ? err.message : String(err);
       }
+      // A partial run reports its own error and keeps its completed turns.
+      if (run?.error) runError = run.error;
 
       const policies: PolicyReport[] = [];
       for (const rawId of c.metrics?.enabled ?? []) {
@@ -207,6 +216,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         question: questionOf(c),
         answer: last?.answer,
         trajectory: last?.trajectory.toolCalls,
+        ...(runError ? { runError } : {}),
         turns: run?.turns.map((t, i) => ({
           index: i + 1,
           answer: t.answer,

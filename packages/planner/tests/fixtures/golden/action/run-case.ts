@@ -161,64 +161,101 @@ export function makeActionCaseRunner(deps: ActionCaseRunnerDeps) {
     const results: TurnResult[] = [];
     let open: OpenCard | null = null;
 
-    for (const turn of resolvedCase.turns) {
-      const before = await snapshotActionRows(deps.pool, deps.world);
-      const expected = turn.expected.dbEffects;
+    // A case that breaks mid-conversation returns what it has instead of throwing:
+    // the turn that went wrong is only diagnosable from the turns before it.
+    try {
+      for (const turn of resolvedCase.turns) {
+        const before = await snapshotActionRows(deps.pool, deps.world);
+        const expected = turn.expected.dbEffects;
 
-      if ('user' in turn) {
-        const outcome = await drainActionTurn(
-          await target.runStream(
-            {
-              userText: turn.user,
-              taskId: null,
-              openPreview: open ? openPreviewFrom(open) : null,
-            },
-            actor as never,
-          ),
-        );
+        if ('user' in turn) {
+          const outcome = await drainActionTurn(
+            await target.runStream(
+              {
+                userText: turn.user,
+                taskId: null,
+                openPreview: open ? openPreviewFrom(open) : null,
+              },
+              actor as never,
+            ),
+          );
 
-        if (outcome.suspended && outcome.card) {
-          const card = outcome.card as unknown as OpenCard['card'];
-          // Supersede only when the new card names the SAME tool as the open one —
-          // the comparison the server makes (`open.toolId !== toolId`). A different
-          // tool leaves both cards pending, which is what design D4 requires.
-          const approvalId: string =
-            open && open.card.meta.toolId === card.meta.toolId
-              ? previews.supersede(open.approvalId, card)
-              : previews.open(card);
-          open = {
-            approvalId,
-            card,
-            mastraRunId: outcome.mastraRunId!,
-            toolCallId: outcome.toolCallId,
-          };
+          if (outcome.suspended && outcome.card) {
+            const card = outcome.card as unknown as OpenCard['card'];
+            // Supersede only when the new card names the SAME tool as the open one —
+            // the comparison the server makes (`open.toolId !== toolId`). A different
+            // tool leaves both cards pending, which is what design D4 requires.
+            const approvalId: string =
+              open && open.card.meta.toolId === card.meta.toolId
+                ? previews.supersede(open.approvalId, card)
+                : previews.open(card);
+            open = {
+              approvalId,
+              card,
+              mastraRunId: outcome.mastraRunId!,
+              toolCallId: outcome.toolCallId,
+            };
+          }
+
+          results.push({
+            answer: outcome.answer,
+            trajectory: toTrajectory(outcome.toolCalls),
+            signals: { suspended: outcome.suspended },
+            dbEffects: observe(
+              before,
+              await snapshotActionRows(deps.pool, deps.world),
+              expected,
+              ids,
+            ),
+          });
+          continue;
         }
 
-        results.push({
-          answer: outcome.answer,
-          trajectory: toTrajectory(outcome.toolCalls),
-          signals: { suspended: outcome.suspended },
-          dbEffects: observe(
-            before,
-            await snapshotActionRows(deps.pool, deps.world),
-            expected,
-            ids,
+        // A decision turn. Nothing to decide means the case is broken, and saying so
+        // beats scoring a turn that never happened.
+        if (!open) throw new Error(`runActionCase: ${c.id} decides with no open preview`);
+
+        if (turn.decision.chosen === 'decline') {
+          previews.decide(open.approvalId);
+          open = null;
+          results.push({
+            answer: '',
+            trajectory: { toolCalls: [] },
+            signals: { declined: true },
+            dbEffects: observe(
+              before,
+              await snapshotActionRows(deps.pool, deps.world),
+              expected,
+              ids,
+            ),
+          });
+          continue;
+        }
+
+        const patch =
+          turn.decision.chosen === 'primary'
+            ? open.card.primary.argsPatch
+            : open.card.alternates?.[turn.decision.alternateIndex ?? 0]?.argsPatch;
+        if (!patch)
+          throw new Error(`runActionCase: ${c.id} has no argsPatch for the chosen action`);
+
+        const resumed = await drainActionTurn(
+          await target.runResume(
+            patch as never,
+            {
+              ...actor,
+              mastraRunId: open.mastraRunId,
+              toolCallId: open.toolCallId,
+            } as never,
           ),
-        });
-        continue;
-      }
-
-      // A decision turn. Nothing to decide means the case is broken, and saying so
-      // beats scoring a turn that never happened.
-      if (!open) throw new Error(`runActionCase: ${c.id} decides with no open preview`);
-
-      if (turn.decision.chosen === 'decline') {
+        );
         previews.decide(open.approvalId);
         open = null;
+
         results.push({
-          answer: '',
-          trajectory: { toolCalls: [] },
-          signals: { declined: true },
+          answer: resumed.answer,
+          trajectory: toTrajectory(resumed.toolCalls),
+          signals: { applied: true },
           dbEffects: observe(
             before,
             await snapshotActionRows(deps.pool, deps.world),
@@ -226,34 +263,13 @@ export function makeActionCaseRunner(deps: ActionCaseRunnerDeps) {
             ids,
           ),
         });
-        continue;
       }
-
-      const patch =
-        turn.decision.chosen === 'primary'
-          ? open.card.primary.argsPatch
-          : open.card.alternates?.[turn.decision.alternateIndex ?? 0]?.argsPatch;
-      if (!patch) throw new Error(`runActionCase: ${c.id} has no argsPatch for the chosen action`);
-
-      const resumed = await drainActionTurn(
-        await target.runResume(
-          patch as never,
-          {
-            ...actor,
-            mastraRunId: open.mastraRunId,
-            toolCallId: open.toolCallId,
-          } as never,
-        ),
-      );
-      previews.decide(open.approvalId);
-      open = null;
-
-      results.push({
-        answer: resumed.answer,
-        trajectory: toTrajectory(resumed.toolCalls),
-        signals: { applied: true },
-        dbEffects: observe(before, await snapshotActionRows(deps.pool, deps.world), expected, ids),
-      });
+    } catch (err) {
+      return {
+        turns: results,
+        resolvedCase,
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
 
     return { turns: results, resolvedCase };
