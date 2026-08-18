@@ -503,9 +503,11 @@ export async function hireApplication(input: {
         (session.user_id ? await getWorkerIdForUser(session.user_id, session.tenant_id) : null))
       : null;
 
+  const resolvedJobTitle = candRow.seniority || reqRow.role_title || reqRow.title;
+
   if (existingWorkerId) {
     worker_id = existingWorkerId;
-    const newJobTitle = reqRow.role_title || reqRow.title;
+    const newJobTitle = resolvedJobTitle;
     const updatedJobTitle = await peopleDb()
       .update(employmentPeriod)
       .set({ job_title: newJobTitle, updated_at: new Date() })
@@ -527,6 +529,20 @@ export async function hireApplication(input: {
         job_title: newJobTitle,
       });
     }
+
+    await emit({
+      tenantId: session.tenant_id,
+      aggregateType: 'people.worker',
+      aggregateId: worker_id,
+      eventType: 'people.worker.updated',
+      eventVersion: 1,
+      payload: {
+        worker_id,
+        tenant_id: session.tenant_id,
+        full_name: candRow.name,
+        job_title: newJobTitle,
+      },
+    });
   } else {
     const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
     const created = await createWorker({
@@ -535,7 +551,7 @@ export async function hireApplication(input: {
       phone: contact?.phone || undefined,
       dob: candRow.dob || undefined,
       gender: candRow.gender || undefined,
-      job_title: reqRow.role_title || reqRow.title,
+      job_title: resolvedJobTitle,
       session,
     });
     worker_id = created.worker_id;

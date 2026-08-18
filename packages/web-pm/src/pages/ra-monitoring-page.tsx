@@ -602,7 +602,9 @@ export function RaMonitoringPage() {
         // Short, bounded values ("Engineer", "Senior Engineer") — a fixed width keeps it
         // from stealing proportional space from the text-heavy columns.
         width: pixel(140),
-        renderCell: (r) => <span className="text-secondary">{r.worker_title ?? '—'}</span>,
+        renderCell: (r) => (
+          <span className="capitalize text-secondary">{r.worker_title ?? '—'}</span>
+        ),
       },
       {
         key: 'planned',

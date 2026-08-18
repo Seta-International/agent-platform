@@ -68,4 +68,50 @@ describe('hireApplication', () => {
       }
     });
   });
+
+  it('assigns candidate seniority to worker job_title instead of requisition title (FUT-884)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'leader manual tester',
+          role_title: 'Manual Tester Lead',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { application_id } = await addCandidate({
+          requisition_id,
+          name: 'Nguyen Huynh Son',
+          seniority: 'senior',
+          session: t.adminSession,
+        });
+
+        await hireApplication({
+          application_id,
+          expected_version: 1,
+          session: t.adminSession,
+        });
+
+        const appRes = await pool.query(`SELECT person_id FROM hiring.application WHERE id = $1`, [
+          application_id,
+        ]);
+        const workerId = appRes.rows[0]?.person_id;
+        expect(workerId).toBeTruthy();
+
+        const periodRes = await pool.query(
+          `SELECT job_title FROM people.employment_period WHERE person_id = $1 AND end_date IS NULL`,
+          [workerId],
+        );
+        expect(periodRes.rows[0]?.job_title).toBe('senior');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

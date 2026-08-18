@@ -615,4 +615,53 @@ describe('RaMonitoringPage — Grouped allocations Person and Seniority display 
     const reassignButtons = screen.getAllByRole('button', { name: 'Reassign' });
     expect(reassignButtons).toHaveLength(2);
   });
+
+  it('renders lowercase seniority with capitalize class and renders dash when null (FUT-884)', async () => {
+    const allocations = [
+      {
+        allocation_id: 'a1',
+        worker_id: 'w1',
+        worker_name: 'John Doe',
+        worker_title: 'senior',
+        account_name: 'Zeta Corp',
+        project_name: 'Project Alpha',
+        planned_pct: 100,
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+      {
+        allocation_id: 'a2',
+        worker_id: 'w2',
+        worker_name: 'Alice Smith',
+        worker_title: null,
+        account_name: 'Zeta Corp',
+        project_name: 'Project Alpha',
+        planned_pct: 100,
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+        bucket: 'billable',
+        status: 'committed',
+        can_manage: true,
+        note: null,
+        version: 1,
+      },
+    ];
+
+    fetchAllocationsMock.mockResolvedValue(allocations);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+
+    const seniorSpan = screen.getByText('senior');
+    expect(seniorSpan).toBeInTheDocument();
+    expect(seniorSpan).toHaveClass('capitalize');
+
+    const dashSpans = screen.getAllByText('—');
+    expect(dashSpans.length).toBeGreaterThan(0);
+  });
 });
