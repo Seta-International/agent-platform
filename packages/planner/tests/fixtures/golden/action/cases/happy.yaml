@@ -1,0 +1,273 @@
+# MU-001..012 — one happy and one cancel case per write operation (spec §7).
+#
+# The cancel half needs no new mechanism: the driver simply does not resume, so
+# "cancel writes nothing" is deterministic once the case exists. That is why M4's
+# threshold is 1.00, and why these are the cheapest cases in the set rather than the
+# dearest.
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-001
+  category: happy
+  suites: [smoke, regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [oneTaskDueAug15]
+  turns:
+    - user: 'đổi due date của Deploy API sang 19/8'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_updateTask]
+          maxToolCalls: 3
+          argPredicates:
+            - { tool: planner_updateTask, path: patch.dueAt, operator: equals, value: '2026-08-19' }
+    - decision: { chosen: primary }
+      expected:
+        behavior: applied
+        dbEffects:
+          rowsChanged: 1
+          after: [{ table: planner.tasks, id: fixtures.task, due_at: '2026-08-19' }]
+  metrics: { enabled: [M1, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-002
+  category: cancel
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [oneTaskDueAug15]
+  turns:
+    - user: 'đổi due date của Deploy API sang 19/8'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
+    - decision: { chosen: decline }
+      expected:
+        behavior: declined
+        dbEffects: none
+  metrics: { enabled: [M4, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-003
+  category: happy
+  suites: [smoke, regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    # The plan is named. A2 asking WHICH plan when it cannot tell is MU-019's
+    # subject, not this case's.
+    - user: "tạo task 'Write release notes' trong plan A2 Plan"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_createTask]
+          maxToolCalls: 3
+          argPredicates:
+            - {
+                tool: planner_createTask,
+                path: title,
+                operator: equals,
+                value: 'Write release notes',
+              }
+    - decision: { chosen: primary }
+      expected:
+        # No `after`: the new task's id is minted by the write, so the case cannot
+        # name it. The row count is the assertion.
+        behavior: applied
+        dbEffects: { rowsChanged: 1 }
+  metrics: { enabled: [M1, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-004
+  category: cancel
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    - user: "tạo task 'Write release notes' trong plan A2 Plan"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_createTask], maxToolCalls: 3 }
+    - decision: { chosen: decline }
+      expected:
+        behavior: declined
+        dbEffects: none
+  metrics: { enabled: [M4, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-005
+  category: happy
+  suites: [smoke, regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    # 'Tuấn' is the peer member seeded by seedActionWorld. Resolving a person by
+    # first name is the assign path's real work, so the case uses the name the user
+    # would actually type.
+    - user: 'giao Deploy API cho Tuấn'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_assignTask], maxToolCalls: 4 }
+    - decision: { chosen: primary }
+      expected:
+        behavior: applied
+        dbEffects: { rowsChanged: 1 }
+  metrics: { enabled: [M1, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-006
+  category: cancel
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    - user: 'giao Deploy API cho Tuấn'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_assignTask], maxToolCalls: 4 }
+    - decision: { chosen: decline }
+      expected:
+        behavior: declined
+        dbEffects: none
+  metrics: { enabled: [M4, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-007
+  category: happy
+  suites: [smoke, regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    - user: "thêm comment 'Đã deploy xong' vào task Deploy API"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_commentTask]
+          maxToolCalls: 3
+          # The body travels verbatim: A2 must not summarise it or add a sign-off.
+          argPredicates:
+            - { tool: planner_commentTask, path: body, operator: equals, value: 'Đã deploy xong' }
+    - decision: { chosen: primary }
+      expected:
+        behavior: applied
+        dbEffects: { rowsChanged: 1 }
+  metrics: { enabled: [M1, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-008
+  category: cancel
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    - user: "thêm comment 'Đã deploy xong' vào task Deploy API"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_commentTask], maxToolCalls: 3 }
+    - decision: { chosen: decline }
+      expected:
+        behavior: declined
+        dbEffects: none
+  metrics: { enabled: [M4, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-009
+  category: happy
+  suites: [smoke, regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [nearDuplicatePair]
+  turns:
+    # WHICH side survives is stated, because merge is the only thing A2 does that
+    # removes anything and it must never choose for the user.
+    - user: "gộp task 'Deploy API v1' vào 'Deploy API', giữ lại 'Deploy API'"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_mergeTasks], maxToolCalls: 4 }
+    - decision: { chosen: primary }
+      expected:
+        behavior: applied
+        # rowsChanged is a FACT about the merge domain, not a preference: the
+        # duplicate's soft-delete plus the reference row the merge writes. If the
+        # first run reports a different count, read `changedKeys` in the report and
+        # correct this number — do not weaken the `after` row to make it pass.
+        dbEffects:
+          rowsChanged: 2
+          after: [{ table: planner.tasks, id: fixtures.duplicate, deleted_at: notNull }]
+  metrics: { enabled: [M1, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-010
+  category: cancel
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [nearDuplicatePair]
+  turns:
+    - user: "gộp task 'Deploy API v1' vào 'Deploy API', giữ lại 'Deploy API'"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_mergeTasks], maxToolCalls: 4 }
+    - decision: { chosen: decline }
+      expected:
+        behavior: declined
+        # Spelled out rather than `none`, plus the row itself: "the task the user
+        # nearly deleted is still here" is the strongest thing this case can say.
+        dbEffects:
+          rowsChanged: 0
+          after: [{ table: planner.tasks, id: fixtures.duplicate, deleted_at: null }]
+  metrics: { enabled: [M4, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-011
+  category: happy
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [twoPlainTasks]
+  turns:
+    - user: "link task 'Deploy API' với task 'Write release notes'"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_linkTasks], maxToolCalls: 4 }
+    - decision: { chosen: primary }
+      expected:
+        behavior: applied
+        dbEffects: { rowsChanged: 1 }
+  metrics: { enabled: [M1, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-012
+  category: cancel
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [twoPlainTasks]
+  turns:
+    - user: "link task 'Deploy API' với task 'Write release notes'"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_linkTasks], maxToolCalls: 4 }
+    - decision: { chosen: decline }
+      expected:
+        behavior: declined
+        dbEffects: none
+  metrics: { enabled: [M4, M3] }
