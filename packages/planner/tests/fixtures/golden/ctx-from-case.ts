@@ -4,7 +4,7 @@
 // into the PolicyEvalContext the deterministic scorers consume. Pure.
 import type { PolicyEvalContext } from './policy/registry.ts';
 import type { ToolCall, Trajectory } from './policy/trajectory.ts';
-import type { GoldenCase } from './schema.ts';
+import type { Expected, GoldenCase } from './schema.ts';
 
 // --- Behavior classification signals ----------------------------------------
 //
@@ -112,6 +112,8 @@ export interface ObservedSignals {
   suspended?: boolean;
   /** The turn was a resume (Confirm) that ran to completion. */
   applied?: boolean;
+  /** The user cancelled: the lane did not resume, so no model ran at all. */
+  declined?: boolean;
 }
 
 /**
@@ -132,6 +134,7 @@ export function deriveObservedBehavior(
 ): string {
   // Stream truth beats phrasing, always. Ordered applied-first because a resume
   // is never also a suspend.
+  if (signals.declined) return 'declined';
   if (signals.applied) return 'applied';
   if (signals.suspended) return 'confirm';
 
@@ -154,6 +157,70 @@ export function deriveObservedBehavior(
   return 'answer';
 }
 
+/** One turn's observed outcome, as the A2 driver produces it. */
+export interface TurnResult {
+  answer: string;
+  trajectory: Trajectory;
+  signals: ObservedSignals;
+  dbEffects?: NonNullable<PolicyEvalContext['dbEffects']>;
+}
+
+/** Shared shape builder. `expected` and `userText` differ per caller; everything
+ *  else is identical, which is why A1 and A2 must not grow two copies of it. */
+function buildCtx(args: {
+  expected: Expected;
+  userText: string;
+  result: TurnResult;
+}): PolicyEvalContext {
+  const t = args.expected.trajectory ?? {};
+  const constraints = {
+    requiredTools: t.requiredTools ?? [],
+    allowedTools: t.allowedTools ?? [],
+    forbiddenTools: t.forbiddenTools ?? [],
+    requiredPartialOrder: t.requiredPartialOrder ?? [],
+    argPredicates: t.argPredicates ?? [],
+    maxToolCalls: t.maxToolCalls,
+  };
+  // Only successful calls are a legitimate source (a failed call returned no data).
+  const toolResults = args.result.trajectory.toolCalls
+    .filter((call) => call.ok)
+    .map((call) => call.result);
+  return {
+    trajectory: args.result.trajectory,
+    constraints,
+    observedBehavior: deriveObservedBehavior(
+      args.result.answer,
+      args.result.trajectory,
+      args.result.signals,
+    ),
+    expectedBehaviorValue: args.expected.behavior,
+    answer: args.result.answer,
+    expectedDelegationTool: constraints.requiredTools[0],
+    forbiddenEntities: args.expected.output?.forbiddenEntities ?? [],
+    forbiddenText: args.expected.output?.forbiddenText ?? [],
+    userText: args.userText,
+    toolResults,
+    groundNumbers: args.expected.trajectory?.groundNumbers ?? false,
+    ...(args.result.dbEffects ? { dbEffects: args.result.dbEffects } : {}),
+  };
+}
+
+/** Scoring context for ONE turn of a conversation case. */
+export function ctxFromTurn(
+  c: GoldenCase,
+  turnIndex: number,
+  result: TurnResult,
+): PolicyEvalContext {
+  if (c.kind !== 'conversation') throw new Error(`ctxFromTurn: unsupported kind "${c.kind}"`);
+  const turn = c.turns[turnIndex];
+  if (!turn) throw new Error(`ctxFromTurn: ${c.id} has no turn ${turnIndex}`);
+  return buildCtx({
+    expected: turn.expected,
+    userText: 'user' in turn ? turn.user : '',
+    result,
+  });
+}
+
 export function ctxFromCase(
   c: GoldenCase,
   trajectory: Trajectory,
@@ -163,33 +230,12 @@ export function ctxFromCase(
   if (c.kind !== 'agent' && c.kind !== 'conversation') {
     throw new Error(`ctxFromCase: unsupported kind "${c.kind}"`);
   }
-  const expected = c.kind === 'agent' ? c.expected : c.turns[c.turns.length - 1]!.expected;
-  const t = expected.trajectory ?? {};
-  const constraints = {
-    requiredTools: t.requiredTools ?? [],
-    allowedTools: t.allowedTools ?? [],
-    forbiddenTools: t.forbiddenTools ?? [],
-    requiredPartialOrder: t.requiredPartialOrder ?? [],
-    argPredicates: t.argPredicates ?? [],
-    maxToolCalls: t.maxToolCalls,
-  };
-  const userText =
-    c.kind === 'agent'
-      ? (c.input.messages[c.input.messages.length - 1]?.content ?? '')
-      : (c.turns[c.turns.length - 1]?.user ?? '');
-  // Only successful calls are a legitimate source (a failed call returned no data).
-  const toolResults = trajectory.toolCalls.filter((call) => call.ok).map((call) => call.result);
-  return {
-    trajectory,
-    constraints,
-    observedBehavior: deriveObservedBehavior(answer, trajectory, signals),
-    expectedBehaviorValue: expected.behavior,
-    answer,
-    expectedDelegationTool: constraints.requiredTools[0],
-    forbiddenEntities: expected.output?.forbiddenEntities ?? [],
-    forbiddenText: expected.output?.forbiddenText ?? [],
-    userText,
-    toolResults,
-    groundNumbers: expected.trajectory?.groundNumbers ?? false,
-  };
+  if (c.kind === 'conversation') {
+    return ctxFromTurn(c, c.turns.length - 1, { answer, trajectory, signals });
+  }
+  return buildCtx({
+    expected: c.expected,
+    userText: c.input.messages[c.input.messages.length - 1]?.content ?? '',
+    result: { answer, trajectory, signals },
+  });
 }

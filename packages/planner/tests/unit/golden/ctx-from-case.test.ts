@@ -1,5 +1,9 @@
 import { expect, it } from 'vitest';
-import { ctxFromCase, deriveObservedBehavior } from '../../fixtures/golden/ctx-from-case.ts';
+import {
+  ctxFromCase,
+  ctxFromTurn,
+  deriveObservedBehavior,
+} from '../../fixtures/golden/ctx-from-case.ts';
 import type { Trajectory } from '../../fixtures/golden/policy/trajectory.ts';
 import type { GoldenCase } from '../../fixtures/golden/schema.ts';
 
@@ -302,4 +306,76 @@ it('does not misread an ordinary Vietnamese confirmation as refuse or clarify', 
   ]) {
     expect(deriveObservedBehavior(answer, emptyTrajectory)).toBe('answer');
   }
+});
+
+// --- FUT-827: per-turn scoring ------------------------------------------------
+
+const threeTurn = {
+  schemaVersion: 1,
+  kind: 'conversation',
+  id: 'RV-008',
+  suites: ['regression'],
+  holdout: false,
+  tags: [],
+  fixtures: [],
+  actor: { tenantId: 't', userId: 'u' },
+  turns: [
+    {
+      user: 'đổi due date sang 15/8',
+      expected: { behavior: 'confirm', facts: [], dbEffects: 'none' },
+    },
+    {
+      user: 'À thôi đổi sang 19/8 đi',
+      expected: {
+        behavior: 'confirm',
+        facts: [],
+        dbEffects: 'none',
+        trajectory: {
+          requiredTools: ['planner_updateTask'],
+          argPredicates: [
+            {
+              tool: 'planner_updateTask',
+              path: 'patch.dueAt',
+              operator: 'equals',
+              value: '2026-08-19',
+            },
+          ],
+        },
+      },
+    },
+    { decision: { chosen: 'primary' }, expected: { behavior: 'applied', facts: [] } },
+  ],
+} as never;
+
+it('builds a context from the NAMED turn, not the last one', () => {
+  const ctx = ctxFromTurn(threeTurn, 1, {
+    answer: 'Đổi sang 19/08.',
+    trajectory: { toolCalls: [] },
+    signals: { suspended: true },
+    dbEffects: { expected: 'none', observed: { rowsChanged: 0, mismatches: [] } },
+  });
+  expect(ctx.userText).toBe('À thôi đổi sang 19/8 đi');
+  expect(ctx.expectedBehaviorValue).toBe('confirm');
+  expect(ctx.observedBehavior).toBe('confirm');
+  expect(ctx.constraints.argPredicates).toHaveLength(1);
+  expect(ctx.dbEffects?.expected).toBe('none');
+});
+
+it('carries a decision turn: no user text, applied behaviour', () => {
+  const ctx = ctxFromTurn(threeTurn, 2, {
+    answer: 'Đã đổi due date sang 19/08.',
+    trajectory: { toolCalls: [] },
+    signals: { applied: true },
+    dbEffects: {
+      expected: { rowsChanged: 1, after: [] },
+      observed: { rowsChanged: 1, mismatches: [] },
+    },
+  });
+  expect(ctx.userText).toBe('');
+  expect(ctx.expectedBehaviorValue).toBe('applied');
+  expect(ctx.observedBehavior).toBe('applied');
+});
+
+it('classifies a declined turn', () => {
+  expect(deriveObservedBehavior('', { toolCalls: [] }, { declined: true })).toBe('declined');
 });
