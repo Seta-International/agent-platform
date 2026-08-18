@@ -182,8 +182,6 @@ export const ALLOCATION_HIDEABLE_COLUMNS: ColumnSettingsOption[] = [
   ...MONTHS.map((label, mi) => ({ key: `m${mi}`, label })),
   { key: 'total_mm', label: 'MM' },
 ];
-// Universe of columns for the column-settings state hook. 'name' is the only
-// always-visible column (matches the old bespoke popover, which never listed it).
 const ALLOCATION_COLUMN_OPTIONS: ColumnSettingsOption[] = [
   { key: 'name', label: 'Name', isAlwaysVisible: true },
   ...ALLOCATION_HIDEABLE_COLUMNS,
@@ -635,14 +633,21 @@ export function AllocationPage() {
                             <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                               Toggle columns
                             </div>
-                            {ALLOCATION_HIDEABLE_COLUMNS.map((col) => (
-                              <Checkbox
-                                key={col.key}
-                                label={col.label}
-                                value={columnSettingsState.isColumnActive(col.key)}
-                                onChange={() => columnSettingsState.toggleColumn(col.key)}
-                              />
-                            ))}
+                            {ALLOCATION_COLUMN_OPTIONS.map((col) => {
+                              const isToggleable = columnSettingsState.isColumnToggleable(col.key);
+                              return (
+                                <Checkbox
+                                  key={col.key}
+                                  label={col.label}
+                                  value={columnSettingsState.isColumnActive(col.key)}
+                                  isDisabled={!isToggleable}
+                                  disabledMessage={
+                                    isToggleable ? undefined : 'Always shown — identifies the row'
+                                  }
+                                  onChange={() => columnSettingsState.toggleColumn(col.key)}
+                                />
+                              );
+                            })}
                           </div>
                         }
                       >
