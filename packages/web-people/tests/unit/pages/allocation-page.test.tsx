@@ -91,6 +91,24 @@ describe('AllocationPage (Astryx Table migration)', () => {
     expect(within(table).queryByText('Employee ID')).not.toBeInTheDocument();
   });
 
+  it('lists Name in the Columns popover as a fixed, non-toggleable column', async () => {
+    const user = userEvent.setup();
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+
+    const nameCheckbox = screen.getByRole('checkbox', { name: 'Name' });
+    expect(nameCheckbox).toBeChecked();
+    expect(nameCheckbox).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(nameCheckbox);
+
+    expect(nameCheckbox).toBeChecked();
+    expect(within(table).getByText('Ada Lovelace')).toBeInTheDocument();
+  });
+
   it('paginates client-side over the fetched rows', async () => {
     const user = userEvent.setup();
     const manyRows = Array.from({ length: 30 }, (_, i) =>
