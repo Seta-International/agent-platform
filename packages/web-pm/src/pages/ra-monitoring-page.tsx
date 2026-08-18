@@ -800,6 +800,7 @@ export function RaMonitoringPage() {
                   label="Active from"
                   isLabelHidden
                   size="sm"
+                  max={activeTo || undefined}
                   value={activeFrom || undefined}
                   onChange={(v) => update({ from: v })}
                 />
@@ -808,6 +809,7 @@ export function RaMonitoringPage() {
                   label="Active to"
                   isLabelHidden
                   size="sm"
+                  min={activeFrom || undefined}
                   value={activeTo || undefined}
                   onChange={(v) => update({ to: v })}
                 />
