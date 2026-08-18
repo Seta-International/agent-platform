@@ -8,8 +8,8 @@ import {
   type ScopePlan,
   scopeDecision,
 } from '@seta/shared-rbac';
-import { type SQL, sql } from 'drizzle-orm';
-import { account, project, projectAccess } from '../db/schema.ts';
+import { inArray, type SQL, sql } from 'drizzle-orm';
+import { account, allocation, project, projectAccess } from '../db/schema.ts';
 
 function decide(session: SessionScope, permission: string, plan: ScopePlan): SQL | null {
   const scope = resolveScope(
@@ -43,10 +43,11 @@ function accessOwnerProjectsSubquery(session: SessionScope): SQL {
  * Row-scope predicate for `pm.project` reads. SECURITY-CRITICAL.
  *
  * Returns `null` when the viewer's `pm.project.read` scope resolves to tenant-wide. Otherwise
- * returns a predicate matching a project row iff it falls on any of: the viewer's org-unit
+ * returns a predicate matching a project row iff it falls on any of: the viewer's org-unit,
+ * PM/PMO role, AM-managed account, access-owner grant, or an active allocation held by the viewer.
  */
 export function buildProjectScope(session: SessionScope): SQL | null {
-  return decide(session, 'pm.project.read', projectPlan(session));
+  return decide(session, 'pm.project.read', projectReadPlan(session));
 }
 
 /**
@@ -56,7 +57,7 @@ export function buildProjectScope(session: SessionScope): SQL | null {
  * manager gets `null` (no restriction).
  */
 export function buildProjectManageScope(session: SessionScope): SQL | null {
-  return decide(session, 'pm.project.manage', projectPlan(session));
+  return decide(session, 'pm.project.manage', projectManagePlan(session));
 }
 
 /**
@@ -87,7 +88,28 @@ export function buildProjectReporterFlag(session: SessionScope): SQL<boolean> {
     THEN true ELSE false END)`;
 }
 
-function projectPlan(session: SessionScope): ScopePlan {
+function projectReadPlan(session: SessionScope): ScopePlan {
+  const w = session.person_id;
+  return {
+    orgUnit: { column: project.org_unit_id },
+    relationships: [
+      () => (w ? sql`${project.pm_person_id} = ${w}` : null),
+      () => (w ? sql`${project.pmo_person_id} = ${w}` : null),
+      () => (w ? sql`${project.account_id} IN ${amAccountsSubquery(session)}` : null),
+      () => (w ? sql`${project.id} IN ${accessOwnerProjectsSubquery(session)}` : null),
+      () =>
+        w
+          ? sql`EXISTS (SELECT 1 FROM ${allocation}
+              WHERE ${allocation.tenant_id} = ${session.tenant_id}
+                AND ${allocation.project_id} = ${project.id}
+                AND ${allocation.person_id} = ${w}
+                AND ${allocation.deleted_at} IS NULL)`
+          : null,
+    ],
+  };
+}
+
+function projectManagePlan(session: SessionScope): ScopePlan {
   const w = session.person_id;
   return {
     orgUnit: { column: project.org_unit_id },
@@ -104,12 +126,18 @@ function projectPlan(session: SessionScope): ScopePlan {
  * Row-scope predicate for `pm.account` reads. SECURITY-CRITICAL.
  *
  * Returns `null` for tenant-wide `pm.account.read` scope; otherwise a predicate matching an
- * account row iff the viewer is its AM, or the viewer leads/owns a project on that account
- * (`pm_person_id` or a `project_access` 'owner' grant). Null-safe
- * on `session.person_id` per `buildProjectScope`.
+ * account row iff the viewer is its AM, the viewer leads/owns/has allocations on a project on that
+ * account (`pm_person_id`, `pmo_person_id`, `project_access` 'owner', or active `allocation`),
+ * or the account has projects in the viewer's scoped org unit. Null-safe on `session.person_id`.
  */
 export function buildAccountScope(session: SessionScope): SQL | null {
   const w = session.person_id;
+  const permScope = resolveScope(
+    getDefaultRegistry(),
+    session.assignments,
+    IMPLICIT_PERMISSIONS,
+    'pm.account.read',
+  );
   return decide(session, 'pm.account.read', {
     relationships: [
       () => (w ? sql`${account.am_person_id} = ${w}` : null),
@@ -119,7 +147,21 @@ export function buildAccountScope(session: SessionScope): SQL | null {
               WHERE ${project.tenant_id} = ${session.tenant_id}
                 AND ${project.account_id} = ${account.id}
                 AND (${project.pm_person_id} = ${w}
-                  OR ${project.id} IN ${accessOwnerProjectsSubquery(session)})
+                  OR ${project.pmo_person_id} = ${w}
+                  OR ${project.id} IN ${accessOwnerProjectsSubquery(session)}
+                  OR EXISTS (SELECT 1 FROM ${allocation}
+                    WHERE ${allocation.tenant_id} = ${session.tenant_id}
+                      AND ${allocation.project_id} = ${project.id}
+                      AND ${allocation.person_id} = ${w}
+                      AND ${allocation.deleted_at} IS NULL))
+                AND ${project.deleted_at} IS NULL)`
+          : null,
+      () =>
+        permScope.kind === 'subset' && permScope.org_unit_ids.length > 0
+          ? sql`EXISTS (SELECT 1 FROM ${project}
+              WHERE ${project.tenant_id} = ${session.tenant_id}
+                AND ${project.account_id} = ${account.id}
+                AND ${inArray(project.org_unit_id, [...permScope.org_unit_ids])}
                 AND ${project.deleted_at} IS NULL)`
           : null,
     ],
@@ -137,8 +179,10 @@ export function buildAllocationJoinScope(session: SessionScope): SQL | null {
     orgUnit: { column: project.org_unit_id },
     relationships: [
       () => (w ? sql`${project.pm_person_id} = ${w}` : null),
+      () => (w ? sql`${project.pmo_person_id} = ${w}` : null),
       () => (w ? sql`${account.am_person_id} = ${w}` : null),
       () => (w ? sql`${project.id} IN ${accessOwnerProjectsSubquery(session)}` : null),
+      () => (w ? sql`${allocation.person_id} = ${w}` : null),
     ],
   });
 }
