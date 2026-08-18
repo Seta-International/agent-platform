@@ -88,6 +88,9 @@ const Expected = z.object({
       requiredFactRefs: z.array(z.string()).default([]),
       forbiddenEntities: z.array(z.string()).default([]),
       forbiddenText: z.array(z.string()).default([]),
+      /** Phrases the reply MUST contain. Design D19: the confirmation names the
+       *  task, so the user can tell which proposal they are looking at. */
+      requiredText: z.array(z.string()).default([]),
     })
     .partial()
     .optional(),

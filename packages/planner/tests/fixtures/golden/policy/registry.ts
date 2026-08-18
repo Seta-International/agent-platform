@@ -12,6 +12,7 @@ import {
   noFabrication,
   type ObservedDbEffects,
   readOnlySafety,
+  requiredTextPresent,
   routingAccuracy,
   type ScorerOutcome,
   scopeArgumentCorrectness,
@@ -74,6 +75,8 @@ export interface PolicyEvalContext {
   /** The turn's database effect, expected vs observed. Supplied by the A2 driver;
    *  absent for every A1 case, which is why only M* policies score it. */
   dbEffects?: { expected?: ExpectedDbEffects; observed: ObservedDbEffects };
+  /** From `expected.output.requiredText`. */
+  requiredText?: string[];
 }
 
 export interface PolicyResult {
@@ -188,7 +191,7 @@ export const policyRegistry: Record<PolicyId, Policy> = {
     name: 'Adjust-vs-new-request boundary',
     mode: 'gate',
     applicableKinds: ['conversation'],
-    defaultScorers: ['expected_behavior', 'tool_selection', 'no_fabrication'],
+    defaultScorers: ['expected_behavior', 'tool_selection', 'no_fabrication', 'required_text'],
   },
 };
 
@@ -231,6 +234,8 @@ function runScorer(id: string, ctx: PolicyEvalContext): ScorerOutcome {
         expected: ctx.dbEffects?.expected,
         observed: ctx.dbEffects?.observed ?? { rowsChanged: 0, mismatches: [] },
       });
+    case 'required_text':
+      return requiredTextPresent({ answer: ctx.answer, requiredText: ctx.requiredText ?? [] });
     case 'routing_accuracy':
       return routingAccuracy(ctx.trajectory, ctx.expectedDelegationTool ?? '');
     case 'unsupported_numeric_claim':

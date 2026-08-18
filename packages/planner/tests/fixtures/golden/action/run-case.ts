@@ -86,7 +86,9 @@ function openPreviewFrom(open: OpenCard) {
   };
 }
 
-/** Replaces every `fixtures.<name>` reference with the id the builder returned. */
+/** Replaces every `fixtures.<name>` reference with the id the builder returned.
+ *  Exported through `resolveFixtureRefs` because both the row expectations and the
+ *  arg predicates need it, and a second copy would drift. */
 function resolveIds(value: unknown, ids: FixtureIds): unknown {
   if (typeof value === 'string' && value.startsWith('fixtures.')) {
     const key = value.slice('fixtures.'.length);
@@ -101,6 +103,12 @@ function resolveIds(value: unknown, ids: FixtureIds): unknown {
     );
   }
   return value;
+}
+
+/** The public face of `resolveIds`: type-preserving, so a caller gets its own shape
+ *  back rather than `unknown`. */
+export function resolveFixtureRefs<T>(value: T, ids: FixtureIds): T {
+  return resolveIds(value, ids) as T;
 }
 
 /** Diff the two snapshots, and check the declared columns when there are any. */
@@ -131,6 +139,14 @@ export function makeActionCaseRunner(deps: ActionCaseRunnerDeps) {
     const ids = await deps.runFixtures(c.fixtures);
     const target = deps.buildTarget(previews);
 
+    // Fixture ids are minted per case, so the case's own references have to be
+    // resolved BEFORE any scorer reads them. Done once, on a clone, so the loaded
+    // case object stays pristine for the next run.
+    const resolvedCase = resolveFixtureRefs(structuredClone(c), ids);
+    if (resolvedCase.kind !== 'conversation') {
+      throw new Error(`runActionCase: ${c.id} is not a conversation`);
+    }
+
     // `actor.userId` in a case is a ROLE name, not a uuid: the world's ids are
     // minted at seed time and a case file cannot know them.
     const asViewer = c.actor.userId === 'viewer';
@@ -145,7 +161,7 @@ export function makeActionCaseRunner(deps: ActionCaseRunnerDeps) {
     const results: TurnResult[] = [];
     let open: OpenCard | null = null;
 
-    for (const turn of c.turns) {
+    for (const turn of resolvedCase.turns) {
       const before = await snapshotActionRows(deps.pool, deps.world);
       const expected = turn.expected.dbEffects;
 
@@ -240,6 +256,6 @@ export function makeActionCaseRunner(deps: ActionCaseRunnerDeps) {
       });
     }
 
-    return { turns: results };
+    return { turns: results, resolvedCase };
   };
 }

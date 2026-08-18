@@ -207,3 +207,14 @@ export function dbEffects(io: {
   }
   return { passed: true, detail: `${io.observed.rowsChanged} row(s) changed as expected` };
 }
+
+/** Every phrase in `requiredText` appears in the answer, case-insensitively. The
+ *  empty list is vacuously satisfied, so a case that asks for nothing is not
+ *  silently failed. */
+export function requiredTextPresent(io: { answer: string; requiredText: string[] }): ScorerOutcome {
+  const hay = io.answer.toLowerCase();
+  const missing = io.requiredText.filter((needle) => !hay.includes(needle.toLowerCase()));
+  return missing.length === 0
+    ? { passed: true, detail: `all ${io.requiredText.length} required phrase(s) present` }
+    : { passed: false, detail: `missing required text: ${missing.join(', ')}` };
+}

@@ -198,6 +198,7 @@ function buildCtx(args: {
     expectedDelegationTool: constraints.requiredTools[0],
     forbiddenEntities: args.expected.output?.forbiddenEntities ?? [],
     forbiddenText: args.expected.output?.forbiddenText ?? [],
+    requiredText: args.expected.output?.requiredText ?? [],
     userText: args.userText,
     toolResults,
     groundNumbers: args.expected.trajectory?.groundNumbers ?? false,

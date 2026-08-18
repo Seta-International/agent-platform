@@ -4,6 +4,7 @@ import {
   expectedBehavior,
   noFabrication,
   readOnlySafety,
+  requiredTextPresent,
   routingAccuracy,
   scopeArgumentCorrectness,
   toolSelection,
@@ -240,4 +241,22 @@ it('db_effects is NOT vacuously true when the case declared no expectation', () 
   expect(
     dbEffects({ expected: undefined, observed: { rowsChanged: 0, mismatches: [] } }).passed,
   ).toBe(false);
+});
+
+it('required_text passes when every required phrase is present, case-insensitively', () => {
+  const out = requiredTextPresent({
+    answer: 'Đã cập nhật đề xuất: due date của "deploy api" sang 21/08.',
+    requiredText: ['Deploy API', '21/08'],
+  });
+  expect(out.passed).toBe(true);
+});
+
+it('required_text fails and names what was missing', () => {
+  const out = requiredTextPresent({ answer: 'Đã cập nhật xong.', requiredText: ['Deploy API'] });
+  expect(out.passed).toBe(false);
+  expect(out.detail).toContain('Deploy API');
+});
+
+it('required_text is vacuously true when a case asks for nothing', () => {
+  expect(requiredTextPresent({ answer: 'anything', requiredText: [] }).passed).toBe(true);
 });

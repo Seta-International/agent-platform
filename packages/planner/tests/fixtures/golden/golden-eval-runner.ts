@@ -51,6 +51,9 @@ export interface RunGoldenEvalParams {
 
 export interface ConversationRunOutput {
   turns: TurnResult[];
+  /** The case with every `fixtures.*` reference resolved. `runGoldenEval` scores
+   *  against THIS, not the file, because the ids only exist at run time. */
+  resolvedCase?: GoldenCase;
 }
 
 export interface PolicyReport {
@@ -167,8 +170,11 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         const scorers: PolicyReport['scorers'] = [];
         let verdict: PolicyReport['verdict'] = 'pass';
         let firstFailure: string | undefined;
+        // Scored against the RESOLVED case: a predicate that says `fixtures.task`
+        // must be compared against the uuid the builder actually minted.
+        const scoringCase = run.resolvedCase ?? c;
         run.turns.forEach((result, index) => {
-          const outcome = evaluatePolicy(rawId, ctxFromTurn(c, index, result));
+          const outcome = evaluatePolicy(rawId, ctxFromTurn(scoringCase, index, result));
           for (const s of outcome.scorers) {
             const id = `turn${index + 1}:${s.id}`;
             scorers.push({ id, passed: s.outcome.passed, detail: s.outcome.detail });
