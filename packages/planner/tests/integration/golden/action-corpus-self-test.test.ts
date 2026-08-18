@@ -3,9 +3,16 @@
 // Corpus integrity (spec §10). No database, no model — this runs on the DEFAULT gate,
 // which is the point: the golden lane is opt-in, so without these checks a case can
 // go vacuous and nothing notices until someone runs the lane by hand months later.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_BUILDERS } from '../../fixtures/golden/action/fixtures.ts';
 import { ACTION_CASES_DIR, loadGoldenCases } from '../../fixtures/golden/loader.ts';
+import {
+  ACTION_CONFIG_URL,
+  resolveMetricMode,
+  resolveMetricThreshold,
+} from '../../fixtures/golden/metric-policy.ts';
+import { policyRegistry } from '../../fixtures/golden/policy/registry.ts';
 import type { GoldenCase } from '../../fixtures/golden/schema.ts';
 
 /** Every A2 case, holdout included. Loaded once: the load is the only slow part.
@@ -157,5 +164,67 @@ describe('the grid is complete', () => {
     const roles = new Set(conversations.map((c) => c.actor.userId));
     expect([...roles].sort()).toEqual(['member', 'viewer']);
     for (const c of conversations) expect(c.actor.tenantId).toBe('a2-tenant');
+  });
+});
+
+describe('every metric is real, wired and claimed', () => {
+  const ACTION_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9'] as const;
+  const ADVISORY = ['B1', 'B2', 'B3'] as const;
+  const claimed = new Set(conversations.flatMap((c) => c.metrics?.enabled ?? []));
+
+  it('registers all nine gate metrics as conversation policies', () => {
+    // Unregistered ids do not error — they fall through to the judge branch and
+    // record a pass nobody asked for. That is why this check exists at all.
+    for (const id of ACTION_METRICS) {
+      expect(policyRegistry, `${id} is not a registered policy`).toHaveProperty(id);
+      expect(policyRegistry[id].applicableKinds).toContain('conversation');
+      expect(policyRegistry[id].defaultScorers.length, `${id} has no scorers`).toBeGreaterThan(0);
+    }
+  });
+
+  it('resolves every gate metric to gate mode from the A2 config', () => {
+    for (const id of ACTION_METRICS) {
+      expect(resolveMetricMode(id, undefined, ACTION_CONFIG_URL), `${id} is not gating`).toBe(
+        'gate',
+      );
+    }
+    for (const id of ADVISORY) {
+      expect(resolveMetricMode(id, undefined, ACTION_CONFIG_URL), `${id} should be advisory`).toBe(
+        'advisory',
+      );
+    }
+  });
+
+  it('has at least one case per gate metric', () => {
+    const orphans = ACTION_METRICS.filter((id) => !claimed.has(id));
+    // A1's matrix left whole metrics at zero cases for weeks. A metric with no case
+    // is not a passing metric; it is an unmeasured one.
+    expect(orphans).toEqual([]);
+  });
+
+  it('claims only metric ids that exist', () => {
+    const valid = new Set<string>([...ACTION_METRICS, ...ADVISORY]);
+    expect([...claimed].filter((id) => !valid.has(id))).toEqual([]);
+  });
+
+  it('claims M3 on every case, because BR-03 has no exceptions', () => {
+    const missing = conversations
+      .filter((c) => !(c.metrics?.enabled ?? []).includes('M3'))
+      .map((c) => c.id);
+    expect(missing).toEqual([]);
+  });
+
+  it('keeps the requirement-backed metrics at a threshold of 1.00', () => {
+    // M3 (BR-03), M4, M5 (BR-05) and M7 (EV-08) are the four a bad run may not
+    // negotiate away. Part 4's Task 9 says so in prose; this says it in a test.
+    //
+    // Read from the config as well as through the resolver: `resolveMetricThreshold`
+    // returns 1 when a metric DECLARES no threshold, so the resolver alone would stay
+    // green if someone deleted the line — relaxation by omission.
+    const policy = JSON.parse(readFileSync(ACTION_CONFIG_URL, 'utf8')).metricPolicy;
+    for (const id of ['M3', 'M4', 'M5', 'M7']) {
+      expect(resolveMetricThreshold(id, ACTION_CONFIG_URL), `${id} was relaxed`).toBe(1);
+      expect(policy[id]?.threshold, `${id} no longer declares its threshold`).toBe(1);
+    }
   });
 });
