@@ -1,0 +1,51 @@
+# MU-018..019 — one case per clarify MECHANISM (spec §7). Both forbid every write
+# tool: asking instead of guessing means no card was built at all, and a card built
+# "just in case" is precisely the failure these measure.
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-018
+  category: clarify
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [twoTasksSameTitle]
+  turns:
+    - user: 'đổi due date của Deploy API sang 19/8'
+      expected:
+        behavior: clarify
+        dbEffects: none
+        trajectory:
+          forbiddenTools:
+            - planner_updateTask
+            - planner_assignTask
+            - planner_createTask
+            - planner_commentTask
+            - planner_mergeTasks
+            - planner_linkTasks
+          maxToolCalls: 3
+  metrics: { enabled: [M6, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: MU-019
+  category: clarify
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    # A field named with no value. "NEVER INVENT A VALUE" is prompt law; this is the
+    # case that measures it.
+    - user: 'đổi deadline của Deploy API'
+      expected:
+        behavior: clarify
+        dbEffects: none
+        trajectory:
+          forbiddenTools:
+            - planner_updateTask
+            - planner_assignTask
+            - planner_createTask
+            - planner_commentTask
+            - planner_mergeTasks
+            - planner_linkTasks
+          maxToolCalls: 3
+  metrics: { enabled: [M6, M3] }
