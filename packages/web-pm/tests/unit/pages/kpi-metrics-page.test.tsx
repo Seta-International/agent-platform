@@ -351,6 +351,26 @@ describe('KpiMetricsPage — entry actions', () => {
     expect(within(cell).getByRole('button', { name: 'Enter' })).toBeDisabled();
   });
 
+  it('does nothing at all when the disabled entry action is clicked', async () => {
+    const user = userEvent.setup();
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-portfolio', 'Acme Analytics Hub', true, 'acc-1', false),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-portfolio', 'Acme Analytics Hub', true, false)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    const cell = await actionCellFor('Acme Analytics Hub');
+    const action = within(cell).getByRole('button', { name: 'Enter' });
+    await user.click(action.parentElement as HTMLElement);
+
+    expect(routerState.navigate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('says why the entry action is disabled for a viewer who may not report', async () => {
     const user = userEvent.setup();
     fetchProjectsMock.mockResolvedValue([

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
 import { Tooltip } from '../primitives/tooltip';
@@ -18,11 +18,17 @@ export interface DisabledActionTooltipProps {
   className?: string;
 }
 
+function swallowClick(event: MouseEvent<HTMLSpanElement>) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 /**
  * Wraps a disabled control so a hover/focus tooltip still fires. A disabled `<button>` carries
  * `pointer-events-none`, which would otherwise swallow pointer events before the tooltip can open;
- * we wrap the child in a focusable span that captures hover and keyboard focus. When `disabled` is
- * false the children render untouched (no wrapper, no tooltip).
+ * we wrap the child in a focusable span that captures hover and keyboard focus. That same
+ * `pointer-events-none` makes the wrapper the click target, so it swallows the click rather than
+ * letting a clickable container (table row, card, tile) act on a disabled action.
  *
  * Used to satisfy the "disable + explain" treatment for actions the current user lacks permission
  * to perform. The caller is responsible for also passing `disabled` to the underlying control.
@@ -34,11 +40,12 @@ export function DisabledActionTooltip({
   className,
 }: DisabledActionTooltipProps) {
   if (!disabled) return <>{children}</>;
+  const wrapperClass = cn('inline-flex cursor-not-allowed', className);
   return (
     <Tooltip content={reason} hasHoverIndication={false}>
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the wrapped control is disabled (and
           thus unfocusable), so the span must take focus to keep the reason reachable by keyboard. */}
-      <span tabIndex={0} className={cn('inline-flex cursor-not-allowed', className)}>
+      <span tabIndex={0} className={wrapperClass} onClickCapture={swallowClick}>
         {children}
       </span>
     </Tooltip>
