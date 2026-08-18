@@ -58,10 +58,10 @@ describe('buildAllocationCsv', () => {
     expect(data[2]).toBe('Acme Corp'); // account_name
     expect(data[3]).toBe('Apollo'); // project_name
     expect(data[4]).toBe('billable'); // bucket
-    expect(data[5]).toBe('100'); // Jan — raw percentage, NOT "1.0"
-    expect(data[6]).toBe('100'); // Feb
-    expect(data[7]).toBe('50'); // Mar — raw percentage, NOT "0.5"
-    expect(data[8]).toBe('50'); // Apr
+    expect(data[5]).toBe('1.0'); // Jan — 100% = 1.0 MM, same as the UI cell
+    expect(data[6]).toBe('1.0'); // Feb
+    expect(data[7]).toBe('0.5'); // Mar — 50% = 0.5 MM
+    expect(data[8]).toBe('0.5'); // Apr
     expect(data[9]).toBe(''); // May — null → empty
     expect(data[17]).toBe('6.10'); // Total MM — 2 decimal places
   });
@@ -100,7 +100,7 @@ describe('buildAllocationCsv', () => {
     }
   });
 
-  it('renders months as raw integer percentages, not fractions', () => {
+  it('renders months as man-month fractions, matching the UI grid cells (FUT-906)', () => {
     const months = [50, 75, 100, 120, null, null, null, null, null, null, null, null] as (
       | number
       | null
@@ -108,10 +108,10 @@ describe('buildAllocationCsv', () => {
     const csv = buildAllocationCsv([makeRow({ months })], 2026);
     const rows = parseCsv(csv);
     const data = rows[1];
-    expect(data[5]).toBe('50'); // NOT "0.5"
-    expect(data[6]).toBe('75'); // NOT "0.75"
-    expect(data[7]).toBe('100'); // NOT "1.0"
-    expect(data[8]).toBe('120'); // NOT "1.2"
+    expect(data[5]).toBe('0.5'); // 50% → 0.5 MM
+    expect(data[6]).toBe('0.75'); // 75% → 0.75 MM
+    expect(data[7]).toBe('1.0'); // 100% → 1.0 MM
+    expect(data[8]).toBe('1.2'); // 120% → 1.2 MM
   });
 
   it('renders "Account management" for AM rows instead of project name', () => {

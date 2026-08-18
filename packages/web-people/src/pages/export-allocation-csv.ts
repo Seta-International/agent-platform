@@ -7,6 +7,13 @@ function toCsvCell(value: string | number): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/** Shared fraction format for the allocation grid's monthly cells — CSV must match the UI, so the
+ *  month percentage (100 = 100%) is divided to man-months (1.0) exactly like the grid renders it. */
+export function formatLoad(pct: number): string {
+  const frac = pct / 100;
+  return Number.isInteger(frac) ? frac.toFixed(1) : String(Number(frac.toFixed(2)));
+}
+
 /** Pure function — returns CSV string with UTF-8 BOM. Separated from DOM trigger for testability. */
 export function buildAllocationCsv(rows: AllocationGridRow[], _year: number): string {
   const header = ['Employee ID', 'Name', 'Account', 'Project', 'Bucket', ...MONTHS, 'Total MM'];
@@ -16,9 +23,9 @@ export function buildAllocationCsv(rows: AllocationGridRow[], _year: number): st
     r.account_name,
     r.is_account_am ? 'Account management' : (r.project_name ?? ''),
     r.bucket ?? '',
-    // Raw percentage integer — NOT formatLoad fraction.
-    // CSV consumers (Excel) need raw values for SUM/AVERAGE.
-    ...r.months.map((v) => (v == null ? '' : String(v))),
+    // FUT-906: exported months must match the UI cells — same formatLoad fraction (100 → "1.0"),
+    // so SUM in the sheet equals the Total MM column, not raw percentages.
+    ...r.months.map((v) => (v == null ? '' : formatLoad(v))),
     r.total_mm.toFixed(2),
   ]);
   return '\uFEFF' + [header, ...lines].map((line) => line.map(toCsvCell).join(',')).join('\n');
