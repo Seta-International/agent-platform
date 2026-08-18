@@ -49,7 +49,7 @@ import {
 } from '../api/allocation-client.ts';
 import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
-import { exportAllocationCsv } from './export-allocation-csv.ts';
+import { exportAllocationCsv, formatLoad } from './export-allocation-csv.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -84,11 +84,6 @@ function heatStyle(v: number | null | undefined): CSSProperties {
   if (v >= 50)
     return { background: 'var(--color-warning-muted)', color: 'var(--color-text-yellow)' };
   return { background: 'var(--color-error-muted)', color: 'var(--color-text-red)' };
-}
-
-function formatLoad(pct: number): string {
-  const frac = pct / 100;
-  return Number.isInteger(frac) ? frac.toFixed(1) : String(Number(frac.toFixed(2)));
 }
 
 const HEAT_LEVELS = [
