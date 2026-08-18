@@ -309,7 +309,7 @@ describe('KpiConfigureDialog — searching metrics', () => {
   async function searchFor(query: string) {
     const user = userEvent.setup();
     await screen.findByRole('checkbox', { name: /Defect Leakage/ });
-    await user.type(screen.getByPlaceholderText('Search metrics…'), query);
+    await user.type(screen.getByLabelText('Search metrics'), query);
     return user;
   }
 
@@ -358,9 +358,9 @@ describe('KpiConfigureDialog — searching metrics', () => {
 
     const user = await searchFor('leakage');
     await screen.findByText(/1 of 2 shown/);
-    await user.clear(screen.getByPlaceholderText('Search metrics…'));
+    await user.clear(screen.getByLabelText('Search metrics'));
 
-    expect(await screen.findByText('1/2 applied')).toBeVisible();
+    expect(await screen.findByText('1/2 applied · 1/3 overall')).toBeVisible();
   });
 
   it('names the failed search and says what else to try when nothing matches', async () => {
@@ -385,7 +385,7 @@ describe('KpiConfigureDialog — searching metrics', () => {
         screen.queryByRole('checkbox', { name: /Reopened Defect Rate/ }),
       ).not.toBeInTheDocument(),
     );
-    await user.clear(screen.getByPlaceholderText('Search metrics…'));
+    await user.clear(screen.getByLabelText('Search metrics'));
 
     expect(await screen.findByRole('checkbox', { name: /Reopened Defect Rate/ })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: /Sprint Goal Success Rate/ })).toBeVisible();
@@ -396,7 +396,52 @@ describe('KpiConfigureDialog — searching metrics', () => {
     renderDialog([project(PROJECT_ID, 'Globex Subscriber Insights')], null);
 
     expect(await screen.findByText('No project selected')).toBeVisible();
-    expect(screen.queryByPlaceholderText('Search metrics…')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Search metrics')).not.toBeInTheDocument();
+  });
+});
+
+describe('KpiConfigureDialog — applied roll-up', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setAppliedMetricMock.mockReset();
+    fetchAppliedMetricsMock.mockReset();
+  });
+
+  it('carries the whole-library figure alongside each pillar count', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue([
+      { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+      { metric_id: OTHER_METRIC_ID, applied_count: 0, entered_count: 0, would_empty_count: 0 },
+      { metric_id: DELIVERY_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+    ]);
+    renderDialog();
+
+    expect(await screen.findByText('1/2 applied · 2/3 overall')).toBeVisible();
+    expect(screen.getByText('1/1 applied · 2/3 overall')).toBeVisible();
+  });
+
+  it('counts a metric only where every selected project has it', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue([
+      { metric_id: METRIC_ID, applied_count: 2, entered_count: 0, would_empty_count: 0 },
+      { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+      { metric_id: DELIVERY_METRIC_ID, applied_count: 0, entered_count: 0, would_empty_count: 0 },
+    ]);
+    const user = userEvent.setup();
+    renderDialog([
+      project(PROJECT_ID, 'Globex Subscriber Insights'),
+      project(PROJECT_B_ID, 'Initech Data Platform'),
+    ]);
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Initech Data Platform' }));
+
+    expect(await screen.findByText('1/2 applied · 1/3 overall')).toBeVisible();
+  });
+
+  it('says nothing about coverage until it is known', async () => {
+    fetchAppliedMetricsMock.mockReturnValue(new Promise(() => {}));
+    renderDialog();
+
+    expect(await screen.findByText(/1 project · saves automatically/)).toBeVisible();
+    expect(screen.queryByText(/overall/)).not.toBeInTheDocument();
   });
 });
 

@@ -138,6 +138,10 @@ export function KpiConfigureDialog({
     m.name.toLowerCase().includes(metricQuery) ||
     m.formula_label.toLowerCase().includes(metricQuery);
   const hasMetricMatches = metrics.some(matchesMetricQuery);
+  const appliedSummary =
+    appliedQuery.data && metrics.length > 0
+      ? `${metrics.filter((m) => (coverage.get(m.metric_id) ?? 0) === selectedIds.length).length}/${metrics.length}`
+      : null;
 
   const visibleProjects = filter.trim()
     ? sortedProjects.filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
@@ -304,10 +308,12 @@ export function KpiConfigureDialog({
                           <section key={cat} className="space-y-2">
                             <div className="sticky top-0 z-10 flex items-center justify-between bg-surface py-1">
                               <Heading level={3}>{KPI_CATEGORY_LABELS[cat]}</Heading>
-                              <span className="text-xs text-secondary">
+                              <span className="text-xs tabular-nums text-secondary">
                                 {metricQuery
                                   ? `${visibleMetrics.length} of ${catMetrics.length} shown`
-                                  : `${appliedCount}/${catMetrics.length} applied`}
+                                  : appliedSummary
+                                    ? `${appliedCount}/${catMetrics.length} applied · ${appliedSummary} overall`
+                                    : `${appliedCount}/${catMetrics.length} applied`}
                               </span>
                             </div>
                             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
