@@ -184,3 +184,42 @@ it('marks a skipped case rather than showing it as a pass', () => {
   });
   expect(md).toContain('skipped');
 });
+
+it('renders a per-metric rate table when the lane attached one', () => {
+  const md = renderGoldenReportMarkdown({
+    manifest: a2Manifest,
+    suite: 'regression',
+    totalCases: 2,
+    gateFailed: true,
+    gateFailures: [],
+    cases: [],
+    metricRates: [
+      {
+        id: 'M1',
+        mode: 'gate',
+        evaluated: 2,
+        passed: 1,
+        rate: 0.5,
+        threshold: 0.9,
+        missedCases: ['MU-002'],
+      },
+      { id: 'M3', mode: 'gate', evaluated: 1, passed: 1, rate: 1, threshold: 1, missedCases: [] },
+    ],
+  } as never);
+  expect(md).toContain('## Metric pass rates');
+  expect(md).toContain('| M1 | gate | 1 | 2 | 0.50 | 0.90 | MU-002 |');
+  // A metric that missed nothing renders an em dash, not an empty cell.
+  expect(md).toContain('| M3 | gate | 1 | 1 | 1.00 | 1.00 | — |');
+});
+
+it('omits the rate table entirely on an A1 report, which never carries one', () => {
+  const md = renderGoldenReportMarkdown({
+    manifest: a2Manifest,
+    suite: 'smoke',
+    totalCases: 0,
+    gateFailed: false,
+    gateFailures: [],
+    cases: [],
+  } as never);
+  expect(md).not.toContain('Metric pass rates');
+});

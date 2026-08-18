@@ -92,6 +92,17 @@ export interface GoldenRunReport {
   cases: CaseReport[];
   gateFailed: boolean;
   gateFailures: { caseId: string; policyId: string; scorer: string }[];
+  /** Per-metric pass rates. Attached by the caller (the A2 lane), not computed
+   *  here: the runner stays agent-agnostic and A1's report shape is unchanged. */
+  metricRates?: {
+    id: string;
+    mode: 'gate' | 'advisory';
+    evaluated: number;
+    passed: number;
+    rate: number;
+    threshold: number;
+    missedCases: string[];
+  }[];
 }
 
 function isPolicyId(id: string): id is PolicyId {

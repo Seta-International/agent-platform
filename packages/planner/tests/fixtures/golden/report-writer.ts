@@ -91,8 +91,24 @@ export function renderGoldenReportMarkdown(report: GoldenRunReport): string {
       ].join('\n')
     : '';
 
+  // Absent on every A1 report, where the block collapses to '' and changes nothing.
+  const rates = report.metricRates?.length
+    ? [
+        '## Metric pass rates',
+        '',
+        '| metric | mode | passed | evaluated | rate | threshold | missed |',
+        '| --- | --- | --- | --- | --- | --- | --- |',
+        ...report.metricRates.map(
+          (r) =>
+            `| ${r.id} | ${r.mode} | ${r.passed} | ${r.evaluated} | ${r.rate.toFixed(2)} | ` +
+            `${r.threshold.toFixed(2)} | ${r.missedCases.join(', ') || '—'} |`,
+        ),
+        '',
+      ].join('\n')
+    : '';
+
   const cases = ['## Cases', '', ...report.cases.map(renderCase)].join('\n\n');
-  return [header, failSummary, cases].filter(Boolean).join('\n');
+  return [header, failSummary, rates, cases].filter(Boolean).join('\n');
 }
 
 /**
