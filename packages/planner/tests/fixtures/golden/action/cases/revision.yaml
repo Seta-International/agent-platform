@@ -1,0 +1,257 @@
+# RV-001..008 — FUT-840 AC5, from docs/agent/fut840-revision-golden-cases.md.
+#
+# The frozen clock is Wednesday 2026-08-12 09:00+07 (action/constants.ts), so
+# "thứ Sáu tuần sau" = 2026-08-21 and "ngày mai" = 2026-08-13. Both readings are
+# unambiguous only because the reference day sits mid-week — that is why the clock
+# was chosen, and moving it silently changes what these cases assert.
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-001
+  category: revision
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [oneTaskDueAug15]
+  turns:
+    - user: 'đổi due date của Deploy API sang 15/8, ưu tiên urgent'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
+    - user: 'à cho sang thứ Sáu tuần sau'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_updateTask]
+          # ONCE. A second call means it treated the correction as a fresh request,
+          # which is the failure D20 exists to prevent.
+          maxToolCalls: 2
+          argPredicates:
+            - { tool: planner_updateTask, path: patch.dueAt, operator: equals, value: '2026-08-21' }
+            - { tool: planner_updateTask, path: correction, operator: equals, value: true }
+        output:
+          # Design D19: the reply NAMES the task, and quotes the date the tool
+          # returned rather than deriving a weekday itself.
+          requiredText: ['Deploy API']
+          forbiddenText: ['yêu cầu mới', 'huỷ đề xuất', 'new request']
+  metrics: { enabled: [M8, M2, M3, B1] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-002
+  category: revision
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [oneTaskDueAug15]
+  turns:
+    - user: 'đổi due date của Deploy API sang 15/8'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
+    - user: "tạo task 'Write release notes' trong plan A2 Plan"
+      expected:
+        # A DIFFERENT TOOL is a new request, not an adjustment (design D4). Both
+        # cards stay pending and the original stays confirmable — the boundary has to
+        # hold in this direction too, or every follow-up silently cancels the last
+        # proposal.
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_createTask]
+          forbiddenTools: [planner_updateTask]
+          maxToolCalls: 3
+  metrics: { enabled: [M9, M1, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-003
+  category: revision
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    # No preview open and no task-page context: "make it next Friday" names nothing
+    # at all.
+    - user: 'cho sang thứ Sáu tuần sau đi'
+      expected:
+        behavior: clarify
+        dbEffects: none
+        trajectory:
+          forbiddenTools:
+            - planner_updateTask
+            - planner_assignTask
+            - planner_createTask
+            - planner_commentTask
+            - planner_mergeTasks
+            - planner_linkTasks
+          maxToolCalls: 2
+  metrics: { enabled: [M6, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-004
+  category: revision
+  suites: [nightly]
+  holdout: true
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [plainTask]
+  turns:
+    - user: 'đổi due date của Deploy API sang 15/8'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
+    - user: 'và giao cho Tuấn nữa'
+      expected:
+        # Adding a different KIND of change is not an adjustment (design D4): A2 asks
+        # the user to settle the open preview first, and that preview stays pending
+        # and confirmable.
+        behavior: clarify
+        dbEffects: none
+        trajectory: { forbiddenTools: [planner_assignTask], maxToolCalls: 2 }
+  metrics: { enabled: [M9, M6, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-005
+  category: revision
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [nearDuplicatePair]
+  turns:
+    - user: "gộp 'Deploy API v1' vào 'Deploy API', giữ lại 'Deploy API'"
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_mergeTasks], maxToolCalls: 4 }
+    - user: 'à ngược lại'
+      expected:
+        # A REVERSAL: the two roles swap, so the task that was going to survive is
+        # now the one heading for the trash. Nothing changes in the DB until Confirm,
+        # which is what makes a reversal safe to express at all.
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_mergeTasks]
+          maxToolCalls: 2
+          argPredicates:
+            - {
+                tool: planner_mergeTasks,
+                path: duplicateTaskRef,
+                operator: equals,
+                value: fixtures.keeper,
+              }
+            - {
+                tool: planner_mergeTasks,
+                path: keepTaskRef,
+                operator: equals,
+                value: fixtures.duplicate,
+              }
+  metrics: { enabled: [M8, M2, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-006
+  category: revision
+  suites: [nightly]
+  holdout: true
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [taskWithAssignee]
+  turns:
+    - user: 'giao Deploy API cho A2 Member'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_assignTask], maxToolCalls: 4 }
+    - user: 'thêm Tuấn nữa'
+      expected:
+        # The union is computed against the PROPOSED set, not the task's stored one.
+        # The fixture already assigns Tuấn in the DB, so the two sets differ and the
+        # wrong answer is visible: computing against the STORED set yields {Tuấn}
+        # alone and silently drops A2 Member from turn 1. The right answer is
+        # {A2 Member, Tuấn}. This is what the OPEN PREVIEW block's resolved names
+        # exist for — A2 can only get it right by reading the rows it was shown.
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_assignTask]
+          maxToolCalls: 3
+        output:
+          requiredText: ['Deploy API']
+  metrics: { enabled: [M8, M2, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-007
+  category: revision
+  suites: [regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [oneTaskDueAug15]
+  turns:
+    - user: 'đổi due date của Deploy API sang 15/8, ưu tiên urgent'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
+    - user: 'không phải, chỉ đổi ngày thôi — sang ngày mai'
+      expected:
+        # NARROWING: `correction: true` plus a date-only patch, and the priority row
+        # comes OFF the card. This is why dropFields exists — a merge alone cannot
+        # express "leave priority alone after all", and a card that keeps proposing a
+        # priority change the user retracted is a BR-03 problem waiting to happen.
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_updateTask]
+          maxToolCalls: 2
+          argPredicates:
+            - { tool: planner_updateTask, path: patch.dueAt, operator: equals, value: '2026-08-13' }
+            - { tool: planner_updateTask, path: correction, operator: equals, value: true }
+  metrics: { enabled: [M8, M2, M3] }
+
+- schemaVersion: 1
+  kind: conversation
+  id: RV-008
+  category: revision
+  suites: [smoke, regression]
+  actor: { tenantId: a2-tenant, userId: member }
+  fixtures: [oneTaskDueAug15]
+  turns:
+    # The simplest case in the set, and the one that was MISSING when the suite was
+    # first written — which is exactly why it reached production. On 14/08 A2 was
+    # shown a correct OPEN PREVIEW block and, across four turns, emitted text and
+    # called nothing; the user answered "đúng" three times to a question that could
+    # not advance. RV-001..007 each vary the SHAPE of the change; none varied only
+    # the VALUE, so none of them could catch a model that reads a new value as a new
+    # request.
+    - user: 'đổi due date của Deploy API sang 15/8'
+      expected:
+        behavior: confirm
+        dbEffects: none
+        trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
+    - user: 'À thôi đổi sang 19/8 đi'
+      expected:
+        # ZERO tool calls is a FAILURE here, and so is a reply that asks the user to
+        # confirm in words, offers to cancel the old proposal, or calls this new.
+        behavior: confirm
+        dbEffects: none
+        trajectory:
+          requiredTools: [planner_updateTask]
+          maxToolCalls: 2
+          argPredicates:
+            - { tool: planner_updateTask, path: patch.dueAt, operator: equals, value: '2026-08-19' }
+            - { tool: planner_updateTask, path: correction, operator: equals, value: true }
+        output:
+          requiredText: ['Deploy API']
+          forbiddenText: ['yêu cầu mới', 'huỷ đề xuất', 'new request']
+    - decision: { chosen: primary }
+      expected:
+        # The third turn is what makes this the end-to-end case: the revised card is
+        # the one that gets applied, and the row carries the SECOND date.
+        behavior: applied
+        dbEffects:
+          rowsChanged: 1
+          after: [{ table: planner.tasks, id: fixtures.task, due_at: '2026-08-19' }]
+  metrics: { enabled: [M8, M9, M2, M3, B1] }
