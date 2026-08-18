@@ -266,6 +266,102 @@ it('records WHY a conversation run threw, so a dead model is not read as a dead 
   expect(report.cases[0]!.policies.every((p) => p.verdict === 'error')).toBe(true);
 });
 
+// --- FUT-828: a turn that declares no trajectory asserts nothing about tools -------
+
+// The decision turn of every happy case declares no `trajectory` — its assertion is
+// the row count, because what Confirm does is write. `tool_selection` must therefore
+// assert NOTHING there. It used to score every observed call against an EMPTY
+// allowlist, so the first baseline run reported
+// `turn2:tool_selection: extraneous tool(s): planner_createTask` against the case
+// whose entire purpose is to call planner_createTask. Note the asymmetry that made
+// this a bug rather than a policy: `trajectory_efficiency` on that same undeclared
+// turn is deliberately vacuous (`maxToolCalls ?? MAX_SAFE_INTEGER`), so an absent
+// trajectory already meant "asserts nothing" for one scorer and "forbids everything"
+// for the other.
+const applyCase = {
+  schemaVersion: 1,
+  kind: 'conversation',
+  id: 'MU-FAKE-APPLY',
+  suites: ['smoke'],
+  holdout: false,
+  tags: [],
+  fixtures: [],
+  actor: { tenantId: 't', userId: 'u' },
+  turns: [
+    {
+      user: "tạo task 'Write release notes'",
+      expected: {
+        behavior: 'confirm',
+        dbEffects: 'none',
+        trajectory: { requiredTools: ['planner_createTask'], maxToolCalls: 3 },
+      },
+    },
+    {
+      decision: { chosen: 'primary' },
+      expected: { behavior: 'applied', dbEffects: { rowsChanged: 1, after: [] } },
+    },
+  ],
+  metrics: { enabled: ['M1'] },
+} as never;
+
+const createCall = {
+  agentId: 'planner.action',
+  toolName: 'planner_createTask',
+  args: { title: 'Write release notes' },
+  ok: true,
+};
+
+it('does not fail tool_selection on a decision turn that declares no trajectory', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [applyCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () =>
+      ({
+        turns: [
+          { ...suspendTurn, trajectory: { toolCalls: [createCall] } },
+          { ...appliedTurn, trajectory: { toolCalls: [createCall] } },
+        ],
+      }) as never,
+  });
+
+  const m1 = report.cases[0]!.policies.find((p) => p.id === 'M1');
+  const failed = m1?.scorers.filter((s) => !s.passed).map((s) => `${s.id}: ${s.detail}`);
+  expect(failed, 'the applied turn asserts a row count, not a tool list').toEqual([]);
+  expect(m1?.verdict).toBe('pass');
+});
+
+it('still forbids an undeclared tool on a turn that DID declare a trajectory', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [applyCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () =>
+      ({
+        turns: [
+          {
+            ...suspendTurn,
+            trajectory: {
+              toolCalls: [
+                createCall,
+                { ...createCall, toolName: 'planner_deleteEverything', args: {} },
+              ],
+            },
+          },
+          { ...appliedTurn, trajectory: { toolCalls: [createCall] } },
+        ],
+      }) as never,
+  });
+
+  const m1 = report.cases[0]!.policies.find((p) => p.id === 'M1');
+  expect(m1?.verdict).toBe('fail');
+  expect(m1?.scorers.find((s) => s.id === 'turn1:tool_selection')?.detail).toContain(
+    'planner_deleteEverything',
+  );
+});
+
 it('keeps the turns a case DID complete when it broke mid-conversation', async () => {
   const report = await runGoldenEval({
     ...noopSeams,

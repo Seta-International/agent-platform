@@ -180,6 +180,7 @@ function buildCtx(args: {
     requiredPartialOrder: t.requiredPartialOrder ?? [],
     argPredicates: t.argPredicates ?? [],
     maxToolCalls: t.maxToolCalls,
+    trajectoryDeclared: args.expected.trajectory !== undefined,
   };
   // Only successful calls are a legitimate source (a failed call returned no data).
   const toolResults = args.result.trajectory.toolCalls

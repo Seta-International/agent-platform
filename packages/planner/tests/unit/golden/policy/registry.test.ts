@@ -12,6 +12,8 @@ const baseConstraints = {
   forbiddenTools: [] as string[],
   requiredPartialOrder: [] as { before: string; after: string[] }[],
   argPredicates: [],
+  // These cases mean their tool lists to be enforced, so they declare a trajectory.
+  trajectoryDeclared: true,
 };
 
 it('A1 registry entry is a gate over agent kind', () => {
@@ -54,6 +56,7 @@ const baseCtx = {
     forbiddenTools: [],
     requiredPartialOrder: [],
     argPredicates: [],
+    trajectoryDeclared: true,
   },
   observedBehavior: 'confirm',
   expectedBehaviorValue: 'confirm',

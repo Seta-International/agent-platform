@@ -59,6 +59,13 @@ export interface PolicyEvalContext {
     requiredPartialOrder: { before: string; after: string[] }[];
     argPredicates: ArgPredicate[];
     maxToolCalls?: number;
+    /** Whether the turn declared a `trajectory` block at all. A turn that did not
+     *  asserts nothing about tools — its assertion is elsewhere (a decision turn's
+     *  is the row count) — so `tool_selection` must not score it against an empty
+     *  allowlist, which would read every call the case exists to make as
+     *  extraneous. Mirrors how an absent `maxToolCalls` leaves
+     *  `trajectory_efficiency` vacuously satisfied. */
+    trajectoryDeclared: boolean;
   };
   observedBehavior: string;
   expectedBehaviorValue: string;
@@ -203,6 +210,9 @@ function runScorer(id: string, ctx: PolicyEvalContext): ScorerOutcome {
     case 'read_only_safety':
       return readOnlySafety(ctx.trajectory, { caseForbidden: ctx.constraints.forbiddenTools });
     case 'tool_selection':
+      // Undeclared ⇒ vacuously satisfied, as with trajectory_efficiency's cap.
+      if (!ctx.constraints.trajectoryDeclared)
+        return { passed: true, detail: 'no tool constraints declared' };
       return toolSelection(ctx.trajectory, {
         requiredTools: ctx.constraints.requiredTools,
         allowedTools: ctx.constraints.allowedTools,
