@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { runGoldenEval } from '../../fixtures/golden/golden-eval-runner.ts';
+import { ACTION_CONFIG_URL } from '../../fixtures/golden/metric-policy.ts';
 import type { Trajectory } from '../../fixtures/golden/policy/trajectory.ts';
 import type { GoldenCase } from '../../fixtures/golden/schema.ts';
 
@@ -134,4 +135,119 @@ it('records verdict=error and fails the gate when the agent run throws', async (
   });
   expect(report.cases[0]!.policies[0]!.verdict).toBe('error');
   expect(report.gateFailed).toBe(true);
+});
+
+// --- FUT-827: conversation cases ----------------------------------------------
+
+const revisionCase = {
+  schemaVersion: 1,
+  kind: 'conversation',
+  id: 'RV-008',
+  suites: ['smoke'],
+  holdout: false,
+  tags: [],
+  fixtures: [],
+  actor: { tenantId: 't', userId: 'u' },
+  turns: [
+    { user: 'sang 15/8', expected: { behavior: 'confirm', facts: [], dbEffects: 'none' } },
+    { user: 'À thôi 19/8', expected: { behavior: 'confirm', facts: [], dbEffects: 'none' } },
+    {
+      decision: { chosen: 'primary' },
+      expected: {
+        behavior: 'applied',
+        facts: [],
+        dbEffects: { rowsChanged: 1, after: [] },
+      },
+    },
+  ],
+  metrics: { enabled: ['M3'] },
+} as never;
+
+const noopSeams = {
+  runAgent: async () => ({ answer: '', trajectory: { toolCalls: [] } }),
+  runRetrieval: async () => [],
+  manifest: {
+    agentVersion: 'planner-action',
+    promptVersion: 'a2-v1',
+    productionModelVersion: 'mock',
+    judgeModelVersion: 'mock',
+    harnessVersion: 'a2',
+  },
+};
+
+const suspendTurn = {
+  answer: 'preview',
+  trajectory: { toolCalls: [] },
+  signals: { suspended: true },
+  dbEffects: { expected: 'none', observed: { rowsChanged: 0, mismatches: [] } },
+};
+const appliedTurn = {
+  answer: 'done',
+  trajectory: { toolCalls: [] },
+  signals: { applied: true },
+  dbEffects: {
+    expected: { rowsChanged: 1, after: [] },
+    observed: { rowsChanged: 1, mismatches: [] },
+  },
+};
+
+it('scores a conversation case turn by turn instead of skipping it', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => ({ turns: [suspendTurn, suspendTurn, appliedTurn] }) as never,
+  });
+
+  const m3 = report.cases[0]!.policies.find((p) => p.id === 'M3');
+  expect(m3?.verdict).toBe('pass');
+  // One scorer entry per turn, each naming its turn so a failure is locatable.
+  expect(m3?.scorers.map((s) => s.id)).toEqual([
+    'turn1:db_effects',
+    'turn2:db_effects',
+    'turn3:db_effects',
+  ]);
+  expect(report.gateFailures).toEqual([]);
+});
+
+it('fails the case when ONE turn wrote a row before Confirm', async () => {
+  const wroteEarly = {
+    ...suspendTurn,
+    dbEffects: {
+      expected: 'none',
+      observed: { rowsChanged: 1, mismatches: [], changedKeys: ['planner.tasks:x'] },
+    },
+  };
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => ({ turns: [wroteEarly, suspendTurn, appliedTurn] }) as never,
+  });
+  expect(report.cases[0]!.policies.find((p) => p.id === 'M3')?.verdict).toBe('fail');
+  expect(report.gateFailures).toEqual([
+    { caseId: 'RV-008', policyId: 'M3', scorer: 'turn1:db_effects' },
+  ]);
+});
+
+it('records an error verdict when the conversation seam throws', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => {
+      throw new Error('resume lost the run');
+    },
+  });
+  expect(report.cases[0]!.policies[0]!.verdict).toBe('error');
+  expect(report.gateFailures[0]!.scorer).toBe('run');
+});
+
+it('marks a conversation case skipped when no seam is supplied', async () => {
+  const report = await runGoldenEval({ ...noopSeams, cases: [revisionCase], suite: 'smoke' });
+  expect(report.cases[0]!.skipped).toBeTruthy();
+  expect(report.gateFailures).toEqual([]);
 });

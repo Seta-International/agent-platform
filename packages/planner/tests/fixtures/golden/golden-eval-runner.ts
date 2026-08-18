@@ -5,7 +5,7 @@
 // Agent-run and retrieval-run are injected so the core is unit-testable without
 // a DB/model; the integration lane injects the real implementations.
 
-import { ctxFromCase } from './ctx-from-case.ts';
+import { ctxFromCase, ctxFromTurn, type TurnResult } from './ctx-from-case.ts';
 import { resolveMetricMode } from './metric-policy.ts';
 import { evaluatePolicy, type PolicyId, policyRegistry } from './policy/registry.ts';
 import type { ToolCall, Trajectory } from './policy/trajectory.ts';
@@ -41,6 +41,16 @@ export interface RunGoldenEvalParams {
     output: AgentRunOutput,
     metricIds: string[],
   ) => Promise<Record<string, JudgeScorerResult[]>>;
+  /** Runs a `kind: conversation` case and returns one result per turn, in order.
+   *  Absent ⇒ conversation cases are reported as `skipped` rather than silently
+   *  passing, which is what they did before FUT-827. */
+  runConversation?: (c: GoldenCase) => Promise<ConversationRunOutput>;
+  /** Which agent config resolves metric modes. Defaults to planner-query's. */
+  metricConfigUrl?: URL;
+}
+
+export interface ConversationRunOutput {
+  turns: TurnResult[];
 }
 
 export interface PolicyReport {
@@ -59,6 +69,16 @@ export interface CaseReport {
   answer?: string;
   /** The captured two-tier tool trajectory (agent cases only). */
   trajectory?: ToolCall[];
+  /** Conversation cases only: one entry per turn, so a failing turn is triagable
+   *  from the artifact without re-running. */
+  turns?: {
+    index: number;
+    answer: string;
+    trajectory: ToolCall[];
+    observed?: { rowsChanged: number; mismatches: string[]; changedKeys?: string[] };
+  }[];
+  /** Set when the case was not evaluated at all, with the reason. */
+  skipped?: string;
   policies: PolicyReport[];
 }
 
@@ -84,7 +104,13 @@ function questionOf(c: GoldenCase): string | undefined {
     return msgs[msgs.length - 1]?.content;
   }
   if (c.kind === 'conversation') {
-    return c.turns[c.turns.length - 1]?.user;
+    // The last turn may be a DECISION, which has no text; the question a reader
+    // wants is the last thing the user actually said.
+    for (let i = c.turns.length - 1; i >= 0; i -= 1) {
+      const turn = c.turns[i]!;
+      if ('user' in turn) return turn.user;
+    }
+    return undefined;
   }
   return undefined;
 }
@@ -101,7 +127,77 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
 
   for (const c of params.cases) {
     if (c.kind === 'conversation') {
-      caseReports.push({ id: c.id, kind: c.kind, question: questionOf(c), policies: [] });
+      if (!params.runConversation) {
+        // Reported, never silently passed: a corpus whose cases are skipped must
+        // LOOK skipped in the artifact.
+        caseReports.push({
+          id: c.id,
+          kind: c.kind,
+          question: questionOf(c),
+          skipped: 'no runConversation seam supplied',
+          policies: [],
+        });
+        continue;
+      }
+
+      let run: ConversationRunOutput | null = null;
+      let runError = false;
+      try {
+        run = await params.runConversation(c);
+      } catch {
+        runError = true;
+      }
+
+      const policies: PolicyReport[] = [];
+      for (const rawId of c.metrics?.enabled ?? []) {
+        const mode = resolveMetricMode(rawId, c.metricOverrides?.[rawId], params.metricConfigUrl);
+        if (runError || !run) {
+          policies.push({ id: rawId, mode, verdict: 'error', scorers: [] });
+          if (mode === 'gate') gateFailures.push({ caseId: c.id, policyId: rawId, scorer: 'run' });
+          continue;
+        }
+        if (!isPolicyId(rawId)) {
+          // Advisory B* on a conversation case: recorded-only this wave. The judge
+          // must score the CARD, never the answer text — a suspended turn has no
+          // assembled answer — so it is wired in a later wave, not faked here.
+          policies.push({ id: rawId, mode, verdict: 'pass', scorers: [] });
+          continue;
+        }
+
+        const scorers: PolicyReport['scorers'] = [];
+        let verdict: PolicyReport['verdict'] = 'pass';
+        let firstFailure: string | undefined;
+        run.turns.forEach((result, index) => {
+          const outcome = evaluatePolicy(rawId, ctxFromTurn(c, index, result));
+          for (const s of outcome.scorers) {
+            const id = `turn${index + 1}:${s.id}`;
+            scorers.push({ id, passed: s.outcome.passed, detail: s.outcome.detail });
+            if (s.required && !s.outcome.passed && !firstFailure) firstFailure = id;
+          }
+          // Worst-of across turns: one bad turn fails the metric for the case.
+          if (outcome.verdict !== 'pass') verdict = 'fail';
+        });
+        policies.push({ id: rawId, mode, verdict, scorers });
+        if (mode === 'gate' && verdict !== 'pass') {
+          gateFailures.push({ caseId: c.id, policyId: rawId, scorer: firstFailure ?? 'unknown' });
+        }
+      }
+
+      const last = run?.turns[run.turns.length - 1];
+      caseReports.push({
+        id: c.id,
+        kind: c.kind,
+        question: questionOf(c),
+        answer: last?.answer,
+        trajectory: last?.trajectory.toolCalls,
+        turns: run?.turns.map((t, i) => ({
+          index: i + 1,
+          answer: t.answer,
+          trajectory: t.trajectory.toolCalls,
+          observed: t.dbEffects?.observed,
+        })),
+        policies,
+      });
       continue;
     }
 
@@ -113,7 +209,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         detail: `${s.value}`,
       }));
       const verdict: PolicyReport['verdict'] = r ? r.policy.verdict : 'error';
-      const mode = resolveMetricMode('A3', c.metricOverrides?.A3);
+      const mode = resolveMetricMode('A3', c.metricOverrides?.A3, params.metricConfigUrl);
       if (mode === 'gate' && verdict !== 'pass') {
         gateFailures.push({ caseId: c.id, policyId: 'A3', scorer: 'retrieval' });
       }
@@ -149,7 +245,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
     }
 
     for (const rawId of c.metrics.enabled) {
-      const mode = resolveMetricMode(rawId, c.metricOverrides?.[rawId]);
+      const mode = resolveMetricMode(rawId, c.metricOverrides?.[rawId], params.metricConfigUrl);
       if (runError || !output) {
         policies.push({ id: rawId, mode, verdict: 'error', scorers: [] });
         if (mode === 'gate') gateFailures.push({ caseId: c.id, policyId: rawId, scorer: 'run' });
