@@ -109,7 +109,7 @@ function renderWizard(
 }
 
 describe('ReassignWizardDialog', () => {
-  it('lists only future allocations, hiding ones already fully in the past', () => {
+  it('lists only future allocations in the editable form, displaying completed allocations in a read-only section with an explanatory banner', () => {
     renderWizard([
       allocation({
         allocation_id: 'a1',
@@ -118,8 +118,49 @@ describe('ReassignWizardDialog', () => {
       }),
       allocation({ allocation_id: 'a2', project_name: 'Long Gone', date_to: '2020-01-01' }),
     ]);
+    // Active allocation has editable input controls
     expect(screen.getByLabelText('Start date for Aeris - Watchtower')).toBeInTheDocument();
+    // Completed allocation does not have editable inputs
     expect(screen.queryByLabelText('Start date for Long Gone')).not.toBeInTheDocument();
+    // Informational banner explains that completed allocation is excluded from editing
+    expect(
+      screen.getByText('1 completed allocation is excluded from editing.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Allocations that ended before today are preserved as historical records and cannot be modified or reassigned.',
+      ),
+    ).toBeInTheDocument();
+    // Completed allocation is shown in the read-only section
+    expect(screen.getByText('Completed allocations (1)')).toBeInTheDocument();
+    expect(screen.getByText('Long Gone')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+  });
+
+  it('shows empty state for active allocations when employee only has completed allocations', () => {
+    renderWizard([
+      allocation({ allocation_id: 'a1', project_name: 'Past Project 1', date_to: '2020-01-01' }),
+      allocation({ allocation_id: 'a2', project_name: 'Past Project 2', date_to: '2021-05-15' }),
+    ]);
+    expect(
+      screen.getByText('2 completed allocations are excluded from editing.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No active or upcoming allocations for this employee.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Completed allocations (2)')).toBeInTheDocument();
+    expect(screen.getByText('Past Project 1')).toBeInTheDocument();
+    expect(screen.getByText('Past Project 2')).toBeInTheDocument();
+  });
+
+  it('does not display completed allocations banner or section when all allocations are current/future', () => {
+    renderWizard([
+      allocation({ allocation_id: 'a1', project_name: 'Future Project', date_to: '2026-12-23' }),
+    ]);
+    expect(
+      screen.queryByText(/completed allocation(s)? (is|are) excluded from editing/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Completed allocations/i)).not.toBeInTheDocument();
   });
 
   it('shows every current allocation directly editable, with no select-then-edit step', () => {
@@ -478,6 +519,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
 
     await user.type(within(dialog).getByLabelText('Note'), 'Backfill for Q3 ramp');
 
@@ -522,6 +565,8 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
     await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
     await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
 
     expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
