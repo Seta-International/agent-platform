@@ -5,8 +5,12 @@ import type { AgentTool } from '@seta/agent-sdk';
 // fixture data and the eval-executed agent share one frozen anchor. Importing it here
 // pulls only a Date constant — none of the heavier fixture graph (tasks/events/seed).
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
+import { ACTION_REFERENCE_TIME } from '../../../tests/fixtures/golden/action/constants.ts';
 import { REFERENCE_TIME } from '../../../tests/fixtures/golden/constants.ts';
 import { plannerFindSimilarTasksTool } from '../agent-tools/find-similar-tasks.ts';
+import { makeActionResumer, makeActionStreamer } from './action/orchestrator.ts';
+import type { PreviewPort } from './action/ports.ts';
+import { makeActionPorts } from './action/register.ts';
 import {
   makeQueryGeneralAnswerAgent,
   makeQueryTaskDetailAgent,
@@ -111,4 +115,47 @@ export function buildPlannerQueryEvalTarget(
     buildQualityRuntime: (opts2) =>
       buildRuntime(opts2.resolveModel, findSimilar, undefined, opts.collector),
   };
+}
+
+export interface PlannerActionEvalTarget {
+  runStream: ReturnType<typeof makeActionStreamer>;
+  runResume: ReturnType<typeof makeActionResumer>;
+}
+
+export interface BuildPlannerActionEvalTargetOpts {
+  /** The in-process stand-in for the `agent`-schema preview reader (design D1). */
+  previewPort: PreviewPort;
+  resolveModel: () => MastraModelConfig;
+  /** Needed only by `planner_createTask`'s duplicate check; read lazily inside
+   *  `execute()`, so a lane with no create case may omit it. */
+  databaseUrl?: string;
+  /** The suspend snapshot must survive BETWEEN runStream and runResume, so this
+   *  must be ONE instance shared by both calls. An `InMemoryStore` suffices —
+   *  both calls happen in one process. */
+  mastraStorage: MastraCompositeStore;
+  now?: () => Date;
+}
+
+/**
+ * A2, composed for the golden lane.
+ *
+ * Deliberately NOT `buildPlannerActionRuntime`: that registers the specialist and
+ * the orchestration spec in module-global registries (`action/register.ts:96-97`),
+ * which a per-case build would do repeatedly and which apps/server freezes. Here
+ * the same three factories are composed directly and nothing global is touched.
+ */
+export function buildPlannerActionEvalTarget(
+  opts: BuildPlannerActionEvalTargetOpts,
+): PlannerActionEvalTarget {
+  const deps = {
+    ports: makeActionPorts({
+      previewPort: opts.previewPort,
+      embeddingProvider: resolveEmbeddingProvider(),
+      databaseUrl: opts.databaseUrl,
+    }),
+    resolveModel: opts.resolveModel,
+    mastraStorage: opts.mastraStorage,
+    now: opts.now ?? (() => ACTION_REFERENCE_TIME),
+  };
+  return { runStream: makeActionStreamer(deps), runResume: makeActionResumer(deps) };
 }
