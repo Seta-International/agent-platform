@@ -19,6 +19,10 @@ const Behavior = z.enum([
   // `forbiddenTools` denies every write tool, so no query turn can ever suspend.
   'confirm',
   'applied',
+  // A decision turn where the user cancelled. Its terminal state is neither
+  // `confirm` (no card is left) nor `applied` (nothing was written), and the lane
+  // reaches it by NOT resuming — deterministic by construction.
+  'declined',
 ]);
 const Suites = z.array(z.enum(['smoke', 'regression', 'nightly'])).min(1);
 
@@ -49,6 +53,32 @@ const Trajectory = z
   })
   .partial();
 
+/**
+ * What a turn asked of the database.
+ *
+ * `'none'` is the only automated statement that BR-03 ("no write without an
+ * explicit confirmation") holds for a model-driven turn, and it is what every
+ * `confirm` turn declares. The row form asserts the effect of a Confirm.
+ *
+ * `after[].id` may be a `fixtures.<name>` reference; the driver resolves it
+ * against the ids the case's fixture builders returned, so no case hard-codes a
+ * uuid. Column names are the TABLE's (`due_at`, `priority`, `progress`,
+ * `deleted_at`) — not the model's vocabulary.
+ */
+const DbEffects = z.union([
+  z.literal('none'),
+  z.object({
+    rowsChanged: z.number().int().nonnegative(),
+    after: z
+      .array(
+        z
+          .object({ table: z.string(), id: z.string() })
+          .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()])),
+      )
+      .default([]),
+  }),
+]);
+
 const Expected = z.object({
   behavior: Behavior,
   facts: z.array(z.object({ ref: z.string(), assertion: z.enum(['equals']) })).default([]),
@@ -61,7 +91,9 @@ const Expected = z.object({
     })
     .partial()
     .optional(),
+  dbEffects: DbEffects.optional(),
 });
+export type Expected = z.infer<typeof Expected>;
 
 const Base = z.object({
   schemaVersion: z.literal(1),
@@ -116,11 +148,35 @@ const RetrievalCase = Base.extend({
     .default({ k: [1, 3, 5] }),
 });
 
+/** A turn the USER speaks. */
+const UserTurn = z.object({ user: z.string(), expected: Expected }).strict();
+
+/** A turn where the user acts on the card in front of them. `primary` is Confirm;
+ *  `decline` is Cancel and the lane simply does not resume — which is why "cancel
+ *  writes nothing" needs no mechanism at all. */
+const DecisionTurn = z
+  .object({
+    decision: z.object({
+      chosen: z.enum(['primary', 'alternate', 'decline']),
+      alternateIndex: z.number().int().nonnegative().optional(),
+      note: z.string().optional(),
+    }),
+    expected: Expected,
+  })
+  .strict();
+
 const ConversationCase = Base.extend({
   kind: z.literal('conversation'),
   category: z.string().optional(),
   actor: z.object({ tenantId: z.string(), userId: z.string() }),
-  turns: z.array(z.object({ user: z.string(), expected: Expected })).min(1),
+  /** Named builders from `action/fixtures.ts`, run inside the A2 tenant's per-case
+   *  reset. A2-corpus-only; which agent a case belongs to is decided by its
+   *  DIRECTORY, not by a field. */
+  fixtures: z.array(z.string()).default([]),
+  // Optional only because A1 has no conversation case authoring metrics; every A2
+  // case declares it, and FUT-829's self-tests enforce that.
+  metrics: z.object({ enabled: z.array(z.string()) }).optional(),
+  turns: z.array(z.union([UserTurn, DecisionTurn])).min(1),
 }).strict(); // no case-level `expected` allowed
 
 export const GoldenCaseSchema = z.discriminatedUnion('kind', [

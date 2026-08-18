@@ -79,3 +79,90 @@ it('still rejects an unknown behaviour', () => {
     }),
   ).toThrow();
 });
+
+it('accepts a three-turn revision case: preview, revise, confirm', () => {
+  const parsed = GoldenCaseSchema.parse({
+    schemaVersion: 1,
+    kind: 'conversation',
+    id: 'RV-008',
+    suites: ['smoke', 'regression'],
+    category: 'revision',
+    actor: { tenantId: 'a2-tenant', userId: 'a2-member' },
+    fixtures: ['oneTaskDueAug15'],
+    turns: [
+      {
+        user: 'đổi due date của Deploy API sang 15/8',
+        expected: {
+          behavior: 'confirm',
+          trajectory: { requiredTools: ['planner_updateTask'], maxToolCalls: 2 },
+          dbEffects: 'none',
+        },
+      },
+      {
+        user: 'À thôi đổi sang 19/8 đi',
+        expected: {
+          behavior: 'confirm',
+          trajectory: {
+            requiredTools: ['planner_updateTask'],
+            argPredicates: [
+              {
+                tool: 'planner_updateTask',
+                path: 'patch.dueAt',
+                operator: 'equals',
+                value: '2026-08-19',
+              },
+              { tool: 'planner_updateTask', path: 'correction', operator: 'equals', value: true },
+            ],
+          },
+          output: { forbiddenText: ['yêu cầu mới', 'huỷ đề xuất'] },
+          dbEffects: 'none',
+        },
+      },
+      {
+        decision: { chosen: 'primary' },
+        expected: {
+          behavior: 'applied',
+          dbEffects: {
+            rowsChanged: 1,
+            after: [{ table: 'planner.tasks', id: 'fixtures.task', due_at: '2026-08-19' }],
+          },
+        },
+      },
+    ],
+    metrics: { enabled: ['M8', 'M2', 'M3'] },
+  });
+  expect(parsed.kind).toBe('conversation');
+  if (parsed.kind !== 'conversation') return;
+  expect(parsed.turns).toHaveLength(3);
+  expect('decision' in parsed.turns[2]!).toBe(true);
+});
+
+it('accepts a decline decision and the declined behaviour', () => {
+  const parsed = GoldenCaseSchema.parse({
+    schemaVersion: 1,
+    kind: 'conversation',
+    id: 'MU-002',
+    suites: ['regression'],
+    actor: { tenantId: 'a2-tenant', userId: 'a2-member' },
+    turns: [
+      { user: 'đổi due date sang 19/8', expected: { behavior: 'confirm', dbEffects: 'none' } },
+      { decision: { chosen: 'decline' }, expected: { behavior: 'declined', dbEffects: 'none' } },
+    ],
+    metrics: { enabled: ['M4'] },
+  });
+  expect(parsed.kind).toBe('conversation');
+});
+
+it('rejects a turn that is both a user message and a decision', () => {
+  expect(() =>
+    GoldenCaseSchema.parse({
+      schemaVersion: 1,
+      kind: 'conversation',
+      id: 'MU-BAD',
+      suites: ['regression'],
+      actor: { tenantId: 't', userId: 'u' },
+      turns: [{ user: 'x', decision: { chosen: 'primary' }, expected: { behavior: 'confirm' } }],
+      metrics: { enabled: ['M3'] },
+    }),
+  ).toThrow();
+});
