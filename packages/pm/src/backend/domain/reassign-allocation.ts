@@ -56,8 +56,8 @@ export interface OverAllocationPeriod {
 }
 
 export interface ReassignWarning {
-  project_name: string;
   peak_pct: number;
+  over_allocation_periods: OverAllocationPeriod[];
 }
 
 export interface ReassignAllocationResult {
@@ -433,7 +433,7 @@ export async function reassignAllocation(
 
   const { current, sourceProj, workerId, resolvedTargets } = await resolveReassignment(input);
 
-  const { peak_pct } = await computeCombinedPeak({
+  const { peak_pct, over_allocation_periods } = await computeCombinedPeak({
     worker_id: workerId,
     exclude_allocation_ids: [allocation_id],
     candidates: [
@@ -450,8 +450,10 @@ export async function reassignAllocation(
     ],
     session,
   });
-  const warnings: ReassignWarning[] =
-    peak_pct > 100 ? resolvedTargets.map((t) => ({ project_name: t.proj.name, peak_pct })) : [];
+  // FUT-853: one warning per worker (not per target project) describing the combined
+  // over-allocation state so the notification message correctly attributes the total
+  // % to the employee, not to the newly added project alone.
+  const warnings: ReassignWarning[] = peak_pct > 100 ? [{ peak_pct, over_allocation_periods }] : [];
 
   const nextVersion = current.version + 1;
   const targetIds: string[] = [];
@@ -810,7 +812,7 @@ export async function reassignWorkerAllocations(
   const { resolvedSources, resolvedUpdates, resolvedTargets } =
     await resolveGroupReassignment(input);
 
-  const { peak_pct } = await computeCombinedPeak({
+  const { peak_pct, over_allocation_periods } = await computeCombinedPeak({
     worker_id,
     exclude_allocation_ids: [
       ...resolvedSources.map((s) => s.current.id),
@@ -835,14 +837,8 @@ export async function reassignWorkerAllocations(
     ],
     session,
   });
-  const warnings: ReassignWarning[] =
-    peak_pct > 100
-      ? [
-          ...resolvedTargets.map((t) => ({ project_name: t.proj.name, peak_pct })),
-          ...resolvedUpdates.map((u) => ({ project_name: u.proj.name, peak_pct })),
-        ]
-      : [];
-
+  // FUT-853: one warning per worker (not per target project) — same as reassignAllocation above.
+  const warnings: ReassignWarning[] = peak_pct > 100 ? [{ peak_pct, over_allocation_periods }] : [];
   // Used as the template for role/status/minutes_per_day on the newly created
   // rows — a reasonable default when reassigning off several projects at once.
   // `allocation_ids` may be empty (adding allocations without ending any

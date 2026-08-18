@@ -552,8 +552,8 @@ export async function splitAllocation(
 }
 
 export interface ReassignWarning {
-  project_name: string;
   peak_pct: number;
+  over_allocation_periods: OverAllocationPeriod[];
 }
 
 export interface ReassignAllocationResult {
