@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -712,5 +712,44 @@ describe('RaMonitoringPage — Grouped allocations Person and Seniority display 
 
     const dashSpans = screen.getAllByText('—');
     expect(dashSpans.length).toBeGreaterThan(0);
+  });
+});
+
+describe('RaMonitoringPage — active date range guard', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  it('refuses an Active-to date earlier than the Active-from date', async () => {
+    latestSearch = { from: '2026-08-18', to: '2026-12-31' };
+    renderTableHarness();
+
+    const activeTo = await screen.findByRole('combobox', { name: 'Active to' });
+    fireEvent.change(activeTo, { target: { value: '03/10/2025' } });
+
+    expect(latestSearch.to).toBe('2026-12-31');
+  });
+
+  it('refuses an Active-from date later than the Active-to date', async () => {
+    latestSearch = { from: '2026-08-18', to: '2026-12-31' };
+    renderTableHarness();
+
+    const activeFrom = await screen.findByRole('combobox', { name: 'Active from' });
+    fireEvent.change(activeFrom, { target: { value: '12/31/2027' } });
+
+    expect(latestSearch.from).toBe('2026-08-18');
+  });
+
+  it('still accepts an Active-to date inside the window', async () => {
+    latestSearch = { from: '2026-08-18', to: '2026-12-31' };
+    renderTableHarness();
+
+    const activeTo = await screen.findByRole('combobox', { name: 'Active to' });
+    fireEvent.change(activeTo, { target: { value: '10/15/2026' } });
+
+    await waitFor(() => expect(latestSearch.to).toBe('2026-10-15'));
   });
 });
