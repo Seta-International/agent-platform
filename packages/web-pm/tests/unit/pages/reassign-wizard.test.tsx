@@ -132,7 +132,11 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByLabelText(/allocation for/i)).toHaveTextContent('0.3');
     expect(screen.getByLabelText(/account for/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/project for/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /save aeris - watchtower/i })).toBeInTheDocument();
+    // FUT-881: there is no per-row immediate-save button — every change goes through
+    // Review impact → Confirm, so the only per-row action is Delete.
+    expect(
+      screen.queryByRole('button', { name: /save aeris - watchtower/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).toBeInTheDocument();
   });
 
@@ -148,7 +152,7 @@ describe('ReassignWizardDialog', () => {
     expect(endDateInput.value).toBe(formatLongDate('2027-01-01'));
   });
 
-  it('calls updateAllocation with the full row patch on Save and displays the newly saved values', async () => {
+  it('FUT-881 sends the edited row as an `updates` payload at Confirm (no per-row immediate save)', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ date_to: '2026-12-23', version: 3 })]);
 
@@ -162,25 +166,61 @@ describe('ReassignWizardDialog', () => {
     const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
     await user.type(noteInput, 'Handover in progress');
 
-    await user.click(screen.getByRole('button', { name: /save aeris - watchtower/i }));
+    // The Astryx DateInput keeps a calendar popover (itself a dialog) open after typing, so
+    // pick the buttons by their unique names rather than scoping to a single dialog.
+    // FUT-881: Review impact is now enabled for an existing-row edit ALONE.
+    await user.click(screen.getByRole('button', { name: 'Review impact' }));
+    // The preview runs with the edited state (no pre-persist).
+    expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: [
+          expect.objectContaining({
+            allocation_id: 'a1',
+            date_to: NEW_END,
+            note: 'Handover in progress',
+            expected_version: 3,
+          }),
+        ],
+      }),
+    );
+    // Nothing was persisted during review.
+    expect(updateAllocation).not.toHaveBeenCalled();
 
-    // Allocation is entered as the 0.3 fraction; the wizard converts it back to a percentage.
-    expect(updateAllocation).toHaveBeenCalledWith('a1', {
-      project_id: 'p1',
-      planned_pct: 30,
-      date_from: FUTURE_START,
-      date_to: NEW_END,
-      bucket: 'billable',
-      note: 'Handover in progress',
-      expected_version: 3,
-    });
-    // Row stays directly editable (no view-mode toggle) — its fields keep
-    // reflecting exactly what was just saved.
-    expect(endDateInput).toHaveValue(formatLongDate(NEW_END));
-    expect(noteInput).toHaveValue('Handover in progress');
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: [
+          expect.objectContaining({
+            allocation_id: 'a1',
+            date_to: NEW_END,
+            note: 'Handover in progress',
+            expected_version: 3,
+          }),
+        ],
+        targets: [],
+      }),
+    );
+    expect(updateAllocation).not.toHaveBeenCalled();
   });
 
-  describe('unsaved existing-row edits travel with the preview (FUT-887)', () => {
+  it('reflects a confirmed edit locally (no view-mode toggle)', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard([allocation({ date_to: '2026-12-23', version: 3 })]);
+
+    const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
+    await user.clear(endDateInput);
+    await user.type(endDateInput, NEW_END);
+
+    // Edits ride Review impact → Confirm; nothing is saved per-row.
+    await user.click(screen.getByRole('button', { name: 'Review impact' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(reassignWorkerAllocations).toHaveBeenCalled();
+    expect(updateAllocation).not.toHaveBeenCalled();
+  });
+
+  describe('an existing-row edit and a new project ride one confirm together (FUT-887/FUT-881)', () => {
     const PROJECTS: ProjectListRow[] = [
       {
         project_id: 'p1',
@@ -225,16 +265,12 @@ describe('ReassignWizardDialog', () => {
       return dialog;
     }
 
-    const expectedEdit = () => ({
-      allocation_id: 'a1',
-      project_id: 'p1',
-      planned_pct: 30,
-      date_from: FUTURE_START,
-      date_to: NEW_END,
-      bucket: 'billable',
-      note: null,
-      expected_version: 3,
-    });
+    const expectedEdit = () =>
+      expect.objectContaining({
+        allocation_id: 'a1',
+        date_to: NEW_END,
+        expected_version: 3,
+      });
 
     it('sends the edit to the preview instead of saving it', async () => {
       const user = userEvent.setup({ delay: null });
@@ -242,7 +278,10 @@ describe('ReassignWizardDialog', () => {
 
       expect(updateAllocation).not.toHaveBeenCalled();
       expect(previewReassignWorkerAllocations).toHaveBeenCalledWith(
-        expect.objectContaining({ existing_edits: [expectedEdit()] }),
+        expect.objectContaining({
+          updates: [expectedEdit()],
+          targets: [expect.objectContaining({ project_id: 'p2' })],
+        }),
       );
     });
 
@@ -254,7 +293,10 @@ describe('ReassignWizardDialog', () => {
 
       expect(updateAllocation).not.toHaveBeenCalled();
       expect(reassignWorkerAllocations).toHaveBeenCalledWith(
-        expect.objectContaining({ existing_edits: [expectedEdit()] }),
+        expect.objectContaining({
+          updates: [expectedEdit()],
+          targets: [expect.objectContaining({ project_id: 'p2' })],
+        }),
       );
     });
 
@@ -330,11 +372,21 @@ describe('ReassignWizardDialog', () => {
     await user.type(projectField, 'Veritone - Core');
     await user.click(await screen.findByRole('option', { name: 'Veritone - Core' }));
 
-    await user.click(screen.getByRole('button', { name: /save aeris - watchtower/i }));
+    await user.click(screen.getByRole('button', { name: 'Review impact' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    expect(updateAllocation).toHaveBeenCalledWith(
-      'a1',
-      expect.objectContaining({ project_id: 'p3' }),
+    // FUT-881: the move is part of the atomic confirm payload, not a per-row save.
+    expect(updateAllocation).not.toHaveBeenCalled();
+    expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: [
+          expect.objectContaining({
+            allocation_id: 'a1',
+            project_id: 'p3',
+            expected_version: 3,
+          }),
+        ],
+      }),
     );
   });
 

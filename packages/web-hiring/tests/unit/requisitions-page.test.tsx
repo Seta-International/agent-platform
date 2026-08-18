@@ -14,13 +14,37 @@ vi.mock('@tanstack/react-router', () => ({
 
 const fetchOpenRequisitions = vi.fn();
 const fetchRequisitions = vi.fn();
+const openRequisition = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchOpenRequisitions: () => fetchOpenRequisitions(),
   fetchRequisitions: () => fetchRequisitions(),
+  openRequisition: () => openRequisition(),
   fetchAccounts: () => Promise.resolve([]),
   fetchProjects: () => Promise.resolve([]),
 }));
+
+vi.mock('@seta/shared-ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@seta/shared-ui')>();
+  return {
+    ...actual,
+    RichTextEditor: ({
+      value,
+      onChange,
+      placeholder,
+    }: {
+      value: string;
+      onChange: (html: string) => void;
+      placeholder?: string;
+    }) => (
+      <textarea
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    ),
+  };
+});
 
 import { RequisitionsPage } from '../../src/pages/requisitions-page.tsx';
 
@@ -325,6 +349,25 @@ describe('RequisitionsPage', () => {
 
     expect(within(table).getAllByText('Requisition 25')).toHaveLength(2);
     expect(within(table).queryAllByText('Requisition 00')).toHaveLength(0);
+  });
+
+  it('shows a requisition created from the List view without a manual refresh', async () => {
+    const existing = row({ id: 'r1', title: 'Zeta Engineer' });
+    const { user } = await renderListView([existing]);
+
+    openRequisition.mockResolvedValue({ requisition_id: 'r2' });
+    fetchRequisitions.mockResolvedValue([existing, row({ id: 'r2', title: 'Fresh Role' })]);
+
+    await user.click(screen.getByRole('button', { name: /new requisition/i }));
+    await user.type(screen.getByLabelText(/job title/i), 'Fresh Role');
+    await user.type(screen.getByPlaceholderText(/write the about section/i), 'Role details');
+    await user.click(screen.getByRole('button', { name: /^create$/i }));
+
+    await waitFor(() =>
+      expect(within(screen.getByRole('table')).getAllByText('Fresh Role').length).toBeGreaterThan(
+        0,
+      ),
+    );
   });
 
   it('resets to page 1 when the sort order changes while on page 2', async () => {

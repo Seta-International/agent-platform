@@ -18,12 +18,29 @@ import { assertProjectManageable } from './assert-project-manageable.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
 import { buildProjectScope } from './scope.ts';
 
+// The zod schema defaults `updates`/`targets` to [], so the parsed (output) type always carries
+// both. Existing callers target the operation by omission (reassign-only, add-only), so the
+// domain entry types treat them as optional and default inside.
+type GroupReassignInput = Omit<ReassignWorkerAllocationsInput, 'updates' | 'targets'> & {
+  updates?: ReassignWorkerAllocationsInput['updates'];
+  targets?: ReassignWorkerAllocationsInput['targets'];
+};
+type GroupReassignRawInput = GroupReassignInput & { session: SessionScope };
+
+function withDefaults(input: GroupReassignRawInput) {
+  return {
+    ...input,
+    updates: input.updates ?? [],
+    targets: input.targets ?? [],
+  };
+}
+
 function tagRangeError(
   err: unknown,
   details:
     | { field: 'source'; index?: number }
     | { field: 'target'; index: number }
-    | { field: 'existing'; index: number },
+    | { field: 'updates'; index: number },
   projectName: string,
 ): unknown {
   if (err instanceof PmError) {
@@ -624,11 +641,10 @@ export interface ReassignGroupPreviewResult {
   restricted_segments: RestrictedSegment[];
 }
 
-async function resolveGroupReassignment(
-  input: ReassignWorkerAllocationsInput & { session: SessionScope },
-) {
-  const { worker_id, allocation_ids, source, targets, session } = input;
+async function resolveGroupReassignment(input: GroupReassignRawInput) {
+  const { worker_id, allocation_ids, updates, source, targets, session } = withDefaults(input);
 
+  // End-of-target rows must exist and belong to the worker.
   const currentRows = await pmDb()
     .select()
     .from(allocation)
@@ -642,6 +658,86 @@ async function resolveGroupReassignment(
     );
   if (currentRows.length !== allocation_ids.length) {
     throw new PmError('NOT_FOUND', 'one or more allocations not found for this worker');
+  }
+
+  // In-place edit targets (updates) may include rows NOT in allocation_ids — every edited row
+  // still belongs to the worker and must resolve the same way.
+  const updateIds = updates.map((u) => u.allocation_id);
+  const updateRows = await pmDb()
+    .select()
+    .from(allocation)
+    .where(
+      and(
+        inArray(allocation.id, updateIds),
+        eq(allocation.person_id, worker_id),
+        tenantScoped(allocation.tenant_id, session),
+        isNull(allocation.deleted_at),
+      ),
+    );
+  if (updateRows.length !== updateIds.length) {
+    throw new PmError('NOT_FOUND', 'one or more allocations not found for this worker');
+  }
+
+  // In-place edits (FUT-881): batch-applied with any new targets at confirm. Each update is
+  // resolved against its own current row + target project and validated (range, manage scope,
+  // overlap) before anything mutates. Overlap is checked inside the commit tx against the
+  // final state of {sibling updates, target inserts, existing rows} so the batch as a whole
+  // cannot create an overlap — the same guarantee update-allocation.ts gives a single row.
+  const resolvedUpdates: Array<{
+    current: (typeof currentRows)[number];
+    updated: NonNullable<ReassignWorkerAllocationsInput['updates']>[number];
+    proj: Awaited<ReturnType<typeof loadProject>>;
+    effective: {
+      project_id: string;
+      date_from: string | null;
+      date_to: string | null;
+      planned_pct: number;
+      bucket: 'billable' | 'internal' | 'bench';
+      note: string | null;
+    };
+  }> = [];
+  const updateById = new Map(updates.map((u) => [u.allocation_id, u]));
+  for (const current of updateRows) {
+    // updateRows was loaded with inArray(allocation.id, updateIds), so every row has a match.
+    const update = updateById.get(current.id)!;
+    // Optimistic-concurrency guard mirrors update-allocation.ts: a stale expected_version means
+    // the row changed since the wizard loaded it — reject the whole batch (update-allocation.ts
+    // throws before the tx; here the resolve phase runs before any write, same atomic result).
+    if (update.expected_version !== undefined && update.expected_version !== current.version) {
+      throw new PmError('CONFLICT', 'allocation was modified concurrently', {
+        field: 'updates',
+        index: resolvedUpdates.length,
+      });
+    }
+    const targetProjectId = update.project_id ?? current.project_id;
+    await assertProjectManageable(targetProjectId, session);
+    const proj = await loadProject(targetProjectId, session);
+    const effFrom = update.date_from !== undefined ? update.date_from : current.date_from;
+    const effTo = update.date_to !== undefined ? update.date_to : current.date_to;
+    try {
+      assertWithinProjectRange({
+        project_date_from: proj.date_from,
+        project_date_to: proj.date_to,
+        date_from: effFrom,
+        date_to: effTo,
+      });
+    } catch (err) {
+      throw tagRangeError(err, { field: 'updates', index: resolvedUpdates.length }, proj.name);
+    }
+    resolvedUpdates.push({
+      current,
+      updated: update,
+      proj,
+      effective: {
+        project_id: targetProjectId,
+        date_from: effFrom,
+        date_to: effTo,
+        planned_pct:
+          update.planned_pct !== undefined ? update.planned_pct : Number(current.planned_pct),
+        bucket: update.bucket ?? current.bucket,
+        note: update.note !== undefined ? update.note : current.note,
+      },
+    });
   }
 
   // Validate + resolve each selected allocation's own project range before
@@ -696,91 +792,7 @@ async function resolveGroupReassignment(
     resolvedTargets.push({ input: t, proj });
   }
 
-  return { resolvedSources, resolvedTargets };
-}
-
-async function resolveExistingEdits(
-  input: ReassignWorkerAllocationsInput & { session: SessionScope },
-) {
-  const { worker_id, session } = input;
-  const existing_edits = input.existing_edits ?? [];
-  if (existing_edits.length === 0) return [];
-
-  const ids = Array.from(new Set(existing_edits.map((e) => e.allocation_id)));
-  const currentRows = await pmDb()
-    .select()
-    .from(allocation)
-    .where(
-      and(
-        inArray(allocation.id, ids),
-        eq(allocation.person_id, worker_id),
-        tenantScoped(allocation.tenant_id, session),
-        isNull(allocation.deleted_at),
-      ),
-    );
-  if (currentRows.length !== ids.length) {
-    throw new PmError('NOT_FOUND', 'one or more allocations not found for this worker');
-  }
-
-  const resolved: Array<{
-    current: (typeof currentRows)[number];
-    input: (typeof existing_edits)[number];
-    proj: Awaited<ReturnType<typeof loadProject>>;
-  }> = [];
-  for (const [index, edit] of existing_edits.entries()) {
-    const current = currentRows.find((r) => r.id === edit.allocation_id);
-    if (!current) throw new PmError('NOT_FOUND', 'allocation not found for this worker');
-
-    await assertProjectManageable(current.project_id, session);
-    if (edit.project_id !== current.project_id) {
-      await assertProjectManageable(edit.project_id, session);
-    }
-    if (edit.expected_version !== undefined && edit.expected_version !== current.version) {
-      throw new PmError('CONFLICT', 'version mismatch');
-    }
-
-    const proj = await loadProject(edit.project_id, session);
-    try {
-      assertWithinProjectRange({
-        project_date_from: proj.date_from,
-        project_date_to: proj.date_to,
-        date_from: edit.date_from,
-        date_to: edit.date_to ?? null,
-      });
-    } catch (err) {
-      throw tagRangeError(err, { field: 'existing', index }, proj.name);
-    }
-    resolved.push({ current, input: edit, proj });
-  }
-
-  return resolved;
-}
-
-type ResolvedExistingEdit = Awaited<ReturnType<typeof resolveExistingEdits>>[number];
-
-function existingEditChanges(e: ResolvedExistingEdit): Record<string, unknown> {
-  const changes: Record<string, unknown> = {};
-  if (e.input.project_id !== e.current.project_id) changes.project_id = e.input.project_id;
-  if (Number(e.current.planned_pct ?? 0) !== e.input.planned_pct) {
-    changes.planned_pct = e.input.planned_pct.toString();
-  }
-  if ((e.current.date_from ?? null) !== e.input.date_from) changes.date_from = e.input.date_from;
-  if ((e.current.date_to ?? null) !== (e.input.date_to ?? null)) {
-    changes.date_to = e.input.date_to ?? null;
-  }
-  if (e.current.bucket !== (e.input.bucket ?? 'billable')) {
-    changes.bucket = e.input.bucket ?? 'billable';
-  }
-  if ((e.current.note ?? null) !== (e.input.note ?? null)) changes.note = e.input.note ?? null;
-  return changes;
-}
-
-function existingEditCandidates(edits: ResolvedExistingEdit[]): CandidateSegment[] {
-  return edits.map((e) => ({
-    date_from: e.input.date_from,
-    date_to: e.input.date_to ?? null,
-    planned_pct: e.input.planned_pct,
-  }));
+  return { resolvedSources, resolvedUpdates, resolvedTargets };
 }
 
 /**
@@ -790,19 +802,19 @@ function existingEditCandidates(edits: ResolvedExistingEdit[]): CandidateSegment
  * once" flow. Unselected allocations are left completely untouched.
  */
 export async function reassignWorkerAllocations(
-  input: ReassignWorkerAllocationsInput & { session: SessionScope },
+  input: GroupReassignRawInput,
 ): Promise<ReassignWorkerAllocationsResult> {
-  const { worker_id, source, session } = input;
+  const { worker_id, source, session } = withDefaults(input);
   requirePermission(session, 'pm.project.manage');
 
-  const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
-  const resolvedEdits = await resolveExistingEdits(input);
+  const { resolvedSources, resolvedUpdates, resolvedTargets } =
+    await resolveGroupReassignment(input);
 
   const { peak_pct } = await computeCombinedPeak({
     worker_id,
     exclude_allocation_ids: [
       ...resolvedSources.map((s) => s.current.id),
-      ...resolvedEdits.map((e) => e.current.id),
+      ...resolvedUpdates.map((u) => u.current.id),
     ],
     candidates: [
       ...resolvedSources.map((s) => ({
@@ -810,7 +822,11 @@ export async function reassignWorkerAllocations(
         date_to: source.date_to,
         planned_pct: Number(s.current.planned_pct),
       })),
-      ...existingEditCandidates(resolvedEdits),
+      ...resolvedUpdates.map((u) => ({
+        date_from: u.effective.date_from as string,
+        date_to: u.effective.date_to,
+        planned_pct: u.effective.planned_pct,
+      })),
       ...resolvedTargets.map((t) => ({
         date_from: t.input.date_from,
         date_to: t.input.date_to ?? null,
@@ -820,7 +836,12 @@ export async function reassignWorkerAllocations(
     session,
   });
   const warnings: ReassignWarning[] =
-    peak_pct > 100 ? resolvedTargets.map((t) => ({ project_name: t.proj.name, peak_pct })) : [];
+    peak_pct > 100
+      ? [
+          ...resolvedTargets.map((t) => ({ project_name: t.proj.name, peak_pct })),
+          ...resolvedUpdates.map((u) => ({ project_name: u.proj.name, peak_pct })),
+        ]
+      : [];
 
   // Used as the template for role/status/minutes_per_day on the newly created
   // rows — a reasonable default when reassigning off several projects at once.
@@ -838,34 +859,37 @@ export async function reassignWorkerAllocations(
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      for (const e of resolvedEdits) {
-        const changes = existingEditChanges(e);
-        const fields = Object.keys(changes);
-        if (fields.length === 0) continue;
-
-        const rangeMoved =
-          changes.date_from !== undefined ||
-          changes.date_to !== undefined ||
-          changes.project_id !== undefined;
-        if (rangeMoved) {
+      for (const u of resolvedUpdates) {
+        const projChanged = u.effective.project_id !== u.current.project_id;
+        // Overlap is checked against the batch's final state (updated + sibling updates +
+        // targets + other rows) so the whole confirm can't create a {worker, project} clash.
+        if (projChanged || u.effective.date_from != null) {
           await assertNoProjectOverlap(tx, {
             tenant_id: session.tenant_id,
             worker_id,
-            project_id: e.input.project_id,
-            date_from: e.input.date_from,
-            date_to: e.input.date_to ?? null,
-            excludeId: e.current.id,
+            project_id: u.effective.project_id,
+            date_from: u.effective.date_from,
+            date_to: u.effective.date_to,
+            excludeId: u.current.id,
           });
         }
-
-        const nextVersion = e.current.version + 1;
+        const changes: Record<string, unknown> = {};
+        if (u.updated.project_id !== undefined) changes.project_id = u.updated.project_id;
+        if (u.updated.planned_pct !== undefined)
+          changes.planned_pct = u.updated.planned_pct.toString();
+        if (u.updated.date_from !== undefined) changes.date_from = u.updated.date_from;
+        if (u.updated.date_to !== undefined) changes.date_to = u.updated.date_to;
+        if (u.updated.bucket !== undefined) changes.bucket = u.updated.bucket;
+        if (u.updated.note !== undefined) changes.note = u.updated.note;
+        if (Object.keys(changes).length === 0) continue;
+        const nextVersion = u.current.version + 1;
         const updatedRows = await tx
           .update(allocation)
           .set({ ...changes, version: nextVersion, updated_at: new Date() })
           .where(
             and(
-              eq(allocation.id, e.current.id),
-              eq(allocation.version, e.current.version),
+              eq(allocation.id, u.current.id),
+              eq(allocation.version, u.current.version),
               isNull(allocation.deleted_at),
             ),
           )
@@ -873,26 +897,26 @@ export async function reassignWorkerAllocations(
         if (updatedRows.length === 0) {
           throw new PmError('CONFLICT', 'allocation was modified concurrently');
         }
-        updated.push({ allocation_id: e.current.id, version: nextVersion });
-
+        updated.push({ allocation_id: u.current.id, version: nextVersion });
+        const changedField = Object.keys(changes);
         await emit({
           tenantId: session.tenant_id,
           aggregateType: 'pm.allocation',
-          aggregateId: e.current.id,
+          aggregateId: u.current.id,
           eventType: PM_ALLOCATION_UPDATED,
           eventVersion: 1,
           payload: {
-            allocation_id: e.current.id,
-            project_id: e.input.project_id,
+            allocation_id: u.current.id,
+            project_id: u.effective.project_id,
             worker_id,
-            account_id: e.proj.account_id,
+            account_id: u.proj.account_id,
             tenant_id: session.tenant_id,
-            planned_pct: e.input.planned_pct,
-            lead_worker_id: e.proj.pm_worker_id ?? null,
-            date_from: e.input.date_from,
-            date_to: e.input.date_to ?? null,
-            bucket: e.input.bucket ?? 'billable',
-            fields,
+            planned_pct: u.effective.planned_pct,
+            lead_worker_id: u.proj.pm_worker_id ?? null,
+            date_from: u.effective.date_from,
+            date_to: u.effective.date_to,
+            bucket: u.effective.bucket,
+            fields: changedField,
           },
         });
       }
@@ -947,6 +971,10 @@ export async function reassignWorkerAllocations(
           project_id: t.input.project_id,
           date_from: t.input.date_from,
           date_to: t.input.date_to ?? null,
+          // A source being reassigned off this project in this same batch is not a conflict
+          // (its end moves to source.date_to); an edited row staying on the project IS one,
+          // so it's deliberately NOT excluded — two of the worker's allocations on one
+          // project cannot overlap.
           excludeId: sameProjectSource?.current.id,
         });
         const [row] = await tx
@@ -999,13 +1027,21 @@ export async function reassignWorkerAllocations(
  * Read-only dry run of {@link reassignWorkerAllocations}.
  */
 export async function previewReassignWorkerAllocations(
-  input: ReassignWorkerAllocationsInput & { session: SessionScope },
+  input: GroupReassignRawInput,
 ): Promise<ReassignGroupPreviewResult> {
-  const { worker_id, source, session } = input;
+  const { worker_id, source, session } = withDefaults(input);
   requirePermission(session, 'pm.project.manage');
 
-  const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
-  const resolvedEdits = await resolveExistingEdits(input);
+  const { resolvedSources, resolvedUpdates, resolvedTargets } =
+    await resolveGroupReassignment(input);
+  // In-place edits (FUT-881): the preview must score the worker's book as it WILL be after
+  // confirm, so each edited row is excluded from the DB sweep (its old state) and re-injected
+  // as a candidate carrying the edited values. Nothing is persisted here — the dry run returns
+  // before any write, so the confirm remains the single atomic commit point.
+  const excludeIds = [
+    ...resolvedSources.map((s) => s.current.id),
+    ...resolvedUpdates.map((u) => u.current.id),
+  ];
 
   const [
     worker_name,
@@ -1022,17 +1058,18 @@ export async function previewReassignWorkerAllocations(
     loadWorkerName(worker_id, session),
     computeCombinedPeak({
       worker_id,
-      exclude_allocation_ids: [
-        ...resolvedSources.map((s) => s.current.id),
-        ...resolvedEdits.map((e) => e.current.id),
-      ],
+      exclude_allocation_ids: excludeIds,
       candidates: [
         ...resolvedSources.map((s) => ({
           date_from: s.current.date_from as string,
           date_to: source.date_to,
           planned_pct: Number(s.current.planned_pct),
         })),
-        ...existingEditCandidates(resolvedEdits),
+        ...resolvedUpdates.map((u) => ({
+          date_from: u.effective.date_from as string,
+          date_to: u.effective.date_to,
+          planned_pct: u.effective.planned_pct,
+        })),
         ...resolvedTargets.map((t) => ({
           date_from: t.input.date_from,
           date_to: t.input.date_to ?? null,

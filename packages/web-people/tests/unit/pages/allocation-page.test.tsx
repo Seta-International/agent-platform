@@ -101,12 +101,35 @@ describe('AllocationPage (Astryx Table migration)', () => {
 
     const table = await screen.findByRole('table');
     expect(within(table).getByText('Worker 0')).toBeInTheDocument();
-    expect(within(table).queryByText('Worker 25')).not.toBeInTheDocument();
+    expect(within(table).queryByText('Worker 10')).not.toBeInTheDocument();
 
-    const pager = screen.getByRole('navigation', { name: /table pagination/i });
-    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
+    const pager = screen.getByRole('navigation', { name: 'Allocation pages' });
+    expect(within(pager).getByText('Page 1 of 3')).toBeInTheDocument();
+    await user.click(within(pager).getByRole('button', { name: /next page/i }));
 
-    await waitFor(() => expect(within(table).getByText('Worker 25')).toBeInTheDocument());
+    await waitFor(() => expect(within(table).getByText('Worker 10')).toBeInTheDocument());
+    expect(within(pager).getByText('Page 2 of 3')).toBeInTheDocument();
+  });
+
+  it('shows more rows per page when a bigger page size is picked, from the first page', async () => {
+    const user = userEvent.setup();
+    const manyRows = Array.from({ length: 30 }, (_, i) =>
+      makeRow({ worker_id: `w${i}`, full_name: `Worker ${i}`, total_mm: i }),
+    );
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: manyRows });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const pager = screen.getByRole('navigation', { name: 'Allocation pages' });
+    await user.click(within(pager).getByRole('button', { name: /next page/i }));
+    await waitFor(() => expect(within(table).getByText('Worker 10')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('combobox', { name: 'Items per page' }));
+    await user.click(await screen.findByRole('option', { name: '25' }));
+
+    expect(within(pager).getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(within(table).getByText('Worker 0')).toBeInTheDocument();
+    expect(within(table).getByText('Worker 24')).toBeInTheDocument();
   });
 
   it('resets to page 1 when the sort order changes while on page 2', async () => {
@@ -121,18 +144,15 @@ describe('AllocationPage (Astryx Table migration)', () => {
     renderPage();
 
     const table = await screen.findByRole('table');
-    const pager = screen.getByRole('navigation', { name: /table pagination/i });
-    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
-    await waitFor(() => expect(within(table).getByText('Worker 25')).toBeInTheDocument());
+    const pager = screen.getByRole('navigation', { name: 'Allocation pages' });
+    await user.click(within(pager).getByRole('button', { name: /next page/i }));
+    await waitFor(() => expect(within(table).getByText('Worker 10')).toBeInTheDocument());
 
     await user.click(within(table).getByRole('button', { name: /sort by mm/i }));
 
-    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(within(pager).getByText('Page 1 of 3')).toBeInTheDocument();
     expect(within(table).getByText('Worker 0')).toBeInTheDocument();
-    expect(within(table).queryByText('Worker 25')).not.toBeInTheDocument();
+    expect(within(table).queryByText('Worker 10')).not.toBeInTheDocument();
   });
 
   it('renders the empty state when there are no allocations', async () => {

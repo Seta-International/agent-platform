@@ -45,3 +45,32 @@ test('resource allocation page renders KPIs, grid, and utilization panel', async
     timeout: 8_000,
   });
 });
+
+test('page-size lists on the allocation screen open fully inside the window', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/people/allocation');
+
+  const gridPager = page.getByRole('navigation', { name: 'Allocation pages' });
+  await expect(gridPager).toBeVisible({ timeout: 10_000 });
+
+  for (const name of ['Allocation pages', 'Utilization pages']) {
+    const pager = page.getByRole('navigation', { name });
+    await pager.scrollIntoViewIfNeeded();
+    const trigger = pager
+      .locator('xpath=..')
+      .getByRole('combobox', { name: 'Items per page' })
+      .first();
+    await trigger.click();
+
+    const listbox = page.getByRole('listbox');
+    await expect(listbox).toBeVisible();
+    await expect(page.getByRole('option', { name: '100', exact: true })).toBeVisible();
+
+    const box = await listbox.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+    await page.keyboard.press('Escape');
+  }
+});

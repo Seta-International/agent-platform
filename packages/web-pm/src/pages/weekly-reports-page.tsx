@@ -11,7 +11,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
-  Pagination,
+  PaginationFooter,
   Selector,
   Skeleton,
   StatusDot,
@@ -55,7 +55,8 @@ export interface WeeklyReportsSearch {
 // when a project has no measured entries this week (so it never adds noise on a full board).
 const SUMMARY_ORDER: ColourKey[] = ['green', 'yellow', 'red', 'gray', 'none'];
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [PAGE_SIZE, 25, 50, 100];
 
 export function WeeklyReportsPage() {
   const { search, setSearch, weeks, iso_year, iso_week } = usePmContext('/pm/weekly');
@@ -174,11 +175,12 @@ export function WeeklyReportsPage() {
   );
 
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(cards.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageCards = useMemo(
-    () => cards.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [cards, currentPage],
+    () => cards.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [cards, currentPage, pageSize],
   );
 
   const openComposer = () => {
@@ -443,11 +445,16 @@ export function WeeklyReportsPage() {
                   })}
                 </div>
                 <div className="flex justify-center">
-                  <Pagination
+                  <PaginationFooter
                     page={currentPage}
                     onChange={setPage}
                     totalItems={cards.length}
-                    pageSize={PAGE_SIZE}
+                    pageSize={pageSize}
+                    pageSizeOptions={PAGE_SIZE_OPTIONS}
+                    onPageSizeChange={(size) => {
+                      setPageSize(size);
+                      setPage(1);
+                    }}
                     variant="compact"
                     size="sm"
                     label="Weekly report pages"

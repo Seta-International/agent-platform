@@ -1,3 +1,7 @@
+import type { PaginationProps } from '@astryxdesign/core/Pagination';
+import { Pagination } from '@astryxdesign/core/Pagination';
+import { Selector } from './selector';
+
 export type {
   PaginationProps,
   PaginationSize,
@@ -5,6 +9,50 @@ export type {
   PaginationVariantMap,
 } from '@astryxdesign/core/Pagination';
 export { generatePageRange, Pagination } from '@astryxdesign/core/Pagination';
+
+export interface PaginationFooterProps extends PaginationProps {
+  pageSizeLabel?: string;
+}
+
+const PAGE_SIZE_SELECTOR_WIDTH = 80;
+
+export function PaginationFooter({
+  pageSizeOptions,
+  onPageSizeChange,
+  pageSize,
+  pageSizeLabel = 'Items per page',
+  size = 'md',
+  isDisabled,
+  ...paginationProps
+}: PaginationFooterProps) {
+  const { totalItems, totalPages } = paginationProps;
+  if ((totalItems != null && totalItems <= 0) || (totalPages != null && totalPages <= 0)) {
+    return null;
+  }
+
+  const hasPageSizes =
+    pageSizeOptions != null && pageSizeOptions.length > 0 && onPageSizeChange != null;
+
+  return (
+    <div className="flex items-center gap-4">
+      {hasPageSizes ? (
+        <Selector
+          label={pageSizeLabel}
+          isLabelHidden
+          placement="above"
+          width={PAGE_SIZE_SELECTOR_WIDTH}
+          size={size}
+          isDisabled={isDisabled}
+          options={pageSizeOptions.map(String)}
+          value={String(pageSize ?? pageSizeOptions[0])}
+          onChange={(next) => onPageSizeChange(Number(next))}
+        />
+      ) : null}
+      <Pagination {...paginationProps} pageSize={pageSize} size={size} isDisabled={isDisabled} />
+    </div>
+  );
+}
+PaginationFooter.displayName = 'PaginationFooter';
 
 export interface ShouldShowPaginationConfig {
   totalItems?: number | null;

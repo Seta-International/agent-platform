@@ -1,4 +1,4 @@
-import { Card, ChartLegend, EmptyState, Input, Pagination } from '@seta/shared-ui';
+import { Card, ChartLegend, EmptyState, Input, PaginationFooter } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Gauge } from 'lucide-react';
@@ -21,7 +21,8 @@ const PALETTE = [
   '#0891B2',
   '#DB2777',
 ] as const;
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [PAGE_SIZE, 25, 50, 100];
 
 function paletteColor(i: number): string {
   return PALETTE[i % PALETTE.length] ?? PALETTE[0];
@@ -44,6 +45,7 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const { data, isLoading, error } = useQuery<UtilizationByPerson>({
     queryKey: peopleKeys.allocationUtilization(crossProject),
@@ -88,9 +90,9 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
       : rows;
   }, [data, search]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pageCount);
-  const slice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const slice = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <Card className="space-y-3 p-4">
@@ -180,15 +182,24 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
               );
             })}
           </div>
-          <div className="flex items-center justify-between text-base text-secondary">
+          <div className="grid grid-cols-3 items-center text-base text-secondary">
             <span>{filtered.length} people</span>
-            <Pagination
-              page={safePage}
-              onChange={setPage}
-              totalItems={filtered.length}
-              pageSize={PAGE_SIZE}
-              variant="compact"
-            />
+            <div className="flex justify-center">
+              <PaginationFooter
+                page={safePage}
+                onChange={setPage}
+                totalItems={filtered.length}
+                pageSize={pageSize}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                onPageSizeChange={(ps) => {
+                  setPageSize(ps);
+                  setPage(1);
+                }}
+                variant="compact"
+                size="sm"
+                label="Utilization pages"
+              />
+            </div>
           </div>
         </>
       )}

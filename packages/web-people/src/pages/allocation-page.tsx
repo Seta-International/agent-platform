@@ -16,6 +16,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PaginationFooter,
   Popover,
   paginateData,
   pixel,
@@ -30,7 +31,6 @@ import {
   Typeahead,
   useTableColumnSettings,
   useTableColumnSettingsState,
-  useTablePagination,
   useTableSortable,
   useTableSortableState,
   VStack,
@@ -190,7 +190,8 @@ const ALLOCATION_COLUMN_OPTIONS: ColumnSettingsOption[] = [
 ];
 const DEFAULT_ALLOCATION_COLUMN_KEYS = ALLOCATION_COLUMN_OPTIONS.map((c) => c.key);
 
-const PAGE_SIZE_OPTIONS = [25, 50, 100];
+const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [PAGE_SIZE, 25, 50, 100];
 
 export function AllocationPage() {
   const navigate = useNavigate();
@@ -250,7 +251,7 @@ export function AllocationPage() {
   // Client-side pagination over the (server-)filtered rows.
   // Reset to page 1 on filter/sort change — old TanStack autoResetPageIndex parity (see candidates-page).
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   // biome-ignore lint/correctness/useExhaustiveDependencies: filters and sort are the intentional reset triggers, unread in the body.
   useEffect(() => {
     setPage(1);
@@ -388,18 +389,6 @@ export function AllocationPage() {
     () => paginateData(sortedData, page, pageSize),
     [sortedData, page, pageSize],
   );
-  const pagination = useTablePagination<AllocationRow>({
-    page,
-    onPageChange: setPage,
-    totalItems: sortedData.length,
-    pageSize,
-    onPageSizeChange: (ps) => {
-      setPageSize(ps);
-      setPage(1);
-    },
-    pageSizeOptions: PAGE_SIZE_OPTIONS,
-  });
-
   const columnSettingsState = useTableColumnSettingsState({
     columns: ALLOCATION_COLUMN_OPTIONS,
     activeColumnKeys,
@@ -742,7 +731,6 @@ export function AllocationPage() {
                     columns={columns}
                     density="compact"
                     plugins={{
-                      pagination,
                       sortable,
                       columnSettings,
                       rowStyling: {
@@ -773,6 +761,24 @@ export function AllocationPage() {
                     }
                   />
                 )}
+                {!isLoading && sortedData.length > 0 ? (
+                  <div className="flex justify-center">
+                    <PaginationFooter
+                      page={page}
+                      onChange={setPage}
+                      totalItems={sortedData.length}
+                      pageSize={pageSize}
+                      pageSizeOptions={PAGE_SIZE_OPTIONS}
+                      onPageSizeChange={(ps) => {
+                        setPageSize(ps);
+                        setPage(1);
+                      }}
+                      variant="compact"
+                      size="sm"
+                      label="Allocation pages"
+                    />
+                  </div>
+                ) : null}
                 <p className="text-xs text-secondary">
                   Solid red = that person is over 100% allocated that month.
                 </p>

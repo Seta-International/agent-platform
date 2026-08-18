@@ -713,20 +713,24 @@ export const reassignWorkerAllocationsInput = z.object({
   source: z.object({
     date_to: z.string(),
   }),
-  existing_edits: z
+  // FUT-881: in-place edits to existing allocations, batch-applied with any new targets in the
+  // same transaction as the confirm — no per-row partial save in the RA wizard.
+  updates: z
     .array(
       z.object({
         allocation_id: z.string().uuid(),
-        project_id: z.string().uuid(),
-        date_from: z.string(),
+        project_id: z.string().uuid().optional(),
+        planned_pct: z.number().min(0).max(100).optional(),
+        date_from: z.string().nullable().optional(),
         date_to: z.string().nullable().optional(),
-        planned_pct: z.number().min(0).max(100),
-        bucket: z.enum(['billable', 'internal', 'bench']).optional().default('billable'),
+        bucket: z.enum(['billable', 'internal', 'bench']).optional(),
         note: z.string().nullable().optional(),
-        expected_version: z.number().int().optional(),
+        expected_version: z.number().int().positive().optional(),
       }),
     )
-    .optional(),
+    .optional()
+    .default([]),
+  // Optional now: an edits-only batch (updates set, no new project rows) is a valid confirm.
   targets: z
     .array(
       z.object({
@@ -738,6 +742,7 @@ export const reassignWorkerAllocationsInput = z.object({
         note: z.string().nullable().optional(),
       }),
     )
-    .min(1),
+    .optional()
+    .default([]),
 });
 export type ReassignWorkerAllocationsInput = z.infer<typeof reassignWorkerAllocationsInput>;
