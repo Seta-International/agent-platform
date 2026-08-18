@@ -6,7 +6,7 @@
 // a DB/model; the integration lane injects the real implementations.
 
 import { ctxFromCase, ctxFromTurn, type TurnResult } from './ctx-from-case.ts';
-import { resolveMetricMode } from './metric-policy.ts';
+import { resolveMetricMode, resolveReadTools } from './metric-policy.ts';
 import { evaluatePolicy, type PolicyId, policyRegistry } from './policy/registry.ts';
 import type { ToolCall, Trajectory } from './policy/trajectory.ts';
 import type { RetrievalCaseResult } from './retrieval-runner.ts';
@@ -140,6 +140,12 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
   const manifest = buildRunManifest(params.manifest);
   const caseReports: CaseReport[] = [];
   const gateFailures: GoldenRunReport['gateFailures'] = [];
+  // Read tools are permitted without any case listing them: resolving a title to an
+  // id is plumbing, not the operation under test. Resolved once — the config is on
+  // disk, and this runs per turn.
+  const implicitlyAllowedTools = params.metricConfigUrl
+    ? resolveReadTools(params.metricConfigUrl)
+    : [];
 
   // Retrieval cases scored in one batch by the injected runner.
   const retrievalCases = params.cases.filter((c) => c.kind === 'retrieval');
@@ -194,7 +200,10 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         // must be compared against the uuid the builder actually minted.
         const scoringCase = run.resolvedCase ?? c;
         run.turns.forEach((result, index) => {
-          const outcome = evaluatePolicy(rawId, ctxFromTurn(scoringCase, index, result));
+          const outcome = evaluatePolicy(
+            rawId,
+            ctxFromTurn(scoringCase, index, result, implicitlyAllowedTools),
+          );
           for (const s of outcome.scorers) {
             const id = `turn${index + 1}:${s.id}`;
             scorers.push({ id, passed: s.outcome.passed, detail: s.outcome.detail });

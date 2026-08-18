@@ -171,11 +171,13 @@ function buildCtx(args: {
   expected: Expected;
   userText: string;
   result: TurnResult;
+  /** Tools permitted without any case listing them — see `resolveReadTools`. */
+  implicitlyAllowed?: string[];
 }): PolicyEvalContext {
   const t = args.expected.trajectory ?? {};
   const constraints = {
     requiredTools: t.requiredTools ?? [],
-    allowedTools: t.allowedTools ?? [],
+    allowedTools: [...(t.allowedTools ?? []), ...(args.implicitlyAllowed ?? [])],
     forbiddenTools: t.forbiddenTools ?? [],
     requiredPartialOrder: t.requiredPartialOrder ?? [],
     argPredicates: t.argPredicates ?? [],
@@ -212,6 +214,7 @@ export function ctxFromTurn(
   c: GoldenCase,
   turnIndex: number,
   result: TurnResult,
+  implicitlyAllowed: string[] = [],
 ): PolicyEvalContext {
   if (c.kind !== 'conversation') throw new Error(`ctxFromTurn: unsupported kind "${c.kind}"`);
   const turn = c.turns[turnIndex];
@@ -220,6 +223,7 @@ export function ctxFromTurn(
     expected: turn.expected,
     userText: 'user' in turn ? turn.user : '',
     result,
+    implicitlyAllowed,
   });
 }
 

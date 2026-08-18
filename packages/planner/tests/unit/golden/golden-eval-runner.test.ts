@@ -362,6 +362,75 @@ it('still forbids an undeclared tool on a turn that DID declare a trajectory', a
   );
 });
 
+// --- FUT-828: reading to resolve a reference is not an extraneous tool ------------
+
+// No case in the corpus declares `allowedTools` — 28 `requiredTools` declarations
+// across happy/injection/revision and not one allowlist — because resolving "Deploy
+// API" or "Tuấn" to an id is plumbing, not the operation under test. The read tools
+// are declared once, in eval.config.json's `readTools`, and that is what permits
+// them. `maxToolCalls` is what bounds how many times they may be called, and
+// `forbiddenTools` is what prohibits anything.
+//
+// This is the exact failure the first baseline run reported, five times over:
+// `MU-001 turn1:tool_selection: extraneous tool(s): planner_queryTasks` — on a case
+// that must resolve a task title before it can update it. `maxToolCalls: 3` against
+// one required tool is the case author saying reads were expected; the allowlist is
+// where that expectation went missing.
+const queryCall = {
+  agentId: 'planner.action',
+  toolName: 'planner_queryTasks',
+  args: { titleContains: 'Deploy API' },
+  ok: true,
+};
+
+it('permits a config-declared read tool the case did not list', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [applyCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () =>
+      ({
+        turns: [
+          { ...suspendTurn, trajectory: { toolCalls: [queryCall, createCall] } },
+          { ...appliedTurn, trajectory: { toolCalls: [createCall] } },
+        ],
+      }) as never,
+  });
+
+  const m1 = report.cases[0]!.policies.find((p) => p.id === 'M1');
+  const failed = m1?.scorers.filter((s) => !s.passed).map((s) => `${s.id}: ${s.detail}`);
+  expect(failed, 'resolving a title is plumbing, not a wrong operation').toEqual([]);
+  expect(m1?.verdict).toBe('pass');
+});
+
+it('still counts a read tool against the turn call budget', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [applyCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () =>
+      ({
+        turns: [
+          {
+            ...suspendTurn,
+            // Four calls against maxToolCalls: 3. Permitting reads must not mean
+            // they are free — the budget is what stops a model flailing.
+            trajectory: { toolCalls: [queryCall, queryCall, queryCall, createCall] },
+          },
+          { ...appliedTurn, trajectory: { toolCalls: [createCall] } },
+        ],
+      }) as never,
+  });
+
+  const m1 = report.cases[0]!.policies.find((p) => p.id === 'M1');
+  expect(m1?.verdict).toBe('fail');
+  expect(m1?.scorers.find((s) => s.id === 'turn1:trajectory_efficiency')?.detail).toContain(
+    '4 calls > 3',
+  );
+});
+
 it('keeps the turns a case DID complete when it broke mid-conversation', async () => {
   const report = await runGoldenEval({
     ...noopSeams,

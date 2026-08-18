@@ -23,6 +23,7 @@ interface MetricEntry {
 
 interface EvalConfig {
   metricPolicy?: Record<string, MetricEntry>;
+  readTools?: string[];
 }
 
 export const QUERY_CONFIG_URL = new URL(
@@ -77,4 +78,26 @@ export function resolveMetricThreshold(
   configUrl: URL = QUERY_CONFIG_URL,
 ): number {
   return entry(metricId, configUrl).threshold ?? 1;
+}
+
+const readToolsCache = new Map<string, string[]>();
+
+/**
+ * The agent's read-only tools, as its own eval.config.json declares them.
+ *
+ * Resolving "Deploy API" or "Tuấn" to an id is plumbing that nearly every case
+ * needs and that no case should have to re-list — the corpus declares 28
+ * `requiredTools` lists and not one `allowedTools`, which is the corpus saying so.
+ * `tool_selection` therefore permits these implicitly. The two mechanisms that still
+ * bite are the ones that mean something: `maxToolCalls` bounds how MANY calls a turn
+ * may make, and `forbiddenTools` prohibits a specific tool outright.
+ */
+export function resolveReadTools(configUrl: URL = QUERY_CONFIG_URL): string[] {
+  const key = configUrl.href;
+  const hit = readToolsCache.get(key);
+  if (hit) return hit;
+  const config = JSON.parse(readFileSync(configUrl, 'utf8')) as EvalConfig;
+  const tools = config.readTools ?? [];
+  readToolsCache.set(key, tools);
+  return tools;
 }
