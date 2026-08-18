@@ -31,3 +31,13 @@ threshold of 0.4.
 
 B1–B3 stay advisory this wave: a preview that is merely awkward must not block
 anything, and a preview that is *wrong* is already caught by M2.
+
+## What keeps this table true
+
+The lane is opt-in, so nothing here is verified by CI runs of the agent. What IS
+verified on every change is
+`packages/planner/tests/integration/golden/action-corpus-self-test.test.ts`: every
+metric in this table is a registered policy, resolves to `gate` mode, and is claimed
+by at least one case; M3/M4/M5/M7 still sit at 1.00; and no case has gone vacuous. If
+you add a metric here, add it there — an unclaimed metric reports nothing and looks
+like a pass.

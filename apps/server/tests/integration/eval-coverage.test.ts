@@ -12,7 +12,13 @@ const MANIFESTS: EvalManifest[] = [plannerEvalManifest];
 // Each entry MUST have a reason; Phase 2 (judge scorers) removes them.
 const KNOWN_UNCOVERED = new Map<string, string>([
   // e.g. ['planner.assignment-orchestrator', 'LLM-backed; judge coverage in Phase 2'],
-  ['planner.action', 'FUT-813 registers the A2 agent; its mutation corpus lands with FUT-807'],
+  [
+    'planner.action',
+    'A2 has a golden corpus (FUT-807: packages/planner/tests/integration/golden/action-lane.test.ts) ' +
+      'but it is deliberately NOT in plannerEvalManifest: the lane costs a model call per turn and is ' +
+      'opt-in behind RUN_ACTION_GOLDEN=1. Corpus integrity is gated instead by ' +
+      'action-corpus-self-test.test.ts, which runs on every change.',
+  ],
 ]);
 
 // This gate only sees specialists that composeRegistries() builds. DB-bound
