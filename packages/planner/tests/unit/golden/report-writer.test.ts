@@ -110,3 +110,77 @@ it('writes a JSON + MD artifact and returns their paths', () => {
   const md = readFileSync(mdPath, 'utf8');
   expect(md).toContain('extraneous tool(s): planner_getTask');
 });
+
+// --- FUT-827: conversation rendering -------------------------------------------
+
+const a2Manifest = {
+  agentVersion: 'planner-action',
+  promptVersion: 'a2-v1',
+  productionModelVersion: 'mock',
+  judgeModelVersion: 'mock',
+  harnessVersion: 'a2',
+  datasetVersion: 'v1',
+  seedChecksum: 'abc',
+  embeddingModelVersion: 'e1',
+  capturedAt: '2026-08-17T00:00:00.000Z',
+};
+
+it('renders a conversation case turn by turn', () => {
+  const md = renderGoldenReportMarkdown({
+    manifest: a2Manifest,
+    suite: 'smoke',
+    totalCases: 1,
+    gateFailed: false,
+    gateFailures: [],
+    cases: [
+      {
+        id: 'RV-008',
+        kind: 'conversation',
+        question: 'À thôi 19/8',
+        turns: [
+          {
+            index: 1,
+            answer: 'preview',
+            trajectory: [],
+            observed: { rowsChanged: 0, mismatches: [] },
+          },
+          {
+            index: 2,
+            answer: 'revised',
+            trajectory: [],
+            observed: { rowsChanged: 0, mismatches: [] },
+          },
+          {
+            index: 3,
+            answer: 'done',
+            trajectory: [],
+            observed: { rowsChanged: 1, mismatches: [] },
+          },
+        ],
+        policies: [{ id: 'M3', mode: 'gate', verdict: 'pass', scorers: [] }],
+      },
+    ],
+  });
+  expect(md).toContain('Turn 1');
+  expect(md).toContain('Turn 3');
+  expect(md).toContain('rowsChanged: 1');
+});
+
+it('marks a skipped case rather than showing it as a pass', () => {
+  const md = renderGoldenReportMarkdown({
+    manifest: a2Manifest,
+    suite: 'smoke',
+    totalCases: 1,
+    gateFailed: false,
+    gateFailures: [],
+    cases: [
+      {
+        id: 'RV-001',
+        kind: 'conversation',
+        skipped: 'no runConversation seam supplied',
+        policies: [],
+      },
+    ],
+  });
+  expect(md).toContain('skipped');
+});

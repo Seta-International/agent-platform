@@ -9,14 +9,21 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CaseReport, GoldenRunReport } from './golden-eval-runner.ts';
 
-function verdictOf(cr: CaseReport): 'pass' | 'fail' | 'error' | 'n/a' {
+function verdictOf(cr: CaseReport): 'pass' | 'fail' | 'error' | 'n/a' | 'skipped' {
+  if (cr.skipped) return 'skipped';
   if (cr.policies.length === 0) return 'n/a';
   if (cr.policies.some((p) => p.verdict === 'error')) return 'error';
   if (cr.policies.some((p) => p.verdict === 'fail')) return 'fail';
   return 'pass';
 }
 
-const ICON: Record<string, string> = { pass: '✅', fail: '❌', error: '💥', 'n/a': '➖' };
+const ICON: Record<string, string> = {
+  pass: '✅',
+  fail: '❌',
+  error: '💥',
+  'n/a': '➖',
+  skipped: '⏭️',
+};
 
 function renderCase(cr: CaseReport): string {
   const v = verdictOf(cr);
@@ -24,6 +31,23 @@ function renderCase(cr: CaseReport): string {
   lines.push(`### ${ICON[v]} ${cr.id} — ${v} (${cr.kind})`);
   if (cr.question) lines.push(`- **Question:** ${cr.question}`);
   if (cr.answer !== undefined) lines.push(`- **Answer:** ${cr.answer || '(empty)'}`);
+  if (cr.skipped) lines.push(`- **Skipped:** ${cr.skipped}`);
+
+  for (const turn of cr.turns ?? []) {
+    lines.push(`- **Turn ${turn.index}:** ${turn.answer || '(no text)'}`);
+    if (turn.observed) {
+      lines.push(
+        `  - rowsChanged: ${turn.observed.rowsChanged}` +
+          (turn.observed.changedKeys?.length ? ` (${turn.observed.changedKeys.join(', ')})` : '') +
+          (turn.observed.mismatches.length ? ` ⚠️ ${turn.observed.mismatches.join('; ')}` : ''),
+      );
+    }
+    for (const t of turn.trajectory) {
+      lines.push(
+        `  - \`${t.toolName}\`${t.ok ? '' : ' ⚠️error'} — args: \`${JSON.stringify(t.args)}\``,
+      );
+    }
+  }
 
   if (cr.trajectory?.length) {
     lines.push('- **Trajectory:**');
