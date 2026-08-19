@@ -7,6 +7,7 @@ import {
   personGroupKey,
   personSortKey,
   projectGroupKey,
+  projectGroupMetaMap,
 } from '../../src/pages/ra-grouping';
 
 function row(over: Partial<Parameters<typeof groupByPerson>[0][number]> = {}) {
@@ -211,5 +212,76 @@ describe('firstInProjectGroupIds (FUT-849)', () => {
     expect(ids.has('a2')).toBe(false); // second allocation for VERI-AD under w1
     expect(ids.has('a3')).toBe(true); // first allocation for Watchtower under w1
     expect(ids.has('b1')).toBe(true); // first allocation for VERI-AD under w2
+  });
+});
+
+describe('projectGroupMetaMap (FUT-921)', () => {
+  it('correctly computes group position, indices, totals, isFirst and isLast flags', () => {
+    const sorted = [
+      // 3 allocations for w1 on VERI-AD
+      row({ allocation_id: 'a1', worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD' }),
+      row({ allocation_id: 'a2', worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD' }),
+      row({ allocation_id: 'a3', worker_id: 'w1', account_name: 'VRI', project_name: 'VERI-AD' }),
+      // 1 single allocation for w1 on Watchtower
+      row({
+        allocation_id: 'a4',
+        worker_id: 'w1',
+        account_name: 'Aeris',
+        project_name: 'Watchtower',
+      }),
+      // 2 allocations for w2 on VERI-AD
+      row({ allocation_id: 'b1', worker_id: 'w2', account_name: 'VRI', project_name: 'VERI-AD' }),
+      row({ allocation_id: 'b2', worker_id: 'w2', account_name: 'VRI', project_name: 'VERI-AD' }),
+    ];
+
+    const map = projectGroupMetaMap(sorted);
+
+    // a1: first of 3
+    expect(map.get('a1')).toEqual({
+      indexInGroup: 0,
+      totalInGroup: 3,
+      isFirst: true,
+      isLast: false,
+    });
+
+    // a2: middle of 3
+    expect(map.get('a2')).toEqual({
+      indexInGroup: 1,
+      totalInGroup: 3,
+      isFirst: false,
+      isLast: false,
+    });
+
+    // a3: last of 3
+    expect(map.get('a3')).toEqual({
+      indexInGroup: 2,
+      totalInGroup: 3,
+      isFirst: false,
+      isLast: true,
+    });
+
+    // a4: single item group (both first and last)
+    expect(map.get('a4')).toEqual({
+      indexInGroup: 0,
+      totalInGroup: 1,
+      isFirst: true,
+      isLast: true,
+    });
+
+    // b1: first of 2
+    expect(map.get('b1')).toEqual({
+      indexInGroup: 0,
+      totalInGroup: 2,
+      isFirst: true,
+      isLast: false,
+    });
+
+    // b2: last of 2
+    expect(map.get('b2')).toEqual({
+      indexInGroup: 1,
+      totalInGroup: 2,
+      isFirst: false,
+      isLast: true,
+    });
   });
 });

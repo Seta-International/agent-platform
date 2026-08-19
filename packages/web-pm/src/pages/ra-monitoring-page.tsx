@@ -61,8 +61,8 @@ import {
 } from './ra-effort.ts';
 import {
   firstInGroupIds,
-  firstInProjectGroupIds,
   groupByPerson,
+  projectGroupMetaMap,
   SECONDARY_SORT_FIELDS,
 } from './ra-grouping.ts';
 import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';
@@ -426,7 +426,7 @@ export function RaMonitoringPage() {
     [allocations, secondaryField, secondaryDesc],
   );
   const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
-  const firstInProject = useMemo(() => firstInProjectGroupIds(groupedRows), [groupedRows]);
+  const projectMeta = useMemo(() => projectGroupMetaMap(groupedRows), [groupedRows]);
   const rowClassName = useCallback(
     (item: RaMonitoringAllocation) =>
       // Thin `dividers="rows"` lines (drawn on the cells) separate every allocation; a
@@ -563,7 +563,8 @@ export function RaMonitoringPage() {
         width: proportional(1.2, { minWidth: 150 }),
         sortable: true,
         renderCell: (r) => {
-          if (!firstInProject.has(r.allocation_id)) return null;
+          const meta = projectMeta.get(r.allocation_id);
+          if (meta && !meta.isFirst) return null;
           return <span className="text-secondary">{r.account_name}</span>;
         },
       },
@@ -575,7 +576,8 @@ export function RaMonitoringPage() {
         width: proportional(1.6, { minWidth: 190 }),
         sortable: true,
         renderCell: (r) => {
-          if (!firstInProject.has(r.allocation_id)) return null;
+          const meta = projectMeta.get(r.allocation_id);
+          if (meta && !meta.isFirst) return null;
           return <span className="text-primary">{r.project_name}</span>;
         },
       },
@@ -701,7 +703,7 @@ export function RaMonitoringPage() {
         },
       },
     ],
-    [firstInProject, overWorkers, openReassignGroup, win],
+    [projectMeta, overWorkers, openReassignGroup, win],
   );
 
   // The Scope card must reflect the current filter context (FUT-841): the
@@ -904,6 +906,40 @@ export function RaMonitoringPage() {
                         className: cn(props.htmlProps.className, rowClassName(item)),
                       },
                     }),
+                    transformBodyCell: (props, column, item) => {
+                      if (column.key === 'account' || column.key === 'project') {
+                        const meta = projectMeta.get(item.allocation_id);
+                        if (meta) {
+                          if (meta.isFirst) {
+                            if (meta.totalInGroup > 1) {
+                              return {
+                                ...props,
+                                htmlProps: {
+                                  ...props.htmlProps,
+                                  rowSpan: meta.totalInGroup,
+                                  style: {
+                                    ...props.htmlProps.style,
+                                    verticalAlign: 'middle',
+                                  },
+                                },
+                              };
+                            }
+                          } else {
+                            return {
+                              ...props,
+                              htmlProps: {
+                                ...props.htmlProps,
+                                style: {
+                                  ...props.htmlProps.style,
+                                  display: 'none',
+                                },
+                              },
+                            };
+                          }
+                        }
+                      }
+                      return props;
+                    },
                   },
                 }}
                 emptyState={

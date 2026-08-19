@@ -161,3 +161,47 @@ export function firstInProjectGroupIds<T extends GroupableRow>(sortedRows: T[]):
   }
   return ids;
 }
+
+export interface ProjectGroupMeta {
+  indexInGroup: number;
+  totalInGroup: number;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+/**
+ * Builds metadata for each allocation row within its project group
+ * (same person + same account + same project).
+ * Identifies position (first, middle, last), index, and total count in group.
+ */
+export function projectGroupMetaMap<T extends GroupableRow>(
+  sortedRows: T[],
+): Map<string, ProjectGroupMeta> {
+  const map = new Map<string, ProjectGroupMeta>();
+  let i = 0;
+  while (i < sortedRows.length) {
+    const firstRow = sortedRows[i];
+    if (!firstRow) break;
+    const start = i;
+    const currentKey = projectGroupKey(firstRow);
+    while (i < sortedRows.length) {
+      const nextRow = sortedRows[i];
+      if (!nextRow || projectGroupKey(nextRow) !== currentKey) break;
+      i++;
+    }
+    const end = i;
+    const totalInGroup = end - start;
+    for (let j = start; j < end; j++) {
+      const r = sortedRows[j];
+      if (r) {
+        map.set(r.allocation_id, {
+          indexInGroup: j - start,
+          totalInGroup,
+          isFirst: j === start,
+          isLast: j === end - 1,
+        });
+      }
+    }
+  }
+  return map;
+}
