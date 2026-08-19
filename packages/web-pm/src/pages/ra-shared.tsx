@@ -130,6 +130,10 @@ export function existingAllocationErrors(
       out[r.id] = TARGET_ERROR.pastStart;
       return;
     }
+    if (isValidIsoDate(r.date_from) && isValidIsoDate(r.date_to) && r.date_to < r.date_from) {
+      out[r.id] = TARGET_ERROR.invalidEndDate;
+      return;
+    }
     if (!isValidIsoDate(r.date_from)) {
       out[r.id] = null;
       return;

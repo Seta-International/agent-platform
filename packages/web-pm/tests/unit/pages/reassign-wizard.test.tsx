@@ -301,6 +301,8 @@ describe('ReassignWizardDialog', () => {
       await user.click(await screen.findByRole('option', { name: 'Aeris' }));
       await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
       await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+      await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+      await user.click(await screen.findByRole('option', { name: '1' }));
 
       await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
       return dialog;
@@ -676,6 +678,7 @@ describe('ReassignWizardDialog', () => {
 
     // Restoring a valid end date re-enables it.
     fireEvent.change(endDate, { target: { value: '2026-12-31' } });
+    fireEvent.blur(endDate);
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
 
     // Clearing start date gates the button without noisy inline text error.
@@ -683,6 +686,100 @@ describe('ReassignWizardDialog', () => {
     fireEvent.blur(startDate);
     expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
     expect(document.querySelector('p.text-error')).toBeNull();
+
+    // Restoring a valid start date re-enables it.
+    fireEvent.change(startDate, { target: { value: '2026-12-01' } });
+    fireEvent.blur(startDate);
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+  });
+
+  it('marks required columns with asterisks in existing allocations table', () => {
+    renderWizard([allocation({ date_to: '2026-12-23' })]);
+
+    const findHeaderWithAsterisk = (headerText: string) =>
+      screen.getAllByText(headerText).find((el) => el.parentElement?.textContent?.includes('*'));
+
+    expect(findHeaderWithAsterisk('Account')).toBeDefined();
+    expect(findHeaderWithAsterisk('Project')).toBeDefined();
+    expect(findHeaderWithAsterisk('Allocation')).toBeDefined();
+    expect(findHeaderWithAsterisk('Start date')).toBeDefined();
+    expect(findHeaderWithAsterisk('End date')).toBeDefined();
+  });
+
+  it('gates Review impact when an existing allocation date is cleared even if a valid new project is added', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_from: FUTURE_START, date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    // Add a valid new project allocation
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+    await user.click(screen.getByRole('combobox', { name: 'Allocation' }));
+    await user.click(await screen.findByRole('option', { name: '1' }));
+
+    // Both target and existing are valid -> Review impact is enabled
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+
+    // Now clear the End date on the existing allocation
+    const existingEndDate = screen.getByLabelText(/end date for/i) as HTMLInputElement;
+    fireEvent.change(existingEndDate, { target: { value: '' } });
+    fireEvent.blur(existingEndDate);
+
+    // Review impact MUST be disabled
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+
+    // Restoring a valid end date re-enables Review impact
+    fireEvent.change(existingEndDate, { target: { value: '2026-12-30' } });
+    fireEvent.blur(existingEndDate);
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+
+    // Clearing Start date on the existing allocation also disables Review impact
+    const existingStartDate = screen.getByLabelText(/start date for/i) as HTMLInputElement;
+    fireEvent.change(existingStartDate, { target: { value: '' } });
+    fireEvent.blur(existingStartDate);
+
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+
+    // Restoring Start date re-enables Review impact
+    fireEvent.change(existingStartDate, { target: { value: FUTURE_START } });
+    fireEvent.blur(existingStartDate);
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+  });
+
+  it('gates Review impact when only editing an existing allocation and its end date is cleared', () => {
+    renderWizard([allocation({ date_to: '2026-12-23' })]);
+
+    // Initial state: no changes yet -> disabled
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+
+    // Clear the existing allocation's end date
+    const existingEndDate = screen.getByLabelText(/end date for/i) as HTMLInputElement;
+    fireEvent.change(existingEndDate, { target: { value: '' } });
+    fireEvent.blur(existingEndDate);
+
+    // Still disabled because end date is required
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+
+    // Set a valid end date that is different from original -> enables
+    fireEvent.change(existingEndDate, { target: { value: '2026-12-30' } });
+    fireEvent.blur(existingEndDate);
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
   });
 
   // Astryx's DateInput enforces `min` on typed input as well as in the picker: a date

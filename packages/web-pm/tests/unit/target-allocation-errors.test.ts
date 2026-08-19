@@ -110,11 +110,14 @@ describe('existingAllocationErrors', () => {
     });
   });
 
-  it('does not flag distinct projects or non-overlapping ranges', () => {
-    const rows = [
-      eRow({ id: 'a1', project_id: 'p1', date_from: '2026-08-01', date_to: '2026-09-01' }),
-      eRow({ id: 'a2', project_id: 'p2', date_from: '2026-08-15', date_to: '2026-10-01' }),
-    ];
-    expect(existingAllocationErrors(rows, TODAY)).toEqual({ a1: null, a2: null });
+  it('flags an editable row whose end date is before start date', () => {
+    expect(
+      existingAllocationErrors([eRow({ date_from: '2026-08-10', date_to: '2026-08-01' })], TODAY),
+    ).toEqual({ a1: TARGET_ERROR.invalidEndDate });
+  });
+
+  it('does not emit inline error for missing start or end date on existing row', () => {
+    expect(existingAllocationErrors([eRow({ date_from: '' })], TODAY)).toEqual({ a1: null });
+    expect(existingAllocationErrors([eRow({ date_to: '' })], TODAY)).toEqual({ a1: null });
   });
 });
