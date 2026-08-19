@@ -239,7 +239,8 @@ export function RequisitionsPage() {
   const columnSettingsState = useTableColumnSettingsState({
     columns: REQ_COLUMN_OPTIONS,
     activeColumnKeys,
-    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+    onChangeActiveColumnKeys: (keys) =>
+      setActiveColumnKeys(DEFAULT_REQ_COLUMN_KEYS.filter((k) => keys.includes(k))),
   });
   const columnSettings = useTableColumnSettings<Row>(columnSettingsState.columnSettingsConfig);
 

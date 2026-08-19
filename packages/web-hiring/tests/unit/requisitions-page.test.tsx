@@ -317,6 +317,29 @@ describe('RequisitionsPage', () => {
     expect(within(table).queryByRole('columnheader', { name: /account/i })).not.toBeInTheDocument();
   });
 
+  it('restores re-enabled columns to their default position', async () => {
+    const { user, table } = await renderListView(twoRows);
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Grade' }));
+    expect(headerNames()).not.toContain('Account');
+    expect(headerNames()).not.toContain('Grade');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Grade' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+
+    const headers = headerNames();
+    expect(headers.indexOf('Position')).toBeLessThan(headers.indexOf('Account'));
+    expect(headers.indexOf('Account')).toBeLessThan(headers.indexOf('Project'));
+    expect(headers.indexOf('Project')).toBeLessThan(headers.indexOf('Grade'));
+    expect(headers.indexOf('Grade')).toBeLessThan(headers.indexOf('Type'));
+  });
+
   it('clicking a row navigates to the requisition detail', async () => {
     const { user, table } = await renderListView([row()]);
     // The Position cell wraps its text in a Tooltip, which mirrors the label into an
