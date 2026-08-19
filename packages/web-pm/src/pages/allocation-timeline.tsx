@@ -179,12 +179,12 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
             const dot = row.hasError
               ? 'bg-error'
               : isRestricted
-                ? 'bg-amber-vivid'
+                ? 'bg-warning'
                 : ROW_DOT_CLASSES[row.projectIndex % ROW_DOT_CLASSES.length];
             const bar = row.hasError
               ? 'bg-error-muted text-error font-semibold'
               : isRestricted
-                ? 'bg-amber-subtle text-amber-vivid border border-dashed border-amber-strong'
+                ? 'bg-warning-muted text-warning border border-dashed border-warning'
                 : ROW_BAR_CLASSES[row.projectIndex % ROW_BAR_CLASSES.length];
 
             return (

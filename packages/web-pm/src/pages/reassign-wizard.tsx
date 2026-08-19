@@ -120,6 +120,7 @@ export function ReassignWizardDialog({
   // out of RA Monitoring's active window on Confirm. Warn once before previewing (nothing is
   // persisted yet); confirming the warning just proceeds to the normal Review → Confirm flow.
   const [confirmPastEnd, setConfirmPastEnd] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   // Locally reflects a row already saved directly on this screen, so it shows
   // the new values immediately without waiting on the parent's allocations
   // query to refetch.
@@ -163,10 +164,56 @@ export function ReassignWizardDialog({
       setPreview(null);
       setConfirmTarget(null);
       setConfirmPastEnd(false);
+      setConfirmDiscard(false);
       setSavedOverrides({});
       setRowDrafts({});
     }
   }
+
+  const isDirty = useMemo(() => {
+    if (step === 2) return true;
+    if (Object.keys(rowDrafts).length > 0) return true;
+    if (Object.keys(savedOverrides).length > 0) return true;
+
+    const seedProject = target?.seed_project_id
+      ? projects.find((p) => p.project_id === target.seed_project_id)
+      : undefined;
+    const seedRow = seedProject
+      ? { account_id: seedProject.account_id, project_id: seedProject.project_id }
+      : target?.seed_account_id
+        ? { account_id: target.seed_account_id, project_id: '' }
+        : null;
+
+    if (!seedRow) {
+      return targetRows.length > 0;
+    }
+
+    if (targetRows.length !== 1) return true;
+    const first = targetRows[0];
+    if (!first) return false;
+    if (first.planned_pct !== '') return true;
+    if (first.date_to !== todayIso()) return true;
+    if (first.date_from !== todayIso()) return true;
+    if (first.note.trim() !== '') return true;
+    if (first.bucket !== 'billable') return true;
+    if (!seedProject && first.project_id !== '') return true;
+    if (target?.seed_account_id && first.account_id !== target.seed_account_id) return true;
+
+    return false;
+  }, [step, rowDrafts, savedOverrides, target, projects, targetRows]);
+
+  const requestClose = () => {
+    if (isDirty) {
+      setConfirmDiscard(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleDiscard = () => {
+    setConfirmDiscard(false);
+    onClose();
+  };
 
   // Only future allocations (not yet ended) can be reassigned — a row whose
   // whole period is already in the past is history, not something to move.
@@ -504,7 +551,7 @@ export function ReassignWizardDialog({
       <Dialog
         isOpen={target !== null}
         onOpenChange={(open) => {
-          if (!open) onClose();
+          if (!open) requestClose();
         }}
         width={1200}
         maxHeight="90vh"
@@ -515,7 +562,7 @@ export function ReassignWizardDialog({
             <DialogHeader
               title={target?.worker_name ?? 'Employee'}
               onOpenChange={(open) => {
-                if (!open) onClose();
+                if (!open) requestClose();
               }}
             />
           }
@@ -601,14 +648,7 @@ export function ReassignWizardDialog({
                                   isLabelHidden
                                   searchSource={accountSource}
                                   debounceMs={0}
-                                  // No hasEntriesOnFocus here: this is the first tabbable field in the
-                                  // Dialog, and the native <dialog> element's own showModal()-driven
-                                  // auto-focus behavior (HTML living standard, not a Radix-specific
-                                  // quirk) can land on it — combined with hasEntriesOnFocus that would
-                                  // silently pop its dropdown open the instant the wizard appears
-                                  // (confirmed via focusin firing synchronously during the Dialog's
-                                  // mount commit). The "Add project" rows below don't exist at mount
-                                  // time, so they're unaffected and keep it.
+                                  hasEntriesOnFocus
                                   value={
                                     accountOptions.find((o) => o.id === draft.account_id) ?? null
                                   }
@@ -633,6 +673,7 @@ export function ReassignWizardDialog({
                                   isLabelHidden
                                   searchSource={rowProjectSource}
                                   debounceMs={0}
+                                  hasEntriesOnFocus
                                   value={
                                     rowProjectItems.find((o) => o.id === draft.project_id) ?? null
                                   }
@@ -896,7 +937,7 @@ export function ReassignWizardDialog({
             <DialogFooter>
               {step === 1 ? (
                 <>
-                  <Button variant="ghost" label="Cancel" onClick={onClose} />
+                  <Button variant="ghost" label="Cancel" onClick={requestClose} />
                   <DisabledActionTooltip disabled={!canReview} reason={reviewDisabledReason}>
                     <Button
                       variant="primary"
@@ -924,6 +965,19 @@ export function ReassignWizardDialog({
       </Dialog>
 
       <AlertDialog
+        isOpen={confirmDiscard}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setConfirmDiscard(false);
+        }}
+        title="Discard unsaved changes?"
+        description="You have unsaved allocation changes. If you leave, your changes will be lost."
+        cancelLabel="Keep editing"
+        actionLabel="Discard"
+        actionVariant="destructive"
+        onAction={handleDiscard}
+      />
+
+      <AlertDialog
         isOpen={confirmTarget !== null}
         onOpenChange={(isOpen) => {
           if (!isOpen) setConfirmTarget(null);
@@ -937,6 +991,7 @@ export function ReassignWizardDialog({
             : ''
         }
         actionLabel="Remove"
+        actionVariant="destructive"
         isActionLoading={removeMutation.isPending}
         onAction={() => {
           if (confirmTarget) removeMutation.mutate(confirmTarget.allocation_id);

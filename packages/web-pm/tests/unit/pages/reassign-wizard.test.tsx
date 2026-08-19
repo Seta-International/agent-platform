@@ -574,6 +574,66 @@ describe('ReassignWizardDialog', () => {
     );
   });
 
+  it('FUT-889: Account and Project dropdowns display suggestions on click after clearing value', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [
+        { id: 'acc1', label: 'Aeris' },
+        { id: 'acc2', label: 'Veritone' },
+      ],
+      [
+        {
+          project_id: 'p1',
+          account_id: 'acc1',
+          name: 'Aeris - Watchtower',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    // Initial state has "Aeris" token in Account
+    expect(screen.getByText('Aeris')).toBeInTheDocument();
+
+    const dialog = screen.getByRole('dialog');
+
+    // Clear the Account field using its clear button (X)
+    const clearAccountBtn = within(dialog).getAllByRole('button', { name: /clear selection/i })[0]!;
+    await user.click(clearAccountBtn);
+
+    // Click into the empty Account field
+    const accountInput = within(dialog).getByLabelText(/account for/i);
+    await user.click(accountInput);
+
+    // Dropdown suggestions should appear immediately without typing
+    expect(await screen.findByRole('option', { name: 'Aeris' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Veritone' })).toBeInTheDocument();
+
+    // Select "Aeris"
+    await user.click(screen.getByRole('option', { name: 'Aeris' }));
+
+    // Now test Project field: clear project and click into empty field
+    const clearProjectBtn = within(dialog).getByRole('button', { name: /clear selection/i });
+    await user.click(clearProjectBtn);
+
+    const projectInput = within(dialog).getByLabelText(/project for/i);
+    await user.click(projectInput);
+    expect(await screen.findByRole('option', { name: 'Aeris - Watchtower' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Aeris - Finch Mobile' })).toBeInTheDocument();
+  });
+
   it('removes the last remaining new allocation row, collapsing the table back to none', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ date_to: '2026-12-23' })], [{ id: 'acc1', label: 'Aeris' }]);
@@ -1256,5 +1316,139 @@ describe('ReassignWizardDialog', () => {
     // The old format "Motion Global (200%)" must NOT appear — it wrongly attributed
     // 200% to a single project instead of the employee's combined workload.
     expect(screen.queryByText(/Motion Global \(200%\)/)).not.toBeInTheDocument();
+  });
+
+  describe('discard confirmation dialog (FUT-881)', () => {
+    const testProjects: ProjectListRow[] = [
+      {
+        project_id: 'p1',
+        account_id: 'acc1',
+        name: 'Aeris - Watchtower',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+      {
+        project_id: 'p2',
+        account_id: 'acc1',
+        name: 'Aeris - Finch Mobile',
+        phase: 'build',
+        status: 'active',
+        pm_worker_id: null,
+        can_manage: true,
+      },
+    ];
+
+    it('closes directly when Cancel is clicked without any unsaved changes', async () => {
+      const user = userEvent.setup({ delay: null });
+      const onClose = vi.fn();
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <ReassignWizardDialog
+            target={{ worker_id: 'w1', worker_name: 'An Đình Luận', worker_title: 'Developer' }}
+            allocations={[allocation({ date_to: '2026-12-23' })]}
+            accountOptions={[]}
+            projects={[]}
+            onClose={onClose}
+            onReassigned={() => {}}
+          />
+        </QueryClientProvider>,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows discard confirmation prompt when Cancel is clicked with unsaved existing row edits', async () => {
+      const user = userEvent.setup({ delay: null });
+      const onClose = vi.fn();
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <ReassignWizardDialog
+            target={{ worker_id: 'w1', worker_name: 'An Đình Luận', worker_title: 'Developer' }}
+            allocations={[allocation({ date_to: '2026-12-23' })]}
+            accountOptions={[]}
+            projects={[]}
+            onClose={onClose}
+            onReassigned={() => {}}
+          />
+        </QueryClientProvider>,
+      );
+
+      // Edit note on existing row
+      const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
+      await user.type(noteInput, 'Unsaved notes');
+
+      // Click Cancel
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      // Prompt appears and onClose has NOT been called yet
+      const alert = await screen.findByRole('alertdialog');
+      expect(within(alert).getByText('Discard unsaved changes?')).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+
+      // Click "Keep editing"
+      await user.click(within(alert).getByRole('button', { name: 'Keep editing' }));
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+
+      // Click Cancel again and click "Discard"
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      const alertAgain = await screen.findByRole('alertdialog');
+      await user.click(within(alertAgain).getByRole('button', { name: 'Discard' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows discard confirmation when closing from Review impact step', async () => {
+      const user = userEvent.setup({ delay: null });
+      const onClose = vi.fn();
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <ReassignWizardDialog
+            target={{ worker_id: 'w1', worker_name: 'An Đình Luận', worker_title: 'Developer' }}
+            allocations={[allocation({ date_to: '2026-12-23' })]}
+            accountOptions={[{ id: 'acc1', label: 'Aeris' }]}
+            projects={testProjects}
+            onClose={onClose}
+            onReassigned={() => {}}
+          />
+        </QueryClientProvider>,
+      );
+
+      const dialog = screen.getByRole('dialog');
+
+      // Add a new project row and go to Review
+      await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+      await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+      await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+      await user.click(within(dialog).getByRole('combobox', { name: 'Project' }));
+      await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+      await user.click(within(dialog).getByRole('combobox', { name: 'Allocation' }));
+      await user.click(await screen.findByRole('option', { name: '1' }));
+
+      await user.click(within(dialog).getByRole('button', { name: 'Review impact' }));
+      expect(await within(dialog).findByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+
+      // Click Close (X) button on DialogHeader
+      const closeBtn = within(dialog).getByRole('button', { name: /^Close$/ });
+      await user.click(closeBtn);
+
+      const alert = await screen.findByRole('alertdialog');
+      expect(within(alert).getByText('Discard unsaved changes?')).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+
+      // Confirm Discard
+      await user.click(within(alert).getByRole('button', { name: 'Discard' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
   });
 });
