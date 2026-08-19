@@ -247,6 +247,33 @@ describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
     expect(screen.queryByText('Alpha Inc')).not.toBeInTheDocument();
   });
 
+  it('restores re-enabled columns to their default position', async () => {
+    const user = userEvent.setup();
+    fetchAllocationsMock.mockResolvedValue(allocations);
+    renderTableHarness();
+
+    const table = await screen.findByRole('table');
+    const headerNames = () =>
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Start' }));
+    expect(headerNames()).not.toContain('Account');
+    expect(headerNames()).not.toContain('Start');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Start' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+
+    const headers = headerNames();
+    expect(headers.indexOf('Account')).toBeLessThan(headers.indexOf('Project'));
+    expect(headers.indexOf('Project')).toBeLessThan(headers.indexOf('Allocation'));
+    expect(headers.indexOf('Allocation')).toBeLessThan(headers.indexOf('Start'));
+    expect(headers.indexOf('Start')).toBeLessThan(headers.indexOf('End'));
+  });
+
   it('paginates client-side at 25/page (default pagination, previously undiscovered)', async () => {
     const user = userEvent.setup();
     // Astryx's pagination plugin doesn't render the nav at all for a single
