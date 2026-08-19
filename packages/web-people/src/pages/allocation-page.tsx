@@ -38,7 +38,7 @@ import {
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { BarChart3, Building2, Download, Settings2, User, X } from 'lucide-react';
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type AllocationBucket,
   type AllocationGrid,
@@ -207,15 +207,30 @@ export function AllocationPage() {
 
   // Text input is local for responsiveness; its committed value is debounced into the URL.
   const [searchInput, setSearchInput] = useState(raw.q ?? '');
+  const [isComposing, setIsComposing] = useState(false);
+  const lastCommittedQ = useRef(raw.q);
+
+  // Sync external URL changes into local searchInput (e.g. navigation, reset, back/forward).
+  // Do not overwrite while user is actively composing with IME or typing whitespace.
   useEffect(() => {
-    setSearchInput(raw.q ?? '');
-  }, [raw.q]);
+    if (isComposing) return;
+    if (raw.q !== lastCommittedQ.current) {
+      lastCommittedQ.current = raw.q;
+      setSearchInput(raw.q ?? '');
+    }
+  }, [raw.q, isComposing]);
+
   useEffect(() => {
-    const next = searchInput.trim();
-    if (next === (raw.q ?? '')) return;
-    const t = setTimeout(() => setSearch({ q: next || undefined }), 250);
+    if (isComposing) return;
+    const trimmed = searchInput.trim();
+    const next = trimmed || undefined;
+    if (next === (raw.q ?? undefined)) return;
+    const t = setTimeout(() => {
+      lastCommittedQ.current = next;
+      setSearch({ q: next });
+    }, 250);
     return () => clearTimeout(t);
-  }, [searchInput, raw.q, setSearch]);
+  }, [searchInput, raw.q, isComposing, setSearch]);
 
   const filters = useMemo<AllocationGridFilters>(
     () => ({
@@ -581,7 +596,19 @@ export function AllocationPage() {
                         size="sm"
                         placeholder="Search name or employee ID…"
                         value={searchInput}
-                        onChange={(value) => setSearchInput(value)}
+                        onChange={(value) => {
+                          setSearchInput(value);
+                          if (value === '') {
+                            lastCommittedQ.current = undefined;
+                            setSearch({ q: undefined });
+                          }
+                        }}
+                        onCompositionStart={() => setIsComposing(true)}
+                        onCompositionEnd={(e) => {
+                          setIsComposing(false);
+                          const val = (e.currentTarget as HTMLInputElement).value;
+                          setSearchInput(val);
+                        }}
                       />
                       <span className="hidden text-disabled select-none sm:inline">|</span>
                       {activeFiltersCount > 0 && (
@@ -590,6 +617,7 @@ export function AllocationPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
+                            lastCommittedQ.current = undefined;
                             setSearchInput('');
                             setSearch({
                               q: undefined,

@@ -1,12 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AllocationPage } from '../../../src/pages/allocation-page.tsx';
 
+let mockSearch: Record<string, unknown> = {};
+let forceRerender: () => void = () => {};
+
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
-  useSearch: () => ({}),
+  useNavigate: () => (opts: { search: Record<string, unknown> }) => {
+    mockSearch = opts.search;
+    forceRerender();
+  },
+  useSearch: () => mockSearch,
 }));
 
 const mockFetchAllocationGrid = vi.fn();
@@ -44,11 +51,17 @@ const baseGrid = {
   effort_by_account: [{ account_id: 'a1', account_name: 'Acme', total_mm: 15 }],
 };
 
+function Harness() {
+  const [, setTick] = useState(0);
+  forceRerender = () => setTick((t) => t + 1);
+  return <AllocationPage />;
+}
+
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <AllocationPage />
+      <Harness />
     </QueryClientProvider>,
   );
 }
@@ -277,5 +290,70 @@ describe('AllocationPage — breadcrumb trail (Astryx migration, FUT-668)', () =
     expect(
       screen.getByRole('heading', { level: 1, name: 'Resource Allocation' }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('AllocationPage — search input space and typing UX', () => {
+  it('preserves spaces when typing multi-word queries into the search bar', async () => {
+    mockSearch = {};
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('table');
+    const searchInput = screen.getAllByPlaceholderText('Search name or employee ID…')[0];
+
+    // Type first word
+    userEvent.setup();
+    searchInput.focus();
+    fireEvent.change(searchInput, { target: { value: 'Ada' } });
+    expect(searchInput).toHaveValue('Ada');
+
+    // Wait for debounce to trigger navigation
+    await waitFor(() => expect(mockSearch.q).toBe('Ada'));
+
+    // Type space
+    fireEvent.change(searchInput, { target: { value: 'Ada ' } });
+    expect(searchInput).toHaveValue('Ada ');
+
+    // Type second word
+    fireEvent.change(searchInput, { target: { value: 'Ada Lovelace' } });
+    expect(searchInput).toHaveValue('Ada Lovelace');
+
+    await waitFor(() => expect(mockSearch.q).toBe('Ada Lovelace'));
+  });
+
+  it('instantly clears search query when search field is emptied', async () => {
+    mockSearch = { q: 'Ada' };
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('table');
+    const searchInput = screen.getAllByPlaceholderText('Search name or employee ID…')[0];
+    expect(searchInput).toHaveValue('Ada');
+
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(searchInput).toHaveValue('');
+    expect(mockSearch.q).toBeUndefined();
+  });
+
+  it('suspends search commit during IME composition and commits finalized text on composition end', async () => {
+    mockSearch = {};
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('table');
+    const searchInput = screen.getAllByPlaceholderText('Search name or employee ID…')[0];
+
+    fireEvent.compositionStart(searchInput);
+    fireEvent.change(searchInput, { target: { value: 'Nguyee' } });
+
+    expect(mockSearch.q).toBeUndefined();
+
+    fireEvent.change(searchInput, { target: { value: 'Nguyễn' } });
+    fireEvent.compositionEnd(searchInput, {
+      currentTarget: { value: 'Nguyễn' },
+    } as unknown as React.CompositionEvent<HTMLInputElement>);
+
+    await waitFor(() => expect(mockSearch.q).toBe('Nguyễn'));
   });
 });

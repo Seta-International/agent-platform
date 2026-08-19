@@ -14,7 +14,7 @@ import {
   type LucideIcon,
   Settings2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type CharterListQuery,
   type CharterListRow,
@@ -272,25 +272,40 @@ export function RequestsPage() {
   const dir = search.dir ?? 'desc';
   const page = search.page ?? 1;
 
-  const update = (patch: Partial<RequestsSearch>, resetPage = true) => {
-    const next: Partial<RequestsSearch> = { ...search, ...patch };
-    if (resetPage && !('page' in patch)) next.page = 1;
-    void navigate({ to: '/pm/requests', search: next, replace: true });
-  };
+  const update = useCallback(
+    (patch: Partial<RequestsSearch>, resetPage = true) => {
+      const next: Partial<RequestsSearch> = { ...search, ...patch };
+      if (resetPage && !('page' in patch)) next.page = 1;
+      void navigate({ to: '/pm/requests', search: next, replace: true });
+    },
+    [navigate, search],
+  );
 
   // Debounced free-text search synced to the URL.
   const [searchInput, setSearchInput] = useState(q ?? '');
+  const [isComposing, setIsComposing] = useState(false);
+  const lastCommittedQ = useRef(q);
+
+  // Sync external URL changes into local searchInput (e.g. back/forward, external filter reset)
   useEffect(() => {
-    setSearchInput(q ?? '');
-  }, [q]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: debounce fires on searchInput only; q/update are read fresh each tick by design
+    if (isComposing) return;
+    if (q !== lastCommittedQ.current) {
+      lastCommittedQ.current = q;
+      setSearchInput(q ?? '');
+    }
+  }, [q, isComposing]);
+
   useEffect(() => {
+    if (isComposing) return;
+    const trimmed = searchInput.trim();
+    const nextQ = trimmed || undefined;
+    if (nextQ === (q ?? undefined)) return;
     const id = setTimeout(() => {
-      const trimmed = searchInput.trim();
-      if ((q ?? '') !== trimmed) update({ q: trimmed || undefined });
-    }, 300);
+      lastCommittedQ.current = nextQ;
+      update({ q: nextQ });
+    }, 250);
     return () => clearTimeout(id);
-  }, [searchInput]);
+  }, [searchInput, q, isComposing, update]);
 
   const params: CharterListQuery = {
     status,
@@ -548,7 +563,19 @@ export function RequestsPage() {
                 label="Search project name"
                 isLabelHidden
                 value={searchInput}
-                onChange={(value) => setSearchInput(value)}
+                onChange={(value) => {
+                  setSearchInput(value);
+                  if (value === '') {
+                    lastCommittedQ.current = undefined;
+                    update({ q: undefined });
+                  }
+                }}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={(e) => {
+                  setIsComposing(false);
+                  const val = (e.currentTarget as HTMLInputElement).value;
+                  setSearchInput(val);
+                }}
                 placeholder="Search project name…"
                 className="w-[220px]"
               />

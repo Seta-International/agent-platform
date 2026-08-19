@@ -753,3 +753,70 @@ describe('RaMonitoringPage — active date range guard', () => {
     await waitFor(() => expect(latestSearch.to).toBe('2026-10-15'));
   });
 });
+
+describe('RaMonitoringPage — search input space and typing UX', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  it('preserves spaces while typing multi-word search query', async () => {
+    renderTableHarness();
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search person, project' });
+
+    // Type first word
+    fireEvent.change(searchInput, { target: { value: 'Jane' } });
+    expect(searchInput).toHaveValue('Jane');
+
+    // Debounce triggers and updates URL
+    await waitFor(() => expect(latestSearch.q).toBe('Jane'));
+
+    // Type space
+    fireEvent.change(searchInput, { target: { value: 'Jane ' } });
+    expect(searchInput).toHaveValue('Jane ');
+
+    // Type second word
+    fireEvent.change(searchInput, { target: { value: 'Jane Doe' } });
+    expect(searchInput).toHaveValue('Jane Doe');
+
+    // Debounce updates URL with full multi-word query
+    await waitFor(() => expect(latestSearch.q).toBe('Jane Doe'));
+  });
+
+  it('immediately clears search param when input is erased', async () => {
+    latestSearch = { q: 'Jane' };
+    renderTableHarness();
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search person, project' });
+    expect(searchInput).toHaveValue('Jane');
+
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(searchInput).toHaveValue('');
+    expect(latestSearch.q).toBeUndefined();
+  });
+
+  it('suspends URL sync during IME composition and applies finalized text on composition end', async () => {
+    renderTableHarness();
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search person, project' });
+
+    // Start IME composition (e.g. Vietnamese Telex)
+    fireEvent.compositionStart(searchInput);
+    fireEvent.change(searchInput, { target: { value: 'Nguyee' } });
+
+    // Wait a moment; URL should not update mid-composition
+    expect(latestSearch.q).toBeUndefined();
+
+    // Finish composition with final character
+    fireEvent.change(searchInput, { target: { value: 'Nguyễn' } });
+    fireEvent.compositionEnd(searchInput, {
+      currentTarget: { value: 'Nguyễn' },
+    } as unknown as React.CompositionEvent<HTMLInputElement>);
+
+    // Now debounce settles and updates URL
+    await waitFor(() => expect(latestSearch.q).toBe('Nguyễn'));
+  });
+});
