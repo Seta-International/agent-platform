@@ -309,7 +309,7 @@ describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
     expect(screen.queryByText('Worker 00')).not.toBeInTheDocument();
   });
 
-  it('groups multiple allocation periods for the same project under the same worker and renders Account/Project only once (FUT-849)', async () => {
+  it('groups multiple allocation periods for the same project under the same worker with merged-cell rowSpan (FUT-921)', async () => {
     const multiPeriodAllocations = [
       {
         allocation_id: 'a1',
@@ -353,9 +353,14 @@ describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
     expect(screen.getByText('03 Aug 2026')).toBeInTheDocument();
     expect(screen.getByText('01 Sep 2026')).toBeInTheDocument();
 
-    // Account and Project name appear only once in the table body (grouped on first row)
+    // Account and Project name appear in the merged cell (rowSpan=2, vertically centered)
     expect(screen.getAllByText('VRI')).toHaveLength(1);
     expect(screen.getAllByText('VERI-AD')).toHaveLength(1);
+
+    const projectCell = screen.getByText('VERI-AD').closest('td');
+    expect(projectCell).toHaveAttribute('rowspan', '2');
+    const accountCell = screen.getByText('VRI').closest('td');
+    expect(accountCell).toHaveAttribute('rowspan', '2');
   });
 });
 
