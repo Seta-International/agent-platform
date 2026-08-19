@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, Building2, FolderKanban, Info, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   type ProjectListRow,
   previewReassignWorkerAllocations,
@@ -179,34 +179,40 @@ export function ReassignWizardDialog({
     [allocations],
   );
 
-  function effectiveRow(a: RaMonitoringAllocation) {
-    const override = savedOverrides[a.allocation_id];
-    return {
-      account_id: override?.account_id ?? a.account_id,
-      project_id: override?.project_id ?? a.project_id,
-      planned_pct: override?.planned_pct ?? a.planned_pct ?? 0,
-      date_from: override?.date_from ?? a.date_from,
-      date_to: override?.date_to ?? a.date_to,
-      bucket: override?.bucket ?? a.bucket,
-      note: override?.note ?? a.note,
-    };
-  }
+  const effectiveRow = useCallback(
+    (a: RaMonitoringAllocation) => {
+      const override = savedOverrides[a.allocation_id];
+      return {
+        account_id: override?.account_id ?? a.account_id,
+        project_id: override?.project_id ?? a.project_id,
+        planned_pct: override?.planned_pct ?? a.planned_pct ?? 0,
+        date_from: override?.date_from ?? a.date_from,
+        date_to: override?.date_to ?? a.date_to,
+        bucket: override?.bucket ?? a.bucket,
+        note: override?.note ?? a.note,
+      };
+    },
+    [savedOverrides],
+  );
 
-  function draftFor(a: RaMonitoringAllocation): RowDraft {
-    const existing = rowDrafts[a.allocation_id];
-    if (existing) return existing;
-    const effective = effectiveRow(a);
-    return {
-      account_id: effective.account_id,
-      project_id: effective.project_id,
-      // Held as a 0–1 fraction in the draft; converted back to a percentage on save.
-      planned_pct: pctToFraction(effective.planned_pct),
-      date_from: effective.date_from ?? '',
-      date_to: effective.date_to ?? '',
-      bucket: effective.bucket,
-      note: effective.note ?? '',
-    };
-  }
+  const draftFor = useCallback(
+    (a: RaMonitoringAllocation): RowDraft => {
+      const existing = rowDrafts[a.allocation_id];
+      if (existing) return existing;
+      const effective = effectiveRow(a);
+      return {
+        account_id: effective.account_id,
+        project_id: effective.project_id,
+        // Held as a 0–1 fraction in the draft; converted back to a percentage on save.
+        planned_pct: pctToFraction(effective.planned_pct),
+        date_from: effective.date_from ?? '',
+        date_to: effective.date_to ?? '',
+        bucket: effective.bucket,
+        note: effective.note ?? '',
+      };
+    },
+    [rowDrafts, effectiveRow],
+  );
 
   function updateRowDraft(a: RaMonitoringAllocation, patch: Partial<RowDraft>) {
     setRowDrafts((m) => ({
@@ -234,16 +240,14 @@ export function ReassignWizardDialog({
     todayIso(),
   );
 
-  // FUT-881: the in-place edits to send on Review/Confirm — every dirty, valid existing row.
+  // FUT-881 / FUT-848: the in-place edits to send on Review/Confirm — every dirty, valid existing row.
   // Drafts stay local until Confirm persists them; the backend previews the edited book, so
-  // these are computed identically for both preview and the final atomic save. Like
-  // `existingErrors`, it reads the latest draft/error state every render — cheap and correct,
-  // so it's a plain computation rather than a memoized one.
+  // these are computed identically for both preview and the final atomic save.
+  let hasInvalidExistingEdit = false;
   const dirtyUpdates: ReassignWorkerAllocationUpdate[] = [];
   for (const a of futureAllocations) {
     const d = rowDrafts[a.allocation_id];
     if (!d) continue;
-    if (!d.account_id || !d.project_id || existingErrors[a.allocation_id] != null) continue;
     const eff = effectiveRow(a);
     const changed = existingRowChanged(
       {
@@ -266,6 +270,20 @@ export function ReassignWizardDialog({
       },
     );
     if (!changed) continue;
+
+    const isValid =
+      Boolean(d.account_id) &&
+      Boolean(d.project_id) &&
+      Number(d.planned_pct) > 0 &&
+      isValidIsoDate(d.date_from) &&
+      isValidIsoDate(d.date_to) &&
+      existingErrors[a.allocation_id] == null;
+
+    if (!isValid) {
+      hasInvalidExistingEdit = true;
+      continue;
+    }
+
     const update: ReassignWorkerAllocationUpdate = {
       allocation_id: a.allocation_id,
       expected_version: a.version,
@@ -273,8 +291,8 @@ export function ReassignWizardDialog({
     if (d.project_id !== eff.project_id) update.project_id = d.project_id;
     if (fractionToPct(d.planned_pct) !== eff.planned_pct)
       update.planned_pct = fractionToPct(d.planned_pct);
-    if (d.date_from !== (eff.date_from ?? '')) update.date_from = d.date_from || null;
-    if (d.date_to !== (eff.date_to ?? '')) update.date_to = d.date_to || null;
+    if (d.date_from !== (eff.date_from ?? '')) update.date_from = d.date_from;
+    if (d.date_to !== (eff.date_to ?? '')) update.date_to = d.date_to;
     if (d.bucket !== eff.bucket) update.bucket = d.bucket;
     if (d.note !== eff.note) update.note = d.note || null;
     dirtyUpdates.push(update);
@@ -423,36 +441,31 @@ export function ReassignWizardDialog({
     ),
   );
 
-  // FUT-881: Review impact is the SINGLE save workflow for the whole dialog — it must enable on
-  // any in-flight change, whether that's edits to existing allocations or a new project row. A
-  // new allocation additionally needs a project, a positive %, two valid dates, and no error.
+  // FUT-881 / FUT-848: Review impact is the SINGLE save workflow for the whole dialog — it must enable on
+  // any in-flight change, whether that's edits to existing allocations or a new project row.
+  // Gated strictly: every added target row and every edited existing allocation must have all required
+  // fields (account, project, positive %, valid start date, valid end date) and no validation error.
+  const hasTargetRows = targetRows.length > 0;
   const targetsValid =
-    targetRows.length > 0 &&
+    hasTargetRows &&
     targetRows.every(
       (r, i) =>
-        r.project_id &&
+        Boolean(r.account_id) &&
+        Boolean(r.project_id) &&
         Number(r.planned_pct) > 0 &&
         isValidIsoDate(r.date_from) &&
         isValidIsoDate(r.date_to) &&
         targetErrors[i] == null,
     );
-  // dirtyUpdates already only collects VALID, actually-changed rows (row errors and missing
-  // account/project are filtered out), so a non-empty dirtyUpdates is exactly "a valid edit
-  // is waiting to be reviewed". An invalid edit keeps Review disabled — it must be fixed first,
-  // mirrored by the disabled reason below.
-  const editsReviewable = dirtyUpdates.length > 0;
-  const canReview = targetsValid || editsReviewable;
 
-  // How many existing rows have an in-progress draft at all (valid or not) — used to tell
-  // "no changes yet" apart from "a dirty row still has an error".
-  const anyDirtyCount = useMemo(
-    () => futureAllocations.filter((a) => rowDrafts[a.allocation_id]).length,
-    [futureAllocations, rowDrafts],
-  );
+  const allTargetsValid = !hasTargetRows || targetsValid;
+  const allEditsValid = !hasInvalidExistingEdit;
+  const hasChanges = hasTargetRows || dirtyUpdates.length > 0;
+  const canReview = hasChanges && allTargetsValid && allEditsValid;
 
   const reviewDisabledReason = useMemo(() => {
     if (canReview) return null;
-    if (targetRows.length === 0 && anyDirtyCount === 0) {
+    if (targetRows.length === 0 && !hasInvalidExistingEdit && dirtyUpdates.length === 0) {
       return 'Make a change to review impact.';
     }
     for (const [i, r] of targetRows.entries()) {
@@ -474,11 +487,62 @@ export function ReassignWizardDialog({
         return 'End date is required.';
       }
     }
-    if (anyDirtyCount > 0) {
-      return 'Fix the field errors on the edited allocations before reviewing impact.';
+    for (const a of futureAllocations) {
+      const d = rowDrafts[a.allocation_id];
+      if (!d) continue;
+      const eff = effectiveRow(a);
+      const changed = existingRowChanged(
+        {
+          account_id: d.account_id,
+          project_id: d.project_id,
+          planned_pct: fractionToPct(d.planned_pct),
+          date_from: d.date_from,
+          date_to: d.date_to,
+          bucket: d.bucket,
+          note: d.note,
+        },
+        {
+          account_id: eff.account_id,
+          project_id: eff.project_id,
+          planned_pct: eff.planned_pct,
+          date_from: eff.date_from ?? '',
+          date_to: eff.date_to ?? '',
+          bucket: eff.bucket,
+          note: eff.note ?? '',
+        },
+      );
+      if (!changed) continue;
+
+      const err = existingErrors[a.allocation_id];
+      if (err) return err;
+      if (!d.account_id || !d.project_id) {
+        return 'Select an account and project for all edited allocations.';
+      }
+      if (!d.planned_pct || Number(d.planned_pct) <= 0) {
+        return 'Select a valid allocation percentage.';
+      }
+      if (!isValidIsoDate(d.date_from) && !isValidIsoDate(d.date_to)) {
+        return 'Start date and end date are required.';
+      }
+      if (!isValidIsoDate(d.date_from)) {
+        return 'Start date is required.';
+      }
+      if (!isValidIsoDate(d.date_to)) {
+        return 'End date is required.';
+      }
     }
     return 'Complete all required fields to continue.';
-  }, [canReview, targetRows, targetErrors, anyDirtyCount]);
+  }, [
+    canReview,
+    targetRows,
+    targetErrors,
+    hasInvalidExistingEdit,
+    dirtyUpdates.length,
+    futureAllocations,
+    rowDrafts,
+    existingErrors,
+    effectiveRow,
+  ]);
 
   const dialogScrollRef = useRef<HTMLDivElement>(null);
 
@@ -557,11 +621,21 @@ export function ReassignWizardDialog({
                           className="grid gap-2 bg-card px-2 py-2 text-sm text-secondary"
                           style={{ gridTemplateColumns: EXISTING_GRID }}
                         >
-                          <div className="text-left font-medium">Account</div>
-                          <div className="text-left font-medium">Project</div>
-                          <div className="text-left font-medium">Allocation</div>
-                          <div className="text-left font-medium">Start date</div>
-                          <div className="text-left font-medium">End date</div>
+                          <div className="text-left font-medium">
+                            Account <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            Project <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            Allocation <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            Start date <span className="text-error">*</span>
+                          </div>
+                          <div className="text-left font-medium">
+                            End date <span className="text-error">*</span>
+                          </div>
                           <div className="text-left font-medium">Type</div>
                           <div className="text-left font-medium">Note</div>
                           <div className="text-left font-medium">Action</div>
