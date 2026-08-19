@@ -258,6 +258,7 @@ export function WeeklyReportDetailDialog({
   startInCompose = false,
   projectOptions,
   onProjectChange,
+  openedFromExplorer = false,
 }: {
   /** null = opened without an explicit project context (FUT-589 AC1) — the dialog blocks on
    * a pick-a-project prompt instead of silently defaulting to some project. */
@@ -272,6 +273,7 @@ export function WeeklyReportDetailDialog({
    * remounts the dialog on the new project (the caller keys it by project_id). */
   projectOptions?: { value: string; label: string }[];
   onProjectChange?: (project_id: string) => void;
+  openedFromExplorer?: boolean;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -626,7 +628,7 @@ export function WeeklyReportDetailDialog({
             ) : detail ? (
               <LayoutFooter hasDivider>
                 <HStack gap={2} hAlign="between" vAlign="center">
-                  {detail.stats.applied_count > 0 ? (
+                  {!openedFromExplorer && detail.stats.applied_count > 0 ? (
                     <Button
                       variant="secondary"
                       onClick={() =>

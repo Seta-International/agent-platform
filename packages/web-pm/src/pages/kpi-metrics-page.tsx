@@ -453,6 +453,7 @@ export function KpiMetricsPage() {
               project_id={detailProjectId}
               iso_year={iso_year}
               iso_week={iso_week}
+              openedFromExplorer
               onOpenChange={(open) => {
                 if (!open) setSearch({ detail: undefined });
               }}

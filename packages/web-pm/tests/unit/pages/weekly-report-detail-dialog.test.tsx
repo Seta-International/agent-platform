@@ -118,6 +118,7 @@ function renderDialog(
     onOpenChange?: (open: boolean) => void;
     projectOptions?: { value: string; label: string }[];
     onProjectChange?: (project_id: string) => void;
+    openedFromExplorer?: boolean;
   } = {},
 ) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -450,6 +451,13 @@ describe('WeeklyReportDetailDialog — the week’s metrics', () => {
     await screen.findByText('No reports yet');
 
     expect(explorerLink()).toBeTruthy();
+  });
+
+  it('offers no hand-off when the dialog was opened from KPI Explorer itself', async () => {
+    renderDialog({ openedFromExplorer: true });
+    await screen.findByText('No reports yet');
+
+    expect(screen.queryByRole('button', { name: /KPI Explorer/i })).toBeNull();
   });
 
   it('offers no hand-off for a week with no applied metric', async () => {
