@@ -12,11 +12,39 @@
  *
  * Every web-pm page imports UI from here instead of '@seta/shared-ui'.
  */
-import { Input as AstryxInput, Textarea as AstryxTextarea } from '@seta/shared-ui';
+import {
+  Input as AstryxInput,
+  Textarea as AstryxTextarea,
+  Typeahead as AstryxTypeahead,
+  type SearchableItem,
+  type TypeaheadProps,
+} from '@seta/shared-ui';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { Children, createContext, isValidElement, useContext } from 'react';
+import { Children, createContext, isValidElement, useContext, useRef } from 'react';
 
 export * from '@seta/shared-ui';
+
+export function Typeahead<T extends SearchableItem>(props: TypeaheadProps<T>) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    const input = ref.current?.querySelector('input');
+    if (input && input.value === '') {
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+      );
+    }
+  };
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: container click-bridge dispatches ArrowDown to empty input
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the underlying Typeahead owns all keyboard interactions
+    <div ref={ref} onClick={handleClick} className="contents">
+      <AstryxTypeahead<T> hasEntriesOnFocus {...props} />
+    </div>
+  );
+}
 
 // Astryx TextInput/TextArea require a `label` and use a limited `type` enum. web-pm's
 // pre-migration call sites omit label and pass type="number"/"date". These wrappers relax
