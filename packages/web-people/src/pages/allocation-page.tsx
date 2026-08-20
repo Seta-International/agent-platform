@@ -577,7 +577,7 @@ export function AllocationPage() {
                   <Kpi
                     label="Over-allocated"
                     value={`${kpis?.over_allocated_count ?? 0}`}
-                    sub="> 100% some month"
+                    sub="> 100% this month"
                     tone={kpis?.over_allocated_count ? 'accent' : 'positive'}
                   />
                   <Kpi
@@ -808,10 +808,7 @@ export function AllocationPage() {
                     />
                   </div>
                 ) : null}
-                <p className="text-xs text-secondary">
-                  Solid red = that person is over 100% allocated that month.
-                </p>
-                <UtilizationPanel crossProject={!!raw.crossProject} />
+                <UtilizationPanel filters={filters} crossProject={!!raw.crossProject} />
               </>
             )}
           </div>

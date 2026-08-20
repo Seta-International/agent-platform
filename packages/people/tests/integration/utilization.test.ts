@@ -246,4 +246,140 @@ describe('getUtilizationByPerson', () => {
       }
     });
   });
+
+  it('calculates utilization from calendar working-day effort and applies filters (FUT-911)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personA = crypto.randomUUID();
+        const personB = crypto.randomUUID();
+        const account1 = crypto.randomUUID();
+        const account2 = crypto.randomUUID();
+        const projAlpha = crypto.randomUUID();
+        const projBeta = crypto.randomUUID();
+
+        await peopleDb()
+          .insert(person)
+          .values([
+            { id: personA, tenant_id: t.tenant_id, full_name: 'Alex Pro', employee_no: 'E101' },
+            { id: personB, tenant_id: t.tenant_id, full_name: 'Bao Junior', employee_no: 'E102' },
+          ]);
+
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            { project_id: projAlpha, tenant_id: t.tenant_id, account_id: account1, name: 'Alpha' },
+            { project_id: projBeta, tenant_id: t.tenant_id, account_id: account2, name: 'Beta' },
+          ]);
+
+        // In August 2026: 21 working days (Aug 1 to Aug 31)
+        // Person A: 100% full year on Alpha (100% effort in August) + 50% on Beta from Aug 1 to Aug 14 (10 working days / 21 = 47.62% -> 50 * 10/21 = 23.81%) -> total 123.81% (over-allocated)
+        // Person B: 60% full year on Beta (60% effort in August) -> total 60% (under-utilized)
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personA,
+              project_id: projAlpha,
+              account_id: account1,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personA,
+              project_id: projBeta,
+              account_id: account2,
+              date_from: '2026-08-01',
+              date_to: '2026-08-14',
+              planned_pct: '50',
+              bucket: 'internal',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personB,
+              project_id: projBeta,
+              account_id: account2,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '60',
+              bucket: 'internal',
+              active: true,
+            },
+          ]);
+
+        // 1. Effort calculation in August 2026
+        const augUtil = await getUtilizationByPerson(t.adminSession, { asOf: '2026-08-15' });
+        const rowA = augUtil.rows.find((r) => r.worker_id === personA)!;
+        expect(rowA).toBeDefined();
+        expect(rowA.segments).toHaveLength(2);
+        const segAlpha = rowA.segments.find((s) => s.project_id === projAlpha)!;
+        const segBeta = rowA.segments.find((s) => s.project_id === projBeta)!;
+        expect(segAlpha.pct).toBe(100);
+        // Aug 1 to Aug 14: 10 working days / 21 working days in Aug = 23.81%
+        expect(segBeta.pct).toBeCloseTo(23.81, 1);
+        expect(rowA.total_pct).toBeCloseTo(123.81, 1);
+        expect(rowA.over_allocated).toBe(true);
+
+        // 2. Filter by search
+        const searchUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-08-15',
+          search: 'alex',
+        });
+        expect(searchUtil.rows).toHaveLength(1);
+        expect(searchUtil.rows[0]!.worker_id).toBe(personA);
+
+        // 3. Filter by status: 'over'
+        const overUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-08-15',
+          status: 'over',
+        });
+        expect(overUtil.rows).toHaveLength(1);
+        expect(overUtil.rows[0]!.worker_id).toBe(personA);
+
+        // 4. Filter by status: 'under'
+        const underUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-08-15',
+          status: 'under',
+        });
+        expect(underUtil.rows).toHaveLength(1);
+        expect(underUtil.rows[0]!.worker_id).toBe(personB);
+
+        // 5. Filter by account
+        const accUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-08-15',
+          accountId: account1,
+        });
+        expect(accUtil.rows).toHaveLength(1);
+        expect(accUtil.rows[0]!.worker_id).toBe(personA);
+        expect(accUtil.rows[0]!.segments).toHaveLength(1);
+        expect(accUtil.rows[0]!.segments[0]!.project_id).toBe(projAlpha);
+
+        // 6. Filter by bucket
+        const billableUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-08-15',
+          bucket: 'billable',
+        });
+        expect(billableUtil.rows).toHaveLength(1);
+        expect(billableUtil.rows[0]!.worker_id).toBe(personA);
+        expect(billableUtil.rows[0]!.segments[0]!.project_id).toBe(projAlpha);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

@@ -97,7 +97,9 @@ describe('getAllocationGrid', () => {
 
         expect(grid.kpis.member_count).toBe(1);
         expect(grid.kpis.project_count).toBe(2);
-        expect(grid.kpis.over_allocated_count).toBe(1);
+        // Over-allocated count is computed for the current month only (FUT-911 AC 2)
+        // In current month (August), Pat is 40% (Alpha ended on June 30) -> 0 over-allocated
+        expect(grid.kpis.over_allocated_count).toBe(0);
         // total_mm > 0 and finite
         expect(alpha.total_mm).toBeGreaterThan(0);
       } finally {

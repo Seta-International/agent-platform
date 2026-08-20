@@ -348,15 +348,19 @@ export async function getAllocationGrid(
     }),
   );
 
-  // Status predicate ('over' | 'under')
+  // Status predicate ('over' | 'under') — computed for current month only (FUT-911)
+  const now = new Date();
+  const isCurrentYear = !query.year || query.year === now.getUTCFullYear();
+  const currentMonth = isCurrentYear ? now.getUTCMonth() : 0;
+
   const totalsByWorkerMap = new Map(filteredWorkerTotals.map((w) => [w.worker_id, w]));
   const workerMatchesStatus = (workerId: string): boolean => {
     if (!query.status) return true;
     const wt = totalsByWorkerMap.get(workerId);
-    if (query.status === 'over') return wt ? wt.over_months.length > 0 : false;
+    if (query.status === 'over') return wt ? (wt.totals[currentMonth] ?? 0) > 100 : false;
     if (query.status === 'under') {
-      const peak = wt ? Math.max(0, ...wt.totals) : 0;
-      return peak < UNDER_UTIL_THRESHOLD;
+      const currentLoad = wt ? (wt.totals[currentMonth] ?? 0) : 0;
+      return currentLoad < UNDER_UTIL_THRESHOLD;
     }
     return true;
   };
@@ -366,7 +370,7 @@ export async function getAllocationGrid(
   const outTotals = filteredWorkerTotals.filter((w) => keptWorkers.has(w.worker_id));
 
   const memberCount = outTotals.length;
-  const overCount = outTotals.filter((w) => w.over_months.length > 0).length;
+  const overCount = outTotals.filter((w) => (w.totals[currentMonth] ?? 0) > 100).length;
   const projectCount = new Set(outRows.map((r) => r.project_id)).size;
   const avgUtil = memberCount
     ? Math.round(

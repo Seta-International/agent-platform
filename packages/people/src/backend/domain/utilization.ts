@@ -25,6 +25,11 @@ export interface UtilizationByPerson {
 }
 export interface UtilizationQuery {
   asOf?: string;
+  search?: string;
+  status?: 'over' | 'under';
+  accountId?: string;
+  projectId?: string;
+  bucket?: 'billable' | 'internal' | 'bench';
   /**
    * When true, skip account/project row-scope so visible workers include every project segment.
    * Person scope still applies.
@@ -32,13 +37,34 @@ export interface UtilizationQuery {
   crossProject?: boolean;
 }
 
+const UNDER_UTIL_THRESHOLD = 85;
+
+function workingDays(a: Date, b: Date): number {
+  if (b < a) return 0;
+  let n = 0;
+  const d = new Date(a);
+  while (d <= b) {
+    const day = d.getUTCDay();
+    if (day !== 0 && day !== 6) n += 1;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return n;
+}
+
+function foldText(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+}
+
 interface RawRow {
   worker_id: string;
   employee_no: string | null;
   full_name: string;
+  account_id: string;
   project_id: string;
   project_name: string | null;
   bucket: 'billable' | 'internal' | 'bench' | null;
+  date_from: string | null;
+  date_to: string | null;
   planned_pct: string | null;
 }
 
@@ -49,6 +75,15 @@ export async function getUtilizationByPerson(
   requirePermission(session, 'people.worker.read');
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
+  const [asOfYear, asOfMon] = asOf.split('-').map(Number);
+  const year = asOfYear || new Date().getUTCFullYear();
+  const month = asOfMon ? asOfMon - 1 : new Date().getUTCMonth();
+  const mStart = new Date(Date.UTC(year, month, 1));
+  const mEnd = new Date(Date.UTC(year, month + 1, 0));
+  const mStartStr = mStart.toISOString().slice(0, 10);
+  const mEndStr = mEnd.toISOString().slice(0, 10);
+  const mWorkingDays = workingDays(mStart, mEnd);
+
   const scope = await buildWorkerScope(session);
   const rowScope = query.crossProject ? null : await buildAllocationRowScope(session);
 
@@ -57,8 +92,8 @@ export async function getUtilizationByPerson(
     eq(workerAllocationProjection.active, true),
     isNotNull(workerAllocationProjection.person_id),
     isNotNull(workerAllocationProjection.planned_pct),
-    sql`(${workerAllocationProjection.date_from} IS NULL OR ${workerAllocationProjection.date_from} <= ${asOf})`,
-    sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${asOf})`,
+    sql`(${workerAllocationProjection.date_from} IS NULL OR ${workerAllocationProjection.date_from} <= ${mEndStr})`,
+    sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${mStartStr})`,
   ];
   if (scope) where.push(scope);
   if (rowScope) where.push(rowScope);
@@ -68,9 +103,12 @@ export async function getUtilizationByPerson(
       worker_id: workerAllocationProjection.person_id,
       employee_no: person.employee_no,
       full_name: person.full_name,
+      account_id: workerAllocationProjection.account_id,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
       bucket: workerAllocationProjection.bucket,
+      date_from: workerAllocationProjection.date_from,
+      date_to: workerAllocationProjection.date_to,
       planned_pct: workerAllocationProjection.planned_pct,
     })
     .from(workerAllocationProjection)
@@ -91,32 +129,88 @@ export async function getUtilizationByPerson(
     )
     .where(and(...where))) as RawRow[];
 
-  const byWorker = new Map<string, UtilizationRow>();
-  for (const r of raw) {
+  const q = foldText((query.search ?? '').trim());
+  const rawMatches = (r: RawRow): boolean => {
+    if (query.accountId && r.account_id !== query.accountId) return false;
+    if (query.projectId && r.project_id !== query.projectId) return false;
+    if (query.bucket && r.bucket !== query.bucket) return false;
+    if (
+      q &&
+      !foldText(r.full_name).includes(q) &&
+      !foldText(r.worker_id).includes(q) &&
+      !(r.employee_no && foldText(r.employee_no).includes(q))
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const byWorker = new Map<
+    string,
+    {
+      worker_id: string;
+      employee_no: string | null;
+      full_name: string;
+      segmentMap: Map<string, { project_id: string; project_name: string | null; pct: number }>;
+      total_pct: number;
+      split: { billable: number; internal: number; bench: number };
+    }
+  >();
+
+  for (const r of raw.filter(rawMatches)) {
     const pct = r.planned_pct == null ? 0 : Number(r.planned_pct);
+    const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : mStart;
+    const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : mEnd;
+    const ovStart = from > mStart ? from : mStart;
+    const ovEnd = to < mEnd ? to : mEnd;
+    const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
+    const effortPct = Math.round(pct * frac * 100) / 100;
+    if (effortPct <= 0) continue;
+
     let row = byWorker.get(r.worker_id);
     if (!row) {
       row = {
         worker_id: r.worker_id,
         employee_no: r.employee_no,
         full_name: r.full_name ?? '',
-        segments: [],
+        segmentMap: new Map(),
         total_pct: 0,
-        over_allocated: false,
         split: { billable: 0, internal: 0, bench: 0 },
       };
       byWorker.set(r.worker_id, row);
     }
-    row.segments.push({ project_id: r.project_id, project_name: r.project_name, pct });
-    row.total_pct += pct;
+
+    const existingSeg = row.segmentMap.get(r.project_id);
+    if (existingSeg) {
+      existingSeg.pct = Math.round((existingSeg.pct + effortPct) * 100) / 100;
+    } else {
+      row.segmentMap.set(r.project_id, {
+        project_id: r.project_id,
+        project_name: r.project_name,
+        pct: effortPct,
+      });
+    }
+
+    row.total_pct = Math.round((row.total_pct + effortPct) * 100) / 100;
     const bucket = r.bucket ?? 'billable';
-    row.split[bucket] += pct;
+    row.split[bucket] = Math.round((row.split[bucket] + effortPct) * 100) / 100;
   }
 
-  const rows = [...byWorker.values()].map((row) => ({
-    ...row,
+  const allRows: UtilizationRow[] = [...byWorker.values()].map((row) => ({
+    worker_id: row.worker_id,
+    employee_no: row.employee_no,
+    full_name: row.full_name,
+    segments: [...row.segmentMap.values()],
+    total_pct: row.total_pct,
     over_allocated: row.total_pct > 100,
+    split: row.split,
   }));
 
-  return { as_of: asOf, rows };
+  const filteredRows = allRows.filter((r) => {
+    if (query.status === 'over') return r.total_pct > 100;
+    if (query.status === 'under') return r.total_pct < UNDER_UTIL_THRESHOLD;
+    return true;
+  });
+
+  return { as_of: asOf, rows: filteredRows };
 }
