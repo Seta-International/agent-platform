@@ -533,9 +533,7 @@ describe('getAllocationGrid', () => {
         const amRow = grid.rows.find((r) => r.worker_id === am)!;
         const memberRow = grid.rows.find((r) => r.worker_id === member)!;
         expect(amRow.employee_no).toBe('6885');
-        expect(amRow.is_account_am).toBe(true); // manages the account → render account, not project
         expect(memberRow.employee_no).toBe('7001');
-        expect(memberRow.is_account_am).toBe(false); // a plain member on the same account
 
         const byAmNo = await getAllocationGrid(t.adminSession, { year: 2026, search: '6885' });
         expect(new Set(byAmNo.rows.map((r) => r.worker_id))).toEqual(new Set([am]));

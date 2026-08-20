@@ -21,7 +21,7 @@ export function buildAllocationCsv(rows: AllocationGridRow[], _year: number): st
     r.employee_no ?? '',
     r.full_name,
     r.account_name,
-    r.is_account_am ? 'Account management' : (r.project_name ?? ''),
+    r.project_name ?? '',
     r.bucket ?? '',
     // FUT-906: exported months must match the UI cells — same formatLoad fraction (100 → "1.0"),
     // so SUM in the sheet equals the Total MM column, not raw percentages.

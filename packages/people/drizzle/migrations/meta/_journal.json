@@ -78,6 +78,13 @@
       "when": 1786600000000,
       "tag": "0017_backfill_worker_allocation_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786650000000,
+      "tag": "0018_sync_project_account_projections",
+      "breakpoints": true
     }
   ]
 }

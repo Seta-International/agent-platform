@@ -11,7 +11,6 @@ function makeRow(overrides: Partial<AllocationGridRow> = {}): AllocationGridRow 
     account_name: 'Acme Corp',
     project_id: 'p1',
     project_name: 'Apollo',
-    is_account_am: false,
     bucket: 'billable',
     months: [100, 100, 50, 50, null, null, null, null, null, null, null, null],
     total_mm: 6.1,
@@ -114,13 +113,10 @@ describe('buildAllocationCsv', () => {
     expect(data[8]).toBe('1.2'); // 120% → 1.2 MM
   });
 
-  it('renders "Account management" for AM rows instead of project name', () => {
-    const csv = buildAllocationCsv(
-      [makeRow({ is_account_am: true, project_name: 'Should not appear' })],
-      2026,
-    );
+  it('renders project name directly in project column', () => {
+    const csv = buildAllocationCsv([makeRow({ project_name: 'Project VERI-AD' })], 2026);
     const rows = parseCsv(csv);
-    expect(rows[1][3]).toBe('Account management');
+    expect(rows[1][3]).toBe('Project VERI-AD');
   });
 
   it('returns only header + BOM when rows are empty', () => {
