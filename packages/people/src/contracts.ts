@@ -236,3 +236,87 @@ export const savePerformanceConfigResponse = z.object({
   applies_to_next_cycle: z.boolean(),
 });
 export type SavePerformanceConfigResponse = z.infer<typeof savePerformanceConfigResponse>;
+
+// ---------------------------------------------------------------------------
+// Morale & Concern Notes (FUT-782)
+// ---------------------------------------------------------------------------
+
+export const moraleRecipientTag = z.enum(['hr', 'tl', 'am', 'pmo', 'bod']);
+export type MoraleRecipientTag = z.infer<typeof moraleRecipientTag>;
+
+/**
+ * The sender picks named people, not roles. HR is never listed or submitted — the
+ * server appends it on every note, so the client cannot drop it.
+ */
+export const submitMoraleInput = z.object({
+  rating: z.number().int().min(1).max(5),
+  concern_text: z.string().max(5000).optional(),
+  recipient_person_ids: z.array(z.string().uuid()),
+});
+export type SubmitMoraleInput = z.infer<typeof submitMoraleInput>;
+
+export const moraleRecipientView = z.object({
+  recipient_tag: moraleRecipientTag,
+  full_name_snapshot: z.string().nullable(),
+});
+export type MoraleRecipientView = z.infer<typeof moraleRecipientView>;
+
+export const moraleNoteView = z.object({
+  id: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  concern_text: z.string().nullable(),
+  submitted_at: z.string(),
+  recipients: z.array(moraleRecipientView),
+});
+export type MoraleNoteView = z.infer<typeof moraleNoteView>;
+
+export const moraleHistoryResponse = z.object({
+  notes: z.array(moraleNoteView),
+});
+export type MoraleHistoryResponse = z.infer<typeof moraleHistoryResponse>;
+
+export const moraleSelectableTag = z.enum(['tl', 'am', 'pmo', 'bod']);
+export type MoraleSelectableTag = z.infer<typeof moraleSelectableTag>;
+
+/** A selectable person. HR holders are excluded — they receive every note regardless. */
+export const moraleRecipientCandidate = z.object({
+  person_id: z.string().uuid(),
+  full_name: z.string().nullable(),
+  /** Why this person is reachable — the shared project or account, shown under the name. */
+  context: z.string().nullable(),
+});
+export type MoraleRecipientCandidate = z.infer<typeof moraleRecipientCandidate>;
+
+/**
+ * One role the sender may route to. A group is *absent* when the role does not apply
+ * to this sender at all (a TL is never offered the TL group), and *present but empty*
+ * when it applies but nobody qualifies — those two states read differently in the UI,
+ * so `unavailable_reason` explains the second rather than the role silently vanishing.
+ */
+export const moraleRecipientGroup = z.object({
+  tag: moraleSelectableTag,
+  candidates: z.array(moraleRecipientCandidate),
+  unavailable_reason: z.string().nullable(),
+});
+export type MoraleRecipientGroup = z.infer<typeof moraleRecipientGroup>;
+
+export const moraleRecipientsResponse = z.object({
+  /**
+   * False for every role outside Member/TL. They still reach the page from the nav,
+   * but there is nothing for them to submit until the manager view ships.
+   */
+  can_submit: z.boolean(),
+  groups: z.array(moraleRecipientGroup),
+});
+export type MoraleRecipientsResponse = z.infer<typeof moraleRecipientsResponse>;
+
+/**
+ * Calendar-date history window, both ends inclusive and read in Asia/Ho_Chi_Minh.
+ * Dates rather than timestamps: the sender picks days on a calendar, and the server
+ * owns the conversion to instants so the boundary rule lives in one place.
+ */
+export const moraleHistoryQuery = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+export type MoraleHistoryQuery = z.infer<typeof moraleHistoryQuery>;

@@ -1,4 +1,5 @@
 [
+  "R1:packages/people/src/backend/db/schema.ts:morale_note_recipient",
   "R1:packages/people/src/backend/db/schema.ts:performance_config_criterion",
   "R1:packages/people/src/backend/db/schema.ts:performance_config_group_weight",
   "R3:packages/people/src/backend/db/schema.ts:employment_period:t.person_id",
@@ -24,6 +25,9 @@
   "R4:packages/identity/src/backend/db/schema.ts:role_permission_overlays",
   "R4:packages/notifications/src/backend/db/schema/notification-prefs.ts:notification_prefs",
   "R4:packages/people/src/backend/db/schema.ts:account_projection",
+  "R4:packages/people/src/backend/db/schema.ts:morale_note",
+  "R4:packages/people/src/backend/db/schema.ts:morale_note_recipient",
+  "R4:packages/people/src/backend/db/schema.ts:morale_rating_aggregate",
   "R4:packages/people/src/backend/db/schema.ts:performance_config_criterion",
   "R4:packages/people/src/backend/db/schema.ts:performance_config_group_weight",
   "R4:packages/people/src/backend/db/schema.ts:performance_config_month_pin",

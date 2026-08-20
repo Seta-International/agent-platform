@@ -44,6 +44,8 @@ export function registerPeopleContributions(reg: ContributionRegistry): void {
       { table: 'people.performance_config_group_weight', policy: { kind: 'permanent' } },
       { table: 'people.performance_config_criterion', policy: { kind: 'permanent' } },
       { table: 'people.performance_config_month_pin', policy: { kind: 'permanent' } },
+      { table: 'people.morale_note', policy: { kind: 'permanent' } },
+      { table: 'people.morale_note_recipient', policy: { kind: 'permanent' } },
     ]);
   }
 

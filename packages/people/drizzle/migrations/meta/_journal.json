@@ -85,6 +85,13 @@
       "when": 1786650000000,
       "tag": "0018_sync_project_account_projections",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787197570668,
+      "tag": "0019_morale_notes",
+      "breakpoints": true
     }
   ]
 }

@@ -9,7 +9,7 @@ import type {
   PerformanceCapacity,
 } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { person, workerAllocationProjection } from '../db/schema.ts';
+import { moraleNote, person, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
 import { loadPerformanceCapacities } from './read-performance-context.ts';
@@ -80,11 +80,35 @@ async function countAccountLeadsToScore(
   return rows.length;
 }
 
-function buildCardsForCapacity(input: {
+async function hasMoraleForMonth(
+  personId: string,
+  tenantId: string,
+  month: string,
+): Promise<boolean> {
+  const monthStart = `${month}-01`;
+  const rows = await peopleDb()
+    .select({ id: moraleNote.id })
+    .from(moraleNote)
+    .where(
+      and(
+        eq(moraleNote.person_id, personId),
+        eq(moraleNote.tenant_id, tenantId),
+        sql`${moraleNote.submitted_at} >= ${monthStart}::date`,
+        sql`${moraleNote.submitted_at} < (${monthStart}::date + interval '1 month')`,
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+async function buildCardsForCapacity(input: {
   capacity: PerformanceCapacity;
   cycleStatus: CycleStatus;
   totalToScore: number;
-}): MonthTaskCard[] {
+  personId: string;
+  tenantId: string;
+  month: string;
+}): Promise<MonthTaskCard[]> {
   const interactive = input.cycleStatus !== 'locked';
   if (!interactive) {
     return [{ kind: 'cycle_locked' }];
@@ -94,7 +118,6 @@ function buildCardsForCapacity(input: {
   const { capacity, totalToScore } = input;
 
   if (capacity.kind === 'tl' || capacity.kind === 'am') {
-    // No score rows yet (E2) — everyone in scope is still unscored.
     cards.push({
       kind: 'unscored',
       unscored: totalToScore,
@@ -104,10 +127,10 @@ function buildCardsForCapacity(input: {
   }
 
   if (capacity.kind === 'member' || capacity.kind === 'tl') {
-    // Self/morale submissions land in later stories — honest not-submitted.
+    const moraleSubmitted = await hasMoraleForMonth(input.personId, input.tenantId, input.month);
     cards.push(
       { kind: 'self_assessment', submitted: false, interactive: true },
-      { kind: 'morale', submitted: false, interactive: true },
+      { kind: 'morale', submitted: moraleSubmitted, interactive: true },
     );
   }
 
@@ -174,7 +197,14 @@ export async function readMonthTasks(
     groups.push({
       capacity,
       label: capacityGroupLabel(capacity),
-      cards: buildCardsForCapacity({ capacity, cycleStatus: cycle_status, totalToScore }),
+      cards: await buildCardsForCapacity({
+        capacity,
+        cycleStatus: cycle_status,
+        totalToScore,
+        personId: me,
+        tenantId: session.tenant_id,
+        month: input.month,
+      }),
     });
   }
 
