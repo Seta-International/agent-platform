@@ -6,7 +6,6 @@ export interface AllocationGridRow {
   account_name: string;
   project_id: string;
   project_name: string | null;
-  is_account_am: boolean;
   bucket: 'billable' | 'internal' | 'bench' | null;
   months: (number | null)[];
   total_mm: number;

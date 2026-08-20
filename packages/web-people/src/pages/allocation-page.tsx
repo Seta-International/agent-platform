@@ -401,13 +401,7 @@ export function AllocationPage() {
         key: 'project',
         header: 'Project',
         width: proportional(1),
-        renderCell: (r) =>
-          // AMs manage the whole account, not a single project — show that instead of a sub-project.
-          r.is_account_am ? (
-            <span className="text-sm text-secondary italic">Account management</span>
-          ) : (
-            <div className="max-w-[200px] truncate">{r.project_name ?? '—'}</div>
-          ),
+        renderCell: (r) => <div className="max-w-[200px] truncate">{r.project_name ?? '—'}</div>,
       },
       ...monthCols,
       {

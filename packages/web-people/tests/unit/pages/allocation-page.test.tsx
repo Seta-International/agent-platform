@@ -38,7 +38,6 @@ function makeRow(overrides: Partial<Record<string, unknown>> = {}) {
     account_name: 'Acme',
     project_id: 'p1',
     project_name: 'Apollo',
-    is_account_am: false,
     bucket: 'billable',
     months: new Array(12).fill(50),
     total_mm: 6,

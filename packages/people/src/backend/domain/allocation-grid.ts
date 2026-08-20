@@ -1,5 +1,4 @@
 import type { SessionScope } from '@seta/core';
-import { listAccountManagers } from '@seta/pm';
 import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import {
@@ -19,8 +18,6 @@ export interface AllocationGridRow {
   account_name: string;
   project_id: string;
   project_name: string | null;
-  /** True when this worker is the account manager of the row's account (render account, not project). */
-  is_account_am: boolean;
   bucket: 'billable' | 'internal' | 'bench' | null;
   months: (number | null)[];
   total_mm: number;
@@ -181,10 +178,6 @@ export async function getAllocationGrid(
       asc(projectProjection.name),
     )) as RawRow[];
 
-  // Which account each worker is the AM of — so an AM's row renders the account, not the project.
-  const amRows = await listAccountManagers(session.tenant_id);
-  const amByAccount = new Map(amRows.map((a) => [a.account_id, a.am_person_id]));
-
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
 
@@ -215,7 +208,7 @@ export async function getAllocationGrid(
 
   const filteredRaw = raw.filter(rawMatches);
 
-  // Group allocations for the same project (or account for AMs) under each worker into a single row (FUT-850).
+  // Group allocations for the same project under each worker into a single row (FUT-850).
   interface ProjectGroup {
     worker_id: string;
     employee_no: string | null;
@@ -224,14 +217,12 @@ export async function getAllocationGrid(
     account_name: string;
     project_id: string;
     project_name: string | null;
-    is_account_am: boolean;
     records: RawRow[];
   }
 
   const groupMap = new Map<string, ProjectGroup>();
   for (const r of filteredRaw) {
-    const isAm = amByAccount.get(r.account_id) === r.worker_id;
-    const groupKey = `${r.worker_id}::${isAm ? `am:${r.account_id}` : `proj:${r.project_id}`}`;
+    const groupKey = `${r.worker_id}::proj:${r.project_id}`;
     let group = groupMap.get(groupKey);
     if (!group) {
       group = {
@@ -242,7 +233,6 @@ export async function getAllocationGrid(
         account_name: r.account_name,
         project_id: r.project_id,
         project_name: r.project_name,
-        is_account_am: isAm,
         records: [],
       };
       groupMap.set(groupKey, group);
@@ -286,7 +276,6 @@ export async function getAllocationGrid(
     return {
       worker_id: g.worker_id,
       employee_no: g.employee_no,
-      is_account_am: g.is_account_am,
       full_name: g.full_name,
       account_id: g.account_id,
       account_name: g.account_name,
