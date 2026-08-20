@@ -297,6 +297,40 @@ describe('AllocationPage (Astryx Table migration)', () => {
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('7 projects')).toBeInTheDocument();
   });
+
+  it('FUT-905: renders over-allocation tooltip and danger styling only on over-allocated months', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({
+      ...baseGrid,
+      rows: [
+        makeRow({
+          worker_id: 'w1',
+          full_name: 'Booking Worker',
+          months: [null, null, null, null, null, null, null, 63.64, 100, 100, null, null],
+        }),
+      ],
+      worker_totals: [
+        {
+          worker_id: 'w1',
+          totals: [0, 0, 0, 0, 0, 0, 0, 77.27, 200, 100, 0, 0],
+          over_months: [8], // only September (index 8) is over 100%
+        },
+      ],
+    });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    // Aug (index 7, 63.64 -> '0.64'): not over-allocated, no tooltip, warning heat background
+    const augCell = within(table).getByText('0.64');
+    expect(augCell).toBeInTheDocument();
+    expect(augCell).not.toHaveAttribute('title');
+    expect(augCell.getAttribute('style')).toContain('var(--color-warning-muted)');
+
+    // Sep (index 8, 100 -> '1.0'): over-allocated (200%), has title 'Total 200% this month' and error background
+    const sepCell = within(table).getAllByText('1.0')[0]!;
+    expect(sepCell).toBeInTheDocument();
+    expect(sepCell).toHaveAttribute('title', 'Total 200% this month');
+    expect(sepCell.getAttribute('style')).toContain('var(--color-error)');
+  });
 });
 
 describe('AllocationPage — breadcrumb trail (Astryx migration, FUT-668)', () => {

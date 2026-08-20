@@ -311,31 +311,23 @@ export async function getAllocationGrid(
     const totals = new Array<number>(12).fill(0);
     for (let m = 0; m < 12; m++) {
       const [mStart, mEnd] = monthBounds(year, m);
-      const mStartStr = mStart.toISOString().slice(0, 10);
-      const mEndStr = mEnd.toISOString().slice(0, 10);
+      const mWorkingDays = workingDays(mStart, mEnd);
+      let monthTotalPct = 0;
 
-      const segs: Array<{ start: string; end: string; pct: number }> = [];
       for (const r of wRows) {
         if (r.planned_pct == null) continue;
         const pct = Number(r.planned_pct);
-        const rFrom = r.date_from ?? `${year}-01-01`;
-        const rTo = r.date_to ?? `${year}-12-31`;
-        if (rFrom <= mEndStr && rTo >= mStartStr) {
-          const segStart = rFrom > mStartStr ? rFrom : mStartStr;
-          const segEnd = rTo < mEndStr ? rTo : mEndStr;
-          segs.push({ start: segStart, end: segEnd, pct });
+        const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : yearStart;
+        const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : yearEnd;
+        const active = from <= mEnd && to >= mStart;
+        if (active) {
+          const ovStart = from > mStart ? from : mStart;
+          const ovEnd = to < mEnd ? to : mEnd;
+          const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
+          monthTotalPct += pct * frac;
         }
       }
-
-      let peak = 0;
-      for (const s of segs) {
-        let sum = 0;
-        for (const t of segs) {
-          if (t.start <= s.start && s.start <= t.end) sum += t.pct;
-        }
-        if (sum > peak) peak = sum;
-      }
-      totals[m] = Math.round(peak * 100) / 100;
+      totals[m] = Math.round(monthTotalPct * 100) / 100;
     }
     byWorker.set(worker_id, totals);
   }

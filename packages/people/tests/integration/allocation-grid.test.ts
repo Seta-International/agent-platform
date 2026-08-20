@@ -1160,4 +1160,96 @@ describe('getAllocationGrid', () => {
       }
     });
   });
+
+  it('FUT-905: calculates worker monthly totals using working-day weighted planned load, consistent with row cells', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+        const projB = crypto.randomUUID();
+
+        await peopleDb().insert(person).values({
+          id: personId,
+          tenant_id: t.tenant_id,
+          full_name: 'Booking Worker',
+        });
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            {
+              project_id: projA,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Teacher Zone',
+            },
+            {
+              project_id: projB,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Gridbeyond',
+            },
+          ]);
+        // Allocations matching FUT-905 test data:
+        // Teacher Zone: 100%, 12 Aug 2026 – 31 Oct 2026
+        // Gridbeyond: 100%, 27 Aug 2026 – 30 Sep 2026
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-08-12',
+              date_to: '2026-10-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              project_id: projB,
+              account_id: accountId,
+              date_from: '2026-08-27',
+              date_to: '2026-09-30',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const totals = grid.worker_totals.find((w) => w.worker_id === personId)!;
+
+        // In August (month index 7):
+        // Total monthly planned load is ~77.27% (<= 100%), so August is NOT flagged as over-allocated
+        expect(totals.totals[7]).toBeLessThanOrEqual(100);
+        expect(totals.over_months).not.toContain(7);
+
+        // In September (month index 8):
+        // Both Teacher Zone (100%) and Gridbeyond (100%) active all month -> 200% > 100%
+        expect(totals.totals[8]).toBe(200);
+        expect(totals.over_months).toContain(8);
+
+        // In October (month index 9):
+        // Only Teacher Zone (100%) active all month -> 100% <= 100%
+        expect(totals.totals[9]).toBe(100);
+        expect(totals.over_months).not.toContain(9);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
