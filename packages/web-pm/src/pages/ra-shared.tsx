@@ -241,6 +241,13 @@ export function existingRowChanged(draft: ExistingRowState, saved: ExistingRowSt
   );
 }
 
+export function existingRowChangedBeyondNote(
+  draft: ExistingRowState,
+  saved: ExistingRowState,
+): boolean {
+  return existingRowChanged({ ...draft, note: saved.note }, saved);
+}
+
 /** Two-letter initials for an avatar fallback (display only). */
 export function initials(name: string): string {
   return (

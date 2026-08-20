@@ -354,7 +354,7 @@ describe('ReassignWizardDialog', () => {
     });
   });
 
-  it('locks a past-start allocation to end date and delete only', () => {
+  it('locks a past-start allocation to end date, note and delete only', () => {
     renderWizard([allocation({ date_from: PAST_START, date_to: '2026-12-23' })]);
 
     // Everything that defines the allocation's terms is read-only once it has started…
@@ -363,10 +363,74 @@ describe('ReassignWizardDialog', () => {
     expect(screen.getByLabelText(/allocation for/i)).toBeDisabled();
     expect(screen.getByLabelText(/start date for/i)).toBeDisabled();
     expect(screen.getByLabelText(/type for/i)).toBeDisabled();
-    expect(screen.getByLabelText(/note for/i)).toBeDisabled();
-    // …but you can still shorten/extend it (FUT-876 disabled delete for past-start allocations).
     expect(screen.getByLabelText(/end date for/i)).not.toBeDisabled();
+    expect(screen.getByLabelText(/note for/i)).not.toBeDisabled();
     expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).toBeDisabled();
+  });
+
+  describe('FUT-860 note is always editable', () => {
+    it('saves a note typed on a started allocation as a note-only update', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([allocation({ date_from: PAST_START, date_to: '2026-12-23', version: 3 })]);
+
+      await user.type(screen.getByLabelText(/note for/i), 'Handover in progress');
+
+      await user.click(screen.getByRole('button', { name: 'Review impact' }));
+      await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+      expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updates: [{ allocation_id: 'a1', expected_version: 3, note: 'Handover in progress' }],
+        }),
+      );
+    });
+
+    it('saves a note on an open-ended allocation without demanding an end date first', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([allocation({ date_from: PAST_START, date_to: null, version: 3 })]);
+
+      await user.type(screen.getByLabelText(/note for/i), 'Rolling engagement');
+
+      const review = screen.getByRole('button', { name: 'Review impact' });
+      expect(review).not.toBeDisabled();
+      await user.click(review);
+      await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+      expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updates: [{ allocation_id: 'a1', expected_version: 3, note: 'Rolling engagement' }],
+        }),
+      );
+    });
+
+    it('clears a stored note back to null', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([
+        allocation({ date_from: PAST_START, date_to: null, note: 'Old note', version: 3 }),
+      ]);
+
+      await user.clear(screen.getByLabelText(/note for/i));
+
+      await user.click(screen.getByRole('button', { name: 'Review impact' }));
+      await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+      expect(reassignWorkerAllocations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updates: [{ allocation_id: 'a1', expected_version: 3, note: null }],
+        }),
+      );
+    });
+
+    it('still demands an end date when the row itself is being edited', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderWizard([allocation({ date_from: FUTURE_START, date_to: null, version: 3 })]);
+
+      await user.type(screen.getByLabelText(/note for/i), 'Rolling engagement');
+      await user.click(screen.getByLabelText(/type for/i));
+      await user.click(await screen.findByRole('option', { name: 'Internal' }));
+
+      expect(screen.getByRole('button', { name: 'Review impact' })).toBeDisabled();
+    });
   });
 
   it('lets an existing row be moved to a different account/project, and sends the new project_id on Save', async () => {
