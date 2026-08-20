@@ -2,8 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { AllocationPage } from '../../../src/pages/allocation-page.tsx';
+import {
+  AllocationPage,
+  HEAT_LEVELS,
+  HeatLegend,
+  heatStyle,
+} from '../../../src/pages/allocation-page.tsx';
 
 let mockSearch: Record<string, unknown> = {};
 let forceRerender: () => void = () => {};
@@ -380,5 +384,78 @@ describe('AllocationPage — search input space and typing UX', () => {
     } as unknown as React.CompositionEvent<HTMLInputElement>);
 
     await waitFor(() => expect(mockSearch.q).toBe('Nguyễn'));
+  });
+});
+
+describe('AllocationPage — Planned load heatmap styles & legend (FUT-894)', () => {
+  it('maps allocation loads to corresponding heat styles accurately', () => {
+    expect(heatStyle(null)).toEqual({});
+    expect(heatStyle(undefined)).toEqual({});
+    expect(heatStyle(0)).toEqual({});
+
+    // >= 100
+    expect(heatStyle(100)).toEqual({
+      background: 'var(--color-success-muted)',
+      color: 'var(--color-text-green)',
+    });
+    expect(heatStyle(150)).toEqual({
+      background: 'var(--color-success-muted)',
+      color: 'var(--color-text-green)',
+    });
+
+    // 75-99
+    expect(heatStyle(75)).toEqual({
+      background: 'var(--color-background-blue)',
+      color: 'var(--color-text-blue)',
+    });
+    expect(heatStyle(91)).toEqual({
+      background: 'var(--color-background-blue)',
+      color: 'var(--color-text-blue)',
+    });
+
+    // 50-74
+    expect(heatStyle(50)).toEqual({
+      background: 'var(--color-warning-muted)',
+      color: 'var(--color-text-yellow)',
+    });
+    expect(heatStyle(65)).toEqual({
+      background: 'var(--color-warning-muted)',
+      color: 'var(--color-text-yellow)',
+    });
+
+    // < 50
+    expect(heatStyle(9)).toEqual({
+      background: 'var(--color-error-muted)',
+      color: 'var(--color-text-red)',
+    });
+    expect(heatStyle(49)).toEqual({
+      background: 'var(--color-error-muted)',
+      color: 'var(--color-text-red)',
+    });
+  });
+
+  it('renders all planned load legend items with matching background and border styles', () => {
+    const { container } = render(<HeatLegend />);
+
+    expect(screen.getByText('Planned load')).toBeInTheDocument();
+    expect(screen.getByText('≥100')).toBeInTheDocument();
+    expect(screen.getByText('75–99')).toBeInTheDocument();
+    expect(screen.getByText('50–74')).toBeInTheDocument();
+    expect(screen.getByText('<50')).toBeInTheDocument();
+    expect(screen.getByText('over 100%')).toBeInTheDocument();
+
+    const indicatorBoxes = container.querySelectorAll('span[aria-hidden="true"]');
+    expect(indicatorBoxes).toHaveLength(HEAT_LEVELS.length + 1);
+
+    // Verify each heat level indicator matches its token definition
+    HEAT_LEVELS.forEach((level, index) => {
+      const box = indicatorBoxes[index] as HTMLElement;
+      expect(box.style.background).toBe(level.bg);
+      expect(box.style.boxShadow).toBe(`inset 0 0 0 1px ${level.border}`);
+    });
+
+    // Verify the over 100% indicator
+    const overBox = indicatorBoxes[indicatorBoxes.length - 1] as HTMLElement;
+    expect(overBox.style.background).toBe('var(--color-error)');
   });
 });

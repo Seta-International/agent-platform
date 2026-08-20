@@ -73,44 +73,77 @@ const EFFORT_PALETTE = [
 // lacks an index signature, so alias locally (do not touch the shared DTO).
 type AllocationRow = AllocationGridRow & Record<string, unknown>;
 
-// Heatmap fill by planned-allocation level (matches the design prototype): green = fully loaded,
-// blue = high, amber = mid, red = light. Empty/zero months stay uncolored.
-function heatStyle(v: number | null | undefined): CSSProperties {
-  if (v == null || v === 0) return {};
-  if (v >= 100)
-    return { background: 'var(--color-success-muted)', color: 'var(--color-text-green)' };
-  if (v >= 75)
-    return { background: 'var(--color-background-blue)', color: 'var(--color-text-blue)' };
-  if (v >= 50)
-    return { background: 'var(--color-warning-muted)', color: 'var(--color-text-yellow)' };
-  return { background: 'var(--color-error-muted)', color: 'var(--color-text-red)' };
+export interface HeatLevel {
+  label: string;
+  min: number;
+  bg: string;
+  text: string;
+  border: string;
 }
 
-const HEAT_LEVELS = [
-  { label: '≥100', token: 'success' },
-  { label: '75–99', token: 'info' },
-  { label: '50–74', token: 'warning' },
-  { label: '<50', token: 'danger' },
+export const HEAT_LEVELS: readonly HeatLevel[] = [
+  {
+    label: '≥100',
+    min: 100,
+    bg: 'var(--color-success-muted)',
+    text: 'var(--color-text-green)',
+    border: 'var(--color-border-green)',
+  },
+  {
+    label: '75–99',
+    min: 75,
+    bg: 'var(--color-background-blue)',
+    text: 'var(--color-text-blue)',
+    border: 'var(--color-border-blue)',
+  },
+  {
+    label: '50–74',
+    min: 50,
+    bg: 'var(--color-warning-muted)',
+    text: 'var(--color-text-yellow)',
+    border: 'var(--color-border-yellow)',
+  },
+  {
+    label: '<50',
+    min: 0,
+    bg: 'var(--color-error-muted)',
+    text: 'var(--color-text-red)',
+    border: 'var(--color-border-red)',
+  },
 ] as const;
 
-function HeatLegend() {
+// Heatmap fill by planned-allocation level (matches the design prototype): green = fully loaded,
+// blue = high, amber = mid, red/pink = light. Empty/zero months stay uncolored.
+export function heatStyle(v: number | null | undefined): CSSProperties {
+  if (v == null || v === 0) return {};
+  const level = HEAT_LEVELS.find((l) => v >= l.min) ?? HEAT_LEVELS[HEAT_LEVELS.length - 1];
+  if (!level) return {};
+  return { background: level.bg, color: level.text };
+}
+
+export function HeatLegend() {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-secondary">
       <span className="font-medium">Planned load</span>
       {HEAT_LEVELS.map((l) => (
         <span key={l.label} className="inline-flex items-center gap-1.5">
           <span
+            aria-hidden="true"
             className="size-2.5 rounded-[3px]"
             style={{
-              background: `var(--color-${l.token}-tint)`,
-              boxShadow: `inset 0 0 0 1px var(--color-${l.token})`,
+              background: l.bg,
+              boxShadow: `inset 0 0 0 1px ${l.border}`,
             }}
           />
           {l.label}
         </span>
       ))}
       <span className="inline-flex items-center gap-1.5">
-        <span className="size-2.5 rounded-[3px]" style={{ background: 'var(--color-error)' }} />
+        <span
+          aria-hidden="true"
+          className="size-2.5 rounded-[3px]"
+          style={{ background: 'var(--color-error)' }}
+        />
         over 100%
       </span>
     </div>
