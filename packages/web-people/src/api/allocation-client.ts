@@ -100,13 +100,21 @@ export interface UtilizationByPerson {
   rows: UtilizationRow[];
 }
 
-export async function fetchUtilizationByPerson(opts?: {
+export interface UtilizationFilters extends AllocationGridFilters {
   asOf?: string;
-  crossProject?: boolean;
-}): Promise<UtilizationByPerson> {
+}
+
+export async function fetchUtilizationByPerson(
+  filters: UtilizationFilters = {},
+): Promise<UtilizationByPerson> {
   const params = new URLSearchParams();
-  if (opts?.asOf) params.set('asOf', opts.asOf);
-  if (opts?.crossProject) params.set('crossProject', '1');
+  if (filters.asOf) params.set('asOf', filters.asOf);
+  if (filters.search) params.set('search', filters.search);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.accountId) params.set('accountId', filters.accountId);
+  if (filters.projectId) params.set('projectId', filters.projectId);
+  if (filters.bucket) params.set('bucket', filters.bucket);
+  if (filters.crossProject) params.set('crossProject', '1');
   const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`/api/people/v1/allocation/utilization${qs}`, { credentials: 'include' });
   return handleResponse<UtilizationByPerson>(res);

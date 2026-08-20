@@ -1,11 +1,13 @@
-import { Card, ChartLegend, EmptyState, Input, PaginationFooter } from '@seta/shared-ui';
+import { Card, EmptyState, Input, PaginationFooter } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Gauge } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  type AllocationGridFilters,
   fetchUtilizationByPerson,
   type UtilizationByPerson,
+  type UtilizationFilters,
   type UtilizationRow,
 } from '../api/allocation-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
@@ -20,12 +22,34 @@ const PALETTE = [
   '#DC2626',
   '#0891B2',
   '#DB2777',
+  '#4F46E5',
+  '#EA580C',
+  '#059669',
+  '#7C3AED',
+  '#D97706',
+  '#E11D48',
+  '#0284C7',
+  '#65A30D',
+  '#C026D3',
+  '#2563EB',
+  '#0D9488',
+  '#475569',
+  '#84CC16',
+  '#991B1B',
+  '#6366F1',
+  '#CA8A04',
 ] as const;
+
 const PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [PAGE_SIZE, 25, 50, 100];
 
 function paletteColor(i: number): string {
   return PALETTE[i % PALETTE.length] ?? PALETTE[0];
+}
+
+function formatPct(val: number): string {
+  const rounded = Math.round(val * 100) / 100;
+  return Number.isInteger(rounded) ? `${rounded}` : `${rounded.toFixed(2).replace(/\.?0+$/, '')}`;
 }
 
 // Stable, unique keys for a worker's segments — a worker may hold two active
@@ -41,16 +65,36 @@ function segmentKeys(
   });
 }
 
-export function UtilizationPanel({ crossProject = false }: { crossProject?: boolean }) {
+export function UtilizationPanel({
+  filters,
+  crossProject = false,
+}: {
+  filters?: AllocationGridFilters;
+  crossProject?: boolean;
+}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
+  const effectiveFilters = useMemo<UtilizationFilters>(
+    () => ({
+      ...(filters ?? {}),
+      ...(crossProject || filters?.crossProject ? { crossProject: true } : {}),
+    }),
+    [filters, crossProject],
+  );
+
   const { data, isLoading, error } = useQuery<UtilizationByPerson>({
-    queryKey: peopleKeys.allocationUtilization(crossProject),
-    queryFn: () => fetchUtilizationByPerson({ crossProject: crossProject || undefined }),
+    queryKey: peopleKeys.allocationUtilization(effectiveFilters),
+    queryFn: () => fetchUtilizationByPerson(effectiveFilters),
   });
+
+  // Reset page when filters change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: effectiveFilters is the intentional reset trigger
+  useEffect(() => {
+    setPage(1);
+  }, [effectiveFilters]);
 
   const colorByProject = useMemo(() => {
     const ids = [
@@ -62,20 +106,6 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
     });
     return m;
   }, [data]);
-
-  const legendItems = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const r of data?.rows ?? []) {
-      for (const s of r.segments) {
-        if (!seen.has(s.project_id)) seen.set(s.project_id, s.project_name ?? '—');
-      }
-    }
-    return [...seen.entries()].map(([id, label]) => ({
-      key: id,
-      label,
-      color: colorByProject.get(id) ?? PALETTE[0],
-    }));
-  }, [data, colorByProject]);
 
   const filtered = useMemo(() => {
     const rows = data?.rows ?? [];
@@ -124,15 +154,12 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
         />
       ) : (
         <>
-          {legendItems.length > 0 && <ChartLegend items={legendItems} />}
           <div className="space-y-3">
             {slice.map((r: UtilizationRow) => {
+              const isOver = r.total_pct > 100;
+              const denominator = isOver && r.total_pct > 0 ? r.total_pct : 100;
               const free = r.total_pct < 100 ? 100 - r.total_pct : 0;
-              const totalColor = r.over_allocated
-                ? 'var(--color-error)'
-                : r.total_pct >= 70
-                  ? 'var(--color-success)'
-                  : 'var(--color-warning)';
+              const barTotal = Math.min(r.total_pct, 100);
               return (
                 <button
                   key={r.worker_id}
@@ -145,7 +172,37 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
                     })
                   }
                 >
-                  <div className="flex items-center gap-3">
+                  {/* Line 1: Project segments above the bar, structurally aligned with the bar */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-40 shrink-0" aria-hidden="true" />
+                    <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      {r.segments.map((seg) => {
+                        const segShare = (seg.pct / denominator) * 100;
+                        return (
+                          <span
+                            key={seg.project_id}
+                            className="inline-flex items-center gap-1.5 text-secondary"
+                          >
+                            <span
+                              className="size-2 shrink-0 rounded-full"
+                              style={{
+                                background: colorByProject.get(seg.project_id) ?? PALETTE[0],
+                              }}
+                              aria-hidden="true"
+                            />
+                            <span className="font-medium text-primary">
+                              {seg.project_name ?? '—'}
+                            </span>
+                            <span>{formatPct(segShare)}%</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <div className="w-16 shrink-0" aria-hidden="true" />
+                  </div>
+
+                  {/* Line 2: Worker Name + Bar + Total % on the same line */}
+                  <div className="mt-1 flex items-center gap-3">
                     <span
                       className="w-40 shrink-0 truncate text-base font-medium"
                       title={r.full_name}
@@ -153,30 +210,36 @@ export function UtilizationPanel({ crossProject = false }: { crossProject?: bool
                       {r.full_name}
                     </span>
                     <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-surface">
-                      {segmentKeys(r.segments).map(({ key, seg }) => (
-                        <span
-                          key={key}
-                          style={{
-                            width: `${Math.min(seg.pct, 100)}%`,
-                            background: colorByProject.get(seg.project_id),
-                          }}
-                          title={`${seg.project_name ?? '—'} · ${seg.pct}%`}
-                        />
-                      ))}
+                      {segmentKeys(r.segments).map(({ key, seg }) => {
+                        const segShare = (seg.pct / denominator) * 100;
+                        return (
+                          <span
+                            key={key}
+                            style={{
+                              width: `${Math.min(segShare, 100)}%`,
+                              background: colorByProject.get(seg.project_id) ?? PALETTE[0],
+                            }}
+                            title={`${seg.project_name ?? '—'} · ${formatPct(segShare)}%`}
+                          />
+                        );
+                      })}
                       {free > 0 && (
                         <span style={{ width: `${free}%` }} className="bg-transparent" />
                       )}
                     </span>
-                    <span
-                      className="w-16 shrink-0 text-right font-mono text-sm"
-                      style={{ color: totalColor }}
-                    >
-                      {r.total_pct}%{r.over_allocated ? ' ⚠' : ''}
+                    <span className="w-16 shrink-0 text-right font-mono text-sm text-secondary">
+                      {formatPct(barTotal)}%
                     </span>
                   </div>
-                  <div className="mt-0.5 pl-[172px] text-xs text-secondary">
-                    billable {r.split.billable}% · internal {r.split.internal}% · bench{' '}
-                    {r.split.bench}%
+
+                  {/* Line 3: Billable split below, structurally aligned with the bar */}
+                  <div className="mt-0.5 flex items-start gap-3">
+                    <div className="w-40 shrink-0" aria-hidden="true" />
+                    <div className="flex-1 text-xs text-secondary">
+                      billable {formatPct(r.split.billable)}% · internal{' '}
+                      {formatPct(r.split.internal)}% · bench {formatPct(r.split.bench)}%
+                    </div>
+                    <div className="w-16 shrink-0" aria-hidden="true" />
                   </div>
                 </button>
               );
