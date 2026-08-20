@@ -42,6 +42,7 @@ import {
   existingAllocationErrors,
   existingEndDateMin,
   existingRowChanged,
+  existingRowChangedBeyondNote,
   formatDisplayDate,
   fractionToPct,
   isValidIsoDate,
@@ -296,35 +297,34 @@ export function ReassignWizardDialog({
     const d = rowDrafts[a.allocation_id];
     if (!d) continue;
     const eff = effectiveRow(a);
-    const changed = existingRowChanged(
-      {
-        account_id: d.account_id,
-        project_id: d.project_id,
-        planned_pct: fractionToPct(d.planned_pct),
-        date_from: d.date_from,
-        date_to: d.date_to,
-        bucket: d.bucket,
-        note: d.note,
-      },
-      {
-        account_id: eff.account_id,
-        project_id: eff.project_id,
-        planned_pct: eff.planned_pct,
-        date_from: eff.date_from ?? '',
-        date_to: eff.date_to ?? '',
-        bucket: eff.bucket,
-        note: eff.note ?? '',
-      },
-    );
-    if (!changed) continue;
+    const draftState = {
+      account_id: d.account_id,
+      project_id: d.project_id,
+      planned_pct: fractionToPct(d.planned_pct),
+      date_from: d.date_from,
+      date_to: d.date_to,
+      bucket: d.bucket,
+      note: d.note,
+    };
+    const savedState = {
+      account_id: eff.account_id,
+      project_id: eff.project_id,
+      planned_pct: eff.planned_pct,
+      date_from: eff.date_from ?? '',
+      date_to: eff.date_to ?? '',
+      bucket: eff.bucket,
+      note: eff.note ?? '',
+    };
+    if (!existingRowChanged(draftState, savedState)) continue;
 
     const isValid =
-      Boolean(d.account_id) &&
-      Boolean(d.project_id) &&
-      Number(d.planned_pct) > 0 &&
-      isValidIsoDate(d.date_from) &&
-      isValidIsoDate(d.date_to) &&
-      existingErrors[a.allocation_id] == null;
+      !existingRowChangedBeyondNote(draftState, savedState) ||
+      (Boolean(d.account_id) &&
+        Boolean(d.project_id) &&
+        Number(d.planned_pct) > 0 &&
+        isValidIsoDate(d.date_from) &&
+        isValidIsoDate(d.date_to) &&
+        existingErrors[a.allocation_id] == null);
 
     if (!isValid) {
       hasInvalidExistingEdit = true;
@@ -538,27 +538,25 @@ export function ReassignWizardDialog({
       const d = rowDrafts[a.allocation_id];
       if (!d) continue;
       const eff = effectiveRow(a);
-      const changed = existingRowChanged(
-        {
-          account_id: d.account_id,
-          project_id: d.project_id,
-          planned_pct: fractionToPct(d.planned_pct),
-          date_from: d.date_from,
-          date_to: d.date_to,
-          bucket: d.bucket,
-          note: d.note,
-        },
-        {
-          account_id: eff.account_id,
-          project_id: eff.project_id,
-          planned_pct: eff.planned_pct,
-          date_from: eff.date_from ?? '',
-          date_to: eff.date_to ?? '',
-          bucket: eff.bucket,
-          note: eff.note ?? '',
-        },
-      );
-      if (!changed) continue;
+      const draftState = {
+        account_id: d.account_id,
+        project_id: d.project_id,
+        planned_pct: fractionToPct(d.planned_pct),
+        date_from: d.date_from,
+        date_to: d.date_to,
+        bucket: d.bucket,
+        note: d.note,
+      };
+      const savedState = {
+        account_id: eff.account_id,
+        project_id: eff.project_id,
+        planned_pct: eff.planned_pct,
+        date_from: eff.date_from ?? '',
+        date_to: eff.date_to ?? '',
+        bucket: eff.bucket,
+        note: eff.note ?? '',
+      };
+      if (!existingRowChangedBeyondNote(draftState, savedState)) continue;
 
       const err = existingErrors[a.allocation_id];
       if (err) return err;
@@ -689,9 +687,6 @@ export function ReassignWizardDialog({
                         </div>
                         {futureAllocations.map((a) => {
                           const draft = draftFor(a);
-                          // A row that already started (start date in the past) is locked to
-                          // end-date edits only — shorten/extend it (FUT-876 makes its delete
-                          // impossible: it carries an effective, historical portion).
                           const eff = effectiveRow(a);
                           const startLocked = !!eff.date_from && eff.date_from < todayIso();
                           // Reassign target must be a project the caller manages (FUT-353) — the
@@ -814,7 +809,6 @@ export function ReassignWizardDialog({
                               />
                               <NoteField
                                 label={`Note for ${a.project_name}`}
-                                isDisabled={startLocked}
                                 value={draft.note}
                                 onChange={(note) => updateRowDraft(a, { note })}
                               />
@@ -1136,17 +1130,15 @@ function capNoteGrowth(next: string, current: string) {
 function NoteField({
   label,
   value,
-  isDisabled,
   onChange,
 }: {
   label: string;
   value: string;
-  isDisabled?: boolean;
   onChange: (note: string) => void;
 }) {
   const toast = useToast();
   const limit = noteLimitFor(value);
-  const isFull = !isDisabled && value.length >= limit;
+  const isFull = value.length >= limit;
 
   return (
     <Tooltip
@@ -1168,7 +1160,6 @@ function NoteField({
         label={label}
         isLabelHidden
         size="sm"
-        isDisabled={isDisabled}
         value={value}
         status={isFull ? { type: 'warning' } : undefined}
         onChange={(next) => {
