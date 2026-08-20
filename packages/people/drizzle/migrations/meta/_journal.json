@@ -94,24 +94,24 @@
       "breakpoints": true
     },
     {
-      "idx": 11,
-      "version": "7",
-      "when": 1786688566399,
-      "tag": "0019_performance_evaluation",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1786814735787,
-      "tag": "0021_performance_score_half_points",
-      "breakpoints": true
-    },
-    {
       "idx": 13,
       "version": "7",
+      "when": 1786688566399,
+      "tag": "0021_performance_evaluation",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786814735787,
+      "tag": "0023_performance_score_half_points",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
       "when": 1786819657563,
-      "tag": "0022_performance_self_assessment",
+      "tag": "0024_performance_self_assessment",
       "breakpoints": true
     }
   ]
