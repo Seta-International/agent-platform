@@ -492,3 +492,84 @@ describe('AllocationPage — Planned load heatmap styles & legend (FUT-894)', ()
     expect(overBox.style.background).toBe('var(--color-error)');
   });
 });
+describe('AllocationPage — dropdown filters and clear functionality (FUT-904)', () => {
+  const gridWithFacets = {
+    ...baseGrid,
+    facets: {
+      accounts: [
+        { id: 'a1', name: 'Acme' },
+        { id: 'a2', name: 'Beta Corp' },
+      ],
+      projects: [
+        { id: 'p1', name: 'Apollo', account_id: 'a1' },
+        { id: 'p2', name: 'Zeus', account_id: 'a2' },
+      ],
+    },
+  };
+
+  it('selects an account and clears it using the clear button on the Selector (FUT-904)', async () => {
+    const user = userEvent.setup();
+    mockSearch = {};
+    mockFetchAllocationGrid.mockResolvedValue(gridWithFacets);
+    renderPage();
+
+    await screen.findByRole('table');
+
+    // 1. Open Account selector and pick Acme
+    const accountTrigger = screen.getByRole('button', { name: 'Account' });
+    await user.click(accountTrigger);
+    const acmeOption = await screen.findByRole('option', { name: 'Acme' });
+    await user.click(acmeOption);
+
+    expect(mockSearch.account).toBe('a1');
+
+    // 2. Clear the selected account
+    const clearButton = await screen.findByRole('button', { name: /clear account/i });
+    await user.click(clearButton);
+
+    expect(mockSearch.account).toBeUndefined();
+    expect(mockSearch.project).toBeUndefined();
+  });
+
+  it('selects and clears project filter (FUT-904)', async () => {
+    const user = userEvent.setup();
+    mockSearch = { account: 'a1' };
+    mockFetchAllocationGrid.mockResolvedValue(gridWithFacets);
+    renderPage();
+
+    await screen.findByRole('table');
+
+    const projectTrigger = screen.getByRole('button', { name: 'Project' });
+    await user.click(projectTrigger);
+    const apolloOption = await screen.findByRole('option', { name: 'Apollo' });
+    await user.click(apolloOption);
+
+    expect(mockSearch.project).toBe('p1');
+
+    const clearButton = await screen.findByRole('button', { name: /clear project/i });
+    await user.click(clearButton);
+
+    expect(mockSearch.project).toBeUndefined();
+  });
+
+  it('selects and clears bucket filter (FUT-904)', async () => {
+    const user = userEvent.setup();
+    mockSearch = {};
+    mockFetchAllocationGrid.mockResolvedValue(gridWithFacets);
+    renderPage();
+
+    await screen.findByRole('table');
+
+    const bucketTrigger = screen.getByRole('combobox', { name: 'Bucket' });
+    await user.click(bucketTrigger);
+    const billableOption = await screen.findByRole('option', { name: 'Billable' });
+    await user.click(billableOption);
+
+    expect(mockSearch.bucket).toBe('billable');
+
+    const clearButton = await screen.findByRole('button', { name: /clear bucket/i });
+    await user.click(clearButton);
+
+    expect(mockSearch.bucket).toBeUndefined();
+  });
+});

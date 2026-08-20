@@ -7,7 +7,6 @@ import {
   Checkbox,
   type ColumnSettingsOption,
   cn,
-  createStaticSource,
   DonutChart,
   type DonutSlice,
   EmptyState,
@@ -21,14 +20,14 @@ import {
   paginateData,
   pixel,
   proportional,
-  type SearchableItem,
   SegmentedControl,
   SegmentedControlItem,
+  Selector,
+  type SelectorOptionData,
   Skeleton,
   Table,
   type TableColumn,
   Text,
-  Typeahead,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTableSortable,
@@ -298,29 +297,23 @@ export function AllocationPage() {
     setPage(1);
   }, [filters, sort]);
 
-  const accountItems = useMemo<SearchableItem[]>(
-    () => (data?.facets.accounts ?? []).map((a) => ({ id: a.id, label: a.name })),
-    [data],
+  const accountOptions = useMemo<SelectorOptionData[]>(
+    () => (data?.facets.accounts ?? []).map((a) => ({ value: a.id, label: a.name })),
+    [data?.facets.accounts],
   );
-  const accountSource = useMemo(() => createStaticSource(accountItems), [accountItems]);
-  const accountValue = accountItems.find((a) => a.id === raw.account) ?? null;
 
-  const projectItems = useMemo<SearchableItem[]>(
+  const projectOptions = useMemo<SelectorOptionData[]>(
     () =>
       (data?.facets.projects ?? [])
         .filter((p) => !raw.account || p.account_id === raw.account)
-        .map((p) => ({ id: p.id, label: p.name })),
-    [data, raw.account],
+        .map((p) => ({ value: p.id, label: p.name })),
+    [data?.facets.projects, raw.account],
   );
-  const projectSource = useMemo(() => createStaticSource(projectItems), [projectItems]);
-  const projectValue = projectItems.find((p) => p.id === raw.project) ?? null;
 
-  const bucketItems = useMemo<SearchableItem[]>(
-    () => BUCKET_OPTIONS.map((b) => ({ id: b.value, label: b.label })),
+  const bucketOptions = useMemo<SelectorOptionData[]>(
+    () => BUCKET_OPTIONS.map((b) => ({ value: b.value, label: b.label })),
     [],
   );
-  const bucketSource = useMemo(() => createStaticSource(bucketItems), [bucketItems]);
-  const bucketValue = bucketItems.find((b) => b.id === raw.bucket) ?? null;
 
   const overByWorkerMonth = useMemo(() => {
     const m = new Map<string, Set<number>>();
@@ -726,45 +719,42 @@ export function AllocationPage() {
                         <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
                       ))}
                     </SegmentedControl>
-                    <Typeahead
-                      key={`account-${accountItems.map((a) => a.id).join('|')}`}
-                      className="h-8 w-44"
+                    <Selector
                       label="Account"
                       isLabelHidden
-                      searchSource={accountSource}
-                      debounceMs={0}
-                      hasEntriesOnFocus
-                      maxMenuItems={Math.max(accountItems.length, 10)}
-                      value={accountValue}
-                      onChange={(item) =>
-                        setSearch({ account: item?.id ?? undefined, project: undefined })
+                      size="sm"
+                      width={176}
+                      hasSearch
+                      hasClear
+                      options={accountOptions}
+                      value={raw.account ?? null}
+                      onChange={(val) =>
+                        setSearch({ account: val ?? undefined, project: undefined })
                       }
                       placeholder="All accounts"
                     />
-                    <Typeahead
-                      key={`project-${projectItems.map((p) => p.id).join('|')}-${raw.account ?? ''}`}
-                      className="h-8 w-44"
+                    <Selector
                       label="Project"
                       isLabelHidden
-                      searchSource={projectSource}
-                      debounceMs={0}
-                      hasEntriesOnFocus
-                      maxMenuItems={Math.max(projectItems.length, 10)}
-                      value={projectValue}
-                      onChange={(item) => setSearch({ project: item?.id ?? undefined })}
+                      size="sm"
+                      width={176}
+                      hasSearch
+                      hasClear
+                      options={projectOptions}
+                      value={raw.project ?? null}
+                      onChange={(val) => setSearch({ project: val ?? undefined })}
                       placeholder="All projects"
                     />
-                    <Typeahead
-                      className="h-8 w-36"
+                    <Selector
                       label="Bucket"
                       isLabelHidden
-                      searchSource={bucketSource}
-                      debounceMs={0}
-                      hasEntriesOnFocus
-                      maxMenuItems={bucketItems.length}
-                      value={bucketValue}
-                      onChange={(item) =>
-                        setSearch({ bucket: (item?.id as AllocationBucket) ?? undefined })
+                      size="sm"
+                      width={140}
+                      hasClear
+                      options={bucketOptions}
+                      value={raw.bucket ?? null}
+                      onChange={(val) =>
+                        setSearch({ bucket: (val as AllocationBucket) ?? undefined })
                       }
                       placeholder="All buckets"
                     />
