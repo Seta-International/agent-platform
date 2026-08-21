@@ -155,3 +155,35 @@ describe('PeopleCardGrid pager', () => {
     expect(screen.getByRole('combobox', { name: 'Items per page' })).toBeInTheDocument();
   });
 });
+
+describe('PeopleCardGrid empty state', () => {
+  it('renders "No employees yet" and "No employee records found." when empty without filters', () => {
+    render(
+      <PeopleCardGrid
+        rows={[]}
+        total={0}
+        isLoading={false}
+        query={{ page: 1, pageSize: 25 }}
+        setQuery={vi.fn()}
+        onRowClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('No employees yet')).toBeInTheDocument();
+    expect(screen.getByText('No employee records found.')).toBeInTheDocument();
+  });
+
+  it('renders "No matching people" and "Try adjusting your search or filters." when empty with filters', () => {
+    render(
+      <PeopleCardGrid
+        rows={[]}
+        total={0}
+        isLoading={false}
+        query={{ page: 1, pageSize: 25, search: 'Alice' }}
+        setQuery={vi.fn()}
+        onRowClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('No matching people')).toBeInTheDocument();
+    expect(screen.getByText('Try adjusting your search or filters.')).toBeInTheDocument();
+  });
+});
