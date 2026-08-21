@@ -30,8 +30,7 @@ import {
   useTableSortable,
   VStack,
 } from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { LayoutGrid, List, Settings2, User, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,7 +40,6 @@ import {
   type WorkerListRow,
   type WorkersQuery,
 } from '../api/people-client.ts';
-import { CreateWorkerDialog } from '../components/create-worker-dialog.tsx';
 import { PeopleCardGrid } from '../components/people-card-grid.tsx';
 import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
@@ -80,8 +78,6 @@ const DEFAULT_COLUMN_KEYS = COLUMN_OPTIONS.map((c) => c.key);
 
 export function PeoplePage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const canProvision = usePermission('people.worker.create');
   const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_COLUMN_KEYS);
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
@@ -288,14 +284,6 @@ export function PeoplePage() {
     [],
   );
 
-  const actions = canProvision ? (
-    <CreateWorkerDialog
-      onCreated={() =>
-        void queryClient.invalidateQueries({ queryKey: [...peopleKeys.all, 'workers'] })
-      }
-    />
-  ) : undefined;
-
   return (
     <Layout
       height="fill"
@@ -312,7 +300,6 @@ export function PeoplePage() {
                   Employees
                 </Text>
               </HStack>
-              {actions}
             </HStack>
           </VStack>
         </LayoutHeader>
@@ -451,7 +438,7 @@ export function PeoplePage() {
                           <EmptyState
                             icon={<Users className="size-6" />}
                             title="No employees yet"
-                            description="Add an employee to get started."
+                            description="No employee records found."
                           />
                         )
                       }

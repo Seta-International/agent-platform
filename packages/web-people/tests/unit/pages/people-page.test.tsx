@@ -4,10 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { PeoplePage } from '../../../src/pages/people-page.tsx';
 
-vi.mock('@seta/web-identity', () => ({
-  usePermission: () => false,
-}));
-
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }));
@@ -83,6 +79,27 @@ describe('PeoplePage (Astryx Table migration)', () => {
     const grace = within(table).getByRole('img', { name: 'Grace Hopper' });
     expect(grace.querySelector('img')).toBeNull();
     expect(grace).toHaveTextContent('GH');
+  });
+
+  it('does not render the Add Employee button in List view (FUT-929 AC1/AC2)', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    await screen.findByRole('table');
+    expect(screen.queryByRole('button', { name: /add employee/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render the Add Employee button in Cards view (FUT-929 AC1/AC2)', async () => {
+    const user = userEvent.setup();
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    await screen.findByRole('table');
+    const cardsRadio = screen.getByRole('radio', { name: 'Cards' });
+    await user.click(cardsRadio);
+
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add employee/i })).not.toBeInTheDocument();
   });
 
   it('clicking a sort header rewrites the sort query param (server-mode mapper)', async () => {
@@ -167,6 +184,15 @@ describe('PeoplePage (Astryx Table migration)', () => {
     await user.type(screen.getByPlaceholderText('Search people…'), 'zzz');
 
     expect(await screen.findByText('No matching people')).toBeInTheDocument();
+  });
+
+  it('renders the "no employees yet" empty state when no employees exist (FUT-929 AC3)', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: [], total: 0 });
+    renderPage();
+
+    await screen.findByRole('table');
+    expect(await screen.findByText('No employees yet')).toBeInTheDocument();
+    expect(await screen.findByText('No employee records found.')).toBeInTheDocument();
   });
 
   it('renders the breadcrumb trail and page title', async () => {
