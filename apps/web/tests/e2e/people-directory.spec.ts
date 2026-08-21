@@ -240,123 +240,24 @@ test('card/list toggle: switching to Cards view shows worker card', async ({ pag
   await expect(page.getByRole('columnheader', { name: 'Employee' })).toBeVisible();
 });
 
-// ─── Test 7: Worker profile — edit mode (job_title + skill + manager) ─────────
-test('worker profile: edit job_title and add skill, assert toast and reload', async ({ page }) => {
+// ─── Test 7: Worker profile — read-only view (no Edit button for any role) ────
+test('worker profile: renders employee information in read-only mode without Edit button', async ({
+  page,
+}) => {
   await page.goto(`/people/employees/${workerId}`);
   await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible({ timeout: 8_000 });
 
-  // Enter edit mode.
-  await page.getByRole('button', { name: 'Edit' }).click();
+  // AC1: Edit button is not displayed for any role
+  await expect(page.getByRole('button', { name: 'Edit' })).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible();
 
-  // Update job_title to a fresh value.
-  const newTitle = `Staff Engineer ${Date.now()}`;
-  const jobTitleInput = page.getByLabel('Job title');
-  await jobTitleInput.clear();
-  await jobTitleInput.fill(newTitle);
+  // AC2: Employee information is read-only
+  await expect(page.getByText('Staff Engineer')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText(WORKER_EMAIL)).toBeVisible({ timeout: 5_000 });
 
-  // Save.
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Changes saved')).toBeVisible({ timeout: 8_000 });
-
-  // After save, verify the updated job_title renders in read-only view.
-  await expect(page.getByText(newTitle)).toBeVisible({ timeout: 5_000 });
-
-  // Reload and confirm persistence.
-  await page.reload();
-  await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText(newTitle)).toBeVisible({ timeout: 5_000 });
-});
-
-test('worker profile: add skill via Techstack picker, skill chip appears', async ({ page }) => {
-  // Use a second skill name to avoid collision with the one added in beforeAll.
-  const SECOND_SKILL = 'E2E-Playwright-Profile';
-
-  // Ensure second skill exists in catalog (admin request context).
-  const ctx = await request.newContext({
-    baseURL: 'http://localhost:5173',
-    storageState: '.auth/admin.json',
-  });
-  // Re-use existing category.
-  const catListRes = await ctx.get('/api/identity/v1/skill-categories');
-  const { categories } = (await catListRes.json()) as { categories: SkillCatRow[] };
-  const catId = categories.find((c) => c.name === SKILL_CAT_NAME)?.id;
-  if (!catId) throw new Error('E2E skill category missing — check beforeAll');
-
-  const skillListRes = await ctx.get('/api/identity/v1/skills');
-  const { skills } = (await skillListRes.json()) as { skills: SkillRow[] };
-  // Ensure the catalog has SECOND_SKILL so the profile picker can find it (side effect only).
-  if (!skills.some((s) => s.name === SECOND_SKILL)) {
-    await ctx.post('/api/identity/v1/skills', {
-      data: { category_id: catId, name: SECOND_SKILL },
-    });
-  }
-  await ctx.dispose();
-
-  await page.goto(`/people/employees/${workerId}`);
-  await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible({ timeout: 8_000 });
-
-  // The Techstack card's AsyncCombobox (always visible for canEdit, outside edit mode).
-  // It renders as role="combobox" with placeholder "Add skills…".
-  const addSkillsCombobox = page.locator('[role="combobox"]').filter({ hasText: 'Add skills…' });
-  await addSkillsCombobox.click();
-
-  const searchInput = page.getByPlaceholder('Search…');
-  await searchInput.fill(SECOND_SKILL);
-
-  const skillItem = page.getByRole('option', { name: SECOND_SKILL });
-  await expect(skillItem).toBeVisible({ timeout: 5_000 });
-  await skillItem.click();
-
-  // After mutation the Techstack card refreshes — the skill chip should appear.
-  await expect(page.getByText(SECOND_SKILL)).toBeVisible({ timeout: 8_000 });
-});
-
-test('worker profile: set org unit via picker, unit name renders after save', async ({ page }) => {
-  // Reporting is derived from the org unit (manager_id was dropped in PR1), so the editable
-  // field is now Org unit. Pick a seeded unit from /org/structure; skip if none seeded.
-  const ctx = await request.newContext({
-    baseURL: 'http://localhost:5173',
-    storageState: '.auth/admin.json',
-  });
-  const structRes = await ctx.get('/api/people/v1/org/structure');
-  const { units } = (await structRes.json()) as { units: { id: string; name: string }[] };
-  await ctx.dispose();
-
-  const unit = units[0];
-  if (!unit) {
-    test.skip(true, 'no org units seeded — covered by people unit/integration tests');
-    return;
-  }
-
-  await page.goto(`/people/employees/${workerId}`);
-  await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible({ timeout: 8_000 });
-
-  await page.getByRole('button', { name: 'Edit' }).click();
-
-  // Org-unit picker: AsyncCombobox with placeholder "Search org units…" (single-mode, button).
-  const unitCombobox = page
-    .locator('button[role="combobox"]')
-    .filter({ hasText: 'Search org units…' })
-    .or(page.locator('[role="combobox"]').filter({ hasText: 'Search org units…' }));
-  await unitCombobox.first().click();
-
-  const searchInput = page.getByPlaceholder('Search…');
-  await searchInput.fill(unit.name.split(' ')[0] ?? unit.name);
-
-  const unitItem = page.getByRole('option', { name: unit.name });
-  await expect(unitItem).toBeVisible({ timeout: 5_000 });
-  await unitItem.click();
-
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Changes saved')).toBeVisible({ timeout: 8_000 });
-
-  // In read-only view, the Org unit field row should show the unit's name.
-  await expect(page.getByText(unit.name)).toBeVisible({ timeout: 5_000 });
-
-  // Reload and confirm persistence.
-  await page.reload();
-  await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText(unit.name)).toBeVisible({ timeout: 5_000 });
+  // Techstack skill is displayed in read-only mode
+  await expect(page.getByText(SKILL_NAME)).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByPlaceholder('Search to add a skill…')).not.toBeVisible();
 });
 
 // ─── Test 8: Multi-account chips (best-effort, skip if none present) ──────────
