@@ -42,33 +42,35 @@ export function TaskDetailDialog({ planId, taskId, onClose, onOpenFullPage }: Pr
         padding={0}
         content={
           <LayoutContent padding={0} isScrollable={false}>
-            <TaskDetailPage
-              planId={planId}
-              taskId={taskId}
-              variant="modal"
-              onDeleted={onClose}
-              onClose={onClose}
-              modalHeaderActions={
-                <>
-                  <IconButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={onOpenFullPage}
-                    tooltip="Open as full page"
-                    label="Open as full page"
-                    icon={<Maximize2 className="size-4" />}
-                  />
-                  <IconButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClose}
-                    tooltip="Close"
-                    label="Close"
-                    icon={<X className="size-4" />}
-                  />
-                </>
-              }
-            />
+            <div className="flex max-h-[88vh] flex-col">
+              <TaskDetailPage
+                planId={planId}
+                taskId={taskId}
+                variant="modal"
+                onDeleted={onClose}
+                onClose={onClose}
+                modalHeaderActions={
+                  <>
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={onOpenFullPage}
+                      tooltip="Open as full page"
+                      label="Open as full page"
+                      icon={<Maximize2 className="size-4" />}
+                    />
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={onClose}
+                      tooltip="Close"
+                      label="Close"
+                      icon={<X className="size-4" />}
+                    />
+                  </>
+                }
+              />
+            </div>
           </LayoutContent>
         }
       />

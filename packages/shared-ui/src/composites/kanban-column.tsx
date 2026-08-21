@@ -61,7 +61,13 @@ const styles = stylex.create({
   // parent while `.kanban-board` stays the horizontal one. Board drag-autoscroll
   // across columns must be verified at runtime (e2e); if it regresses, drop this
   // scrollArea and let overflow scroll at the board level.
-  scrollArea: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' },
+  // `flex: 1; min-height: 0` only works when the parent is a flex/grid container —
+  // LayoutContent's root is `display: block`, so those were inert and this VStack
+  // grew to its content's full height instead of the available column body height,
+  // silently clipping (LayoutContent's `overflow: clip`) any tasks past that point
+  // with nothing to scroll. `height: 100%` resolves against LayoutContent's own
+  // (definite) height instead, which block layout honors.
+  scrollArea: { height: '100%', overflowY: 'auto', overflowX: 'hidden' },
 });
 
 export interface KanbanColumnProps {
