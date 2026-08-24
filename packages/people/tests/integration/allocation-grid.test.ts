@@ -1252,4 +1252,136 @@ describe('getAllocationGrid', () => {
       }
     });
   });
+
+  it('calculates avg_utilization based on current-month utilization of unique members (FUT-941)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+
+        const personA = crypto.randomUUID();
+        const personB = crypto.randomUUID();
+        const personC = crypto.randomUUID();
+
+        await peopleDb()
+          .insert(person)
+          .values([
+            { id: personA, tenant_id: t.tenant_id, full_name: 'Member A' },
+            { id: personB, tenant_id: t.tenant_id, full_name: 'Member B' },
+            { id: personC, tenant_id: t.tenant_id, full_name: 'Member C' },
+          ]);
+
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            {
+              project_id: projA,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Project Alpha',
+            },
+          ]);
+
+        // Full-year allocations:
+        // A = 30%, B = 100%, C = 100%
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personA,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '30',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personB,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personC,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+
+        expect(grid.kpis.member_count).toBe(3);
+        // (30% + 100% + 100%) / 3 = 76.6666... -> 76.67
+        expect(grid.kpis.avg_utilization).toBe(76.67);
+
+        // Add extra allocation to Member B to make them over-allocated (100% + 50% = 150%)
+        const projB = crypto.randomUUID();
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            {
+              project_id: projB,
+              tenant_id: t.tenant_id,
+              account_id: accountId,
+              name: 'Project Beta',
+            },
+          ]);
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: personB,
+              project_id: projB,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const gridOver = await getAllocationGrid(t.adminSession, { year: 2026 });
+        // Member B is at 150% (capped at 100%), so avg remains (30 + 100 + 100) / 3 = 76.67
+        expect(gridOver.kpis.avg_utilization).toBe(76.67);
+
+        // Filter status = 'over' -> only Member B (150%) is selected -> avg is 100% (capped at 100%)
+        const gridOnlyOver = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'over',
+        });
+        expect(gridOnlyOver.kpis.member_count).toBe(1);
+        expect(gridOnlyOver.kpis.avg_utilization).toBe(100);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
