@@ -78,7 +78,11 @@ const UNDER_UTIL_THRESHOLD = 85;
 // Vietnamese tone marks and the horn on ư/ơ, which decompose under NFD), then map đ→d (đ has no
 // canonical decomposition so NFD leaves it intact).
 function foldText(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
 }
 
 interface RawRow {
@@ -190,6 +194,55 @@ export async function getAllocationGrid(
     projectFacets.set(r.project_id, { name: r.project_name ?? '—', account_id: r.account_id });
   }
 
+  // Calculate overall month totals per worker across ALL their projects in scope
+  // so status filters (over/under in current month) evaluate true worker capacity
+  const rawByWorker = new Map<string, RawRow[]>();
+  for (const r of raw) {
+    const list = rawByWorker.get(r.worker_id);
+    if (list) list.push(r);
+    else rawByWorker.set(r.worker_id, [r]);
+  }
+
+  const overallWorkerTotals = new Map<string, number[]>();
+  for (const [worker_id, wRows] of rawByWorker.entries()) {
+    const totals = new Array<number>(12).fill(0);
+    for (let m = 0; m < 12; m++) {
+      const [mStart, mEnd] = monthBounds(year, m);
+      const mWorkingDays = workingDays(mStart, mEnd);
+      let monthTotalPct = 0;
+
+      for (const r of wRows) {
+        if (r.planned_pct == null) continue;
+        const pct = Number(r.planned_pct);
+        const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : yearStart;
+        const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : yearEnd;
+        const active = from <= mEnd && to >= mStart;
+        if (active) {
+          const ovStart = from > mStart ? from : mStart;
+          const ovEnd = to < mEnd ? to : mEnd;
+          const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
+          monthTotalPct += pct * frac;
+        }
+      }
+      totals[m] = Math.round(monthTotalPct * 100) / 100;
+    }
+    overallWorkerTotals.set(worker_id, totals);
+  }
+
+  // Status predicate ('over' | 'under') — computed for current month only (FUT-911)
+  const now = new Date();
+  const isCurrentYear = !query.year || query.year === now.getUTCFullYear();
+  const currentMonth = isCurrentYear ? now.getUTCMonth() : 0;
+
+  const workerMatchesStatus = (workerId: string): boolean => {
+    if (!query.status) return true;
+    const totals = overallWorkerTotals.get(workerId);
+    const currentLoad = totals ? (totals[currentMonth] ?? 0) : 0;
+    if (query.status === 'over') return currentLoad > 100;
+    if (query.status === 'under') return currentLoad < UNDER_UTIL_THRESHOLD;
+    return true;
+  };
+
   // Row-level filters (account, project, bucket, search)
   const q = foldText((query.search ?? '').trim());
   const rawMatches = (r: RawRow): boolean => {
@@ -206,7 +259,26 @@ export async function getAllocationGrid(
     return true;
   };
 
-  const filteredRaw = raw.filter(rawMatches);
+  // Keep rows that match the status filter and the row-level filters.
+  // When crossProject is enabled, keep all project allocations for workers matching the filter criteria.
+  let filteredRaw: RawRow[];
+  if (query.crossProject) {
+    const matchingWorkerIds = new Set<string>();
+    for (const r of raw) {
+      if (workerMatchesStatus(r.worker_id) && rawMatches(r)) {
+        matchingWorkerIds.add(r.worker_id);
+      }
+    }
+    filteredRaw = raw.filter(
+      (r) => matchingWorkerIds.has(r.worker_id) && workerMatchesStatus(r.worker_id),
+    );
+  } else {
+    filteredRaw = raw.filter((r) => {
+      if (!workerMatchesStatus(r.worker_id)) return false;
+      if (!rawMatches(r)) return false;
+      return true;
+    });
+  }
 
   // Group allocations for the same project under each worker into a single row (FUT-850).
   interface ProjectGroup {
@@ -314,10 +386,11 @@ export async function getAllocationGrid(
   if (!hasSpecificFilter) {
     for (const p of visiblePersons) {
       if (
-        q &&
-        !foldText(p.full_name ?? '').includes(q) &&
-        !foldText(p.worker_id).includes(q) &&
-        !(p.employee_no && foldText(p.employee_no).includes(q))
+        (q &&
+          !foldText(p.full_name ?? '').includes(q) &&
+          !foldText(p.worker_id).includes(q) &&
+          !(p.employee_no && foldText(p.employee_no).includes(q))) ||
+        !workerMatchesStatus(p.worker_id)
       ) {
         continue;
       }
@@ -351,35 +424,24 @@ export async function getAllocationGrid(
   }
 
   const filteredWorkerTotals: WorkerMonthTotal[] = [...byWorker.entries()].map(
-    ([worker_id, totals]) => ({
-      worker_id,
-      totals,
-      over_months: totals.map((v, i) => (v > 100 ? i : -1)).filter((i) => i >= 0),
-    }),
+    ([worker_id, totals]) => {
+      // Over-months flags reflect the worker's true overall load across projects
+      const overall = overallWorkerTotals.get(worker_id) ?? totals;
+      return {
+        worker_id,
+        totals,
+        over_months: overall.map((v, i) => (v > 100 ? i : -1)).filter((i) => i >= 0),
+      };
+    },
   );
 
-  // Status predicate ('over' | 'under') — computed for current month only (FUT-911)
-  const now = new Date();
-  const isCurrentYear = !query.year || query.year === now.getUTCFullYear();
-  const currentMonth = isCurrentYear ? now.getUTCMonth() : 0;
-
-  const totalsByWorkerMap = new Map(filteredWorkerTotals.map((w) => [w.worker_id, w]));
-  const workerMatchesStatus = (workerId: string): boolean => {
-    if (!query.status) return true;
-    const wt = totalsByWorkerMap.get(workerId);
-    if (query.status === 'over') return wt ? (wt.totals[currentMonth] ?? 0) > 100 : false;
-    if (query.status === 'under') {
-      const currentLoad = wt ? (wt.totals[currentMonth] ?? 0) : 0;
-      return currentLoad < UNDER_UTIL_THRESHOLD;
-    }
-    return true;
-  };
-
-  const outRows = rows.filter((r) => workerMatchesStatus(r.worker_id));
-  const outTotals = filteredWorkerTotals.filter((w) => workerMatchesStatus(w.worker_id));
+  const outRows = rows;
+  const outTotals = filteredWorkerTotals;
 
   const memberCount = outTotals.length;
-  const overCount = outTotals.filter((w) => (w.totals[currentMonth] ?? 0) > 100).length;
+  const overCount = outTotals.filter(
+    (w) => (overallWorkerTotals.get(w.worker_id)?.[currentMonth] ?? 0) > 100,
+  ).length;
   const projectCount = new Set(outRows.map((r) => r.project_id)).size;
   const avgUtil = memberCount
     ? Math.round(

@@ -459,6 +459,19 @@ describe('getUtilizationByPerson', () => {
         expect(accUtil.rows[0]!.segments).toHaveLength(1);
         expect(accUtil.rows[0]!.segments[0]!.project_id).toBe(projAlpha);
 
+        // 5b. Combined status=over with accountId: account2
+        // Person A is over-allocated (123.81% overall). Filtering account2 must still return Person A's account2 segment!
+        const overAcc2 = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-08-15',
+          status: 'over',
+          accountId: account2,
+        });
+        expect(overAcc2.rows).toHaveLength(1);
+        expect(overAcc2.rows[0]!.worker_id).toBe(personA);
+        expect(overAcc2.rows[0]!.segments).toHaveLength(1);
+        expect(overAcc2.rows[0]!.segments[0]!.project_id).toBe(projBeta);
+        expect(overAcc2.rows[0]!.over_allocated).toBe(true);
+
         // 6. Filter by bucket
         const billableUtil = await getUtilizationByPerson(t.adminSession, {
           asOf: '2026-08-15',

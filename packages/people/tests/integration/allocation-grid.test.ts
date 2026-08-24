@@ -345,6 +345,20 @@ describe('getAllocationGrid', () => {
         const under = await getAllocationGrid(t.adminSession, { year: 2026, status: 'under' });
         expect(new Set(under.rows.map((r) => r.worker_id))).toEqual(new Set([dung]));
 
+        // Combined status=over with accountId filter:
+        // Hưng is over-allocated overall (80% Acme + 40% Internal = 120%).
+        // When filtering for Internal account with status=over, Hưng must still appear with his Internal row!
+        const overInternal = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'over',
+          accountId: internalAcc,
+        });
+        expect(overInternal.rows).toHaveLength(1);
+        expect(overInternal.rows[0]!.worker_id).toBe(hung);
+        expect(overInternal.rows[0]!.account_id).toBe(internalAcc);
+        expect(overInternal.kpis.over_allocated_count).toBe(1);
+        expect(overInternal.kpis.member_count).toBe(1);
+
         // account filter keeps only that account's rows.
         const acme = await getAllocationGrid(t.adminSession, { year: 2026, accountId: acmeAcc });
         expect(acme.rows.every((r) => r.account_id === acmeAcc)).toBe(true);
