@@ -64,7 +64,7 @@ describe('UtilizationPanel rendering and ACs (FUT-911)', () => {
     expect(screen.getAllByText('Alpha').length).toBe(2);
     expect(screen.getByText('60%')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
-    expect(screen.getByText('20%')).toBeInTheDocument();
+    expect(screen.getAllByText('20%').length).toBeGreaterThanOrEqual(1);
   });
 
   it('passes applied filters to fetchUtilizationByPerson (AC 1)', async () => {
@@ -119,6 +119,56 @@ describe('UtilizationPanel rendering and ACs (FUT-911)', () => {
     // Segments are normalized: Project A = 70/120 * 100 = 58.33%, Project B = 50/120 * 100 = 41.67%
     expect(screen.getByText('58.33%')).toBeInTheDocument();
     expect(screen.getByText('41.67%')).toBeInTheDocument();
+  });
+
+  it('renders idle indicator, 0% total, and billable split when a person has no allocation (AC 2)', async () => {
+    const idleSample: UtilizationByPerson = {
+      as_of: '2026-08-20',
+      rows: [
+        {
+          worker_id: 'w-idle',
+          employee_no: '9999',
+          full_name: 'Idle Person',
+          segments: [],
+          total_pct: 0,
+          over_allocated: false,
+          split: { billable: 0, internal: 0, bench: 0 },
+        },
+      ],
+    };
+    mockFetchUtilization.mockResolvedValue(idleSample);
+    renderPanel();
+    await screen.findByText('Idle Person');
+
+    expect(screen.getByText('Idle')).toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('billable 0% · internal 0% · bench 0%')).toBeInTheDocument();
+  });
+
+  it('renders idle capacity with gray annotation when worker is partially allocated (e.g. 50%)', async () => {
+    const partialSample: UtilizationByPerson = {
+      as_of: '2026-08-20',
+      rows: [
+        {
+          worker_id: 'w-part',
+          employee_no: '8888',
+          full_name: 'Partial Person',
+          segments: [{ project_id: 'p1', project_name: 'Alpha', pct: 50 }],
+          total_pct: 50,
+          over_allocated: false,
+          split: { billable: 50, internal: 0, bench: 0 },
+        },
+      ],
+    };
+    mockFetchUtilization.mockResolvedValue(partialSample);
+    renderPanel();
+    await screen.findByText('Partial Person');
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(screen.getAllByText('50%').length).toBeGreaterThanOrEqual(2); // Alpha 50%, Idle 50%, Bar 50%
+    expect(screen.getByText('Idle')).toBeInTheDocument();
+    expect(screen.getByText('billable 50% · internal 0% · bench 0%')).toBeInTheDocument();
   });
 });
 

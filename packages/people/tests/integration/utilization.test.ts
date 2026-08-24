@@ -237,10 +237,103 @@ describe('getUtilizationByPerson', () => {
         const crossRow = cross.rows.find((r) => r.worker_id === worker)!;
         expect(crossRow.segments).toHaveLength(2);
         expect(crossRow.total_pct).toBe(110);
-        expect(cross.rows.every((r) => r.worker_id === worker)).toBe(true);
+        expect(cross.rows.find((r) => r.worker_id === otherAm)).toBeUndefined();
       } finally {
         resetPeopleDb();
         resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('includes persons with no allocations as idle with 0% total (AC2 / FUT-339)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const allocatedWorker = crypto.randomUUID();
+        const idleWorker = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+        const accountId = crypto.randomUUID();
+
+        await peopleDb()
+          .insert(person)
+          .values([
+            {
+              id: allocatedWorker,
+              tenant_id: t.tenant_id,
+              full_name: 'Allocated Worker',
+              employee_no: 'A100',
+            },
+            {
+              id: idleWorker,
+              tenant_id: t.tenant_id,
+              full_name: 'Idle Worker',
+              employee_no: 'I200',
+            },
+          ]);
+
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            { project_id: projA, tenant_id: t.tenant_id, account_id: accountId, name: 'Alpha' },
+          ]);
+
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: allocatedWorker,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const util = await getUtilizationByPerson(t.adminSession, { asOf: '2026-06-15' });
+        expect(util.rows).toHaveLength(2);
+
+        const idleRow = util.rows.find((r) => r.worker_id === idleWorker)!;
+        expect(idleRow).toBeDefined();
+        expect(idleRow.full_name).toBe('Idle Worker');
+        expect(idleRow.employee_no).toBe('I200');
+        expect(idleRow.total_pct).toBe(0);
+        expect(idleRow.segments).toEqual([]);
+        expect(idleRow.over_allocated).toBe(false);
+        expect(idleRow.split).toEqual({ billable: 0, internal: 0, bench: 0 });
+
+        // Under-utilized filter includes idle workers
+        const underUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-06-15',
+          status: 'under',
+        });
+        expect(underUtil.rows.some((r) => r.worker_id === idleWorker)).toBe(true);
+
+        // Over-allocated filter excludes idle workers
+        const overUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-06-15',
+          status: 'over',
+        });
+        expect(overUtil.rows.some((r) => r.worker_id === idleWorker)).toBe(false);
+
+        // Search by employee ID finds the idle worker
+        const searchUtil = await getUtilizationByPerson(t.adminSession, {
+          asOf: '2026-06-15',
+          search: 'I200',
+        });
+        expect(searchUtil.rows).toHaveLength(1);
+        expect(searchUtil.rows[0]!.worker_id).toBe(idleWorker);
+      } finally {
+        resetPeopleDb();
         resetCoreDb();
         await closePools();
       }

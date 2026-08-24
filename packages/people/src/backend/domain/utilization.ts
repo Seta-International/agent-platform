@@ -129,6 +129,19 @@ export async function getUtilizationByPerson(
     )
     .where(and(...where))) as RawRow[];
 
+  const personsWhere = [eq(person.tenant_id, session.tenant_id), sql`${person.deleted_at} IS NULL`];
+  if (scope) personsWhere.push(scope);
+
+  const visiblePersons = await peopleDb()
+    .select({
+      worker_id: person.id,
+      employee_no: person.employee_no,
+      full_name: person.full_name,
+    })
+    .from(person)
+    .where(and(...personsWhere))
+    .orderBy(person.full_name, person.id);
+
   const q = foldText((query.search ?? '').trim());
   const rawMatches = (r: RawRow): boolean => {
     if (query.accountId && r.account_id !== query.accountId) return false;
@@ -145,6 +158,8 @@ export async function getUtilizationByPerson(
     return true;
   };
 
+  const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket);
+
   const byWorker = new Map<
     string,
     {
@@ -156,6 +171,27 @@ export async function getUtilizationByPerson(
       split: { billable: number; internal: number; bench: number };
     }
   >();
+
+  if (!hasSpecificFilter) {
+    for (const p of visiblePersons) {
+      if (
+        q &&
+        !foldText(p.full_name ?? '').includes(q) &&
+        !foldText(p.worker_id).includes(q) &&
+        !(p.employee_no && foldText(p.employee_no).includes(q))
+      ) {
+        continue;
+      }
+      byWorker.set(p.worker_id, {
+        worker_id: p.worker_id,
+        employee_no: p.employee_no,
+        full_name: p.full_name ?? '',
+        segmentMap: new Map(),
+        total_pct: 0,
+        split: { billable: 0, internal: 0, bench: 0 },
+      });
+    }
+  }
 
   for (const r of raw.filter(rawMatches)) {
     const pct = r.planned_pct == null ? 0 : Number(r.planned_pct);
@@ -169,15 +205,19 @@ export async function getUtilizationByPerson(
 
     let row = byWorker.get(r.worker_id);
     if (!row) {
-      row = {
-        worker_id: r.worker_id,
-        employee_no: r.employee_no,
-        full_name: r.full_name ?? '',
-        segmentMap: new Map(),
-        total_pct: 0,
-        split: { billable: 0, internal: 0, bench: 0 },
-      };
-      byWorker.set(r.worker_id, row);
+      if (hasSpecificFilter) {
+        row = {
+          worker_id: r.worker_id,
+          employee_no: r.employee_no,
+          full_name: r.full_name ?? '',
+          segmentMap: new Map(),
+          total_pct: 0,
+          split: { billable: 0, internal: 0, bench: 0 },
+        };
+        byWorker.set(r.worker_id, row);
+      } else {
+        continue;
+      }
     }
 
     const existingSeg = row.segmentMap.get(r.project_id);
