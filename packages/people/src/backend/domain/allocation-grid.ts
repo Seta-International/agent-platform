@@ -355,12 +355,10 @@ export async function getAllocationGrid(
   const projectCount = new Set(outRows.map((r) => r.project_id)).size;
   const avgUtil = memberCount
     ? Math.round(
-        outTotals.reduce((s, w) => {
-          const active = w.totals.filter((v) => v > 0);
-          const fy = active.length ? active.reduce((a, b) => a + b, 0) / active.length : 0;
-          return s + Math.min(100, fy);
-        }, 0) / memberCount,
-      )
+        (outTotals.reduce((s, w) => s + Math.min(100, w.totals[currentMonth] ?? 0), 0) /
+          memberCount) *
+          100,
+      ) / 100
     : 0;
 
   // Effort-by-account follows the filtered rows so an account filter still shows a summary.
