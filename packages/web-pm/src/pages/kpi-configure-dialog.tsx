@@ -120,6 +120,7 @@ export function KpiConfigureDialog({
       toast.error(err.message || 'Could not update metric');
     },
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: pmKeys.kpiRecords() });
       queryClient.invalidateQueries({ queryKey: pmKeys.all });
     },
   });
