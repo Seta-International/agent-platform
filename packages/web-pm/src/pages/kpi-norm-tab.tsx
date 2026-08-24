@@ -83,7 +83,9 @@ function CategorySection({
         </span>
       </div>
       {metrics.length === 0 ? (
-        <EmptyState title="No metrics in this area yet." />
+        q ? null : (
+          <EmptyState title="No metrics in this area yet." />
+        )
       ) : (
         <div className="rounded-md border border-border">
           <BandColumnHeader />

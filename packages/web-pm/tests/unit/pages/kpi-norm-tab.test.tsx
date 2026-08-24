@@ -72,8 +72,14 @@ describe('KpiNormTab — Methodology lens & Executive reference sections', () =>
     // Executive card has no match at all — the whole card hides.
     expect(screen.queryByText('Executive — Engineering Health')).not.toBeInTheDocument();
     expect(screen.queryByText('Defect Leakage')).not.toBeInTheDocument();
+    // FUT-946: a QCDP area emptied by search collapses to its header — no big empty block
+    // to scroll past, and no "No metrics in this area yet." (that copy would wrongly imply
+    // the area has no metrics configured at all, when it's just filtered by the search).
     const qualitySection = screen.getByText('Q — Quality').closest('section') as HTMLElement;
-    expect(within(qualitySection).getByText('No metrics in this area yet.')).toBeInTheDocument();
+    expect(within(qualitySection).getByText('0 metrics · 25% of OHS')).toBeInTheDocument();
+    expect(
+      within(qualitySection).queryByText('No metrics in this area yet.'),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -123,5 +129,100 @@ describe('KpiNormTab — metric library (FUT-797)', () => {
     renderRichTab();
     expect(screen.getByText('Production Defects / Total Defects')).toBeInTheDocument();
     expect(screen.getByText('Commit → Production')).toBeInTheDocument();
+  });
+});
+
+describe('KpiNormTab — collapse empty QCDP areas on search (FUT-946)', () => {
+  const qcdpNorm: KpiNormDoc = {
+    norm_id: 'n2',
+    code: 'SETA-08-SOP-001',
+    revision: 'v2.0',
+    effective_date: null,
+    metrics: [
+      {
+        metric_id: 'q1',
+        category: 'quality',
+        tier: 'core',
+        name: 'Defect Leakage',
+        formula_label: 'Production Defects / Total Defects',
+        component_count: 2,
+        component_1_label: 'Production defects',
+        component_2_label: 'Total defects',
+        green_band: { op: 'lte', value: 0.05 },
+        yellow_band: { op: 'between', min: 0.06, max: 0.1 },
+        red_band: { op: 'gt', value: 0.1 },
+        insight: 'x',
+        sort_order: 1,
+      },
+      {
+        metric_id: 'c1',
+        category: 'cost_capacity',
+        tier: 'core',
+        name: 'Margin',
+        formula_label: 'Revenue - Cost',
+        component_count: 2,
+        component_1_label: 'Revenue',
+        component_2_label: 'Cost',
+        green_band: { op: 'gte', value: 0.2 },
+        yellow_band: { op: 'between', min: 0.1, max: 0.2 },
+        red_band: { op: 'lt', value: 0.1 },
+        insight: 'x',
+        sort_order: 2,
+      },
+      {
+        metric_id: 'd1',
+        category: 'delivery',
+        tier: 'core',
+        name: 'On-time Delivery',
+        formula_label: 'On-time / Total',
+        component_count: 2,
+        component_1_label: 'On-time',
+        component_2_label: 'Total',
+        green_band: { op: 'gte', value: 0.9 },
+        yellow_band: { op: 'between', min: 0.75, max: 0.9 },
+        red_band: { op: 'lt', value: 0.75 },
+        insight: 'x',
+        sort_order: 3,
+      },
+      {
+        metric_id: 'p1',
+        category: 'process',
+        tier: 'core',
+        name: 'PCV (Process Compliance)',
+        formula_label: 'Compliant / Total',
+        component_count: 2,
+        component_1_label: 'Compliant',
+        component_2_label: 'Total',
+        green_band: { op: 'gte', value: 0.9 },
+        yellow_band: { op: 'between', min: 0.75, max: 0.89 },
+        red_band: { op: 'lt', value: 0.75 },
+        insight: 'x',
+        sort_order: 4,
+      },
+    ],
+  };
+
+  it('collapses non-matching QCDP areas to their header — no empty block to scroll past', async () => {
+    const user = userEvent.setup();
+    render(<KpiNormTab norm={qcdpNorm} isLoading={false} />);
+    await user.type(screen.getByPlaceholderText('Search metrics…'), 'process');
+
+    expect(screen.getByText('PCV (Process Compliance)')).toBeInTheDocument();
+    // Header stays (so the fixed Q/C/D/P structure is always visible), but neither the
+    // "No metrics..." illustration nor the metric table renders underneath it.
+    const zeroMetricsText: Record<string, string> = {
+      'Q — Quality': '0 metrics · 25% of OHS',
+      'C — Cost & Capacity': '0 metrics · 35% of OHS',
+      'D — Delivery': '0 metrics · 25% of OHS',
+    };
+    for (const [label, countText] of Object.entries(zeroMetricsText)) {
+      const section = screen.getByText(label).closest('section') as HTMLElement;
+      expect(within(section).getByText(countText)).toBeInTheDocument();
+      expect(within(section).queryByText('No metrics in this area yet.')).not.toBeInTheDocument();
+      expect(within(section).queryByText('Metric')).not.toBeInTheDocument();
+    }
+    const processSection = screen.getByText('P — Process').closest('section') as HTMLElement;
+    expect(within(processSection).getByText('Metric')).toBeInTheDocument();
+    expect(screen.queryByText('No metrics in this area yet.')).not.toBeInTheDocument();
   });
 });
