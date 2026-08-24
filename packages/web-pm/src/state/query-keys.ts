@@ -19,6 +19,7 @@ export const pmKeys = {
     [...pmKeys.all, 'kpi-applied-metrics', [...projectIds].sort(), week ?? null] as const,
   kpiExplorer: (params: Record<string, unknown>) =>
     [...pmKeys.all, 'kpi-explorer', params] as const,
+  kpiRecords: () => [...pmKeys.all, 'kpi-record'] as const,
   kpiRecord: (params: Record<string, unknown>) => [...pmKeys.all, 'kpi-record', params] as const,
   weeklyReports: (params: Record<string, unknown>) =>
     [...pmKeys.all, 'weekly-reports', params] as const,
