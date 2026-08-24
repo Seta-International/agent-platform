@@ -52,7 +52,11 @@ function workingDays(a: Date, b: Date): number {
 }
 
 function foldText(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
 }
 
 interface RawRow {
@@ -160,6 +164,29 @@ export async function getUtilizationByPerson(
 
   const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket);
 
+  // Calculate true overall month effort per worker across ALL their projects in scope
+  const overallByWorker = new Map<string, number>();
+  for (const r of raw) {
+    const pct = r.planned_pct == null ? 0 : Number(r.planned_pct);
+    const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : mStart;
+    const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : mEnd;
+    const ovStart = from > mStart ? from : mStart;
+    const ovEnd = to < mEnd ? to : mEnd;
+    const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
+    const effortPct = Math.round(pct * frac * 100) / 100;
+    if (effortPct <= 0) continue;
+    const prev = overallByWorker.get(r.worker_id) ?? 0;
+    overallByWorker.set(r.worker_id, Math.round((prev + effortPct) * 100) / 100);
+  }
+
+  const workerMatchesStatus = (workerId: string): boolean => {
+    if (!query.status) return true;
+    const totalEffort = overallByWorker.get(workerId) ?? 0;
+    if (query.status === 'over') return totalEffort > 100;
+    if (query.status === 'under') return totalEffort < UNDER_UTIL_THRESHOLD;
+    return true;
+  };
+
   const byWorker = new Map<
     string,
     {
@@ -174,6 +201,7 @@ export async function getUtilizationByPerson(
 
   if (!hasSpecificFilter) {
     for (const p of visiblePersons) {
+      if (!workerMatchesStatus(p.worker_id)) continue;
       if (
         q &&
         !foldText(p.full_name ?? '').includes(q) &&
@@ -193,7 +221,22 @@ export async function getUtilizationByPerson(
     }
   }
 
-  for (const r of raw.filter(rawMatches)) {
+  let filteredRawForUtil: RawRow[];
+  if (query.crossProject) {
+    const matchingWorkerIds = new Set<string>();
+    for (const r of raw) {
+      if (workerMatchesStatus(r.worker_id) && rawMatches(r)) {
+        matchingWorkerIds.add(r.worker_id);
+      }
+    }
+    filteredRawForUtil = raw.filter(
+      (r) => matchingWorkerIds.has(r.worker_id) && workerMatchesStatus(r.worker_id),
+    );
+  } else {
+    filteredRawForUtil = raw.filter((r) => workerMatchesStatus(r.worker_id) && rawMatches(r));
+  }
+
+  for (const r of filteredRawForUtil) {
     const pct = r.planned_pct == null ? 0 : Number(r.planned_pct);
     const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : mStart;
     const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : mEnd;
@@ -242,15 +285,9 @@ export async function getUtilizationByPerson(
     full_name: row.full_name,
     segments: [...row.segmentMap.values()],
     total_pct: row.total_pct,
-    over_allocated: row.total_pct > 100,
+    over_allocated: (overallByWorker.get(row.worker_id) ?? row.total_pct) > 100,
     split: row.split,
   }));
 
-  const filteredRows = allRows.filter((r) => {
-    if (query.status === 'over') return r.total_pct > 100;
-    if (query.status === 'under') return r.total_pct < UNDER_UTIL_THRESHOLD;
-    return true;
-  });
-
-  return { as_of: asOf, rows: filteredRows };
+  return { as_of: asOf, rows: allRows };
 }
