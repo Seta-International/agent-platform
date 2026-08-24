@@ -1,5 +1,4 @@
 import { withEmit } from '@seta/core/events';
-import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerGroupMemberAdded } from '../../events/emit-helpers.ts';
 import { groupMembers, groups } from '../db/schema.ts';
@@ -55,27 +54,13 @@ export async function addGroupMember(input: {
 
       if (inserted.length > 0) {
         const isSystemActor = isM365SystemActor(input.session);
-        const { eventId } = await emitPlannerGroupMemberAdded({
+        await emitPlannerGroupMemberAdded({
           actor: isSystemActor
             ? { type: 'system', user_id: input.session.user_id, system_id: 'integrations.m365' }
             : { type: 'user', user_id: input.session.user_id },
           tenant_id: existing.tenant_id,
           group_id: existing.id,
           user_id: input.user_id,
-        });
-
-        const recipients = [input.user_id].filter((u) => u !== input.session.user_id);
-        await requestNotification({
-          tenant_id: existing.tenant_id,
-          event_type: 'planner.group.member.added',
-          user_ids: recipients,
-          source_event_id: eventId,
-          payload: {
-            title: 'Added to group',
-            body: `You were added to "${existing.name}"`,
-            group_id: input.group_id,
-            actor: { user_id: input.session.user_id, name: input.session.user_id },
-          },
         });
       }
     },

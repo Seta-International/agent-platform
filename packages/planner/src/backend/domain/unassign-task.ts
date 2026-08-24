@@ -1,6 +1,5 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerTaskUnassigned } from '../../events/emit-helpers.ts';
 import { plans, taskAssignments, tasks } from '../db/schema.ts';
@@ -55,29 +54,13 @@ export async function unassignTask(input: {
         return;
       }
 
-      const { eventId } = await emitPlannerTaskUnassigned({
+      await emitPlannerTaskUnassigned({
         actor: { type: 'user', user_id: input.session.user_id },
         tenant_id: existing.tenant_id,
         task_id: existing.id,
         plan_id: existing.plan_id,
         group_id: plan.group_id,
         user_id: input.user_id,
-      });
-
-      const recipients = [input.user_id].filter((u) => u !== input.session.user_id);
-      await requestNotification({
-        tenant_id: existing.tenant_id,
-        event_type: 'planner.task.unassigned',
-        user_ids: recipients,
-        source_event_id: eventId,
-        payload: {
-          title: 'Task unassigned',
-          body: `You were unassigned from "${existing.title}"`,
-          task_id: existing.id,
-          plan_id: existing.plan_id,
-          group_id: plan.group_id,
-          actor: { user_id: input.session.user_id, name: input.session.user_id },
-        },
       });
     },
   );
