@@ -137,7 +137,7 @@ describe('setMemberRole', () => {
     );
   });
 
-  it('requests a notification for the affected user, excluding the actor', async () => {
+  it('emits planner.group.member.role-changed domain event', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -156,12 +156,6 @@ describe('setMemberRole', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           await addGroupMember({ group_id: group.id, user_id: affected.user_id, session });
 
-          // Wipe the notification event from the addGroupMember step.
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
           await setMemberRole({
             group_id: group.id,
             user_id: affected.user_id,
@@ -169,13 +163,18 @@ describe('setMemberRole', () => {
             session,
           });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
+          const events = await readEvents(
+            pool,
+            seeded.tenant_id,
+            'planner.group.member.role-changed',
+          );
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.group.member.role-changed');
-          expect(payload.user_ids).toEqual([affected.user_id]);
-          expect(payload.target_payload.group_id).toBe(group.id);
+          expect(payload.user_id).toBe(affected.user_id);
+          expect(payload.group_id).toBe(group.id);
+          expect(payload.before_role).toBe('member');
+          expect(payload.after_role).toBe('owner');
         } finally {
           resetCoreDb();
           await closePools();

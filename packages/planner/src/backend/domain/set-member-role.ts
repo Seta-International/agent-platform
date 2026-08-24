@@ -1,5 +1,4 @@
 import { withEmit } from '@seta/core/events';
-import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerGroupMemberRoleChanged } from '../../events/emit-helpers.ts';
 import { groupMembers, groups } from '../db/schema.ts';
@@ -71,7 +70,7 @@ export async function setMemberRole(input: {
           and(eq(groupMembers.group_id, input.group_id), eq(groupMembers.user_id, input.user_id)),
         );
 
-      const { eventId } = await emitPlannerGroupMemberRoleChanged({
+      await emitPlannerGroupMemberRoleChanged({
         actor: isSystemActor
           ? { type: 'system', user_id: input.session.user_id, system_id: 'integrations.m365' }
           : { type: 'user', user_id: input.session.user_id },
@@ -80,20 +79,6 @@ export async function setMemberRole(input: {
         user_id: input.user_id,
         before_role: beforeRole,
         after_role: input.role,
-      });
-
-      const recipients = [input.user_id].filter((u) => u !== input.session.user_id);
-      await requestNotification({
-        tenant_id: existing.tenant_id,
-        event_type: 'planner.group.member.role-changed',
-        user_ids: recipients,
-        source_event_id: eventId,
-        payload: {
-          title: 'Group role changed',
-          body: `Your role in "${existing.name}" was changed to ${input.role}`,
-          group_id: input.group_id,
-          actor: { user_id: input.session.user_id, name: input.session.user_id },
-        },
       });
     },
   );

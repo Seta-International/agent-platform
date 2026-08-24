@@ -1,9 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerTaskCompleted } from '../../events/emit-helpers.ts';
-import { plans, taskAssignments, tasks } from '../db/schema.ts';
+import { plans, tasks } from '../db/schema.ts';
 import type { TaskRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
@@ -69,13 +68,7 @@ export async function completeTask(input: {
         });
       result = updated;
 
-      const [assignment] = await tx
-        .select({ user_id: taskAssignments.user_id })
-        .from(taskAssignments)
-        .where(eq(taskAssignments.task_id, existing.id))
-        .limit(1);
-
-      const { eventId } = await emitPlannerTaskCompleted({
+      await emitPlannerTaskCompleted({
         actor: { type: 'user', user_id: input.session.user_id },
         tenant_id: existing.tenant_id,
         task_id: existing.id,
@@ -84,27 +77,6 @@ export async function completeTask(input: {
         version_before: existing.version,
         version_after: versionAfter,
         completed_at: now.toISOString(),
-      });
-
-      const recipientSet = new Set<string>();
-      if (existing.created_by) recipientSet.add(existing.created_by);
-      if (assignment?.user_id) recipientSet.add(assignment.user_id);
-      recipientSet.delete(input.session.user_id);
-      const recipients = [...recipientSet];
-
-      await requestNotification({
-        tenant_id: existing.tenant_id,
-        event_type: 'planner.task.completed',
-        user_ids: recipients,
-        source_event_id: eventId,
-        payload: {
-          title: 'Task completed',
-          body: `"${existing.title}" was marked complete`,
-          task_id: existing.id,
-          plan_id: existing.plan_id,
-          group_id: plan.group_id,
-          actor: { user_id: input.session.user_id, name: input.session.user_id },
-        },
       });
     },
   );

@@ -89,7 +89,7 @@ describe('deletePlan', () => {
     );
   });
 
-  it('requests a notification to all group members except the actor', async () => {
+  it('emits planner.plan.deleted domain event on delete', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -115,22 +115,15 @@ describe('deletePlan', () => {
           await addGroupMember({ group_id: group.id, user_id: carol.user_id, session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
           await deletePlan({ plan_id: plan.id, expected_version: 1, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.plan.deleted');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.plan.deleted');
-          expect((payload.user_ids as string[]).sort()).toEqual(
-            [bob.user_id, carol.user_id].sort(),
-          );
-          expect(payload.target_payload.group_id).toBe(group.id);
+          expect(payload.plan_id).toBe(plan.id);
+          expect(payload.group_id).toBe(group.id);
+          expect(payload.actor.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
           await closePools();

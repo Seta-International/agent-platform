@@ -30,10 +30,6 @@ describe('planner notification renderers', () => {
       'planner.task.created',
       'planner.task.deleted',
       'planner.task.reopened',
-      'planner.task.reopened.in-progress',
-      'planner.task.reopened.not-started',
-      'planner.task.status.in-progress',
-      'planner.task.status.not-started',
       'planner.task.unassigned',
     ]);
   });

@@ -2,7 +2,11 @@ import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import sanitizeHtml from 'sanitize-html';
-import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
+import {
+  emitPlannerTaskCompleted,
+  emitPlannerTaskReopened,
+  emitPlannerTaskUpdated,
+} from '../../events/emit-helpers.ts';
 import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts';
 import { plans, tasks } from '../db/schema.ts';
 import {
@@ -302,10 +306,12 @@ async function updateTaskImpl(input: {
         });
       result = row;
 
+      const actor = isM365SystemActor(input.session)
+        ? ({ type: 'system', user_id: null, system_id: 'integrations.m365' } as const)
+        : ({ type: 'user', user_id: input.session.user_id } as const);
+
       await emitPlannerTaskUpdated({
-        actor: isM365SystemActor(input.session)
-          ? { type: 'system', user_id: null, system_id: 'integrations.m365' }
-          : { type: 'user', user_id: input.session.user_id },
+        actor,
         tenant_id: existing.tenant_id,
         task_id: existing.id,
         plan_id: existing.plan_id,
@@ -316,6 +322,33 @@ async function updateTaskImpl(input: {
         version_before: existing.version,
         version_after: existing.version + 1,
       });
+
+      if (existing.progress !== 'done' && setFields.progress === 'done') {
+        await emitPlannerTaskCompleted({
+          actor,
+          tenant_id: existing.tenant_id,
+          task_id: existing.id,
+          plan_id: existing.plan_id,
+          group_id: plan.group_id,
+          version_before: existing.version,
+          version_after: existing.version + 1,
+          completed_at: new Date().toISOString(),
+        });
+      } else if (
+        existing.progress === 'done' &&
+        setFields.progress !== undefined &&
+        setFields.progress !== 'done'
+      ) {
+        await emitPlannerTaskReopened({
+          actor,
+          tenant_id: existing.tenant_id,
+          task_id: existing.id,
+          plan_id: existing.plan_id,
+          group_id: plan.group_id,
+          version_before: existing.version,
+          version_after: existing.version + 1,
+        });
+      }
     },
   );
 
