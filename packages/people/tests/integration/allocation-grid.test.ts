@@ -1376,6 +1376,27 @@ describe('getAllocationGrid', () => {
         });
         expect(gridOnlyOver.kpis.member_count).toBe(1);
         expect(gridOnlyOver.kpis.avg_utilization).toBe(100);
+
+        // Add an unallocated / idle person D (0% allocation)
+        const personD = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([{ id: personD, tenant_id: t.tenant_id, full_name: 'Member D (Idle)' }]);
+
+        const gridWithIdle = await getAllocationGrid(t.adminSession, { year: 2026 });
+        // 4 members total in scope: A(30%), B(150%->100%), C(100%), D(0%)
+        // (30 + 100 + 100 + 0) / 4 = 230 / 4 = 57.5%
+        expect(gridWithIdle.kpis.member_count).toBe(4);
+        expect(gridWithIdle.kpis.avg_utilization).toBe(57.5);
+
+        // Under-utilized filter includes A (30% < 85%) and D (0% < 85%)
+        const gridUnder = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'under',
+        });
+        expect(gridUnder.kpis.member_count).toBe(2);
+        // (30% + 0%) / 2 = 15%
+        expect(gridUnder.kpis.avg_utilization).toBe(15);
       } finally {
         resetPeopleDb();
         resetPmDb();
