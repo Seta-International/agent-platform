@@ -166,7 +166,7 @@ describe('addGroupMember', () => {
     );
   });
 
-  it('requests a notification for the added user, excluding the actor', async () => {
+  it('emits planner.group.member.added domain event on add', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -185,13 +185,15 @@ describe('addGroupMember', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           await addGroupMember({ group_id: group.id, user_id: newcomer.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
-          expect(events).toHaveLength(1);
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.group.member.added');
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.group.member.added');
-          expect(payload.user_ids).toEqual([newcomer.user_id]);
-          expect(payload.target_payload.group_id).toBe(group.id);
+          const newcomerEvent = events.find((e) => (e.payload as any).user_id === newcomer.user_id);
+          expect(newcomerEvent).toBeDefined();
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = newcomerEvent?.payload as any;
+          expect(payload.user_id).toBe(newcomer.user_id);
+          expect(payload.group_id).toBe(group.id);
+          expect(payload.actor.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
           await closePools();

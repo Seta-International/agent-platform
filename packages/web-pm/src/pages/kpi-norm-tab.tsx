@@ -17,7 +17,10 @@ import {
 
 const ROW_GRID = 'grid-cols-[4fr_2fr_2fr_2fr_4fr]';
 
-const SECTION_HEADING = 'sticky top-0 z-10 flex items-baseline gap-2 bg-card py-2';
+/** When the results bar (h-9, sticky top-0) is showing, section headers stick just below it. */
+function sectionHeadingClass(q: string) {
+  return `sticky ${q ? 'top-9' : 'top-0'} z-10 flex items-baseline gap-2 bg-card py-2`;
+}
 
 function MetricRow({ metric }: { metric: KpiNormMetricRow }) {
   const bands = formatBandTriple(
@@ -62,15 +65,17 @@ function BandColumnHeader() {
 function CategorySection({
   category,
   metrics,
+  q,
 }: {
   category: KpiCategory;
   metrics: KpiNormMetricRow[];
+  q: string;
 }) {
   const core = metrics.filter((m) => m.tier === 'core');
   const extended = metrics.filter((m) => m.tier === 'extended');
   return (
     <section className="space-y-2">
-      <div className={SECTION_HEADING}>
+      <div className={sectionHeadingClass(q)}>
         <Heading level={3}>{KPI_CATEGORY_LABELS[category]}</Heading>
         <span className="text-sm text-secondary">
           {metrics.length} metric{metrics.length === 1 ? '' : 's'} ·{' '}
@@ -78,7 +83,9 @@ function CategorySection({
         </span>
       </div>
       {metrics.length === 0 ? (
-        <EmptyState title="No metrics in this area yet." />
+        q ? null : (
+          <EmptyState title="No metrics in this area yet." />
+        )
       ) : (
         <div className="rounded-md border border-border">
           <BandColumnHeader />
@@ -144,7 +151,7 @@ function MethodologyLensSection({ q }: { q: string }) {
   if (groups.length === 0) return null;
   return (
     <section className="space-y-2">
-      <div className={SECTION_HEADING}>
+      <div className={sectionHeadingClass(q)}>
         <Heading level={3}>Methodology lens</Heading>
         <span className="text-sm text-secondary">
           supplementary lens per methodology — does not replace Core
@@ -177,7 +184,7 @@ function ExecutiveSection({ q }: { q: string }) {
   if (metrics.length === 0) return null;
   return (
     <section className="space-y-2">
-      <div className={SECTION_HEADING}>
+      <div className={sectionHeadingClass(q)}>
         <Heading level={3}>Executive — Engineering Health</Heading>
         <span className="text-sm text-secondary">quarterly · EQI / TDI → Executive Matrix 2×2</span>
       </div>
@@ -221,9 +228,13 @@ export function KpiNormTab({ norm, isLoading }: { norm: KpiNormDoc | null; isLoa
         (m) => m.name.toLowerCase().includes(q) || m.formula_label.toLowerCase().includes(q),
       )
     : norm.metrics;
-  const hasReferenceMatches =
-    KPI_METHODOLOGY_LENS.some((g) => g.metrics.some((m) => referenceMatches(m, q))) ||
-    KPI_EXECUTIVE_METRICS.some((m) => referenceMatches(m, q));
+  const methodologyMatchCount = KPI_METHODOLOGY_LENS.reduce(
+    (sum, g) => sum + g.metrics.filter((m) => referenceMatches(m, q)).length,
+    0,
+  );
+  const executiveMatchCount = KPI_EXECUTIVE_METRICS.filter((m) => referenceMatches(m, q)).length;
+  const hasReferenceMatches = methodologyMatchCount > 0 || executiveMatchCount > 0;
+  const totalResults = matches.length + methodologyMatchCount + executiveMatchCount;
 
   return (
     <div className="max-w-7xl space-y-6 pb-4">
@@ -243,11 +254,18 @@ export function KpiNormTab({ norm, isLoading }: { norm: KpiNormDoc | null; isLoa
         <EmptyState title={`No metrics match "${query.trim()}"`} />
       ) : (
         <>
+          {q ? (
+            <p className="sticky top-0 z-20 flex h-9 items-center bg-card text-sm text-secondary">
+              {totalResults} result{totalResults === 1 ? '' : 's'} for &ldquo;{query.trim()}
+              &rdquo;
+            </p>
+          ) : null}
           {KPI_CATEGORIES.map((cat) => (
             <CategorySection
               key={cat}
               category={cat}
               metrics={matches.filter((m) => m.category === cat)}
+              q={q}
             />
           ))}
           <MethodologyLensSection q={q} />

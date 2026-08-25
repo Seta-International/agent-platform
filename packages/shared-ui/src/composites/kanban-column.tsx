@@ -61,7 +61,7 @@ const styles = stylex.create({
   // parent while `.kanban-board` stays the horizontal one. Board drag-autoscroll
   // across columns must be verified at runtime (e2e); if it regresses, drop this
   // scrollArea and let overflow scroll at the board level.
-  scrollArea: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' },
+  scrollArea: { height: '100%', overflowY: 'auto', overflowX: 'hidden' },
 });
 
 export interface KanbanColumnProps {
