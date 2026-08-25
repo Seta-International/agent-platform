@@ -114,6 +114,12 @@ export interface ObservedSignals {
   applied?: boolean;
   /** The user cancelled: the lane did not resume, so no model ran at all. */
   declined?: boolean;
+  /** A decision turn arrived with no open card, because no earlier turn produced
+   *  one. Diagnostic only — deliberately NOT a branch in `deriveObservedBehavior`:
+   *  the observable is that the turn did nothing, which is already `empty`, and
+   *  inventing a seventh behavior would need a matching `expected.behavior` value
+   *  in every case file. */
+  noPreview?: boolean;
 }
 
 /**

@@ -211,9 +211,26 @@ export function makeActionCaseRunner(deps: ActionCaseRunnerDeps) {
           continue;
         }
 
-        // A decision turn. Nothing to decide means the case is broken, and saying so
-        // beats scoring a turn that never happened.
-        if (!open) throw new Error(`runActionCase: ${c.id} decides with no open preview`);
+        // A decision turn with nothing to decide is the AGENT's failure, not the
+        // harness's: no earlier turn opened a card, which is A2's known revision
+        // bug (revision.yaml:222-228). Throwing here marked every metric the case
+        // claimed `error`, and an errored case is excluded from the rates — so the
+        // most interesting failure in the corpus reported nothing at all.
+        // Record the turn as it happened: nothing ran, nothing changed.
+        if (!open) {
+          results.push({
+            answer: '',
+            trajectory: { toolCalls: [] },
+            signals: { noPreview: true },
+            dbEffects: observe(
+              before,
+              await snapshotActionRows(deps.pool, deps.world),
+              expected,
+              ids,
+            ),
+          });
+          continue;
+        }
 
         if (turn.decision.chosen === 'decline') {
           previews.decide(open.approvalId);
