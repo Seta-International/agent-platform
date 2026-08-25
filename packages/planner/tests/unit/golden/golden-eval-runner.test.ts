@@ -484,7 +484,10 @@ it('records an unrecognised throw as an INFRA error, not as a gate failure', asy
 
 it('reports one infra entry per broken case, not one per metric it claimed', async () => {
   // Three metrics, one dead model. The report must read as ONE incident.
-  const threeMetricCase = { ...revisionCase, metrics: { enabled: ['M3', 'M8', 'M9'] } };
+  const threeMetricCase = {
+    ...(revisionCase as object),
+    metrics: { enabled: ['M3', 'M8', 'M9'] },
+  } as never;
   const report = await runGoldenEval({
     ...noopSeams,
     cases: [threeMetricCase],

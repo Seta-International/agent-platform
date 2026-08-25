@@ -8,8 +8,12 @@
 // lanes are run deliberately, when an agent is being debugged.
 import { fileURLToPath } from 'node:url';
 import { InMemoryStore } from '@mastra/core/storage';
-import { expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import { buildPlannerActionEvalTarget } from '../../../src/backend/orchestration/eval-target.ts';
+import {
+  disableBreakerForLane,
+  restoreBreakerAfterLane,
+} from '../../fixtures/golden/action/breaker-env.ts';
 import { ACTION_REFERENCE_TIME } from '../../fixtures/golden/action/constants.ts';
 import { makeFixtureRunner } from '../../fixtures/golden/action/fixtures.ts';
 import { assertMetricThresholds, metricRates } from '../../fixtures/golden/action/metric-rates.ts';
@@ -93,9 +97,14 @@ async function runActionSuite(
 
       // stderr directly: vitest hides console.* on a passing test.
       process.stderr.write(
-        `\n[action ${suite}] cases=${report.totalCases} failures=${report.gateFailures.length}\n` +
+        `\n[action ${suite}] cases=${report.totalCases} failures=${report.gateFailures.length} ` +
+          `infraErrors=${report.infraErrors?.length ?? 0}\n` +
           `${(report.metricRates ?? [])
-            .map((r) => `[action ${suite}] ${r.id} ${r.passed}/${r.evaluated} (>= ${r.threshold})`)
+            .map(
+              (r) =>
+                `[action ${suite}] ${r.id} ${r.passed}/${r.evaluated} (>= ${r.threshold})` +
+                (r.errors ? ` · ${r.errors} unmeasured: ${r.errorCases.join(', ')}` : ''),
+            )
             .join('\n')}\n` +
           `[action ${suite}] report: ${mdPath}\n[action ${suite}] json:   ${jsonPath}\n`,
       );
@@ -109,6 +118,25 @@ async function runActionSuite(
 
 const RUN = process.env.RUN_ACTION_GOLDEN === '1';
 
+// The lane measures MODEL behaviour, so it runs with the circuit breaker off.
+//
+// The breaker is module-global state keyed `tenantId:toolId`, and this lane runs
+// 25 cases in one process under one tenant. On 2026-08-24 RV-007's retry storm
+// opened the planner_updateTask breaker and RV-008 — the next case — answered with
+// ToolBreakerOpenError's user text and scored nothing. No A2 metric mentions the
+// breaker, and a retry storm is already caught by M8's trajectory_efficiency, so
+// the breaker contributes nothing here but cross-case contamination.
+beforeAll(() => {
+  if (RUN) disableBreakerForLane();
+});
+
+// Not optional: `setBreakerConfig` writes process-global state, so skipping this
+// leaks the lane's config into every other test file in the process — the exact
+// class of bug being fixed here.
+afterAll(() => {
+  if (RUN) restoreBreakerAfterLane();
+});
+
 // Diagnostic lane: proves the corpus runs end to end and prints per-metric rates.
 // Does NOT assert thresholds — smoke is 6 cases, too few for a rate to mean much.
 it.runIf(RUN)(
@@ -120,6 +148,13 @@ it.runIf(RUN)(
       expect(caseReport.skipped, `${caseReport.id} was skipped`).toBeUndefined();
       expect(caseReport.policies.length, `${caseReport.id} scored nothing`).toBeGreaterThan(0);
     }
+    // Separate from the threshold gate on purpose: "the harness broke" and "the
+    // agent is below threshold" must never share an error message.
+    expect(
+      report.infraErrors,
+      'the harness failed to measure these cases; their metrics are excluded, so the ' +
+        'rates above describe fewer cases than the corpus contains',
+    ).toEqual([]);
   },
   1_800_000,
 );
@@ -130,6 +165,10 @@ it.runIf(RUN)(
   async () => {
     const { report } = await runActionSuite('regression');
     expect(report.totalCases).toBeGreaterThan(0);
+    expect(
+      report.infraErrors,
+      'the harness failed to measure these cases; fix the harness before reading the rates',
+    ).toEqual([]);
     assertMetricThresholds(report, ACTION_CONFIG_URL);
   },
   3_600_000,
@@ -141,6 +180,10 @@ it.runIf(RUN && process.env.RUN_ACTION_HOLDOUT === '1')(
   async () => {
     const { report } = await runActionSuite('nightly', { includeHoldout: true });
     expect(report.totalCases).toBeGreaterThan(0);
+    expect(
+      report.infraErrors,
+      'the harness failed to measure these cases; fix the harness before reading the rates',
+    ).toEqual([]);
     assertMetricThresholds(report, ACTION_CONFIG_URL);
   },
   3_600_000,
