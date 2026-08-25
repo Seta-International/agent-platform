@@ -18,6 +18,11 @@ export { type DeleteOrgUnitInput, deleteOrgUnit } from './backend/domain/delete-
 export { editWorker } from './backend/domain/edit-worker.ts';
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
 export { listDirectory } from './backend/domain/list-directory.ts';
+export {
+  listMoraleInbox,
+  NO_PROJECT_FILTER,
+  NO_PROJECT_LABEL,
+} from './backend/domain/list-morale-inbox.ts';
 export { listMoraleNotes } from './backend/domain/list-morale-notes.ts';
 export {
   type MatchUsersToTopicDeps,
@@ -31,6 +36,14 @@ export {
   setMonthClock,
   vnYearMonth,
 } from './backend/domain/month-clock.ts';
+export { listMoraleInboxFilters } from './backend/domain/morale-inbox-filters.ts';
+export { resolvePrimaryProject } from './backend/domain/morale-primary-project.ts';
+export {
+  type MoraleReviewerScope,
+  type MoraleTrendScope,
+  resolveMoraleReviewerScope,
+} from './backend/domain/morale-reviewer-scope.ts';
+export { getMoraleTrend, MIN_TREND_RESPONSES } from './backend/domain/morale-trend.ts';
 export type {
   CompanyNode,
   CompanyNodeKind,
@@ -59,6 +72,7 @@ export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { readCycleStatus } from './backend/domain/read-cycle-status.ts';
 export { readMonthTasks } from './backend/domain/read-month-tasks.ts';
+export { getMoraleNote, markMoraleNoteRead } from './backend/domain/read-morale-note.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { readPerformanceConfig } from './backend/domain/read-performance-config.ts';
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
@@ -113,13 +127,25 @@ export type {
   MonthTasksResponse,
   MoraleHistoryQuery,
   MoraleHistoryResponse,
+  MoraleInboxFiltersResponse,
+  MoraleInboxNote,
+  MoraleInboxProjectGroup,
+  MoraleInboxProjectOption,
+  MoraleInboxQuery,
+  MoraleInboxResponse,
+  MoraleInboxSenderOption,
   MoraleNoteView,
   MoraleRecipientCandidate,
   MoraleRecipientGroup,
+  MoraleRecipientsForm,
   MoraleRecipientsResponse,
   MoraleRecipientTag,
   MoraleRecipientView,
   MoraleSelectableTag,
+  MoraleSenderCapacity,
+  MoraleTrendPoint,
+  MoraleTrendQuery,
+  MoraleTrendResponse,
   PerformanceCapacity,
   PerformanceConfigCriterionView,
   PerformanceConfigGroupView,
@@ -143,12 +169,22 @@ export {
   monthTasksResponse,
   moraleHistoryQuery,
   moraleHistoryResponse,
+  moraleInboxFiltersResponse,
+  moraleInboxNote,
+  moraleInboxProjectGroup,
+  moraleInboxQuery,
+  moraleInboxResponse,
   moraleNoteView,
   moraleRecipientCandidate,
   moraleRecipientGroup,
+  moraleRecipientsForm,
   moraleRecipientsResponse,
   moraleRecipientTag,
   moraleSelectableTag,
+  moraleSenderCapacity,
+  moraleTrendPoint,
+  moraleTrendQuery,
+  moraleTrendResponse,
   performanceConfigResponse,
   savePerformanceConfigInput,
   savePerformanceConfigResponse,

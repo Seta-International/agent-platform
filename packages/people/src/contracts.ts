@@ -300,13 +300,25 @@ export const moraleRecipientGroup = z.object({
 });
 export type MoraleRecipientGroup = z.infer<typeof moraleRecipientGroup>;
 
-export const moraleRecipientsResponse = z.object({
+/** What the send form needs: whether this person may submit, and to whom. */
+export const moraleRecipientsForm = z.object({
   /**
    * False for every role outside Member/TL. They still reach the page from the nav,
-   * but there is nothing for them to submit until the manager view ships.
+   * but there is nothing for them to submit — the manager tabs are what serve them.
    */
   can_submit: z.boolean(),
   groups: z.array(moraleRecipientGroup),
+});
+export type MoraleRecipientsForm = z.infer<typeof moraleRecipientsForm>;
+
+export const moraleRecipientsResponse = moraleRecipientsForm.extend({
+  /**
+   * Whether this caller can be a morale recipient at all — HR, PMO, BoD, an AM of an
+   * account, or the lead of a project (FUT-786). Gates the Notes Received and Morale
+   * Trend tabs. Carried alongside `can_submit` rather than on its own endpoint because
+   * the page needs both answers before it can paint a single tab.
+   */
+  can_review: z.boolean(),
 });
 export type MoraleRecipientsResponse = z.infer<typeof moraleRecipientsResponse>;
 
@@ -320,3 +332,122 @@ export const moraleHistoryQuery = z.object({
   to: z.iso.date().optional(),
 });
 export type MoraleHistoryQuery = z.infer<typeof moraleHistoryQuery>;
+
+// ---------------------------------------------------------------------------
+// Morale inbox & trend, for recipients (FUT-786)
+// ---------------------------------------------------------------------------
+
+export const moraleSenderCapacity = z.enum(['member', 'tl']);
+export type MoraleSenderCapacity = z.infer<typeof moraleSenderCapacity>;
+
+export const moraleInboxQuery = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  /** Absent = every project. The literal 'none' selects notes with no project snapshot. */
+  project_id: z.union([z.string().uuid(), z.literal('none')]).optional(),
+  sender_person_id: z.string().uuid().optional(),
+  unread_only: z.boolean().optional(),
+});
+export type MoraleInboxQuery = z.infer<typeof moraleInboxQuery>;
+
+/**
+ * A note as its recipients see it.
+ *
+ * No `rating` field exists on purpose (AC4): the 1–5 score is never exposed to a
+ * recipient, including HR, and leaving it off the contract means no handler can leak it
+ * by accident. A rating submitted with no text still arrives here, with a null
+ * `concern_text` — the UI says so rather than hiding the submission.
+ *
+ * `recipient_tags` are roles, never names: a note addressed to four PMOs shows "PMO"
+ * once, so the inbox cannot be read as a directory of who else was told.
+ */
+export const moraleInboxNote = z.object({
+  id: z.string().uuid(),
+  sender_person_id: z.string().uuid(),
+  sender_name: z.string().nullable(),
+  sender_capacity: moraleSenderCapacity.nullable(),
+  submitted_at: z.string(),
+  concern_text: z.string().nullable(),
+  recipient_tags: z.array(moraleRecipientTag),
+  is_read: z.boolean(),
+});
+export type MoraleInboxNote = z.infer<typeof moraleInboxNote>;
+
+export const moraleInboxProjectGroup = z.object({
+  /** Null for senders who had no active allocation when they wrote. */
+  project_id: z.string().uuid().nullable(),
+  project_name: z.string(),
+  total_notes: z.number().int(),
+  unread_notes: z.number().int(),
+  notes: z.array(moraleInboxNote),
+});
+export type MoraleInboxProjectGroup = z.infer<typeof moraleInboxProjectGroup>;
+
+export const moraleInboxResponse = z.object({
+  total_notes: z.number().int(),
+  unread_notes: z.number().int(),
+  projects: z.array(moraleInboxProjectGroup),
+});
+export type MoraleInboxResponse = z.infer<typeof moraleInboxResponse>;
+
+/**
+ * The option lists for the inbox's Project and Sender pickers, over the same date window
+ * the list itself uses.
+ *
+ * Each sender carries their project so the two pickers can constrain each other in the
+ * client: picking a sender narrows Project to theirs, picking a project narrows Sender to
+ * the people who wrote from it. Doing that here rather than as a request per keystroke
+ * keeps the two lists provably consistent with each other.
+ */
+export const moraleInboxSenderOption = z.object({
+  person_id: z.string().uuid(),
+  full_name: z.string().nullable(),
+  project_id: z.string().uuid().nullable(),
+});
+export type MoraleInboxSenderOption = z.infer<typeof moraleInboxSenderOption>;
+
+export const moraleInboxProjectOption = z.object({
+  project_id: z.string().uuid().nullable(),
+  name: z.string(),
+});
+export type MoraleInboxProjectOption = z.infer<typeof moraleInboxProjectOption>;
+
+export const moraleInboxFiltersResponse = z.object({
+  projects: z.array(moraleInboxProjectOption),
+  senders: z.array(moraleInboxSenderOption),
+});
+export type MoraleInboxFiltersResponse = z.infer<typeof moraleInboxFiltersResponse>;
+
+/** `YYYY-MM`, Asia/Ho_Chi_Minh — the same period key the anonymous store is written with. */
+export const moraleMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+
+export const moraleTrendQuery = z.object({
+  from_month: moraleMonth.optional(),
+  to_month: moraleMonth.optional(),
+});
+export type MoraleTrendQuery = z.infer<typeof moraleTrendQuery>;
+
+/**
+ * One month of the anonymous trend.
+ *
+ * `average` is null exactly when `responses` is under the anonymity threshold: the count
+ * still travels so the chart can say *why* a month is blank instead of leaving a silent
+ * gap, but the score itself never leaves the server for a group that small.
+ */
+export const moraleTrendPoint = z.object({
+  period: moraleMonth,
+  responses: z.number().int(),
+  average: z.number().nullable(),
+});
+export type MoraleTrendPoint = z.infer<typeof moraleTrendPoint>;
+
+export const moraleTrendResponse = z.object({
+  from_month: moraleMonth,
+  to_month: moraleMonth,
+  /** Smallest group the trend will show a score for. */
+  min_responses: z.number().int(),
+  /** Every response in the window, hidden months included. */
+  total_responses: z.number().int(),
+  points: z.array(moraleTrendPoint),
+});
+export type MoraleTrendResponse = z.infer<typeof moraleTrendResponse>;

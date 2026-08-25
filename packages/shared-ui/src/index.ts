@@ -7,6 +7,7 @@ export * from './charts/chart-legend';
 export * from './charts/chart-theme';
 export * from './charts/donut-chart';
 export * from './charts/stacked-bar-chart';
+export * from './charts/trend-line-chart';
 export * from './composites/account-chip';
 export * from './composites/agent-panel';
 // Composites

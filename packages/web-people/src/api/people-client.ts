@@ -486,6 +486,11 @@ export type MoraleRecipientGroup = {
 export type MoraleRecipientsResponse = {
   can_submit: boolean;
   groups: MoraleRecipientGroup[];
+  /**
+   * Whether this person can be a morale recipient at all — HR, PMO, BoD, an account's
+   * AM, or a project's lead. Gates the Notes Received and Morale Trend tabs.
+   */
+  can_review: boolean;
 };
 
 export type MoraleRecipientView = {
@@ -547,4 +552,134 @@ export async function fetchMoraleHistory(
     credentials: 'include',
   });
   return handleResponse<MoraleHistoryResponse>(res);
+}
+
+// ---------------------------------------------------------------------------
+// Morale inbox & trend, for recipients (FUT-786)
+// ---------------------------------------------------------------------------
+
+export type MoraleSenderCapacity = 'member' | 'tl';
+
+/**
+ * A note as its recipients see it. There is no `rating` field on purpose: the
+ * individual 1–5 score is never exposed to a recipient, HR included.
+ */
+export type MoraleInboxNote = {
+  id: string;
+  sender_person_id: string;
+  sender_name: string | null;
+  sender_capacity: MoraleSenderCapacity | null;
+  submitted_at: string;
+  concern_text: string | null;
+  /** Roles the note reached, never names. */
+  recipient_tags: MoraleRecipientTag[];
+  is_read: boolean;
+};
+
+export type MoraleInboxProjectGroup = {
+  project_id: string | null;
+  project_name: string;
+  total_notes: number;
+  unread_notes: number;
+  notes: MoraleInboxNote[];
+};
+
+export type MoraleInboxResponse = {
+  total_notes: number;
+  unread_notes: number;
+  projects: MoraleInboxProjectGroup[];
+};
+
+/** The value that selects notes whose sender had no project. */
+export const NO_PROJECT_FILTER = 'none';
+
+export type MoraleInboxFilters = {
+  /** YYYY-MM-DD */
+  from?: string;
+  /** YYYY-MM-DD */
+  to?: string;
+  /** A project id, or `NO_PROJECT_FILTER`. Absent means every project. */
+  project_id?: string;
+  sender_person_id?: string;
+  unread_only?: boolean;
+};
+
+export type MoraleInboxSenderOption = {
+  person_id: string;
+  full_name: string | null;
+  /** Where this sender wrote from — lets the two pickers narrow each other. */
+  project_id: string | null;
+};
+
+export type MoraleInboxProjectOption = {
+  project_id: string | null;
+  name: string;
+};
+
+export type MoraleInboxFiltersResponse = {
+  projects: MoraleInboxProjectOption[];
+  senders: MoraleInboxSenderOption[];
+};
+
+/** `average` is null exactly when `responses` is under `min_responses`. */
+export type MoraleTrendPoint = {
+  period: string;
+  responses: number;
+  average: number | null;
+};
+
+export type MoraleTrendResponse = {
+  from_month: string;
+  to_month: string;
+  min_responses: number;
+  total_responses: number;
+  points: MoraleTrendPoint[];
+};
+
+/** Both ends optional; `YYYY-MM` in Asia/Ho_Chi_Minh. */
+export type MoraleTrendRange = { from_month?: string; to_month?: string };
+
+function queryString(params: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, value);
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export async function fetchMoraleInbox(
+  filters: MoraleInboxFilters = {},
+): Promise<MoraleInboxResponse> {
+  const qs = queryString({
+    from: filters.from,
+    to: filters.to,
+    project_id: filters.project_id,
+    sender_person_id: filters.sender_person_id,
+    unread_only: filters.unread_only ? 'true' : undefined,
+  });
+  const res = await fetch(`/api/people/v1/morale/inbox${qs}`, { credentials: 'include' });
+  return handleResponse<MoraleInboxResponse>(res);
+}
+
+export async function fetchMoraleInboxFilters(
+  window: Pick<MoraleInboxFilters, 'from' | 'to'> = {},
+): Promise<MoraleInboxFiltersResponse> {
+  const qs = queryString({ from: window.from, to: window.to });
+  const res = await fetch(`/api/people/v1/morale/inbox/filters${qs}`, { credentials: 'include' });
+  return handleResponse<MoraleInboxFiltersResponse>(res);
+}
+
+export async function markMoraleNoteRead(noteId: string): Promise<void> {
+  const res = await fetch(`/api/people/v1/morale/notes/${noteId}/read`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!res.ok) await handleResponse<void>(res);
+}
+
+export async function fetchMoraleTrend(range: MoraleTrendRange = {}): Promise<MoraleTrendResponse> {
+  const qs = queryString({ from_month: range.from_month, to_month: range.to_month });
+  const res = await fetch(`/api/people/v1/morale/trend${qs}`, { credentials: 'include' });
+  return handleResponse<MoraleTrendResponse>(res);
 }

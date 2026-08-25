@@ -13,6 +13,7 @@ import {
 } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { vnYearMonth } from './month-clock.ts';
+import { resolvePrimaryProject } from './morale-primary-project.ts';
 import { resolveMoraleHrRecipients, resolveMoraleRecipients } from './resolve-morale-recipients.ts';
 
 interface ResolvedRecipient {
@@ -137,6 +138,9 @@ export async function submitMoraleNote(
     .where(and(eq(person.id, senderPersonId), eq(person.tenant_id, session.tenant_id)));
 
   const senderOrgUnitId = me?.org_unit_id ?? null;
+  // Frozen here rather than resolved when a recipient opens their inbox (FUT-786): a
+  // transfer next month must not silently re-file notes someone has already read.
+  const primaryProject = await resolvePrimaryProject(session.tenant_id, senderPersonId);
   const period = vnYearMonth();
   let noteId = '';
 
@@ -151,6 +155,10 @@ export async function submitMoraleNote(
           org_unit_id: senderOrgUnitId,
           rating: input.rating,
           concern_text: input.concern_text ?? null,
+          project_id: primaryProject?.project_id ?? null,
+          project_name_snapshot: primaryProject?.project_name ?? null,
+          account_id: primaryProject?.account_id ?? null,
+          sender_capacity: primaryProject?.capacity ?? null,
         })
         .returning({ id: moraleNote.id });
 
@@ -173,6 +181,11 @@ export async function submitMoraleNote(
         org_unit_id: senderOrgUnitId,
         period,
         rating: input.rating,
+        // Delivery dimensions, so a lead or AM can be shown the trend for the group they
+        // are accountable for. Still no person_id: what these add is how coarsely a
+        // rating can be grouped, not a way back to who gave it.
+        project_id: primaryProject?.project_id ?? null,
+        account_id: primaryProject?.account_id ?? null,
       });
 
       const { eventId } = await emit({

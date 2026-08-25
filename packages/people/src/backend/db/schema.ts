@@ -265,6 +265,9 @@ export const userProjection = peopleSchema.table(
 
 export const MORALE_RECIPIENT_TAGS = ['hr', 'tl', 'am', 'pmo', 'bod'] as const;
 
+/** Which side of the project the sender wrote from — a lead's note reads differently. */
+export const MORALE_SENDER_CAPACITIES = ['member', 'tl'] as const;
+
 /**
  * Append-only morale note per submission (FUT-782). Scoped to the person, not to a
  * project: a note is about how someone feels, and they may sit on several projects.
@@ -282,10 +285,21 @@ export const moraleNote = peopleSchema.table(
     rating: integer('rating').notNull(),
     concern_text: text('concern_text'),
     submitted_at: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+    /**
+     * Sender's delivery context frozen at submit time (FUT-786), so the recipients' inbox
+     * can group by project without re-filing old notes when someone changes team. Null on
+     * notes written before FUT-786, and on a sender with no active allocation.
+     */
+    project_id: uuid('project_id'),
+    project_name_snapshot: text('project_name_snapshot'),
+    account_id: uuid('account_id'),
+    sender_capacity: textEnum('sender_capacity', MORALE_SENDER_CAPACITIES),
   },
   (t) => [
     index('morale_note_by_person').on(t.tenant_id, t.person_id, t.submitted_at),
+    index('morale_note_by_project').on(t.tenant_id, t.project_id, t.submitted_at),
     check('morale_note_rating_range', sql`rating >= 1 AND rating <= 5`),
+    textEnumCheck('morale_note', 'sender_capacity', MORALE_SENDER_CAPACITIES),
   ],
 );
 
@@ -309,6 +323,26 @@ export const moraleNoteRecipient = peopleSchema.table(
 );
 
 /**
+ * Read state per recipient (FUT-786), not per note. HR sits on every note, so a single
+ * flag on the note would let HR clear the unread badge for a Team Lead who never opened
+ * it. Absence of a row is "unread" — nothing to backfill for notes that predate this.
+ */
+export const moraleNoteRead = peopleSchema.table(
+  'morale_note_read',
+  {
+    note_id: uuid('note_id')
+      .notNull()
+      .references(() => moraleNote.id, { onDelete: 'cascade' }),
+    reader_person_id: uuid('reader_person_id').notNull(),
+    read_at: timestamp('read_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.note_id, t.reader_person_id] }),
+    index('morale_note_read_by_reader').on(t.reader_person_id),
+  ],
+);
+
+/**
  * Ratings split off the note so morale trends can be read without touching an
  * identifiable row (AC4). Deliberately carries no person_id, no note_id, and no
  * timestamp finer than the month — a precise `recorded_at` would let anyone with
@@ -323,10 +357,20 @@ export const moraleRatingAggregate = peopleSchema.table(
     /** Submission month, `YYYY-MM` in Asia/Ho_Chi_Minh. */
     period: text('period').notNull(),
     rating: integer('rating').notNull(),
+    /**
+     * Delivery dimensions (FUT-786) so a Team Lead or Account Manager can be shown the
+     * scope they are entitled to without the trend ever reading an identifiable row.
+     * What this changes is how coarsely a rating can be grouped, not whether it can be
+     * traced — the minimum-responses rule is what keeps a small project unreadable.
+     */
+    project_id: uuid('project_id'),
+    account_id: uuid('account_id'),
   },
   (t) => [
     index('morale_rating_by_period').on(t.tenant_id, t.period),
     index('morale_rating_by_org_unit').on(t.tenant_id, t.org_unit_id, t.period),
+    index('morale_rating_by_project').on(t.tenant_id, t.project_id, t.period),
+    index('morale_rating_by_account').on(t.tenant_id, t.account_id, t.period),
     check('morale_rating_aggregate_range', sql`rating >= 1 AND rating <= 5`),
     check('morale_rating_aggregate_period', sql`period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
   ],

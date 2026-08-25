@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import type {
   MoraleRecipientCandidate,
   MoraleRecipientGroup,
-  MoraleRecipientsResponse,
+  MoraleRecipientsForm,
   MoraleSelectableTag,
 } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
@@ -19,10 +19,14 @@ import {
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 
-/** Role slugs that stand in for each recipient group. */
-const HR_ROLES = ['people.manager'];
-const PMO_ROLES = ['pm.pmo'];
-const BOD_ROLES = ['pm.bod'];
+/**
+ * Role slugs that stand in for each recipient group. Exported because the reviewer side
+ * (FUT-786) has to recognise exactly the same holders it delivers to — two lists would
+ * eventually let someone receive notes they cannot open.
+ */
+export const HR_ROLES = ['people.manager'];
+export const PMO_ROLES = ['pm.pmo'];
+export const BOD_ROLES = ['pm.bod'];
 
 /**
  * One checkbox per person: someone who is both the AM on your account and a PMO would
@@ -135,7 +139,7 @@ function toCandidates(
 export async function resolveMoraleRecipients(
   session: SessionScope,
   senderPersonId: string | null,
-): Promise<MoraleRecipientsResponse> {
+): Promise<MoraleRecipientsForm> {
   requirePermission(session, 'people.performance.read');
 
   // A login with no employee record holds neither capacity, which is the same answer the
