@@ -109,6 +109,8 @@ export interface GoldenRunReport {
     rate: number;
     threshold: number;
     missedCases: string[];
+    errors: number;
+    errorCases: string[];
   }[];
 }
 

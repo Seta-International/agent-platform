@@ -13,11 +13,15 @@ import { resolveMetricThreshold } from '../metric-policy.ts';
 export interface MetricRate {
   id: string;
   mode: 'gate' | 'advisory';
+  /** Cases that produced a real verdict. An errored case is NOT counted here. */
   evaluated: number;
   passed: number;
   rate: number;
   threshold: number;
   missedCases: string[];
+  /** Cases that could not be scored at all (infrastructure fault). */
+  errors: number;
+  errorCases: string[];
 }
 
 /** One entry per metric ANY case claimed, sorted by id. A metric no case claimed is
@@ -37,11 +41,21 @@ export function metricRates(report: GoldenRunReport, configUrl: URL): MetricRate
           rate: 0,
           threshold: resolveMetricThreshold(policy.id, configUrl),
           missedCases: [],
+          errors: 0,
+          errorCases: [],
         } satisfies MetricRate);
-      entry.evaluated += 1;
-      if (policy.verdict === 'pass') entry.passed += 1;
-      else entry.missedCases.push(caseReport.id);
-      entry.rate = entry.passed / entry.evaluated;
+      // An `error` verdict means the case never produced evidence about the agent.
+      // Counting it as a miss made an infrastructure fault look like a model
+      // defect — see the M3 0.96 entry in docs/agents/planner-action/metrics.md.
+      if (policy.verdict === 'error') {
+        entry.errors += 1;
+        entry.errorCases.push(caseReport.id);
+      } else {
+        entry.evaluated += 1;
+        if (policy.verdict === 'pass') entry.passed += 1;
+        else entry.missedCases.push(caseReport.id);
+      }
+      entry.rate = entry.evaluated ? entry.passed / entry.evaluated : 0;
       acc.set(policy.id, entry);
     }
   }
@@ -52,7 +66,11 @@ export function metricRates(report: GoldenRunReport, configUrl: URL): MetricRate
  *  metrics should report three, not the first. */
 export function assertMetricThresholds(report: GoldenRunReport, configUrl: URL): MetricRate[] {
   const rates = metricRates(report, configUrl);
-  const shortfalls = rates.filter((r) => r.mode === 'gate' && r.rate < r.threshold);
+  const shortfalls = rates.filter(
+    // `evaluated === 0` is missing data, not a failure. The lane asserts
+    // `infraErrors.length === 0` separately — that is where it gets caught.
+    (r) => r.mode === 'gate' && r.evaluated > 0 && r.rate < r.threshold,
+  );
   if (shortfalls.length) {
     throw new Error(
       `golden action lane: metric threshold(s) missed\n${shortfalls

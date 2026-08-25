@@ -43,6 +43,44 @@ it('passes when every gate metric meets its threshold', () => {
   expect(() => assertMetricThresholds(green, ACTION_CONFIG_URL)).not.toThrow();
 });
 
+it('excludes an errored case from the denominator and counts it separately', () => {
+  // 25 cases claim M3; 24 were scored and passed; one never ran (RV-008 on the
+  // 24/08 report, killed by a breaker another case tripped). The old maths said
+  // 0.96 (24/25) and the doc read that as a BR-03 breach. A case that never ran
+  // is missing DATA, not evidence about the agent.
+  const cases = [
+    ...Array.from({ length: 24 }, (_, i) => ({
+      id: `MU-${String(i).padStart(3, '0')}`,
+      policies: [{ id: 'M3', mode: 'gate', verdict: 'pass', scorers: [] }],
+    })),
+    { id: 'RV-008', policies: [{ id: 'M3', mode: 'gate', verdict: 'error', scorers: [] }] },
+  ];
+  const rates = metricRates({ cases } as never, ACTION_CONFIG_URL);
+  const m3 = rates.find((r) => r.id === 'M3')!;
+
+  expect(m3.evaluated).toBe(24);
+  expect(m3.passed).toBe(24);
+  expect(m3.rate).toBe(1);
+  expect(m3.errors).toBe(1);
+  expect(m3.errorCases).toEqual(['RV-008']);
+  // An errored case is not a MISS: nothing was measured to miss with.
+  expect(m3.missedCases).toEqual([]);
+  expect(() => assertMetricThresholds({ cases } as never, ACTION_CONFIG_URL)).not.toThrow();
+});
+
+it('does not gate a metric whose every case errored, rather than reporting it as 0.00', () => {
+  // 0/0 is not 0%. The lane's separate `infraErrors` assertion is what catches
+  // this; failing it here as well would report one incident as two.
+  const cases = [
+    { id: 'RV-008', policies: [{ id: 'M3', mode: 'gate', verdict: 'error', scorers: [] }] },
+  ];
+  const rates = metricRates({ cases } as never, ACTION_CONFIG_URL);
+  const m3 = rates.find((r) => r.id === 'M3')!;
+  expect(m3.evaluated).toBe(0);
+  expect(m3.errors).toBe(1);
+  expect(() => assertMetricThresholds({ cases } as never, ACTION_CONFIG_URL)).not.toThrow();
+});
+
 it('never gates on an advisory metric, however badly it scored', () => {
   const advisory = {
     cases: [
