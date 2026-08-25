@@ -223,3 +223,62 @@ it('omits the rate table entirely on an A1 report, which never carries one', () 
   } as never);
   expect(md).not.toContain('Metric pass rates');
 });
+
+it('prints the per-metric error count and an infrastructure-errors section', () => {
+  const withErrors = {
+    manifest: {
+      capturedAt: '2026-08-25T00-00-00-000Z',
+      productionModelVersion: 'llamacpp/qwen3.5-9b',
+      judgeModelVersion: 'openai/gpt-5-mini',
+      datasetVersion: '2.0.0',
+      seedChecksum: 'abc',
+    },
+    suite: 'regression',
+    totalCases: 25,
+    gateFailed: false,
+    gateFailures: [],
+    infraErrors: [{ caseId: 'RV-008', reason: 'CIRCUIT_OPEN planner_updateTask' }],
+    metricRates: [
+      {
+        id: 'M3',
+        mode: 'gate',
+        passed: 24,
+        evaluated: 24,
+        rate: 1,
+        threshold: 1,
+        missedCases: [],
+        errors: 1,
+        errorCases: ['RV-008'],
+      },
+    ],
+    cases: [],
+  } as never;
+
+  const md = renderGoldenReportMarkdown(withErrors);
+  // The rate and its missing data sit on the same line: a reader must not have to
+  // correlate two tables to know 24/24 was really 24 of 25 cases.
+  expect(md).toContain('| M3 | gate | 24 | 24 | 1.00 | 1.00 | — | 1 |');
+  expect(md).toContain('## Infrastructure errors');
+  expect(md).toContain('RV-008');
+  expect(md).toContain('CIRCUIT_OPEN planner_updateTask');
+});
+
+it('omits the infrastructure-errors section entirely on a clean run', () => {
+  const clean = {
+    manifest: {
+      capturedAt: '2026-08-25T00-00-00-000Z',
+      productionModelVersion: 'm',
+      judgeModelVersion: 'j',
+      datasetVersion: '2.0.0',
+      seedChecksum: 'abc',
+    },
+    suite: 'regression',
+    totalCases: 1,
+    gateFailed: false,
+    gateFailures: [],
+    infraErrors: [],
+    metricRates: [],
+    cases: [],
+  } as never;
+  expect(renderGoldenReportMarkdown(clean)).not.toContain('## Infrastructure errors');
+});

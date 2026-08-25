@@ -79,7 +79,7 @@ export function renderGoldenReportMarkdown(report: GoldenRunReport): string {
     `- **capturedAt:** ${m.capturedAt}`,
     `- **model:** ${m.productionModelVersion} · **judge:** ${m.judgeModelVersion}`,
     `- **dataset:** ${m.datasetVersion} · **seedChecksum:** ${m.seedChecksum}`,
-    `- **totalCases:** ${report.totalCases} · **gateFailed:** ${report.gateFailed} · **failures:** ${report.gateFailures.length}`,
+    `- **totalCases:** ${report.totalCases} · **gateFailed:** ${report.gateFailed} · **failures:** ${report.gateFailures.length} · **infraErrors:** ${report.infraErrors?.length ?? 0}`,
     '',
   ].join('\n');
 
@@ -97,19 +97,32 @@ export function renderGoldenReportMarkdown(report: GoldenRunReport): string {
     ? [
         '## Metric pass rates',
         '',
-        '| metric | mode | passed | evaluated | rate | threshold | missed |',
-        '| --- | --- | --- | --- | --- | --- | --- |',
+        '| metric | mode | passed | evaluated | rate | threshold | missed | errors |',
+        '| --- | --- | --- | --- | --- | --- | --- | --- |',
         ...report.metricRates.map(
           (r) =>
             `| ${r.id} | ${r.mode} | ${r.passed} | ${r.evaluated} | ${r.rate.toFixed(2)} | ` +
-            `${r.threshold.toFixed(2)} | ${r.missedCases.join(', ') || '—'} |`,
+            `${r.threshold.toFixed(2)} | ${r.missedCases.join(', ') || '—'} | ${r.errors} |`,
         ),
         '',
       ].join('\n')
     : '';
 
+  // A case excluded from the rates but absent from the artifact would be the worse
+  // bug: an honest denominator with an invisible reason.
+  const infra = report.infraErrors?.length
+    ? [
+        '## Infrastructure errors',
+        '',
+        '_Excluded from every metric denominator — these cases were not measured._',
+        '',
+        ...report.infraErrors.map((e) => `- ${e.caseId} — ${e.reason}`),
+        '',
+      ].join('\n')
+    : '';
+
   const cases = ['## Cases', '', ...report.cases.map(renderCase)].join('\n\n');
-  return [header, failSummary, rates, cases].filter(Boolean).join('\n');
+  return [header, failSummary, infra, rates, cases].filter(Boolean).join('\n');
 }
 
 /**
