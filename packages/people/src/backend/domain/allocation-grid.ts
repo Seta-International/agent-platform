@@ -295,7 +295,36 @@ export async function getAllocationGrid(
     else filteredRawByWorker.set(r.worker_id, [r]);
   }
 
+  const personsWhere = [eq(person.tenant_id, session.tenant_id), sql`${person.deleted_at} IS NULL`];
+  if (scope) personsWhere.push(scope);
+
+  const visiblePersons = await peopleDb()
+    .select({
+      worker_id: person.id,
+      employee_no: person.employee_no,
+      full_name: person.full_name,
+    })
+    .from(person)
+    .where(and(...personsWhere))
+    .orderBy(person.full_name, person.id);
+
+  const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket || rowScope);
+
   const byWorker = new Map<string, number[]>();
+  if (!hasSpecificFilter) {
+    for (const p of visiblePersons) {
+      if (
+        q &&
+        !foldText(p.full_name ?? '').includes(q) &&
+        !foldText(p.worker_id).includes(q) &&
+        !(p.employee_no && foldText(p.employee_no).includes(q))
+      ) {
+        continue;
+      }
+      byWorker.set(p.worker_id, new Array<number>(12).fill(0));
+    }
+  }
+
   for (const [worker_id, wRows] of filteredRawByWorker.entries()) {
     const totals = new Array<number>(12).fill(0);
     for (let m = 0; m < 12; m++) {
@@ -347,8 +376,7 @@ export async function getAllocationGrid(
   };
 
   const outRows = rows.filter((r) => workerMatchesStatus(r.worker_id));
-  const keptWorkers = new Set(outRows.map((r) => r.worker_id));
-  const outTotals = filteredWorkerTotals.filter((w) => keptWorkers.has(w.worker_id));
+  const outTotals = filteredWorkerTotals.filter((w) => workerMatchesStatus(w.worker_id));
 
   const memberCount = outTotals.length;
   const overCount = outTotals.filter((w) => (w.totals[currentMonth] ?? 0) > 100).length;
