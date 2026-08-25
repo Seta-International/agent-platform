@@ -123,7 +123,7 @@ it('records advisory B* judge scores from runJudge without affecting the gate', 
   expect(b2.scorers[0]!.detail).toContain('0.42');
 });
 
-it('records verdict=error and fails the gate when the agent run throws', async () => {
+it('records verdict=error and an INFRA entry when the agent run throws', async () => {
   const report = await runGoldenEval({
     cases: [agentCase],
     suite: 'smoke',
@@ -134,7 +134,12 @@ it('records verdict=error and fails the gate when the agent run throws', async (
     runRetrieval: async () => [],
   });
   expect(report.cases[0]!.policies[0]!.verdict).toBe('error');
-  expect(report.gateFailed).toBe(true);
+  // FUT-829: this used to set `gateFailed`. A run that threw produced no evidence
+  // about the agent, so gating on it reported an infrastructure incident as a
+  // model defect — and, worse, silently: the rate simply came out lower.
+  expect(report.gateFailed).toBe(false);
+  expect(report.infraErrors).toEqual([{ caseId: 'PQ-FAKE-1', reason: 'model boom' }]);
+  expect(report.cases[0]!.infraError).toBe('model boom');
 });
 
 // --- FUT-827: conversation cases ----------------------------------------------
@@ -243,7 +248,11 @@ it('records an error verdict when the conversation seam throws', async () => {
     },
   });
   expect(report.cases[0]!.policies[0]!.verdict).toBe('error');
-  expect(report.gateFailures[0]!.scorer).toBe('run');
+  // FUT-829: an unscoreable case is an INFRA incident, not a gate failure. It used
+  // to be filed as `scorer: 'run'`, which made a dead seam indistinguishable from a
+  // model that chose the wrong tool.
+  expect(report.gateFailures).toEqual([]);
+  expect(report.infraErrors?.[0]?.reason).toBe('resume lost the run');
 });
 
 it('marks a conversation case skipped when no seam is supplied', async () => {
@@ -437,15 +446,65 @@ it('keeps the turns a case DID complete when it broke mid-conversation', async (
     cases: [revisionCase],
     suite: 'smoke',
     metricConfigUrl: ACTION_CONFIG_URL,
-    // Two turns ran; the third could not, because turn 1 never opened a card.
+    // Two turns ran; the third could not, because the model host went away.
+    // (Before FUT-829 this fixture said "RV-008 decides with no open preview".
+    // That is no longer an error at all — run-case scores it as a failed turn,
+    // because an agent that opens no card IS the finding.)
     runConversation: async () =>
       ({
         turns: [suspendTurn, suspendTurn],
-        error: 'RV-008 decides with no open preview',
+        error: 'fetch failed: model host closed the connection',
       }) as never,
   });
   const cr = report.cases[0]!;
-  expect(cr.runError).toContain('no open preview');
+  expect(cr.runError).toContain('model host closed');
+  expect(cr.infraError).toContain('model host closed');
   expect(cr.turns).toHaveLength(2);
   expect(cr.policies.every((p) => p.verdict === 'error')).toBe(true);
+  expect(report.gateFailures).toEqual([]);
+});
+
+it('records an unrecognised throw as an INFRA error, not as a gate failure', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => {
+      throw new Error('ECONNREFUSED 127.0.0.1:8080');
+    },
+  });
+  // Every metric is `error`, as before — but the run is now labelled, and the
+  // gate no longer counts it. A dead model host is not a failing agent.
+  expect(report.cases[0]!.policies.every((p) => p.verdict === 'error')).toBe(true);
+  expect(report.cases[0]!.infraError).toContain('ECONNREFUSED');
+  expect(report.gateFailures).toEqual([]);
+  expect(report.infraErrors).toEqual([{ caseId: 'RV-008', reason: 'ECONNREFUSED 127.0.0.1:8080' }]);
+});
+
+it('reports one infra entry per broken case, not one per metric it claimed', async () => {
+  // Three metrics, one dead model. The report must read as ONE incident.
+  const threeMetricCase = { ...revisionCase, metrics: { enabled: ['M3', 'M8', 'M9'] } };
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [threeMetricCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => {
+      throw new Error('model unreachable');
+    },
+  });
+  expect(report.cases[0]!.policies).toHaveLength(3);
+  expect(report.infraErrors).toHaveLength(1);
+});
+
+it('leaves infraErrors empty on a clean run', async () => {
+  const report = await runGoldenEval({
+    ...noopSeams,
+    cases: [revisionCase],
+    suite: 'smoke',
+    metricConfigUrl: ACTION_CONFIG_URL,
+    runConversation: async () => ({ turns: [suspendTurn, suspendTurn, appliedTurn] }) as never,
+  });
+  expect(report.infraErrors).toEqual([]);
 });

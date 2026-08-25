@@ -89,6 +89,11 @@ export interface CaseReport {
   /** Why the run seam threw. Without it an unreachable model and a broken agent
    *  produce the same all-`error` report, and the first triage step is a guess. */
   runError?: string;
+  /** Set when the case could not be scored because the HARNESS broke: a tool,
+   *  model, or DB fault, or any throw we cannot attribute to the agent. Distinct
+   *  from `runError`, which is the raw message; this field is the classification
+   *  the rates and the gate act on. */
+  infraError?: string;
   policies: PolicyReport[];
 }
 
@@ -99,6 +104,10 @@ export interface GoldenRunReport {
   cases: CaseReport[];
   gateFailed: boolean;
   gateFailures: { caseId: string; policyId: string; scorer: string }[];
+  /** Cases the harness could not score. Optional so the A1 report fixtures and
+   *  any older artifact on disk still satisfy the type; `runGoldenEval` always
+   *  sets it (empty on a clean run). */
+  infraErrors?: { caseId: string; reason: string }[];
   /** Per-metric pass rates. Attached by the caller (the A2 lane), not computed
    *  here: the runner stays agent-agnostic and A1's report shape is unchanged. */
   metricRates?: {
@@ -142,6 +151,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
   const manifest = buildRunManifest(params.manifest);
   const caseReports: CaseReport[] = [];
   const gateFailures: GoldenRunReport['gateFailures'] = [];
+  const infraErrors: NonNullable<GoldenRunReport['infraErrors']> = [];
   // Read tools are permitted without any case listing them: resolving a title to an
   // id is plumbing, not the operation under test. Resolved once — the config is on
   // disk, and this runs per turn.
@@ -183,8 +193,10 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
       for (const rawId of c.metrics?.enabled ?? []) {
         const mode = resolveMetricMode(rawId, c.metricOverrides?.[rawId], params.metricConfigUrl);
         if (runError || !run) {
+          // NOT a gate failure: the case produced no evidence about the agent, so
+          // filing it as one made a dead seam indistinguishable from a model that
+          // chose the wrong tool. It is recorded in `infraErrors` instead.
           policies.push({ id: rawId, mode, verdict: 'error', scorers: [] });
-          if (mode === 'gate') gateFailures.push({ caseId: c.id, policyId: rawId, scorer: 'run' });
           continue;
         }
         if (!isPolicyId(rawId)) {
@@ -220,6 +232,10 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         }
       }
 
+      // One entry per broken CASE, not per metric it happened to claim: a single
+      // dead model must read as one incident in the report, not nine.
+      if (runError) infraErrors.push({ caseId: c.id, reason: runError });
+
       const last = run?.turns[run.turns.length - 1];
       caseReports.push({
         id: c.id,
@@ -227,7 +243,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         question: questionOf(c),
         answer: last?.answer,
         trajectory: last?.trajectory.toolCalls,
-        ...(runError ? { runError } : {}),
+        ...(runError ? { runError, infraError: runError } : {}),
         turns: run?.turns.map((t, i) => ({
           index: i + 1,
           answer: t.answer,
@@ -263,11 +279,13 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
     // agent case
     const policies: PolicyReport[] = [];
     let output: AgentRunOutput | null = null;
-    let runError = false;
+    // The message, not a bare flag: swallowing it made an unreachable model and a
+    // broken agent produce the same all-`error` report with no way to tell them apart.
+    let runError: string | undefined;
     try {
       output = await params.runAgent(c);
-    } catch {
-      runError = true;
+    } catch (err) {
+      runError = err instanceof Error ? err.message : String(err);
     }
 
     // Batch the advisory LLM-judge call once per case for all its B* metrics.
@@ -285,8 +303,8 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
     for (const rawId of c.metrics.enabled) {
       const mode = resolveMetricMode(rawId, c.metricOverrides?.[rawId], params.metricConfigUrl);
       if (runError || !output) {
+        // Same reasoning as the conversation branch: recorded as infra, not gated.
         policies.push({ id: rawId, mode, verdict: 'error', scorers: [] });
-        if (mode === 'gate') gateFailures.push({ caseId: c.id, policyId: rawId, scorer: 'run' });
         continue;
       }
       if (!isPolicyId(rawId)) {
@@ -319,12 +337,14 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         gateFailures.push({ caseId: c.id, policyId: rawId, scorer: firstFail?.id ?? 'unknown' });
       }
     }
+    if (runError) infraErrors.push({ caseId: c.id, reason: runError });
     caseReports.push({
       id: c.id,
       kind: c.kind,
       question: questionOf(c),
       answer: output?.answer,
       trajectory: output?.trajectory.toolCalls,
+      ...(runError ? { runError, infraError: runError } : {}),
       policies,
     });
   }
@@ -336,5 +356,6 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
     cases: caseReports,
     gateFailed: gateFailures.length > 0,
     gateFailures,
+    infraErrors,
   };
 }
