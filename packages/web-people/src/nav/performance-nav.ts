@@ -24,7 +24,7 @@ export function amTopTabs(capacity: PerformanceCapacity | null): readonly Perfor
 
 /**
  * Whether the current path is allowed for this capacity / role set.
- * Deep links to legacy stubs (scoring, morale, …) stay reachable only when they match the role.
+ * Deep links to legacy stubs (scoring, self-assessment, …) stay reachable only when they match the role.
  */
 export function isPerformancePathAllowed(
   pathname: string,
@@ -41,8 +41,6 @@ export function isPerformancePathAllowed(
   if (path === '/people/performance/configuration') return kind === 'am';
   if (path === '/people/performance/scoring') return kind === 'tl' || kind === 'am';
   if (path === '/people/performance/self-assessment') return kind === 'member';
-  if (path === '/people/performance/morale')
-    return kind === 'member' || kind === 'tl' || kind === 'am';
   if (path === '/people/performance/history') return true;
   if (path === '/people/performance/audit' || path === '/people/performance/cycle')
     return strategic;

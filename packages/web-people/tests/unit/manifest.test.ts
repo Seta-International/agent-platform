@@ -6,7 +6,7 @@ describe('peopleAppManifest', () => {
     expect(peopleAppManifest.routeNamespace).toBe('/people');
   });
 
-  it('declares the five People tabs in order', () => {
+  it('declares the People tabs in order', () => {
     const section = peopleAppManifest.nav.find((s) => s.label === 'People');
     expect(section?.items.map((i) => [i.label, i.to])).toEqual([
       ['Dashboard', '/people'],
@@ -14,6 +14,7 @@ describe('peopleAppManifest', () => {
       ['Org Chart', '/people/org'],
       ['Resource Allocation', '/people/allocation'],
       ['Performance', '/people/performance'],
+      ['Morale', '/people/morale'],
     ]);
   });
 
@@ -31,7 +32,7 @@ describe('peopleAppManifest', () => {
     expect(peopleAppManifest.requiredPermissions).toContain('people.worker.read');
     expect(peopleAppManifest.requiredPermissions).toContain('people.performance.read');
     for (const item of peopleAppManifest.nav.flatMap((s) => s.items)) {
-      if (item.id === 'people.performance') {
+      if (item.id === 'people.performance' || item.id === 'people.morale') {
         expect(item.requires).toContain('people.performance.read');
         expect(item.requires).not.toContain('people.worker.read');
       } else {
@@ -50,6 +51,7 @@ describe('peopleAppManifest', () => {
     expect(byId['people.org']).toBeUndefined();
     expect(byId['people.allocation']).toBeUndefined();
     expect(byId['people.performance']).toBeUndefined(); // live since FUT-692 (entry gate)
+    expect(byId['people.morale']).toBeUndefined();
     for (const id of [
       'people.dashboard',
       'people.onboarding',

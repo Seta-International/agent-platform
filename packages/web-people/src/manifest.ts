@@ -2,6 +2,7 @@ import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import {
   BadgeCheck,
   BarChart3,
+  HeartPulse,
   LayoutDashboard,
   LineChart,
   Network,
@@ -57,6 +58,15 @@ export const peopleAppManifest: AppManifest = {
           label: 'Performance',
           to: '/people/performance',
           // PMO/BoD hold performance.read without the directory permission.
+          requires: ['people.performance.read'],
+        },
+        {
+          id: 'people.morale',
+          icon: HeartPulse,
+          label: 'Morale',
+          to: '/people/morale',
+          // Visible to every role: Members and TLs submit here, and the read-only
+          // view for everyone else lands in the follow-up manager ticket.
           requires: ['people.performance.read'],
         },
       ],

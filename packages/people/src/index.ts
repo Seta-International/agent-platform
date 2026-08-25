@@ -18,6 +18,7 @@ export { type DeleteOrgUnitInput, deleteOrgUnit } from './backend/domain/delete-
 export { editWorker } from './backend/domain/edit-worker.ts';
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
 export { listDirectory } from './backend/domain/list-directory.ts';
+export { listMoraleNotes } from './backend/domain/list-morale-notes.ts';
 export {
   type MatchUsersToTopicDeps,
   type MatchUsersToTopicInput,
@@ -63,10 +64,12 @@ export { readPerformanceConfig } from './backend/domain/read-performance-config.
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
+export { resolveMoraleRecipients } from './backend/domain/resolve-morale-recipients.ts';
 export { savePerformanceConfig } from './backend/domain/save-performance-config.ts';
 export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
+export { submitMoraleNote } from './backend/domain/submit-morale-note.ts';
 export {
   type DirectoryPerson,
   type DirectorySyncOutcome,
@@ -108,6 +111,15 @@ export type {
   MonthTaskGroup,
   MonthTasksQuery,
   MonthTasksResponse,
+  MoraleHistoryQuery,
+  MoraleHistoryResponse,
+  MoraleNoteView,
+  MoraleRecipientCandidate,
+  MoraleRecipientGroup,
+  MoraleRecipientsResponse,
+  MoraleRecipientTag,
+  MoraleRecipientView,
+  MoraleSelectableTag,
   PerformanceCapacity,
   PerformanceConfigCriterionView,
   PerformanceConfigGroupView,
@@ -117,6 +129,7 @@ export type {
   ProvisionWorkerInput,
   SavePerformanceConfigInput,
   SavePerformanceConfigResponse,
+  SubmitMoraleInput,
 } from './contracts.ts';
 export {
   cycleStatusEnum,
@@ -128,7 +141,16 @@ export {
   monthTaskCard,
   monthTasksQuery,
   monthTasksResponse,
+  moraleHistoryQuery,
+  moraleHistoryResponse,
+  moraleNoteView,
+  moraleRecipientCandidate,
+  moraleRecipientGroup,
+  moraleRecipientsResponse,
+  moraleRecipientTag,
+  moraleSelectableTag,
   performanceConfigResponse,
   savePerformanceConfigInput,
   savePerformanceConfigResponse,
+  submitMoraleInput,
 } from './contracts.ts';

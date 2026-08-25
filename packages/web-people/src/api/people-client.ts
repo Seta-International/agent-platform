@@ -455,3 +455,96 @@ export async function savePerformanceConfig(
   });
   return handleResponse(res);
 }
+
+// ---------------------------------------------------------------------------
+// Morale (FUT-782)
+// ---------------------------------------------------------------------------
+
+export type MoraleRecipientTag = 'hr' | 'tl' | 'am' | 'pmo' | 'bod';
+
+/** Groups the sender can choose from. HR is server-side only and never listed. */
+export type MoraleSelectableTag = 'tl' | 'am' | 'pmo' | 'bod';
+
+export type MoraleRecipientCandidate = {
+  person_id: string;
+  full_name: string | null;
+  /** Shared project or account that makes this person reachable. */
+  context: string | null;
+};
+
+/**
+ * An absent group means the role does not apply to this sender at all (a Team Lead is
+ * never offered the TL group); a present one with no candidates means it applies but
+ * nobody qualifies, and `unavailable_reason` says why.
+ */
+export type MoraleRecipientGroup = {
+  tag: MoraleSelectableTag;
+  candidates: MoraleRecipientCandidate[];
+  unavailable_reason: string | null;
+};
+
+export type MoraleRecipientsResponse = {
+  can_submit: boolean;
+  groups: MoraleRecipientGroup[];
+};
+
+export type MoraleRecipientView = {
+  recipient_tag: MoraleRecipientTag;
+  full_name_snapshot: string | null;
+};
+
+export type MoraleNoteView = {
+  id: string;
+  rating: number;
+  concern_text: string | null;
+  submitted_at: string;
+  recipients: MoraleRecipientView[];
+};
+
+export type MoraleHistoryResponse = {
+  notes: MoraleNoteView[];
+};
+
+/** Inclusive calendar-day window, both ends optional; dates are read in Asia/Ho_Chi_Minh. */
+export type MoraleHistoryRange = {
+  /** YYYY-MM-DD */
+  from?: string;
+  /** YYYY-MM-DD */
+  to?: string;
+};
+
+export type SubmitMoraleBody = {
+  rating: number;
+  concern_text?: string;
+  recipient_person_ids: string[];
+};
+
+export async function fetchMoraleRecipients(): Promise<MoraleRecipientsResponse> {
+  const res = await fetch('/api/people/v1/morale/recipients', {
+    credentials: 'include',
+  });
+  return handleResponse<MoraleRecipientsResponse>(res);
+}
+
+export async function submitMorale(body: SubmitMoraleBody): Promise<{ note_id: string }> {
+  const res = await fetch('/api/people/v1/morale', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<{ note_id: string }>(res);
+}
+
+export async function fetchMoraleHistory(
+  range: MoraleHistoryRange = {},
+): Promise<MoraleHistoryResponse> {
+  const params = new URLSearchParams();
+  if (range.from) params.set('from', range.from);
+  if (range.to) params.set('to', range.to);
+  const qs = params.toString();
+  const res = await fetch(`/api/people/v1/morale/history${qs ? `?${qs}` : ''}`, {
+    credentials: 'include',
+  });
+  return handleResponse<MoraleHistoryResponse>(res);
+}
