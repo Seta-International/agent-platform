@@ -147,8 +147,10 @@ export function MoraleHistoryPage() {
     [notes, page, pageSize],
   );
 
+  // Back lands on the send tab: history is the record of what that tab submits, and the
+  // route's `tab` search param is required, so the destination has to be named.
   const backButton = (
-    <Link to="/people/morale">
+    <Link to="/people/morale" search={{ tab: 'send' }}>
       <Button label="Back to Morale" variant="secondary" icon={<ArrowLeft size={16} />} />
     </Link>
   );
@@ -156,7 +158,7 @@ export function MoraleHistoryPage() {
   return (
     <MoraleFrame
       current="History"
-      trail={<BreadcrumbItem href="/people/morale">Morale</BreadcrumbItem>}
+      trail={<BreadcrumbItem href="/people/morale?tab=send">Morale</BreadcrumbItem>}
       action={backButton}
     >
       <VStack gap={3}>
