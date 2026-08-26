@@ -573,3 +573,47 @@ describe('AllocationPage — dropdown filters and clear functionality (FUT-904)'
     expect(mockSearch.bucket).toBeUndefined();
   });
 });
+
+describe('AllocationPage — Idle workers (FUT-339 AC 2)', () => {
+  it('renders unallocated idle worker with name, employee ID, dash for account/project, blank month cells, and 0.00 MM', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({
+      year: 2026,
+      rows: [
+        makeRow({
+          worker_id: 'w-idle',
+          employee_no: 'IDLE-99',
+          full_name: 'Idle Person',
+          account_id: '',
+          account_name: '',
+          project_id: '',
+          project_name: null,
+          bucket: null,
+          months: new Array(12).fill(null),
+          total_mm: 0,
+        }),
+      ],
+      worker_totals: [
+        {
+          worker_id: 'w-idle',
+          totals: new Array(12).fill(0),
+          over_months: [],
+        },
+      ],
+      kpis: { avg_utilization: 0, over_allocated_count: 0, member_count: 1, project_count: 0 },
+      facets: { accounts: [], projects: [] },
+      effort_by_account: [],
+    });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('Idle Person')).toBeInTheDocument();
+    expect(within(table).getByText('IDLE-99')).toBeInTheDocument();
+    // '—' for account and project
+    const dashes = within(table).getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(2);
+    // Total MM: 0.00
+    expect(within(table).getByText('0.00')).toBeInTheDocument();
+    // Verify no month cell renders '0.0' or '0'
+    expect(within(table).queryByText('0.0')).not.toBeInTheDocument();
+  });
+});
