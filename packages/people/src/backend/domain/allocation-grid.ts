@@ -182,6 +182,19 @@ export async function getAllocationGrid(
       asc(projectProjection.name),
     )) as RawRow[];
 
+  const personsWhere = [eq(person.tenant_id, session.tenant_id), sql`${person.deleted_at} IS NULL`];
+  if (scope) personsWhere.push(scope);
+
+  const visiblePersons = await peopleDb()
+    .select({
+      worker_id: person.id,
+      employee_no: person.employee_no,
+      full_name: person.full_name,
+    })
+    .from(person)
+    .where(and(...personsWhere))
+    .orderBy(asc(person.full_name), asc(person.id));
+
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
 
@@ -259,6 +272,8 @@ export async function getAllocationGrid(
     return true;
   };
 
+  const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket || rowScope);
+
   // Keep rows that match the status filter and the row-level filters.
   // When crossProject is enabled, keep all project allocations for workers matching the filter criteria.
   let filteredRaw: RawRow[];
@@ -312,52 +327,92 @@ export async function getAllocationGrid(
     group.records.push(r);
   }
 
-  const rows: AllocationGridRow[] = Array.from(groupMap.values()).map((g) => {
-    let bucket: 'billable' | 'internal' | 'bench' | null = null;
-    const buckets = g.records.map((r) => r.bucket).filter(Boolean);
-    if (buckets.includes('billable')) bucket = 'billable';
-    else if (buckets.includes('internal')) bucket = 'internal';
-    else if (buckets.includes('bench')) bucket = 'bench';
-    else if (buckets.length > 0) bucket = buckets[0] ?? null;
+  const allocatedRows: AllocationGridRow[] = Array.from(groupMap.values())
+    .map((g) => {
+      let bucket: 'billable' | 'internal' | 'bench' | null = null;
+      const buckets = g.records.map((r) => r.bucket).filter(Boolean);
+      if (buckets.includes('billable')) bucket = 'billable';
+      else if (buckets.includes('internal')) bucket = 'internal';
+      else if (buckets.includes('bench')) bucket = 'bench';
+      else if (buckets.length > 0) bucket = buckets[0] ?? null;
 
-    const months: (number | null)[] = [];
-    let mm = 0;
-    for (let m = 0; m < 12; m++) {
-      const [mStart, mEnd] = monthBounds(year, m);
-      const mWorkingDays = workingDays(mStart, mEnd);
-      let monthTotalPct = 0;
-      let hasActive = false;
+      const months: (number | null)[] = [];
+      let mm = 0;
+      for (let m = 0; m < 12; m++) {
+        const [mStart, mEnd] = monthBounds(year, m);
+        const mWorkingDays = workingDays(mStart, mEnd);
+        let monthTotalPct = 0;
+        let hasActive = false;
 
-      for (const r of g.records) {
-        const pct = r.planned_pct == null ? null : Number(r.planned_pct);
-        const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : yearStart;
-        const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : yearEnd;
-        const active = pct != null && from <= mEnd && to >= mStart;
-        if (active && pct != null) {
-          hasActive = true;
-          const ovStart = from > mStart ? from : mStart;
-          const ovEnd = to < mEnd ? to : mEnd;
-          const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
-          monthTotalPct += pct * frac;
-          mm += (pct / 100) * frac;
+        for (const r of g.records) {
+          const pct = r.planned_pct == null ? null : Number(r.planned_pct);
+          const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : yearStart;
+          const to = r.date_to ? new Date(`${r.date_to}T00:00:00Z`) : yearEnd;
+          const active = pct != null && from <= mEnd && to >= mStart;
+          if (active && pct != null) {
+            hasActive = true;
+            const ovStart = from > mStart ? from : mStart;
+            const ovEnd = to < mEnd ? to : mEnd;
+            const frac = mWorkingDays > 0 ? workingDays(ovStart, ovEnd) / mWorkingDays : 0;
+            monthTotalPct += pct * frac;
+            mm += (pct / 100) * frac;
+          }
         }
+        months.push(hasActive ? Math.round(monthTotalPct * 100) / 100 : null);
       }
-      months.push(hasActive ? Math.round(monthTotalPct * 100) / 100 : null);
-    }
 
-    return {
-      worker_id: g.worker_id,
-      employee_no: g.employee_no,
-      full_name: g.full_name,
-      account_id: g.account_id,
-      account_name: g.account_name,
-      project_id: g.project_id,
-      project_name: g.project_name,
-      bucket,
-      months,
-      total_mm: Math.round(mm * 100) / 100,
-    };
-  });
+      return {
+        worker_id: g.worker_id,
+        employee_no: g.employee_no,
+        full_name: g.full_name,
+        account_id: g.account_id,
+        account_name: g.account_name,
+        project_id: g.project_id,
+        project_name: g.project_name,
+        bucket,
+        months,
+        total_mm: Math.round(mm * 100) / 100,
+      };
+    })
+    .filter((r) => r.months.some((v) => v !== null));
+
+  const allocatedWorkerIds = new Set(allocatedRows.map((r) => r.worker_id));
+
+  // Include unallocated (idle) workers when no specific account/project/bucket filter or row-scope is active (FUT-339 AC 2)
+  const idleRows: AllocationGridRow[] = [];
+  if (!hasSpecificFilter && scope === null) {
+    for (const p of visiblePersons) {
+      if (allocatedWorkerIds.has(p.worker_id)) continue;
+      if (!workerMatchesStatus(p.worker_id)) continue;
+      if (
+        q &&
+        !foldText(p.full_name ?? '').includes(q) &&
+        !foldText(p.worker_id).includes(q) &&
+        !(p.employee_no && foldText(p.employee_no).includes(q))
+      ) {
+        continue;
+      }
+      idleRows.push({
+        worker_id: p.worker_id,
+        employee_no: p.employee_no,
+        full_name: p.full_name ?? '',
+        account_id: '',
+        account_name: '',
+        project_id: '',
+        project_name: null,
+        bucket: null,
+        months: new Array<number | null>(12).fill(null),
+        total_mm: 0,
+      });
+    }
+  }
+
+  const rows: AllocationGridRow[] = [...allocatedRows, ...idleRows].sort(
+    (a, b) =>
+      a.full_name.localeCompare(b.full_name) ||
+      a.worker_id.localeCompare(b.worker_id) ||
+      (a.project_name ?? '').localeCompare(b.project_name ?? ''),
+  );
 
   // Per-worker month totals for the filtered scope
   const filteredRawByWorker = new Map<string, RawRow[]>();
@@ -367,23 +422,8 @@ export async function getAllocationGrid(
     else filteredRawByWorker.set(r.worker_id, [r]);
   }
 
-  const personsWhere = [eq(person.tenant_id, session.tenant_id), sql`${person.deleted_at} IS NULL`];
-  if (scope) personsWhere.push(scope);
-
-  const visiblePersons = await peopleDb()
-    .select({
-      worker_id: person.id,
-      employee_no: person.employee_no,
-      full_name: person.full_name,
-    })
-    .from(person)
-    .where(and(...personsWhere))
-    .orderBy(person.full_name, person.id);
-
-  const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket || rowScope);
-
   const byWorker = new Map<string, number[]>();
-  if (!hasSpecificFilter) {
+  if (!hasSpecificFilter && scope === null) {
     for (const p of visiblePersons) {
       if (
         (q &&
@@ -442,7 +482,7 @@ export async function getAllocationGrid(
   const overCount = outTotals.filter(
     (w) => (overallWorkerTotals.get(w.worker_id)?.[currentMonth] ?? 0) > 100,
   ).length;
-  const projectCount = new Set(outRows.map((r) => r.project_id)).size;
+  const projectCount = new Set(outRows.map((r) => r.project_id).filter(Boolean)).size;
   const avgUtil = memberCount
     ? Math.round(
         (outTotals.reduce((s, w) => s + Math.min(100, w.totals[currentMonth] ?? 0), 0) /
@@ -454,6 +494,7 @@ export async function getAllocationGrid(
   // Effort-by-account follows the filtered rows so an account filter still shows a summary.
   const mmByAccount = new Map<string, { account_name: string; total_mm: number }>();
   for (const r of outRows) {
+    if (!r.account_id) continue;
     const prev = mmByAccount.get(r.account_id);
     if (prev) prev.total_mm += r.total_mm;
     else mmByAccount.set(r.account_id, { account_name: r.account_name, total_mm: r.total_mm });
