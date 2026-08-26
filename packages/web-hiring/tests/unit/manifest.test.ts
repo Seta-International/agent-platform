@@ -33,10 +33,15 @@ describe('hiringAppManifest', () => {
     const byId = Object.fromEntries(
       hiringAppManifest.nav.flatMap((s) => s.items).map((i) => [i.id, i.badge]),
     );
-    for (const id of ['hiring.reports', 'hiring.interviews', 'hiring.knowledge']) {
+    for (const id of ['hiring.reports', 'hiring.knowledge']) {
       expect(byId[id]).toBe('Soon');
     }
-    for (const id of ['hiring.requisitions', 'hiring.candidates', 'hiring.settings']) {
+    for (const id of [
+      'hiring.requisitions',
+      'hiring.candidates',
+      'hiring.interviews',
+      'hiring.settings',
+    ]) {
       expect(byId[id]).toBeUndefined();
     }
   });
