@@ -559,7 +559,18 @@ export async function hireApplication(input: {
         eventVersion: 1,
         payload: {
           application_id,
+          // FUT-928: candidate seniority wins over requisition title (FUT-884 rule kept).
+          job_title: candRow.seniority || reqRow.role_title || reqRow.title,
           tenant_id: session.tenant_id,
+          requisition_id: appRow.requisition_id,
+          candidate_id: candRow.id,
+          full_name: candRow.name,
+          // FUT-928: full identity snapshot so the IT Portal consumer needs no read-back.
+          personal_email:
+            (candRow.contact as { personal_email?: string | null } | null)?.personal_email ?? null,
+          phone: (candRow.contact as { phone?: string | null } | null)?.phone ?? null,
+          dob: candRow.dob,
+          gender: candRow.gender,
           from_stage: appRow.stage,
         },
       });
