@@ -118,7 +118,7 @@ describe('assignTask', () => {
     );
   });
 
-  it('requests a notification for the assignee, excluding the actor', async () => {
+  it('emits planner.task.assigned domain event when assigning a user', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -139,22 +139,16 @@ describe('assignTask', () => {
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
           await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
           await assignTask({ task_id: task.id, user_id: alice.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.assigned');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.task.assigned');
-          expect(payload.user_ids).toEqual([alice.user_id]);
-          expect(payload.target_payload.task_id).toBe(task.id);
-          expect(payload.target_payload.plan_id).toBe(plan.id);
-          expect(payload.target_payload.group_id).toBe(group.id);
-          expect(payload.source_event_id).toBeTruthy();
+          expect(payload.user_id).toBe(alice.user_id);
+          expect(payload.task_id).toBe(task.id);
+          expect(payload.plan_id).toBe(plan.id);
+          expect(payload.group_id).toBe(group.id);
         } finally {
           resetCoreDb();
           await closePools();
@@ -163,7 +157,7 @@ describe('assignTask', () => {
     );
   });
 
-  it('does not emit a notification request when the actor assigns themselves', async () => {
+  it('emits planner.task.assigned domain event when assigning self', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -186,8 +180,11 @@ describe('assignTask', () => {
             session,
           });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
-          expect(events).toHaveLength(0);
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.assigned');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
           await closePools();
@@ -314,7 +311,7 @@ describe('unassignTask', () => {
     );
   });
 
-  it('requests a notification for the ex-assignee, excluding the actor', async () => {
+  it('emits planner.task.unassigned domain event when unassigning a user', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -340,23 +337,16 @@ describe('unassignTask', () => {
             session,
           });
 
-          // Wipe any pre-existing notification events from the assign step so we isolate the unassign event.
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
           await unassignTask({ task_id: task.id, user_id: alice.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.unassigned');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.task.unassigned');
-          expect(payload.user_ids).toEqual([alice.user_id]);
-          expect(payload.target_payload.task_id).toBe(task.id);
-          expect(payload.target_payload.plan_id).toBe(plan.id);
-          expect(payload.target_payload.group_id).toBe(group.id);
+          expect(payload.user_id).toBe(alice.user_id);
+          expect(payload.task_id).toBe(task.id);
+          expect(payload.plan_id).toBe(plan.id);
+          expect(payload.group_id).toBe(group.id);
         } finally {
           resetCoreDb();
           await closePools();
@@ -365,7 +355,7 @@ describe('unassignTask', () => {
     );
   });
 
-  it('does not emit a notification request when the actor unassigns themselves', async () => {
+  it('emits planner.task.unassigned domain event when unassigning self', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -387,16 +377,13 @@ describe('unassignTask', () => {
             session,
           });
 
-          // Self-assign already produced 0 notifications. Clean slate is the same.
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
           await unassignTask({ task_id: task.id, user_id: session.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
-          expect(events).toHaveLength(0);
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.unassigned');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
           await closePools();
@@ -515,7 +502,7 @@ describe('completeTask', () => {
     );
   });
 
-  it('requests a notification for the creator and current assignee, excluding the actor', async () => {
+  it('emits planner.task.completed domain event on completion', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -554,61 +541,17 @@ describe('completeTask', () => {
             session: adminSession,
           });
 
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [creatorSeed.tenant_id],
-          );
-
           await completeTask({ task_id: task.id, expected_version: 1, session: adminSession });
 
-          const events = await readEvents(pool, creatorSeed.tenant_id, 'notification.requested');
+          const events = await readEvents(pool, creatorSeed.tenant_id, 'planner.task.completed');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.task.completed');
-          expect((payload.user_ids as string[]).sort()).toEqual(
-            [creator.user_id, assignee.user_id].sort(),
-          );
-          expect(payload.target_payload.task_id).toBe(task.id);
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
-  it('emits no notification when creator==assignee==actor', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        initPools({ databaseUrl });
-        try {
-          const seeded = await seedTenant(pool, {});
-          const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
-          await assignTaskInGroup({
-            group_id: group.id,
-            task_id: task.id,
-            user_id: session.user_id,
-            session,
-          });
-
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
-          await completeTask({ task_id: task.id, expected_version: 1, session });
-
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
-          expect(events).toHaveLength(0);
+          expect(payload.task_id).toBe(task.id);
+          expect(payload.plan_id).toBe(plan.id);
+          expect(payload.group_id).toBe(group.id);
+          expect(payload.version_before).toBe(1);
+          expect(payload.version_after).toBe(2);
         } finally {
           resetCoreDb();
           await closePools();
@@ -699,7 +642,7 @@ describe('reopenTask', () => {
     );
   });
 
-  it('requests a notification for the creator and current assignee, excluding the actor', async () => {
+  it('emits planner.task.reopened domain event on reopen', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -739,62 +682,17 @@ describe('reopenTask', () => {
           });
           await completeTask({ task_id: task.id, expected_version: 1, session: adminSession });
 
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
           await reopenTask({ task_id: task.id, expected_version: 2, session: adminSession });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.reopened');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
-          expect(payload.target_event_type).toBe('planner.task.reopened');
-          expect((payload.user_ids as string[]).sort()).toEqual(
-            [creator.user_id, assignee.user_id].sort(),
-          );
-          expect(payload.target_payload.task_id).toBe(task.id);
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
-  it('emits no notification when creator==assignee==actor', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        initPools({ databaseUrl });
-        try {
-          const seeded = await seedTenant(pool, {});
-          const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
-          await assignTaskInGroup({
-            group_id: group.id,
-            task_id: task.id,
-            user_id: session.user_id,
-            session,
-          });
-          await completeTask({ task_id: task.id, expected_version: 1, session });
-
-          await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
-            [seeded.tenant_id],
-          );
-
-          await reopenTask({ task_id: task.id, expected_version: 2, session });
-
-          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
-          expect(events).toHaveLength(0);
+          expect(payload.task_id).toBe(task.id);
+          expect(payload.plan_id).toBe(plan.id);
+          expect(payload.group_id).toBe(group.id);
+          expect(payload.version_before).toBe(2);
+          expect(payload.version_after).toBe(3);
         } finally {
           resetCoreDb();
           await closePools();

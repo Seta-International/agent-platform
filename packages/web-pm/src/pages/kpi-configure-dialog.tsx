@@ -120,6 +120,7 @@ export function KpiConfigureDialog({
       toast.error(err.message || 'Could not update metric');
     },
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: pmKeys.kpiRecords() });
       queryClient.invalidateQueries({ queryKey: pmKeys.all });
     },
   });
@@ -142,6 +143,7 @@ export function KpiConfigureDialog({
     appliedQuery.data && metrics.length > 0
       ? `${metrics.filter((m) => (coverage.get(m.metric_id) ?? 0) === selectedIds.length).length}/${metrics.length}`
       : null;
+  const appliedLabel = selectedIds.length > 1 ? 'applied to all' : 'applied';
 
   const visibleProjects = filter.trim()
     ? sortedProjects.filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
@@ -312,8 +314,8 @@ export function KpiConfigureDialog({
                                 {metricQuery
                                   ? `${visibleMetrics.length} of ${catMetrics.length} shown`
                                   : appliedSummary
-                                    ? `${appliedCount}/${catMetrics.length} applied · ${appliedSummary} overall`
-                                    : `${appliedCount}/${catMetrics.length} applied`}
+                                    ? `${appliedCount}/${catMetrics.length} ${appliedLabel} · ${appliedSummary} overall`
+                                    : `${appliedCount}/${catMetrics.length} ${appliedLabel}`}
                               </span>
                             </div>
                             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">

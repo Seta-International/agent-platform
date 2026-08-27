@@ -19,7 +19,6 @@ import {
   handleTaskCreated,
   handleTaskDeleted,
   handleTaskReopened,
-  handleTaskStatusChanged,
   handleTaskUnassigned,
 } from './notification-trigger.ts';
 import {
@@ -120,12 +119,6 @@ export function plannerSubscribers(): SubscriberDef[] {
       eventVersion: 1,
       subscription: 'planner.notifications.trigger-task-reopened',
       handler: handleTaskReopened as SubscriberDef['handler'],
-    },
-    {
-      event: 'planner.task.updated',
-      eventVersion: 1,
-      subscription: 'planner.notifications.trigger-task-updated-reopen',
-      handler: handleTaskStatusChanged as SubscriberDef['handler'],
     },
     {
       event: 'planner.group.created',

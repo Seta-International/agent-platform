@@ -433,7 +433,7 @@ describe('KpiConfigureDialog — applied roll-up', () => {
 
     await user.click(await screen.findByRole('checkbox', { name: 'Initech Data Platform' }));
 
-    expect(await screen.findByText('1/2 applied · 1/3 overall')).toBeVisible();
+    expect(await screen.findByText('1/2 applied to all · 1/3 overall')).toBeVisible();
   });
 
   it('says nothing about coverage until it is known', async () => {

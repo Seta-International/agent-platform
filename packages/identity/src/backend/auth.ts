@@ -66,6 +66,12 @@ export const auth = betterAuth({
       enabled: true,
       trustedProviders: ['microsoft'],
       allowDifferentEmails: false,
+      // Directory-sync-provisioned users (provisionLogin) never get local email
+      // verification — there's no password/click-link step for SSO-only accounts.
+      // Microsoft's own OIDC assertion already proves email ownership for a
+      // trusted provider, so requiring local verification on top of that blocks
+      // every first-time SSO login for them (FUT-943).
+      requireLocalEmailVerified: false,
     },
   },
 

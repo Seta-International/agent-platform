@@ -91,7 +91,7 @@ export function PeopleCardGrid({
         icon={<Users className="size-6" />}
         title={hasFilters ? 'No matching people' : 'No employees yet'}
         description={
-          hasFilters ? 'Try adjusting your search or filters.' : 'Add an employee to get started.'
+          hasFilters ? 'Try adjusting your search or filters.' : 'No employee records found.'
         }
       />
     );

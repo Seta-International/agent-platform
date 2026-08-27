@@ -4,7 +4,6 @@ import {
   computeEntryStatus,
   computeScoredValue,
   figuresForStatus,
-  kpiValuePrecision,
   type RagStatus,
 } from '../../src/contracts.ts';
 
@@ -14,12 +13,10 @@ function scoreOf(
   metric: (typeof KPI_NORM_METRICS)[number],
   figures: NonNullable<ReturnType<typeof figuresForStatus>>,
 ) {
-  const precision = kpiValuePrecision(metric.green_band, metric.yellow_band, metric.red_band);
   const value = computeScoredValue(
     metric.component_count,
     figures.component_1_value,
     figures.component_2_value,
-    precision,
   );
   return computeEntryStatus(value, metric.green_band, metric.yellow_band, metric.red_band);
 }

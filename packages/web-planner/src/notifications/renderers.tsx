@@ -32,6 +32,16 @@ const groupHref = (p: Payload): string => `/planner/groups/${p.group_id}`;
 
 export const plannerRenderers: RendererSpec[] = [
   {
+    eventType: 'planner.task.created',
+    icon: <FilePlus className="size-4" aria-hidden />,
+    getHref: taskHref,
+  },
+  {
+    eventType: 'planner.task.deleted',
+    icon: <Trash2 className="size-4" aria-hidden />,
+    getHref: planHref,
+  },
+  {
     eventType: 'planner.task.assigned',
     icon: <UserPlus className="size-4" aria-hidden />,
     getHref: taskHref,
@@ -48,56 +58,6 @@ export const plannerRenderers: RendererSpec[] = [
   },
   {
     eventType: 'planner.task.reopened',
-    icon: <RotateCcw className="size-4" aria-hidden />,
-    getHref: taskHref,
-  },
-  {
-    eventType: 'planner.group.member.added',
-    icon: <Users className="size-4" aria-hidden />,
-    getHref: groupHref,
-  },
-  {
-    eventType: 'planner.group.member.role-changed',
-    icon: <Shield className="size-4" aria-hidden />,
-    getHref: groupHref,
-  },
-  {
-    eventType: 'planner.plan.created',
-    icon: <FilePlus className="size-4" aria-hidden />,
-    getHref: planHref,
-  },
-  {
-    eventType: 'planner.plan.deleted',
-    icon: <Trash2 className="size-4" aria-hidden />,
-    getHref: groupHref,
-  },
-  {
-    eventType: 'planner.task.created',
-    icon: <FilePlus className="size-4" aria-hidden />,
-    getHref: taskHref,
-  },
-  {
-    eventType: 'planner.task.deleted',
-    icon: <Trash2 className="size-4" aria-hidden />,
-    getHref: planHref,
-  },
-  {
-    eventType: 'planner.task.reopened.not-started',
-    icon: <RotateCcw className="size-4" aria-hidden />,
-    getHref: taskHref,
-  },
-  {
-    eventType: 'planner.task.reopened.in-progress',
-    icon: <RotateCcw className="size-4" aria-hidden />,
-    getHref: taskHref,
-  },
-  {
-    eventType: 'planner.task.status.not-started',
-    icon: <RotateCcw className="size-4" aria-hidden />,
-    getHref: taskHref,
-  },
-  {
-    eventType: 'planner.task.status.in-progress',
     icon: <RotateCcw className="size-4" aria-hidden />,
     getHref: taskHref,
   },
@@ -120,6 +80,26 @@ export const plannerRenderers: RendererSpec[] = [
     eventType: 'planner.group.deleted',
     icon: <Trash2 className="size-4" aria-hidden />,
     getHref: () => '/planner',
+  },
+  {
+    eventType: 'planner.group.member.added',
+    icon: <Users className="size-4" aria-hidden />,
+    getHref: groupHref,
+  },
+  {
+    eventType: 'planner.group.member.role-changed',
+    icon: <Shield className="size-4" aria-hidden />,
+    getHref: groupHref,
+  },
+  {
+    eventType: 'planner.plan.created',
+    icon: <FilePlus className="size-4" aria-hidden />,
+    getHref: planHref,
+  },
+  {
+    eventType: 'planner.plan.deleted',
+    icon: <Trash2 className="size-4" aria-hidden />,
+    getHref: groupHref,
   },
 ];
 

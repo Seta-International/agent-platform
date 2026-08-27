@@ -17,7 +17,6 @@ import type {
   PlannerTaskDeleted,
   PlannerTaskReopened,
   PlannerTaskUnassigned,
-  PlannerTaskUpdated,
 } from '../../events/types.ts';
 import { groupMembers } from '../db/schema.ts';
 
@@ -152,67 +151,18 @@ export async function handleTaskCompleted(
 }
 
 export async function handleTaskReopened(
-  _e: DomainEvent<PlannerTaskReopened['payload']>,
-  _ctx: SubscriberCtx,
-): Promise<void> {
-  // Reopened notifications are handled by handleTaskStatusChanged via
-  // planner.task.updated events; this subscriber is a no-op placeholder.
-}
-
-export async function handleTaskStatusChanged(
-  e: DomainEvent<PlannerTaskUpdated['payload']>,
+  e: DomainEvent<PlannerTaskReopened['payload']>,
   ctx: SubscriberCtx,
 ): Promise<void> {
-  const { changed_fields, before, after, group_id, task_id, plan_id } = e.payload;
-  if (changed_fields.includes('percent_complete')) {
-    const userIds = await getGroupMembersToNotify(ctx, group_id, e.payload.actor.user_id);
-
-    if (after.percent_complete === 0) {
-      if (before.percent_complete === 100) {
-        await requestNotification(e.tenantId, 'planner.task.reopened.not-started', userIds, e.id, {
-          title: `Task reopened and not started`,
-          body: `A completed task was reopened (Not Started).`,
-          task_id,
-          plan_id,
-          group_id,
-        });
-      } else {
-        await requestNotification(e.tenantId, 'planner.task.status.not-started', userIds, e.id, {
-          title: `Task not started`,
-          body: `A task status was changed to Not Started.`,
-          task_id,
-          plan_id,
-          group_id,
-        });
-      }
-    } else if (after.percent_complete === 50) {
-      if (before.percent_complete === 100) {
-        await requestNotification(e.tenantId, 'planner.task.reopened.in-progress', userIds, e.id, {
-          title: `Task reopened and in progress`,
-          body: `A completed task was reopened (In Progress).`,
-          task_id,
-          plan_id,
-          group_id,
-        });
-      } else {
-        await requestNotification(e.tenantId, 'planner.task.status.in-progress', userIds, e.id, {
-          title: `Task in progress`,
-          body: `A task status was changed to In Progress.`,
-          task_id,
-          plan_id,
-          group_id,
-        });
-      }
-    } else if (after.percent_complete === 100) {
-      await requestNotification(e.tenantId, 'planner.task.completed', userIds, e.id, {
-        title: `Task completed`,
-        body: `A task was marked as completed.`,
-        task_id,
-        plan_id,
-        group_id,
-      });
-    }
-  }
+  const { group_id, task_id, plan_id } = e.payload;
+  const userIds = await getGroupMembersToNotify(ctx, group_id, e.payload.actor.user_id);
+  await requestNotification(e.tenantId, e.eventType, userIds, e.id, {
+    title: `Task reopened`,
+    body: `A task was reopened.`,
+    task_id,
+    plan_id,
+    group_id,
+  });
 }
 
 // ---------------------------------------------------------------------------

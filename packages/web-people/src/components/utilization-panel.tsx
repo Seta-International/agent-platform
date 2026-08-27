@@ -197,6 +197,16 @@ export function UtilizationPanel({
                           </span>
                         );
                       })}
+                      {free > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-secondary">
+                          <span
+                            className="size-2 shrink-0 rounded-full bg-[var(--color-border-emphasized)]"
+                            aria-hidden="true"
+                          />
+                          <span className="font-medium text-primary">Idle</span>
+                          <span>{formatPct(free)}%</span>
+                        </span>
+                      )}
                     </div>
                     <div className="w-16 shrink-0" aria-hidden="true" />
                   </div>
@@ -209,7 +219,7 @@ export function UtilizationPanel({
                     >
                       {r.full_name}
                     </span>
-                    <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-surface">
+                    <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-[var(--color-background-gray)]">
                       {segmentKeys(r.segments).map(({ key, seg }) => {
                         const segShare = (seg.pct / denominator) * 100;
                         return (
@@ -224,7 +234,13 @@ export function UtilizationPanel({
                         );
                       })}
                       {free > 0 && (
-                        <span style={{ width: `${free}%` }} className="bg-transparent" />
+                        <span
+                          style={{
+                            width: `${free}%`,
+                            background: 'var(--color-background-gray)',
+                          }}
+                          title={`Idle · ${formatPct(free)}%`}
+                        />
                       )}
                     </span>
                     <span className="w-16 shrink-0 text-right font-mono text-sm text-secondary">

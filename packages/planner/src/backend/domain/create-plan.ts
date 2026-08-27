@@ -1,6 +1,5 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerPlanCreated } from '../../events/emit-helpers.ts';
 import { plannerDb } from '../db/index.ts';
@@ -10,7 +9,6 @@ import type { CreatePlanInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
 import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
-import { resolveGroupMemberIds } from './recipients.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 
@@ -71,7 +69,7 @@ export async function createPlan(
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
       inserted = row;
 
-      const { eventId } = await emitPlannerPlanCreated({
+      await emitPlannerPlanCreated({
         // Attribute M365-originated creates to the system actor so the M365
         // push subscriber's echo guard suppresses a re-push (push↔pull loop).
         actor: isSystemActor
@@ -85,22 +83,6 @@ export async function createPlan(
           created_by: row.created_by,
           external_source: row.external_source as 'native' | 'm365',
           external_id: row.external_id,
-        },
-      });
-
-      const memberIds = await resolveGroupMemberIds(input.session.tenant_id, input.group_id, tx);
-      const recipients = memberIds.filter((u) => u !== input.session.user_id);
-      await requestNotification({
-        tenant_id: group.tenant_id,
-        event_type: 'planner.plan.created',
-        user_ids: recipients,
-        source_event_id: eventId,
-        payload: {
-          title: 'Plan created',
-          body: `New plan "${row.name}" was created in "${group.name}"`,
-          plan_id: row.id,
-          group_id: input.group_id,
-          actor: { user_id: input.session.user_id, name: input.session.user_id },
         },
       });
     },

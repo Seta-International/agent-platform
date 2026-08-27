@@ -11,7 +11,6 @@ export {
   computeOverallHealth,
   computeScoredValue,
   evaluateBand,
-  kpiValuePrecision,
   pickWorstMetric,
   type RagStatus,
   type RankableMetric,

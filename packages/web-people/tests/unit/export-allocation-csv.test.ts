@@ -163,4 +163,42 @@ describe('buildAllocationCsv', () => {
     expect(rows[1][1]).toBe('Alice');
     expect(rows[2][1]).toBe('Bob');
   });
+
+  it('exports idle worker with empty account, project, bucket, blank months and 0.00 Total MM (FUT-339 AC 2)', () => {
+    const idleRow: AllocationGridRow = {
+      worker_id: 'w-idle',
+      employee_no: 'I100',
+      full_name: 'Idle Employee',
+      account_id: '',
+      account_name: '',
+      project_id: '',
+      project_name: null,
+      bucket: null,
+      months: new Array(12).fill(null),
+      total_mm: 0,
+    };
+    const csv = buildAllocationCsv([idleRow], 2026);
+    const rows = parseCsv(csv);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toEqual([
+      'I100',
+      'Idle Employee',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '0.00',
+    ]);
+  });
 });

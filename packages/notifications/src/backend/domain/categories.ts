@@ -8,6 +8,20 @@ export interface NotificationCategory {
 
 export const NOTIFICATION_CATEGORIES: readonly NotificationCategory[] = [
   {
+    event_type: 'planner.task.created',
+    label: 'Task created',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
+  {
+    event_type: 'planner.task.deleted',
+    label: 'Task deleted',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
+  {
     event_type: 'planner.task.assigned',
     label: 'Task assigned',
     default_in_app: true,
@@ -31,6 +45,34 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategory[] = [
   {
     event_type: 'planner.task.reopened',
     label: 'Task reopened',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
+  {
+    event_type: 'planner.bucket.created',
+    label: 'Bucket created',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
+  {
+    event_type: 'planner.bucket.deleted',
+    label: 'Bucket deleted',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
+  {
+    event_type: 'planner.group.created',
+    label: 'Group created',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
+  {
+    event_type: 'planner.group.deleted',
+    label: 'Group deleted',
     default_in_app: true,
     default_email: false,
     email_available: false,
