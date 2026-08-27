@@ -1,5 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { isoWeekLabel, SHORT_METRIC_LABELS, shortMetricLabel } from '../../src/pages/kpi-shared';
+import {
+  formatMetricValue,
+  isoWeekLabel,
+  SHORT_METRIC_LABELS,
+  shortMetricLabel,
+} from '../../src/pages/kpi-shared';
+
+describe('formatMetricValue', () => {
+  it('shows a lead time of 0.9 days as 0.9, never as 1', () => {
+    expect(formatMetricValue(0.9, 'Lead Time for Changes', 1)).toBe('0.9');
+  });
+
+  it('keeps the decimals that decide the colour instead of rounding them away', () => {
+    expect(formatMetricValue(0.996, 'Lead Time for Changes', 1)).toBe('0.996');
+    expect(formatMetricValue(0.0501, 'Defect Leakage', 2)).toBe('5.01%');
+    expect(formatMetricValue(10.0909, 'Deployment Frequency', 2)).toBe('10.0909');
+  });
+
+  it('trims trailing zeros so a clean value still reads clean', () => {
+    expect(formatMetricValue(0.05, 'Defect Leakage', 2)).toBe('5%');
+    expect(formatMetricValue(7, 'Lead Time for Changes', 1)).toBe('7');
+    expect(formatMetricValue(0.9, 'Defect Leakage', 2)).toBe('90%');
+  });
+
+  it('marks an unentered metric with the no-value middot', () => {
+    expect(formatMetricValue(null, 'Lead Time for Changes', 1)).toBe('·');
+  });
+});
 
 describe('isoWeekLabel', () => {
   it('formats the week as ISO 8601 — one hyphen, zero-padded week', () => {
