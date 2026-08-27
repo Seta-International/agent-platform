@@ -646,7 +646,8 @@ describe('KpiMetricsPage — entry actions', () => {
     await waitFor(async () => expect(await configureButton()).toBeEnabled());
     await user.click(await configureButton());
 
-    await user.type(await screen.findByPlaceholderText('Search projects…'), 'Nordic');
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByPlaceholderText('Search projects…'), 'Nordic');
     await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
 
     expect(screen.getByRole('checkbox', { name: 'Select all' })).toBeChecked();
