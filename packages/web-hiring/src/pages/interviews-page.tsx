@@ -16,11 +16,14 @@ import {
   SegmentedControl,
   SegmentedControlItem,
   Selector,
+  Skeleton,
   StatusToneDot,
   Text,
+  useToast,
   VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   CalendarCheck,
@@ -33,6 +36,13 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
+import {
+  cancelInterview,
+  completeInterview,
+  fetchInterviews,
+  markInterviewNoShow,
+} from '../api/hiring-client.ts';
+import { hiringKeys } from '../state/query-keys.ts';
 import { InterviewDetailDialog } from './interview-detail-dialog.tsx';
 import {
   type DayGroup,
@@ -42,10 +52,11 @@ import {
   type Interview,
   RESULT_BADGE_VARIANT,
   RESULT_LABEL,
+  ROUND_LABEL,
   ROUND_OPTIONS,
 } from './interview-utils.ts';
-import { buildFakeInterviews } from './interviews-fixtures.ts';
 import { ScheduleInterviewDialog } from './schedule-interview-dialog.tsx';
+import { on409 } from './utils.ts';
 
 const NONE = '__none__';
 type StatusFilter = 'all' | 'upcoming' | 'completed';
@@ -107,7 +118,7 @@ function AgendaRow({
       label={
         <HStack gap={2} vAlign="center">
           <Text weight="medium">{interview.candidate_name}</Text>
-          <Badge variant="neutral" label={interview.round} />
+          <Badge variant="neutral" label={ROUND_LABEL[interview.round]} />
         </HStack>
       }
       description={
@@ -142,7 +153,7 @@ function PastRow({ interview, onOpen }: { interview: Interview; onOpen: () => vo
       label={
         <HStack gap={2} vAlign="center">
           <Text weight="medium">{interview.candidate_name}</Text>
-          <Badge variant="neutral" label={interview.round} />
+          <Badge variant="neutral" label={ROUND_LABEL[interview.round]} />
         </HStack>
       }
       description={
@@ -199,7 +210,13 @@ function AgendaSection({ groups, onOpen }: { groups: DayGroup[]; onOpen: (id: st
 
 export function InterviewsPage() {
   const canManage = usePermission('hiring.candidate.manage');
-  const [interviews, setInterviews] = useState<Interview[]>(buildFakeInterviews);
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: hiringKeys.interviews(),
+    queryFn: () => fetchInterviews(),
+  });
+  const interviews = data ?? [];
   const [q, setQ] = useState('');
   const [roundFilter, setRoundFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('upcoming');
@@ -253,8 +270,73 @@ export function InterviewsPage() {
 
   const selected = interviews.find((i) => i.id === selectedId) ?? null;
 
+  const completeMutation = useMutation({
+    mutationFn: (m: { id: string; version: number; patch: Partial<Interview> }) =>
+      completeInterview(m.id, {
+        expected_version: m.version,
+        input: {
+          result: m.patch.result as NonNullable<Interview['result']>,
+          rating: m.patch.rating ?? undefined,
+          recommendation: m.patch.recommendation ?? undefined,
+          feedback_note: m.patch.feedback_note ?? undefined,
+        },
+      }),
+    onMutate: async (m) => {
+      await queryClient.cancelQueries({ queryKey: hiringKeys.interviews() });
+      const previous = queryClient.getQueryData<Interview[]>(hiringKeys.interviews());
+      queryClient.setQueryData<Interview[]>(hiringKeys.interviews(), (old) =>
+        old?.map((i) => (i.id === m.id ? { ...i, ...m.patch, version: i.version + 1 } : i)),
+      );
+      return { previous };
+    },
+    onError: (e: Error, _m, context) => {
+      if (context?.previous) queryClient.setQueryData(hiringKeys.interviews(), context.previous);
+      on409(toast, e, queryClient, hiringKeys.interviews());
+    },
+    onSuccess: () => toast({ body: 'Outcome saved' }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: hiringKeys.interviews() }),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (m: { id: string; version: number; outcome_reason?: string }) =>
+      cancelInterview(m.id, {
+        expected_version: m.version,
+        input: { outcome_reason: m.outcome_reason },
+      }),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.interviews()),
+    onSuccess: () => toast({ body: 'Interview cancelled' }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: hiringKeys.interviews() }),
+  });
+
+  const noShowMutation = useMutation({
+    mutationFn: (m: { id: string; version: number; outcome_reason?: string }) =>
+      markInterviewNoShow(m.id, {
+        expected_version: m.version,
+        input: { outcome_reason: m.outcome_reason },
+      }),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.interviews()),
+    onSuccess: () => toast({ body: 'Marked as no-show' }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: hiringKeys.interviews() }),
+  });
+
   function updateInterview(id: string, patch: Partial<Interview>) {
-    setInterviews((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    const target = interviews.find((i) => i.id === id);
+    if (!target) return;
+    if (patch.status === 'completed') {
+      completeMutation.mutate({ id, version: target.version, patch });
+    } else if (patch.status === 'cancelled') {
+      cancelMutation.mutate({
+        id,
+        version: target.version,
+        outcome_reason: patch.outcome_reason ?? undefined,
+      });
+    } else if (patch.status === 'no_show') {
+      noShowMutation.mutate({
+        id,
+        version: target.version,
+        outcome_reason: patch.outcome_reason ?? undefined,
+      });
+    }
   }
 
   function openScheduleFor(candidateId: string | null) {
@@ -330,7 +412,7 @@ export function InterviewsPage() {
                 isLabelHidden
                 options={[
                   { value: NONE, label: 'All rounds' },
-                  ...ROUND_OPTIONS.map((r) => ({ value: r, label: r })),
+                  ...ROUND_OPTIONS.map((r) => ({ value: r, label: ROUND_LABEL[r] })),
                 ]}
                 value={roundFilter || NONE}
                 onChange={(v) => setRoundFilter(v === NONE ? '' : v)}
@@ -349,7 +431,13 @@ export function InterviewsPage() {
               </div>
             </div>
 
-            {emptyDataset ? (
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3'].map((id) => (
+                  <Skeleton key={id} height={56} />
+                ))}
+              </div>
+            ) : emptyDataset ? (
               <EmptyState
                 icon={<CalendarClock className="size-6" />}
                 title="No interviews scheduled"
@@ -433,10 +521,7 @@ export function InterviewsPage() {
             isOpen={scheduleOpen}
             onOpenChange={setScheduleOpen}
             presetCandidateId={presetCandidateId}
-            onScheduled={(interview) => {
-              setInterviews((prev) => [interview, ...prev]);
-              setStatusFilter('upcoming');
-            }}
+            onScheduled={() => setStatusFilter('upcoming')}
           />
         </LayoutContent>
       }

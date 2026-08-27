@@ -90,6 +90,29 @@ export const HIRING_APPLICATION_TRANSFERRED = 'hiring.application.transferred';
 export const HIRING_APPLICATION_HIRED = 'hiring.application.hired';
 export const HIRING_APPLICATION_CANCELLED = 'hiring.application.cancelled';
 
+// ---- Interviews (FUT-487) ----
+export const interviewScheduledPayload = z.object({
+  interview_id: uuid,
+  application_id: uuid,
+  candidate_id: uuid,
+  tenant_id: uuid,
+});
+export const interviewRescheduledPayload = z.object({
+  interview_id: uuid,
+  application_id: uuid,
+  tenant_id: uuid,
+});
+export const interviewOutcomePayload = z.object({
+  interview_id: uuid,
+  application_id: uuid,
+  tenant_id: uuid,
+  status: z.enum(['completed', 'cancelled', 'no_show']),
+});
+
+export const HIRING_INTERVIEW_SCHEDULED = 'hiring.interview.scheduled';
+export const HIRING_INTERVIEW_RESCHEDULED = 'hiring.interview.rescheduled';
+export const HIRING_INTERVIEW_OUTCOME_RECORDED = 'hiring.interview.outcome_recorded';
+
 export const HIRING_EVENTS = {
   [HIRING_REQUISITION_OPENED]: requisitionOpenedPayload,
   [HIRING_REQUISITION_UPDATED]: requisitionUpdatedPayload,
@@ -105,4 +128,7 @@ export const HIRING_EVENTS = {
   [HIRING_APPLICATION_TRANSFERRED]: applicationTransferredPayload,
   [HIRING_APPLICATION_HIRED]: applicationHiredPayload,
   [HIRING_APPLICATION_CANCELLED]: applicationCancelledPayload,
+  [HIRING_INTERVIEW_SCHEDULED]: interviewScheduledPayload,
+  [HIRING_INTERVIEW_RESCHEDULED]: interviewRescheduledPayload,
+  [HIRING_INTERVIEW_OUTCOME_RECORDED]: interviewOutcomePayload,
 } as const satisfies Record<string, z.ZodSchema>;

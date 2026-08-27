@@ -15,22 +15,26 @@ import {
   Text,
   Textarea,
   TimeInput,
+  useToast,
   VStack,
 } from '@seta/shared-ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Video } from 'lucide-react';
 import { useState } from 'react';
+import { fetchCandidates, scheduleInterview } from '../api/hiring-client.ts';
+import { fetchDirectoryUsers } from '../api/identity-directory.ts';
+import { hiringKeys } from '../state/query-keys.ts';
 import {
   DURATION_OPTIONS,
-  type Interview,
   type InterviewMode,
   type InterviewRound,
+  ROUND_LABEL,
   ROUND_OPTIONS,
   toIsoDateTime,
 } from './interview-utils.ts';
-import { FAKE_CANDIDATE_POOL, FAKE_PANEL_POOL } from './interviews-fixtures.ts';
+import { capitalizeErrorMessage } from './utils.ts';
 
 const TODAY = new Date().toISOString().slice(0, 10);
-let scheduleSeq = FAKE_CANDIDATE_POOL.length + 100;
 
 export function ScheduleInterviewDialog({
   isOpen,
@@ -41,57 +45,104 @@ export function ScheduleInterviewDialog({
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   presetCandidateId?: string | null;
-  onScheduled: (interview: Interview) => void;
+  onScheduled: () => void;
 }) {
-  const [candidateId, setCandidateId] = useState(presetCandidateId ?? FAKE_CANDIDATE_POOL[0]?.id);
-  const [round, setRound] = useState<InterviewRound>('Technical');
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  // Reuses the Candidates page's own cache key — instant options if that page was ever loaded
+  // this session. Only active applications qualify for a new round (mirrors the backend guard).
+  const { data: candidates } = useQuery({
+    queryKey: hiringKeys.candidates(),
+    queryFn: () => fetchCandidates(),
+    enabled: isOpen,
+  });
+  const schedulable = (candidates ?? []).filter((c) => c.status === 'active');
+
+  const { data: directory } = useQuery({
+    queryKey: hiringKeys.directoryUsers(),
+    queryFn: () => fetchDirectoryUsers(),
+    enabled: isOpen,
+  });
+
+  const [applicationId, setApplicationId] = useState<string | undefined>(undefined);
+  const [round, setRound] = useState<InterviewRound>('technical');
   const [date, setDate] = useState<string | undefined>(undefined);
   const [time, setTime] = useState<string | undefined>('10:00');
   const [duration, setDuration] = useState('60');
   const [mode, setMode] = useState<InterviewMode>('online');
   const [meetingLink, setMeetingLink] = useState('');
-  const [panelIds, setPanelIds] = useState<string[]>([FAKE_PANEL_POOL[0]?.user_id ?? '']);
+  const [panelIds, setPanelIds] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  const candidate = FAKE_CANDIDATE_POOL.find((c) => c.id === candidateId);
+  // Adjust-during-render (no effect): once the candidate list is available, default the
+  // selection to the preset candidate's active application, or the first one — but only when
+  // the current selection isn't already a valid choice, so it never fights a manual pick.
+  const presetApplicationId = presetCandidateId
+    ? schedulable.find((c) => c.candidate_id === presetCandidateId)?.application_id
+    : undefined;
+  if (
+    isOpen &&
+    schedulable.length > 0 &&
+    !schedulable.some((c) => c.application_id === applicationId)
+  ) {
+    setApplicationId(presetApplicationId ?? schedulable[0]?.application_id);
+  }
+
+  const selectedApplication = schedulable.find((c) => c.application_id === applicationId);
   const dateMissing = !date;
   const panelMissing = panelIds.length === 0;
-  const canSubmit = !!candidate && !dateMissing && !!time && !panelMissing;
+  const canSubmit = !!selectedApplication && !dateMissing && !!time && !panelMissing;
 
   function reset() {
-    setCandidateId(FAKE_CANDIDATE_POOL[0]?.id);
-    setRound('Technical');
+    setApplicationId(undefined);
+    setRound('technical');
     setDate(undefined);
     setTime('10:00');
     setDuration('60');
     setMode('online');
     setMeetingLink('');
-    setPanelIds([FAKE_PANEL_POOL[0]?.user_id ?? '']);
+    setPanelIds([]);
     setNote('');
     setSubmitAttempted(false);
   }
 
+  const mutation = useMutation({
+    mutationFn: scheduleInterview,
+    onSuccess: () => {
+      toast({ body: 'Interview scheduled' });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.interviews() });
+      reset();
+      onOpenChange(false);
+      onScheduled();
+    },
+    onError: (e: Error) => {
+      toast({
+        body: capitalizeErrorMessage(e.message),
+        type: 'error',
+        isAutoHide: true,
+        autoHideDuration: 6000,
+      });
+    },
+  });
+
   function handleSubmit() {
     setSubmitAttempted(true);
-    if (!canSubmit || !candidate || !date || !time) return;
-    const id = `int-${++scheduleSeq}`;
-    onScheduled({
-      id,
-      candidate_id: candidate.id,
-      candidate_name: candidate.name,
-      requisition_title: candidate.requisition_title,
+    if (!canSubmit || !selectedApplication || !date || !time) return;
+    const panel = (directory ?? [])
+      .filter((p) => panelIds.includes(p.user_id))
+      .map((p) => ({ user_id: p.user_id, display_name: p.name }));
+    mutation.mutate({
+      application_id: selectedApplication.application_id,
       round,
       scheduled_at: toIsoDateTime(date, time),
       duration_minutes: Number(duration),
       mode,
-      meeting_link: meetingLink.trim() || (mode === 'online' ? `https://meet.seta.io/${id}` : null),
-      panel: FAKE_PANEL_POOL.filter((p) => panelIds.includes(p.user_id)),
-      note: note.trim(),
-      status: 'scheduled',
+      meeting_link: meetingLink.trim() || undefined,
+      note: note.trim() || undefined,
+      panel,
     });
-    reset();
-    onOpenChange(false);
   }
 
   return (
@@ -119,16 +170,18 @@ export function ScheduleInterviewDialog({
               <Grid columns={2} gap={4}>
                 <Selector
                   label="Candidate"
-                  options={FAKE_CANDIDATE_POOL.map((c) => ({
-                    value: c.id,
+                  options={schedulable.map((c) => ({
+                    value: c.application_id,
                     label: `${c.name} — ${c.requisition_title}`,
                   }))}
-                  value={candidateId}
-                  onChange={setCandidateId}
+                  value={applicationId}
+                  onChange={setApplicationId}
+                  isDisabled={schedulable.length === 0}
+                  placeholder={schedulable.length === 0 ? 'No active candidates' : undefined}
                 />
                 <Selector
                   label="Round"
-                  options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))}
+                  options={ROUND_OPTIONS.map((r) => ({ value: r, label: ROUND_LABEL[r] }))}
                   value={round}
                   onChange={(v) => setRound(v as InterviewRound)}
                 />
@@ -180,7 +233,7 @@ export function ScheduleInterviewDialog({
                   isOptional
                   value={meetingLink}
                   onChange={setMeetingLink}
-                  placeholder="Leave blank to auto-generate a Seta Meet link"
+                  placeholder="Paste a Zoom / Meet / Teams link"
                 />
               )}
               <MultiSelector
@@ -188,10 +241,7 @@ export function ScheduleInterviewDialog({
                 hasSearch
                 searchPlaceholder="Search people…"
                 placeholder="Add panelists"
-                options={FAKE_PANEL_POOL.map((p) => ({
-                  value: p.user_id,
-                  label: p.display_name,
-                }))}
+                options={(directory ?? []).map((p) => ({ value: p.user_id, label: p.name }))}
                 value={panelIds}
                 onChange={setPanelIds}
                 status={
@@ -221,7 +271,12 @@ export function ScheduleInterviewDialog({
                 onOpenChange(false);
               }}
             />
-            <Button variant="primary" label="Schedule" onClick={handleSubmit} />
+            <Button
+              variant="primary"
+              label="Schedule"
+              onClick={handleSubmit}
+              isLoading={mutation.isPending}
+            />
           </DialogFooter>
         }
       />
