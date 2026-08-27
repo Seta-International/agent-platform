@@ -40,6 +40,11 @@ async function liveProject(
   return (await approveCharterTwoStage(charterId, session.tenant_id)).project_id;
 }
 
+async function accountOf(pool: Pool, projectId: string): Promise<string> {
+  const r = await pool.query(`SELECT account_id FROM pm.project WHERE id = $1`, [projectId]);
+  return r.rows[0].account_id as string;
+}
+
 async function seedTwoMetrics(pool: Pool, tenantId: string): Promise<[string, string]> {
   const normId = crypto.randomUUID();
   await pool.query(
@@ -121,6 +126,49 @@ describe('KPI Explorer per-project applied metrics', () => {
 
         expect(rowB?.metrics[metric1]).toEqual({ value: null, status: null, band: null });
         expect(rowB?.metrics).not.toHaveProperty(metric2 as string);
+      } finally {
+        await closePools();
+      }
+    });
+  });
+
+  it('keeps every project of every account named in account_ids', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectA = await liveProject(pool, t.adminSession, t.tenant_id, 'Alpha');
+        const projectB = await liveProject(pool, t.adminSession, t.tenant_id, 'Bravo');
+        const projectC = await liveProject(pool, t.adminSession, t.tenant_id, 'Charlie');
+        const accountA = await accountOf(pool, projectA);
+        const accountB = await accountOf(pool, projectB);
+
+        const both = await listKpiExplorer({
+          iso_year: 2026,
+          iso_week: 29,
+          account_ids: [accountA, accountB],
+          session: t.adminSession,
+        });
+        expect(both.rows.map((r) => r.project_id).sort()).toEqual([projectA, projectB].sort());
+
+        const one = await listKpiExplorer({
+          iso_year: 2026,
+          iso_week: 29,
+          account_ids: [accountA],
+          session: t.adminSession,
+        });
+        expect(one.rows.map((r) => r.project_id)).toEqual([projectA]);
+
+        const none = await listKpiExplorer({
+          iso_year: 2026,
+          iso_week: 29,
+          session: t.adminSession,
+        });
+        expect(none.rows.map((r) => r.project_id).sort()).toEqual(
+          [projectA, projectB, projectC].sort(),
+        );
       } finally {
         await closePools();
       }

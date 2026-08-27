@@ -501,7 +501,7 @@ describe('KpiMetricsPage — entry actions', () => {
 
   it('lists only the filtered account’s projects in the configure dialog', async () => {
     const user = userEvent.setup();
-    routerState.search = { iso_year: 2026, iso_week: 32, account: 'acc-1' };
+    routerState.search = { iso_year: 2026, iso_week: 32, accounts: 'acc-1' };
     fetchProjectsMock.mockResolvedValue([
       projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
       projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
@@ -522,6 +522,110 @@ describe('KpiMetricsPage — entry actions', () => {
     expect(
       screen.queryByRole('checkbox', { name: 'Globex Subscriber Insights' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('lists every filtered account’s projects in the configure dialog, headed by account', async () => {
+    const user = userEvent.setup();
+    routerState.search = { iso_year: 2026, iso_week: 32, accounts: 'acc-1,acc-2' };
+    fetchAccountsMock.mockResolvedValue([
+      accountRow('acc-1', 'Acme Corporation'),
+      accountRow('acc-2', 'Globex Holdings'),
+      accountRow('acc-3', 'Nordic Retail Group'),
+    ]);
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
+      projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+      projectRow('p-nordic', 'Nordic Returns Automation', true, 'acc-3'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-acme', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeEnabled());
+    await user.click(await configureButton());
+
+    const acme = await screen.findByRole('checkbox', { name: 'Acme Billing Revamp' });
+    const globex = screen.getByRole('checkbox', { name: 'Globex Subscriber Insights' });
+    expect(
+      screen.queryByRole('checkbox', { name: 'Nordic Returns Automation' }),
+    ).not.toBeInTheDocument();
+
+    const groupOf = (checkbox: HTMLElement) => {
+      const group = checkbox.closest('[data-project-row]')?.parentElement;
+      if (!group) throw new Error('no account group around the project row');
+      return group;
+    };
+    expect(within(groupOf(acme)).getByText('Acme Corporation')).toBeInTheDocument();
+    expect(within(groupOf(globex)).getByText('Globex Holdings')).toBeInTheDocument();
+  });
+
+  it('keeps the picked project when its account stays in the filter', async () => {
+    const user = userEvent.setup();
+    routerState.search = {
+      iso_year: 2026,
+      iso_week: 32,
+      accounts: 'acc-1',
+      project: 'p-acme',
+    };
+    fetchAccountsMock.mockResolvedValue([
+      accountRow('acc-1', 'Acme Corporation'),
+      accountRow('acc-2', 'Globex Holdings'),
+    ]);
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
+      projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-acme', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Globex Holdings' }));
+
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: expect.objectContaining({ accounts: 'acc-1,acc-2', project: 'p-acme' }),
+      }),
+    );
+  });
+
+  it('drops the picked project once its account leaves the filter', async () => {
+    const user = userEvent.setup();
+    routerState.search = {
+      iso_year: 2026,
+      iso_week: 32,
+      accounts: 'acc-1,acc-2',
+      project: 'p-acme',
+    };
+    fetchAccountsMock.mockResolvedValue([
+      accountRow('acc-1', 'Acme Corporation'),
+      accountRow('acc-2', 'Globex Holdings'),
+    ]);
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
+      projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-acme', 'Acme Billing Revamp', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Acme Corporation' }));
+
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: expect.objectContaining({ accounts: 'acc-2', project: undefined }),
+      }),
+    );
   });
 
   it('scopes the Select all tick and its count to the filtered project list', async () => {
@@ -592,7 +696,7 @@ describe('KpiMetricsPage — entry actions', () => {
     });
     renderPage();
 
-    const accountFilter = await screen.findByRole('combobox', { name: 'Account' });
+    const accountFilter = await screen.findByRole('button', { name: 'Account' });
     await screen.findByText('Northwind Group');
 
     expect(accountFilter).toHaveTextContent('All accounts');
