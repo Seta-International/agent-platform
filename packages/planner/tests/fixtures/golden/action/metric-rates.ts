@@ -46,7 +46,10 @@ export function metricRates(report: GoldenRunReport, configUrl: URL): MetricRate
         } satisfies MetricRate);
       // An `error` verdict means the case never produced evidence about the agent.
       // Counting it as a miss made an infrastructure fault look like a model
-      // defect — see the M3 0.96 entry in docs/agents/planner-action/metrics.md.
+      // defect — see the withdrawn M3 verdict under "Settling the thresholds" in
+      // docs/agents/planner-action/metrics.md. Note this catches a case that THREW;
+      // a case whose stream goes quiet without throwing still slips past, which is
+      // that file's "The gap this leaves".
       if (policy.verdict === 'error') {
         entry.errors += 1;
         entry.errorCases.push(caseReport.id);

@@ -52,10 +52,16 @@
         trajectory: { requiredTools: [planner_updateTask], maxToolCalls: 3 }
     - user: "tạo task 'Write release notes' trong plan A2 Plan"
       expected:
-        # A DIFFERENT TOOL is a new request, not an adjustment (design D4). Both
-        # cards stay pending and the original stays confirmable — the boundary has to
-        # hold in this direction too, or every follow-up silently cancels the last
-        # proposal.
+        # A sentence naming a DIFFERENT task — here, creating one — is a new request,
+        # not an adjustment: that is design **D5**, not D4. Both cards stay pending and
+        # the original stays confirmable; the boundary has to hold in this direction
+        # too, or every follow-up silently cancels the last proposal.
+        #
+        # This comment used to cite D4 and phrase the test as "a different TOOL". That
+        # is D4's shape with D5's scope, and the same conflation had reached the prompt,
+        # where it was the whole reason this case failed on 25/08: create ≠ update, so
+        # A2 took the D4 branch and explained instead of calling the tool. D4 is the
+        # neighbouring case RV-004 — same task, different KIND of change.
         behavior: confirm
         dbEffects: none
         trajectory:

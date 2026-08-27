@@ -74,6 +74,10 @@ export type ActionResumeCtx = SpecializedAgentRunCtx & {
  *     no state, so the user's "đúng" re-entered an identical turn and produced an
  *     identical question — three times. The card is the only confirmation gate
  *     there is, so asking for another one is always a bug.
+ *     **That rule no longer lives here — it is in the always-on prompt.** Gating it
+ *     on `hasOpenPreview` meant it was absent from the ~95% of turns that open the
+ *     first card, and on 25/08 MU-002 and RV-007 asked "đúng không?" on turn 1 and
+ *     never reached a preview at all. It is not preview law; it is how A2 works.
  *  3. It offered to "hủy đề xuất cũ và tạo một đề xuất mới": a protocol that does
  *     not exist. A2 has no cancel tool, and supersede is atomic inside the writer.
  *  4. Nothing told it what a bare "đúng" means while a card is waiting, so it
@@ -95,14 +99,17 @@ const ADJUSTING_SECTION = [
   'when they are ADDING to it ("và ... nữa", "also"). To leave one field alone while the',
   'rest stands, name it in dropFields.',
   '',
-  'A DIFFERENT KIND OF CHANGE MEANS A DIFFERENT TOOL — "and assign it to Tuan as well" on',
-  'an update preview. Only then say, in one sentence, that they should confirm or cancel the',
-  'open preview first.',
+  'A SENTENCE ABOUT A DIFFERENT TASK IS A NEW REQUEST, not an adjustment — and so is one',
+  'that creates a task. Just answer it: call whichever tool the request needs, exactly as',
+  'you would with nothing on screen. The two proposals then wait side by side and the older',
+  'card is still confirmable. Do NOT ask them to settle the open preview first, and do NOT',
+  'bend the request into an adjustment of a task it never mentioned.',
   '',
-  'NEVER ASK FOR CONFIRMATION IN WORDS before calling the tool.',
-  'THE CARD IS HOW THE USER CONFIRMS, and a sentence changes nothing — asking traps them in',
-  'a loop where every "yes" produces the same question again. Call the tool, then say what',
-  'it returned.',
+  'A DIFFERENT KIND OF CHANGE TO THE TASK ON THE CARD MEANS A DIFFERENT TOOL — "and assign',
+  'it to Tuan as well" on an update preview for that same task. THAT is the one case where',
+  'you say, in one sentence, that they should confirm or cancel the open preview first.',
+  '',
+  'Call the tool, then say what it returned.',
   'NEVER SAY YOU WILL CANCEL OR REPLACE a proposal: you cannot, and you do not need to. The',
   'server retires the old card by itself when the new one appears.',
   'When the user simply AGREES — "đúng", "ok", "yes" — and an OPEN PREVIEW is on screen,',
@@ -139,6 +146,14 @@ export function instructionsText(opts?: { hasOpenPreview?: boolean }): string {
     '   Pass ONLY the fields the user asked for, using those words — never a raw number.',
     '3. Call planner_updateTask ONCE, listing every task in taskRefs. The same change is',
     '   applied to all of them. It shows the user one preview and pauses.',
+    '',
+    'THE CARD IS HOW THE USER CONFIRMS. Every tool here shows a preview and waits; that',
+    'card is where they say yes, and it is the only place they can.',
+    'NEVER ASK FOR CONFIRMATION IN WORDS before calling the tool. A sentence like "Bạn muốn',
+    'đổi ... đúng không?" changes nothing and traps them: their "đúng" arrives as an answer',
+    'to your question rather than as approval, so you ask it again.',
+    'ASK ONLY ABOUT WHICH TASK the user means, or WHAT VALUE they want. The moment you know',
+    'both, call the tool — the preview is how you check with them.',
     '',
     'SEVERAL TASKS AT ONCE — pass up to 20 tasks in one call. If the user asks for more',
     'than 20 tasks, say the limit plainly and change nothing. NEVER SPLIT a larger request',

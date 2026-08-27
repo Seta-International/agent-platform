@@ -182,9 +182,11 @@ describe('instructionsText — why the 14/08 conversation looped (FUT-840)', () 
   });
 
   // "different kind" now has one definition, and it is the same one the server
-  // decides by: `open.toolId !== opts.toolId` in revision.ts.
+  // decides by: `open.toolId !== opts.toolId` in revision.ts. Qualified on 25/08 to
+  // the task ON THE CARD — see the design D5 block below for why the unqualified
+  // wording was actively wrong.
   it('defines a different KIND of change as a different TOOL', () => {
-    expect(text).toMatch(/different kind of change means a different tool/i);
+    expect(text).toMatch(/different kind of change[^\n]*means a different tool/i);
   });
 
   // The loop's engine. A2 asked "Bạn có xác nhận đổi ngày ... không?" instead of
@@ -207,6 +209,69 @@ describe('instructionsText — why the 14/08 conversation looped (FUT-840)', () 
   it('tells it a bare agreement means press Confirm on the card', () => {
     expect(text).toMatch(/press confirm/i);
     expect(text).toMatch(/do not ask again/i);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Triaged out of regression-2026-08-25T06-58-18-270Z.md. Four gate failures shared
+// one symptom — A2 narrated its intent and called nothing — and three different
+// causes. These pin the two that live in this prompt.
+//
+// D1a: the ban on asking for confirmation existed ONLY inside ADJUSTING_SECTION,
+// which is gated on `hasOpenPreview`. On the ~95% of turns with nothing on screen
+// the model instead read eight separate "ASK the user" directives and no
+// counterweight, and asked. MU-002 found one unambiguous task and still asked
+// "Bạn muốn đổi due date ... đúng không?"; RV-007 did the same on turn 1, so no
+// card ever opened and its turn 2 ran without the section too — one prose turn
+// took the whole case down.
+// ───────────────────────────────────────────────────────────────────────────────
+describe('instructionsText — the card is the confirmation, on every turn', () => {
+  it('forbids asking for confirmation in words with NO preview open', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/never ask for confirmation in words/i);
+    expect(text).toMatch(/the card is how the user confirms/i);
+  });
+
+  // The eight ASK directives stay — they are all correct. What was missing is the
+  // boundary that stops them generalising into "ask about everything".
+  it('scopes what asking is FOR, so the ASK rules cannot swallow the ban', () => {
+    expect(instructionsText()).toMatch(/ask only about which task .* or what value/i);
+  });
+
+  // Regression guard rather than a red test: the ban must be stated once, in the
+  // always-on part. Two copies drift, and the ADJUSTING one is what drifted here.
+  it('states the ban once, not once per prompt shape', () => {
+    const withPreview = instructionsText({ hasOpenPreview: true });
+    expect(withPreview.match(/NEVER ASK FOR CONFIRMATION IN WORDS/g)).toHaveLength(1);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// D1b: the design has TWO boundary rules and the prompt encoded one.
+//   D4 — a different KIND of change to the task ON THE CARD → answer in one
+//        sentence, ask them to settle the open preview first (RV-004).
+//   D5 — a sentence naming a DIFFERENT task, or creating one, is a new request
+//        → call the tool; both cards wait and the older stays confirmable (RV-002).
+// The prompt stated the test as "a different TOOL", which is D4's shape with D5's
+// scope, so RV-002's "tạo task 'Write release notes'" (create ≠ update) landed in
+// the D4 branch and A2 did exactly what it was told: explained, called nothing.
+// The model was not wrong there. The prompt was.
+// ───────────────────────────────────────────────────────────────────────────────
+describe('instructionsText — a different TASK is a new request (design D5)', () => {
+  const text = instructionsText({ hasOpenPreview: true });
+
+  it('tells it to just call the tool when the sentence names another task', () => {
+    expect(text).toMatch(/different task is a new request/i);
+    expect(text).toMatch(/creates a task|creating one/i);
+  });
+
+  it('says both proposals then wait and the older card stays confirmable', () => {
+    expect(text).toMatch(/side by side/i);
+    expect(text).toMatch(/still confirmable|stays confirmable/i);
+  });
+
+  it('limits the settle-the-preview-first answer to the task on the card', () => {
+    expect(text).toMatch(/task on the card/i);
   });
 });
 
