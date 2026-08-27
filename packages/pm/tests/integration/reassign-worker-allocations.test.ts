@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { allocation } from '../../src/backend/db/schema.ts';
+import { allocation, personProjection } from '../../src/backend/db/schema.ts';
 import {
   createAccount,
   createAllocation,
@@ -173,6 +173,125 @@ describe('reassignWorkerAllocations', () => {
           .where(eq(allocation.id, kept.allocation_id));
         expect(keptRow?.date_to).toBe('2026-12-31'); // untouched
         expect(keptRow?.version).toBe(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it("FUT-953: ending/editing an alumni worker's existing allocations (no targets) still succeeds", async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const projectX = await seedProject(t.adminSession, 'ProjectX');
+        const worker = crypto.randomUUID();
+
+        const a1 = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 30,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        const a2 = await createAllocation({
+          project_id: projectX,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 70,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        await pmDb()
+          .insert(personProjection)
+          .values({ person_id: worker, tenant_id: t.tenant_id, full_name: 'Ex', is_alumni: true });
+
+        // Ending an existing allocation (allocation_ids, no targets) — AC2.
+        const ended = await reassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [a1.allocation_id],
+          source: { date_to: '2026-06-30' },
+          targets: [],
+          session: t.adminSession,
+        });
+        expect(ended.updated).toHaveLength(1);
+
+        // Editing an existing allocation via `updates` (no targets) — AC2.
+        const edited = await reassignWorkerAllocations({
+          worker_id: worker,
+          allocation_ids: [],
+          updates: [{ allocation_id: a2.allocation_id, planned_pct: 50 }],
+          source: { date_to: '2026-12-31' },
+          targets: [],
+          session: t.adminSession,
+        });
+        expect(edited.updated).toHaveLength(1);
+
+        const [row] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, a2.allocation_id));
+        expect(row?.planned_pct).toBe('50.0000');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-953: adding a new target for an alumni worker is rejected', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const watchtower = await seedProject(t.adminSession, 'Watchtower');
+        const newProj = await seedProject(t.adminSession, 'NewProj');
+        const worker = crypto.randomUUID();
+
+        const a1 = await createAllocation({
+          project_id: watchtower,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 30,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        await pmDb()
+          .insert(personProjection)
+          .values({ person_id: worker, tenant_id: t.tenant_id, full_name: 'Ex', is_alumni: true });
+
+        await expect(
+          reassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [a1.allocation_id],
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                planned_pct: 100,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetPmDb();
         resetCoreDb();

@@ -16,6 +16,7 @@ import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
+import { assertWorkerNotAlumni } from './assert-worker-not-alumni.ts';
 import { buildProjectScope } from './scope.ts';
 
 // The zod schema defaults `updates`/`targets` to [], so the parsed (output) type always carries
@@ -381,6 +382,12 @@ async function resolveReassignment(
   const sourceProj = await loadProject(current.project_id, session);
   const workerId = current.person_id;
 
+  // FUT-953 (AC1): only guards NEW target allocations — ending/shortening the source row
+  // below must stay allowed for an alumni worker (AC2).
+  if (targets.length > 0) {
+    await assertWorkerNotAlumni(session.tenant_id, workerId);
+  }
+
   try {
     assertWithinProjectRange({
       project_date_from: sourceProj.date_from,
@@ -645,6 +652,12 @@ export interface ReassignGroupPreviewResult {
 
 async function resolveGroupReassignment(input: GroupReassignRawInput) {
   const { worker_id, allocation_ids, updates, source, targets, session } = withDefaults(input);
+
+  // FUT-953 (AC1): only guards NEW target allocations — ending/editing existing rows via
+  // `updates`/`allocation_ids` below must stay allowed for an alumni worker (AC2).
+  if (targets.length > 0) {
+    await assertWorkerNotAlumni(session.tenant_id, worker_id);
+  }
 
   // End-of-target rows must exist and belong to the worker.
   const currentRows = await pmDb()

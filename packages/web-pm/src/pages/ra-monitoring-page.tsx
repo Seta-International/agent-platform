@@ -134,7 +134,7 @@ function SelectEmployeeDialog({
 }: {
   onSelect: (worker: { id: string; name: string | null }) => void;
 }) {
-  const workerSource = useWorkerSource();
+  const workerSource = useWorkerSource({ excludeAlumni: true });
   const [open, setOpen] = useState(false);
   const [worker, setWorker] = useState<SearchableItem | null>(null);
 
