@@ -8,7 +8,6 @@ import {
   type BandCondition,
   computeEntryStatus,
   computeScoredValue,
-  kpiValuePrecision,
   type RagStatus,
 } from '@seta/pm/contracts';
 
@@ -104,12 +103,7 @@ export function buildEntry(
     c2 = 20;
     c1 = round4(value * c2);
   }
-  const computed = computeScoredValue(
-    m.component_count,
-    c1,
-    c2,
-    kpiValuePrecision(m.green_band, m.yellow_band, m.red_band),
-  );
+  const computed = computeScoredValue(m.component_count, c1, c2);
   const status = computeEntryStatus(computed, m.green_band, m.yellow_band, m.red_band);
   return { c1, c2, computed, status };
 }

@@ -27,7 +27,6 @@ import {
   computeEntryStatus,
   computeOverallHealth,
   computeScoredValue,
-  kpiValuePrecision,
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
@@ -60,10 +59,6 @@ interface AppliedMetricDef {
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
-}
-
-function precisionOf(def: AppliedMetricDef): number {
-  return kpiValuePrecision(def.green_band, def.yellow_band, def.red_band);
 }
 
 function statusOf(def: AppliedMetricDef, value: number | null): RagStatus | null {
@@ -484,7 +479,6 @@ export async function upsertKpiRecord(
       def.component_count,
       e.component_1_value,
       e.component_2_value,
-      precisionOf(def),
     );
     return {
       ...e,
