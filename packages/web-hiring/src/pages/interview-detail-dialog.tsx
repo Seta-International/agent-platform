@@ -6,29 +6,18 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
-  DropdownMenu,
-  DropdownMenuItem,
+  Field,
   Layout,
   LayoutContent,
   Link,
   SegmentedControl,
   SegmentedControlItem,
-  SkillLevelRating,
   Text,
   Textarea,
   VStack,
 } from '@seta/shared-ui';
-import {
-  Briefcase,
-  Building2,
-  CalendarDays,
-  MoreHorizontal,
-  UserX,
-  Video,
-  XCircle,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { Briefcase, Building2, CalendarDays, Star, UserX, Video, XCircle } from 'lucide-react';
+import { useId, useState } from 'react';
 import { DetailRow } from './detail-row.tsx';
 import {
   formatDayAndTime,
@@ -38,17 +27,10 @@ import {
   RECOMMENDATION_LABEL,
   RESULT_BADGE_VARIANT,
   RESULT_LABEL,
+  ROUND_LABEL,
   STATUS_LABEL,
 } from './interview-utils.ts';
-
-function DetailCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded-lg border border-border bg-card p-4">
-      <h3 className="mb-3 text-base font-semibold text-primary">{title}</h3>
-      {children}
-    </section>
-  );
-}
+import { StarRating } from './star-rating.tsx';
 
 function OutcomeReasonDialog({
   isOpen,
@@ -128,6 +110,9 @@ export function InterviewDetailDialog({
   const [feedbackNote, setFeedbackNote] = useState('');
   const [editingOutcome, setEditingOutcome] = useState(false);
   const [reasonDialog, setReasonDialog] = useState<'cancelled' | 'no_show' | null>(null);
+  const resultFieldId = useId();
+  const ratingFieldId = useId();
+  const recommendationFieldId = useId();
 
   if (interview && formFor !== interview.id) {
     setFormFor(interview.id);
@@ -161,7 +146,7 @@ export function InterviewDetailDialog({
         isOpen={!!interview}
         onOpenChange={(v) => !v && onClose()}
         purpose="info"
-        width={640}
+        width={900}
         maxHeight="90vh"
         aria-label={interview ? `Interview: ${interview.candidate_name}` : 'Interview'}
       >
@@ -170,189 +155,227 @@ export function InterviewDetailDialog({
             header={
               <DialogHeader
                 title={interview.candidate_name}
-                subtitle={`${interview.round} round · ${interview.requisition_title}`}
+                subtitle={`${ROUND_LABEL[interview.round]} round · ${interview.requisition_title}`}
                 onOpenChange={(open) => !open && onClose()}
               />
             }
             content={
-              <LayoutContent>
-                <VStack gap={4}>
+              <LayoutContent padding={0} isScrollable={false}>
+                <div className="flex h-full min-h-0 flex-col">
                   {interview.status === 'cancelled' && (
-                    <Banner
-                      status="warning"
-                      title="This interview was cancelled."
-                      description={interview.outcome_reason || undefined}
-                    />
+                    <div className="flex-none px-6 pt-4">
+                      <Banner
+                        status="warning"
+                        title="This interview was cancelled."
+                        description={interview.outcome_reason || undefined}
+                      />
+                    </div>
                   )}
                   {interview.status === 'no_show' && (
-                    <Banner
-                      status="warning"
-                      title="The candidate didn't show up."
-                      description={interview.outcome_reason || undefined}
-                    />
+                    <div className="flex-none px-6 pt-4">
+                      <Banner
+                        status="warning"
+                        title="The candidate didn't show up."
+                        description={interview.outcome_reason || undefined}
+                      />
+                    </div>
                   )}
 
-                  <DetailCard title="Schedule">
-                    <DetailRow
-                      icon={<CalendarDays className="size-3.5" aria-hidden />}
-                      label="When"
-                      value={`${formatDayAndTime(interview.scheduled_at)} · ${interview.duration_minutes} min`}
-                    />
-                    <DetailRow
-                      icon={
-                        interview.mode === 'online' ? (
-                          <Video className="size-3.5" aria-hidden />
+                  <div className="flex min-h-0 flex-1 overflow-hidden">
+                    <section className="flex min-w-0 flex-1 flex-col">
+                      <div className="min-h-0 flex-1 overflow-auto p-6">
+                        <h3 className="mb-4 text-lg font-semibold text-primary">Outcome</h3>
+                        {showsForm ? (
+                          <VStack gap={4}>
+                            <Field
+                              label="Result"
+                              inputID={resultFieldId}
+                              labelID={resultFieldId}
+                              isGroupLabel
+                            >
+                              <SegmentedControl
+                                label="Result"
+                                value={result}
+                                onChange={(v) => setResult(v as InterviewResult)}
+                                className="self-start"
+                              >
+                                <SegmentedControlItem value="pass" label="Pass" />
+                                <SegmentedControlItem value="hold" label="Hold" />
+                                <SegmentedControlItem value="fail" label="Fail" />
+                              </SegmentedControl>
+                            </Field>
+                            <Field
+                              label="Rating"
+                              inputID={ratingFieldId}
+                              labelID={ratingFieldId}
+                              isGroupLabel
+                            >
+                              <StarRating level={rating} onChange={setRating} />
+                            </Field>
+                            <Field
+                              label="Recommendation"
+                              inputID={recommendationFieldId}
+                              labelID={recommendationFieldId}
+                              isGroupLabel
+                            >
+                              <SegmentedControl
+                                label="Recommendation"
+                                value={recommendation}
+                                onChange={(v) => setRecommendation(v as InterviewRecommendation)}
+                                className="self-start"
+                              >
+                                <SegmentedControlItem value="hire" label="Hire" />
+                                <SegmentedControlItem value="next_round" label="Next round" />
+                                <SegmentedControlItem value="no_hire" label="Don't hire" />
+                              </SegmentedControl>
+                            </Field>
+                            <Textarea
+                              label="Feedback — strengths & concerns"
+                              isOptional
+                              rows={3}
+                              value={feedbackNote}
+                              onChange={setFeedbackNote}
+                              placeholder="What stood out, gaps, evidence…"
+                            />
+                          </VStack>
+                        ) : interview.status === 'completed' ? (
+                          <>
+                            <DetailRow
+                              label="Result"
+                              value={
+                                <Badge
+                                  variant={
+                                    interview.result
+                                      ? RESULT_BADGE_VARIANT[interview.result]
+                                      : 'neutral'
+                                  }
+                                  label={
+                                    interview.result
+                                      ? RESULT_LABEL[interview.result]
+                                      : 'Not recorded'
+                                  }
+                                />
+                              }
+                            />
+                            <DetailRow
+                              icon={<Star className="size-3.5" aria-hidden />}
+                              label="Rating"
+                              value={<StarRating level={interview.rating ?? null} />}
+                            />
+                            <DetailRow
+                              label="Recommendation"
+                              value={
+                                interview.recommendation
+                                  ? RECOMMENDATION_LABEL[interview.recommendation]
+                                  : 'Not given'
+                              }
+                            />
+                            <VStack gap={1} className="pt-3">
+                              <Text size="sm" weight="medium">
+                                Feedback
+                              </Text>
+                              <Text
+                                size="sm"
+                                color={interview.feedback_note ? 'primary' : 'secondary'}
+                              >
+                                {interview.feedback_note || 'No feedback notes yet.'}
+                              </Text>
+                            </VStack>
+                          </>
                         ) : (
-                          <Building2 className="size-3.5" aria-hidden />
-                        )
-                      }
-                      label="Mode"
-                      value={
-                        interview.mode === 'online' ? (
-                          interview.meeting_link ? (
-                            <Link href={interview.meeting_link} target="_blank" rel="noreferrer">
-                              Join meeting
-                            </Link>
-                          ) : (
-                            'Online'
-                          )
-                        ) : (
-                          'Onsite'
-                        )
-                      }
-                    />
-                    <DetailRow
-                      icon={<Briefcase className="size-3.5" aria-hidden />}
-                      label="Position"
-                      value={interview.requisition_title}
-                    />
-                  </DetailCard>
-
-                  <DetailCard title="Panel">
-                    {interview.panel.length ? (
-                      <div className="flex flex-wrap gap-3">
-                        {interview.panel.map((p) => (
-                          <div key={p.user_id} className="flex items-center gap-2">
-                            <Avatar name={p.display_name} size={24} />
-                            <Text size="sm">{p.display_name}</Text>
-                          </div>
-                        ))}
+                          <Text color="secondary" size="sm">
+                            No outcome — this interview was{' '}
+                            {STATUS_LABEL[interview.status].toLowerCase()}.
+                          </Text>
+                        )}
                       </div>
-                    ) : (
-                      <Text color="secondary" size="sm">
-                        No panel assigned.
-                      </Text>
-                    )}
-                  </DetailCard>
+                    </section>
 
-                  <DetailCard title="Note">
-                    <Text color={interview.note ? 'primary' : 'secondary'} size="sm">
-                      {interview.note || 'No notes yet.'}
-                    </Text>
-                  </DetailCard>
-
-                  <DetailCard title="Outcome">
-                    {showsForm ? (
-                      <VStack gap={3}>
-                        <VStack gap={2}>
-                          <Text size="sm" weight="medium">
-                            Result
+                    <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-border px-5 py-4">
+                      <DetailRow
+                        icon={<CalendarDays className="size-3.5" aria-hidden />}
+                        label="When"
+                        value={`${formatDayAndTime(interview.scheduled_at)} · ${interview.duration_minutes} min`}
+                      />
+                      <DetailRow
+                        icon={
+                          interview.mode === 'online' ? (
+                            <Video className="size-3.5" aria-hidden />
+                          ) : (
+                            <Building2 className="size-3.5" aria-hidden />
+                          )
+                        }
+                        label="Mode"
+                        value={
+                          interview.mode === 'online' ? (
+                            interview.meeting_link ? (
+                              <Link href={interview.meeting_link} target="_blank" rel="noreferrer">
+                                Join meeting
+                              </Link>
+                            ) : (
+                              'Online'
+                            )
+                          ) : (
+                            'Onsite'
+                          )
+                        }
+                      />
+                      <DetailRow
+                        icon={<Briefcase className="size-3.5" aria-hidden />}
+                        label="Position"
+                        value={interview.requisition_title}
+                      />
+                      <VStack gap={1} className="pt-3">
+                        <Text size="sm" weight="medium">
+                          Panel
+                        </Text>
+                        {interview.panel.length ? (
+                          <div className="flex flex-wrap gap-3">
+                            {interview.panel.map((p) => (
+                              <div key={p.user_id} className="flex items-center gap-2">
+                                <Avatar name={p.display_name} size={24} />
+                                <Text size="sm">{p.display_name}</Text>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <Text color="secondary" size="sm">
+                            No panel assigned.
                           </Text>
-                          <SegmentedControl
-                            label="Result"
-                            value={result}
-                            onChange={(v) => setResult(v as InterviewResult)}
-                          >
-                            <SegmentedControlItem value="pass" label="Pass" />
-                            <SegmentedControlItem value="hold" label="Hold" />
-                            <SegmentedControlItem value="fail" label="Fail" />
-                          </SegmentedControl>
-                        </VStack>
-                        <VStack gap={2}>
-                          <Text size="sm" weight="medium">
-                            Overall rating
-                          </Text>
-                          <SkillLevelRating level={rating} onChange={setRating} />
-                        </VStack>
-                        <VStack gap={2}>
-                          <Text size="sm" weight="medium">
-                            Recommendation
-                          </Text>
-                          <SegmentedControl
-                            label="Recommendation"
-                            value={recommendation}
-                            onChange={(v) => setRecommendation(v as InterviewRecommendation)}
-                          >
-                            <SegmentedControlItem value="hire" label="Hire" />
-                            <SegmentedControlItem value="next_round" label="Next round" />
-                            <SegmentedControlItem value="no_hire" label="Don't hire" />
-                          </SegmentedControl>
-                        </VStack>
-                        <Textarea
-                          label="Feedback — strengths & concerns"
-                          isOptional
-                          rows={3}
-                          value={feedbackNote}
-                          onChange={setFeedbackNote}
-                          placeholder="What stood out, gaps, evidence…"
-                        />
+                        )}
                       </VStack>
-                    ) : interview.status === 'completed' ? (
-                      <VStack gap={3}>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Badge
-                            variant={
-                              interview.result ? RESULT_BADGE_VARIANT[interview.result] : 'neutral'
-                            }
-                            label={
-                              interview.result ? RESULT_LABEL[interview.result] : 'Not recorded'
-                            }
-                          />
-                          <SkillLevelRating level={interview.rating ?? null} />
-                          {interview.recommendation && (
-                            <Text size="sm" color="secondary">
-                              {RECOMMENDATION_LABEL[interview.recommendation]}
-                            </Text>
-                          )}
-                        </div>
-                        <Text size="sm" color={interview.feedback_note ? 'primary' : 'secondary'}>
-                          {interview.feedback_note || 'No feedback notes.'}
+                      <VStack gap={1} className="pt-3">
+                        <Text size="sm" weight="medium">
+                          Note
+                        </Text>
+                        <Text color={interview.note ? 'primary' : 'secondary'} size="sm">
+                          {interview.note || 'No notes yet.'}
                         </Text>
                       </VStack>
-                    ) : (
-                      <Text color="secondary" size="sm">
-                        No outcome to record — {STATUS_LABEL[interview.status].toLowerCase()}.
-                      </Text>
-                    )}
-                  </DetailCard>
-                </VStack>
+                    </aside>
+                  </div>
+                </div>
               </LayoutContent>
             }
             footer={
               <DialogFooter
                 startContent={
                   isRecording ? (
-                    <DropdownMenu
-                      placement="above"
-                      button={{
-                        variant: 'ghost',
-                        size: 'sm',
-                        icon: <MoreHorizontal className="size-4" />,
-                        isIconOnly: true,
-                        label: 'More actions',
-                      }}
-                    >
-                      <DropdownMenuItem
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
                         label="Mark as no-show"
                         icon={<UserX className="size-4" />}
                         onClick={() => setReasonDialog('no_show')}
                       />
-                      <DropdownMenuItem
+                      <Button
+                        variant="secondary"
                         label="Cancel interview"
                         icon={<XCircle className="size-4" />}
+                        style={{ color: 'var(--color-text-red)' }}
                         onClick={() => setReasonDialog('cancelled')}
                       />
-                    </DropdownMenu>
+                    </div>
                   ) : undefined
                 }
               >

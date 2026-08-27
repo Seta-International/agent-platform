@@ -92,6 +92,20 @@
       "when": 1784085367694,
       "tag": "0018_hot_chameleon",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787740800000,
+      "tag": "0019_interview_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787740800001,
+      "tag": "0020_interview_platform",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,7 @@
-// Types, labels, and pure helpers for the Interviews agenda. No backend domain exists yet for
-// scheduled interview rounds (hiring only models "interview" as an application *stage* — see
-// packages/hiring/src/contracts.ts) — this UI runs on local fixtures until that lands.
+// Types, labels, and pure helpers for the Interviews agenda — backed by the real
+// hiring.interview lifecycle (FUT-487, packages/hiring/src/backend/domain/interviews.ts).
 
-export type InterviewRound = 'Screening' | 'Technical' | 'Culture fit' | 'Final';
+export type InterviewRound = 'screening' | 'technical' | 'culture_fit' | 'final';
 export type InterviewMode = 'online' | 'onsite';
 export type InterviewStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type InterviewResult = 'pass' | 'hold' | 'fail';
@@ -15,6 +14,7 @@ export interface InterviewPanelist {
 
 export interface Interview {
   id: string;
+  application_id: string;
   candidate_id: string;
   candidate_name: string;
   requisition_title: string;
@@ -24,16 +24,23 @@ export interface Interview {
   mode: InterviewMode;
   meeting_link: string | null;
   panel: InterviewPanelist[];
-  note: string;
+  note: string | null;
   status: InterviewStatus;
-  result?: InterviewResult;
+  result?: InterviewResult | null;
   rating?: number | null;
-  recommendation?: InterviewRecommendation;
-  feedback_note?: string;
-  outcome_reason?: string;
+  recommendation?: InterviewRecommendation | null;
+  feedback_note?: string | null;
+  outcome_reason?: string | null;
+  version: number;
 }
 
-export const ROUND_OPTIONS: InterviewRound[] = ['Screening', 'Technical', 'Culture fit', 'Final'];
+export const ROUND_OPTIONS: InterviewRound[] = ['screening', 'technical', 'culture_fit', 'final'];
+export const ROUND_LABEL: Record<InterviewRound, string> = {
+  screening: 'Screening',
+  technical: 'Technical',
+  culture_fit: 'Culture fit',
+  final: 'Final',
+};
 export const DURATION_OPTIONS = [30, 45, 60, 90] as const;
 
 export const STATUS_LABEL: Record<InterviewStatus, string> = {

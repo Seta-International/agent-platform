@@ -32,8 +32,16 @@ html.theme-light { color-scheme: light; }
    atomic rules carry (.xv1l7n4:not(#\#):not(#\#):not(#\#)); both sheets are
    unlayered, so this later rule then wins. :has(> span[aria-hidden]) pins the
    status span (its " ∙ " separator), leaving label icons/tooltips untouched.
-   Would also hit an " ∙ Optional" suffix, but isOptional is unused here. */
-.astryx-field-label > span:has(> span[aria-hidden]):not(#\#):not(#\#):not(#\#) {
+   FieldLabel renders " ∙ Optional" with the exact same markup and classes, so
+   the field scope is what separates them: Astryx controls emit aria-required
+   when isRequired, and the shared-ui Field wrapper stamps data-required for the
+   group-label case, where the child is not an Astryx control. */
+.astryx-field:has([aria-required='true'])
+  > .astryx-field-label
+  > span:has(> span[aria-hidden]):not(#\#):not(#\#):not(#\#),
+.astryx-field[data-required='true']
+  > .astryx-field-label
+  > span:has(> span[aria-hidden]):not(#\#):not(#\#):not(#\#) {
   color: var(--color-error);
 }
 
