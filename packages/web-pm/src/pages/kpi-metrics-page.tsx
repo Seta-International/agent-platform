@@ -433,8 +433,12 @@ export function KpiMetricsPage() {
                     label="Project"
                     size="sm"
                     width={240}
-                    options={[{ value: '', label: 'All projects' }, ...projectOptions]}
-                    value={search.project ?? ''}
+                    placeholder="All projects"
+                    hasSearch
+                    searchPlaceholder="Search projects…"
+                    hasClear
+                    options={projectOptions}
+                    value={search.project ?? null}
                     onChange={(v) => setSearch({ project: v || undefined })}
                   />
                 </div>
