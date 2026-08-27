@@ -24,6 +24,7 @@ import {
   Button,
   DisabledActionTooltip,
   EmptyState,
+  MultiSelector,
   Selector,
   Tabs,
   TabsContent,
@@ -48,12 +49,18 @@ import { WeeklyReportDetailDialog } from './weekly-report-detail-dialog.tsx';
 
 export interface KpiMetricsSearch {
   tab?: 'explorer' | 'norm';
-  account?: string;
+  /** Comma-separated account ids; absent means every account the viewer can see. */
+  accounts?: string;
   project?: string;
   iso_year?: number;
   iso_week?: number;
   detail?: string;
 }
+
+const splitAccounts = (v: unknown): string[] =>
+  typeof v === 'string' ? v.split(',').flatMap((id) => (id.trim() ? [id.trim()] : [])) : [];
+const joinAccounts = (ids: string[]): string | undefined =>
+  ids.length ? ids.join(',') : undefined;
 
 const FROZEN_CELL = 'sticky z-10 bg-card transition-colors group-hover:bg-muted';
 const FROZEN_START_WIDTH = 192;
@@ -82,19 +89,21 @@ const PIN = {
 export function KpiMetricsPage() {
   const { search, setSearch, weeks, iso_year, iso_week, weekReady } = usePmContext('/pm/metrics');
   const tab = (search as Partial<KpiMetricsSearch>).tab ?? 'explorer';
+  const accountsParam = (search as Partial<KpiMetricsSearch>).accounts;
+  const accountIds = useMemo(() => splitAccounts(accountsParam), [accountsParam]);
   const detailProjectId =
     typeof search.detail === 'string' && search.detail ? search.detail : undefined;
 
   const detailSearch = useCallback(
     (project_id: string): KpiMetricsSearch => ({
       tab,
-      account: search.account,
+      accounts: accountsParam,
       project: search.project,
       iso_year,
       iso_week,
       detail: project_id,
     }),
-    [tab, search.account, search.project, iso_year, iso_week],
+    [tab, accountsParam, search.project, iso_year, iso_week],
   );
 
   const accountsQuery = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
@@ -104,10 +113,25 @@ export function KpiMetricsPage() {
     () => (projectsQuery.data ?? []).filter((p) => p.can_manage),
     [projectsQuery.data],
   );
+  const configureScopeAccounts = useMemo(() => {
+    if (accountIds.length > 0) return new Set(accountIds);
+    const fromProject = search.project
+      ? (projectsQuery.data ?? []).find((p) => p.project_id === search.project)?.account_id
+      : undefined;
+    return new Set(fromProject ? [fromProject] : []);
+  }, [accountIds, search.project, projectsQuery.data]);
+  const configurableProjects = useMemo(
+    () =>
+      configureScopeAccounts.size === 0
+        ? manageableProjects
+        : manageableProjects.filter((p) => configureScopeAccounts.has(p.account_id)),
+    [manageableProjects, configureScopeAccounts],
+  );
   const managesNothing = manageableProjects.length === 0;
+  const nothingToConfigure = configurableProjects.length === 0;
   const viewingCurrentWeek = weeks[0]?.iso_year === iso_year && weeks[0]?.iso_week === iso_week;
   const weekIsOpen = isReportingWeekOpen(iso_year, iso_week, weeks[0]);
-  const canConfigure = !managesNothing && weekReady && viewingCurrentWeek && weekIsOpen;
+  const canConfigure = !nothingToConfigure && weekReady && viewingCurrentWeek && weekIsOpen;
 
   const [configureOpen, setConfigureOpen] = useState(false);
   const [manualInput, setManualInput] = useState<{
@@ -120,14 +144,14 @@ export function KpiMetricsPage() {
     queryKey: pmKeys.kpiExplorer({
       iso_year,
       iso_week,
-      account: search.account,
+      accounts: accountsParam,
       project: search.project,
     }),
     queryFn: () =>
       fetchKpiExplorer({
         iso_year,
         iso_week,
-        account_id: search.account,
+        account_ids: accountIds,
         project_id: search.project,
       }),
   });
@@ -140,21 +164,43 @@ export function KpiMetricsPage() {
     () => (accountsQuery.data ?? []).map((a) => ({ value: a.account_id, label: a.name })),
     [accountsQuery.data],
   );
-  const projectsInAccount = useMemo(
+  const accountNameById = useMemo(
+    () => new Map((accountsQuery.data ?? []).map((a) => [a.account_id, a.name])),
+    [accountsQuery.data],
+  );
+  const accountFilter = useMemo(() => new Set(accountIds), [accountIds]);
+  const projectsInAccounts = useMemo(
     () =>
-      (projectsQuery.data ?? []).filter((p) => !search.account || p.account_id === search.account),
-    [projectsQuery.data, search.account],
+      (projectsQuery.data ?? []).filter(
+        (p) => accountFilter.size === 0 || accountFilter.has(p.account_id),
+      ),
+    [projectsQuery.data, accountFilter],
   );
-  const projectOptions = useMemo(
-    () => projectsInAccount.map((p) => ({ value: p.project_id, label: p.name })),
-    [projectsInAccount],
-  );
+  // One account behaves like it always did — a flat list. Past that, a bare project name no
+  // longer says whose project it is, so the options carry their account as a section heading.
+  const projectOptions = useMemo(() => {
+    if (accountFilter.size < 2)
+      return projectsInAccounts.map((p) => ({ value: p.project_id, label: p.name }));
+    const byAccount = new Map<string, Array<{ value: string; label: string }>>();
+    for (const p of projectsInAccounts) {
+      const list = byAccount.get(p.account_id) ?? [];
+      list.push({ value: p.project_id, label: p.name });
+      byAccount.set(p.account_id, list);
+    }
+    return [...byAccount.entries()]
+      .map(([id, options]) => ({
+        type: 'section' as const,
+        title: accountNameById.get(id) ?? 'Unknown account',
+        options,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [projectsInAccounts, accountFilter, accountNameById]);
   const entryProjectOptions = useMemo(
     () =>
-      projectsInAccount
+      projectsInAccounts
         .filter((p) => p.can_report)
         .map((p) => ({ value: p.project_id, label: p.name })),
-    [projectsInAccount],
+    [projectsInAccounts],
   );
 
   const appliedIds = explorerQuery.data?.applied_metric_ids ?? [];
@@ -175,20 +221,6 @@ export function KpiMetricsPage() {
     `${iso_year}-W${String(iso_week).padStart(2, '0')}`;
   const nothingEntered =
     !explorerQuery.isLoading && rows.length > 0 && rows.every((r) => r.record_id === null);
-  const configureScopeAccount =
-    search.account ??
-    (search.project
-      ? (projectsQuery.data ?? []).find((p) => p.project_id === search.project)?.account_id
-      : undefined) ??
-    '';
-  const configurableProjects = useMemo(
-    () =>
-      configureScopeAccount
-        ? manageableProjects.filter((p) => p.account_id === configureScopeAccount)
-        : manageableProjects,
-    [manageableProjects, configureScopeAccount],
-  );
-
   type Ctx = { row: { original: KpiExplorerRow } };
 
   const visibleMetrics = useMemo(() => explorerQuery.data?.metrics ?? [], [explorerQuery.data]);
@@ -322,11 +354,13 @@ export function KpiMetricsPage() {
                   reason={
                     managesNothing
                       ? 'You do not manage any project — configuring applied metrics needs manage rights.'
-                      : !weekReady
-                        ? 'Still loading which week it is. Configuring needs the current week to warn you about figures already entered.'
-                        : !viewingCurrentWeek
-                          ? `You are viewing ${weekLabel}. Applied metrics are configured on the current week — switch to it to change them.`
-                          : `${weekLabel} closed for entry on Friday 17:00 (Asia/Ho_Chi_Minh), so its metric set is frozen. Configuring reopens on Monday and applies from next week.`
+                      : nothingToConfigure
+                        ? 'You do not manage any project in the accounts you filtered to. Clear the Account filter to configure the ones you do.'
+                        : !weekReady
+                          ? 'Still loading which week it is. Configuring needs the current week to warn you about figures already entered.'
+                          : !viewingCurrentWeek
+                            ? `You are viewing ${weekLabel}. Applied metrics are configured on the current week — switch to it to change them.`
+                            : `${weekLabel} closed for entry on Friday 17:00 (Asia/Ho_Chi_Minh), so its metric set is frozen. Configuring reopens on Monday and applies from next week.`
                   }
                 >
                   <Button
@@ -371,13 +405,29 @@ export function KpiMetricsPage() {
                         setSearch({ iso_year: y, iso_week: w });
                     }}
                   />
-                  <Selector
+                  <MultiSelector
                     label="Account"
                     size="sm"
-                    width={208}
-                    options={[{ value: '', label: 'All accounts' }, ...accountOptions]}
-                    value={search.account ?? ''}
-                    onChange={(v) => setSearch({ account: v || undefined, project: undefined })}
+                    width={240}
+                    placeholder="All accounts"
+                    triggerDisplay="labels"
+                    hasSearch
+                    searchPlaceholder="Search accounts…"
+                    hasClear
+                    options={accountOptions}
+                    value={accountIds}
+                    onChange={(next) => {
+                      const pickedAccount = (projectsQuery.data ?? []).find(
+                        (p) => p.project_id === search.project,
+                      )?.account_id;
+                      const keepsProject =
+                        next.length === 0 ||
+                        (pickedAccount !== undefined && next.includes(pickedAccount));
+                      setSearch({
+                        accounts: joinAccounts(next),
+                        project: keepsProject ? search.project : undefined,
+                      });
+                    }}
                   />
                   <Selector
                     label="Project"
@@ -443,6 +493,7 @@ export function KpiMetricsPage() {
               open={configureOpen}
               onOpenChange={setConfigureOpen}
               projects={configurableProjects}
+              accountNames={accountNameById}
               initialProjectId={search.project}
               currentWeek={weeks[0]}
             />

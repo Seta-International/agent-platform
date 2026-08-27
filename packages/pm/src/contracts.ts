@@ -235,7 +235,7 @@ export type KpiAppliedMetricsQuery = z.infer<typeof kpiAppliedMetricsQuery>;
 export const kpiExplorerQuery = z.object({
   iso_year: z.coerce.number().int(),
   iso_week: z.coerce.number().int().min(1).max(53),
-  account_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  account_ids: commaSeparatedUuids,
   project_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 });
 export type KpiExplorerQuery = z.infer<typeof kpiExplorerQuery>;
