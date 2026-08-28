@@ -49,7 +49,6 @@ describe('interview lifecycle (FUT-487)', () => {
 
         const r = await scheduleInterview({
           application_id,
-          round: 'technical',
           scheduled_at: SOON,
           duration_minutes: 60,
           mode: 'online',
@@ -62,12 +61,11 @@ describe('interview lifecycle (FUT-487)', () => {
         expect(r.version).toBe(1);
 
         const { rows } = await pool.query(
-          `SELECT status, result, rating, candidate_id, application_id FROM hiring.interview WHERE id = $1`,
+          `SELECT status, result, candidate_id, application_id FROM hiring.interview WHERE id = $1`,
           [r.interview_id],
         );
         expect(rows[0].status).toBe('scheduled');
         expect(rows[0].result).toBeNull();
-        expect(rows[0].rating).toBeNull();
         expect(rows[0].candidate_id).toBe(candidate_id);
         expect(rows[0].application_id).toBe(application_id);
 
@@ -117,7 +115,6 @@ describe('interview lifecycle (FUT-487)', () => {
         });
         const { interview_id } = await scheduleInterview({
           application_id,
-          round: 'screening',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'onsite',
@@ -128,7 +125,7 @@ describe('interview lifecycle (FUT-487)', () => {
         await completeInterview({
           interview_id,
           expected_version: 1,
-          input: { result: 'pass', rating: 4, recommendation: 'hire', feedback_note: 'Strong' },
+          input: { result: 'pass', feedback_note: 'Strong' },
           session,
         });
 
@@ -154,7 +151,7 @@ describe('interview lifecycle (FUT-487)', () => {
     });
   });
 
-  it('AC2: completed retains result/rating/recommendation/feedback, and is editable afterward', async () => {
+  it('AC2: completed retains result/feedback, and is editable afterward', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
@@ -171,7 +168,6 @@ describe('interview lifecycle (FUT-487)', () => {
         const { application_id } = await addCandidate({ requisition_id, name: 'Cara', session });
         const { interview_id } = await scheduleInterview({
           application_id,
-          round: 'final',
           scheduled_at: SOON,
           duration_minutes: 45,
           mode: 'online',
@@ -182,36 +178,54 @@ describe('interview lifecycle (FUT-487)', () => {
         const first = await completeInterview({
           interview_id,
           expected_version: 1,
-          input: { result: 'hold', rating: 3 },
+          input: { result: 'hold' },
           session,
         });
         expect(first.version).toBe(2);
 
         const { rows: after1 } = await pool.query(
-          `SELECT status, result, rating FROM hiring.interview WHERE id = $1`,
+          `SELECT status, result FROM hiring.interview WHERE id = $1`,
           [interview_id],
         );
-        expect(after1[0]).toMatchObject({ status: 'completed', result: 'hold', rating: 3 });
+        expect(after1[0]).toMatchObject({ status: 'completed', result: 'hold' });
 
         // Editing an already-completed outcome is allowed (the panel corrected their feedback).
         const second = await completeInterview({
           interview_id,
           expected_version: 2,
-          input: { result: 'pass', rating: 5, recommendation: 'hire', feedback_note: 'Great' },
+          input: { result: 'pass', feedback_note: 'Great' },
           session,
         });
         expect(second.version).toBe(3);
         const { rows: after2 } = await pool.query(
-          `SELECT status, result, rating, recommendation, feedback_note FROM hiring.interview WHERE id = $1`,
+          `SELECT status, result, feedback_note FROM hiring.interview WHERE id = $1`,
           [interview_id],
         );
         expect(after2[0]).toMatchObject({
           status: 'completed',
           result: 'pass',
-          rating: 5,
-          recommendation: 'hire',
           feedback_note: 'Great',
         });
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('an interview carries no round, rating, or recommendation', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const { rows } = await pool.query(
+          `SELECT column_name FROM information_schema.columns
+           WHERE table_schema = 'hiring' AND table_name = 'interview'
+             AND column_name IN ('round', 'rating', 'recommendation')`,
+        );
+        expect(rows).toEqual([]);
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -239,7 +253,6 @@ describe('interview lifecycle (FUT-487)', () => {
 
         const int1 = await scheduleInterview({
           application_id: cancelled.application_id,
-          round: 'screening',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'online',
@@ -272,7 +285,6 @@ describe('interview lifecycle (FUT-487)', () => {
 
         const int2 = await scheduleInterview({
           application_id: noShow.application_id,
-          round: 'screening',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'online',
@@ -327,7 +339,6 @@ describe('interview lifecycle (FUT-487)', () => {
         const { application_id } = await addCandidate({ requisition_id, name: 'Cara', session });
         const { interview_id } = await scheduleInterview({
           application_id,
-          round: 'screening',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'online',
@@ -341,7 +352,6 @@ describe('interview lifecycle (FUT-487)', () => {
           interview_id,
           expected_version: 1,
           input: {
-            round: 'technical',
             scheduled_at: laterIso,
             duration_minutes: 90,
             mode: 'onsite',
@@ -352,10 +362,10 @@ describe('interview lifecycle (FUT-487)', () => {
         expect(r.version).toBe(2);
 
         const { rows } = await pool.query(
-          `SELECT round, duration_minutes, mode FROM hiring.interview WHERE id = $1`,
+          `SELECT duration_minutes, mode FROM hiring.interview WHERE id = $1`,
           [interview_id],
         );
-        expect(rows[0]).toMatchObject({ round: 'technical', duration_minutes: 90, mode: 'onsite' });
+        expect(rows[0]).toMatchObject({ duration_minutes: 90, mode: 'onsite' });
 
         const panel = await pool.query(
           `SELECT display_name FROM hiring.interview_panelist WHERE interview_id = $1`,
@@ -389,7 +399,6 @@ describe('interview lifecycle (FUT-487)', () => {
         const { application_id } = await addCandidate({ requisition_id, name: 'Paula', session });
         const { interview_id } = await scheduleInterview({
           application_id,
-          round: 'screening',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'online',
@@ -402,7 +411,6 @@ describe('interview lifecycle (FUT-487)', () => {
         await expect(
           scheduleInterview({
             application_id,
-            round: 'technical',
             scheduled_at: SOON,
             duration_minutes: 30,
             mode: 'online',
@@ -416,7 +424,6 @@ describe('interview lifecycle (FUT-487)', () => {
             interview_id,
             expected_version: 1,
             input: {
-              round: 'technical',
               scheduled_at: SOON,
               duration_minutes: 30,
               mode: 'online',
@@ -467,7 +474,6 @@ describe('interview lifecycle (FUT-487)', () => {
         await expect(
           scheduleInterview({
             application_id,
-            round: 'screening',
             scheduled_at: SOON,
             duration_minutes: 30,
             mode: 'online',
@@ -500,7 +506,6 @@ describe('interview lifecycle (FUT-487)', () => {
         const { application_id } = await addCandidate({ requisition_id, name: 'Cara', session });
         const { interview_id } = await scheduleInterview({
           application_id,
-          round: 'screening',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'online',
@@ -547,7 +552,6 @@ describe('interview lifecycle (FUT-487)', () => {
         });
         const r = await scheduleInterview({
           application_id,
-          round: 'technical',
           scheduled_at: SOON,
           duration_minutes: 30,
           mode: 'online',

@@ -21,12 +21,6 @@ import { buildCandidateScope } from './scope.ts';
 
 type Tx = Parameters<Parameters<typeof withEmit>[1]>[0];
 
-const ROUND_LABEL: Record<string, string> = {
-  screening: 'Screening',
-  technical: 'Technical',
-  culture_fit: 'Culture fit',
-  final: 'Final',
-};
 const RESULT_LABEL: Record<string, string> = { pass: 'Pass', hold: 'Hold', fail: 'Fail' };
 
 export interface InterviewPanelistRow {
@@ -41,7 +35,6 @@ export interface InterviewListRow {
   candidate_name: string;
   requisition_id: string;
   requisition_title: string;
-  round: string;
   scheduled_at: Date;
   duration_minutes: number;
   mode: string;
@@ -49,8 +42,6 @@ export interface InterviewListRow {
   note: string | null;
   status: string;
   result: string | null;
-  rating: number | null;
-  recommendation: string | null;
   feedback_note: string | null;
   outcome_reason: string | null;
   version: number;
@@ -114,7 +105,6 @@ export async function listInterviews(
       candidate_name: candidate.name,
       requisition_id: application.requisition_id,
       requisition_title: requisition.title,
-      round: interview.round,
       scheduled_at: interview.scheduled_at,
       duration_minutes: interview.duration_minutes,
       mode: interview.mode,
@@ -122,8 +112,6 @@ export async function listInterviews(
       note: interview.note,
       status: interview.status,
       result: interview.result,
-      rating: interview.rating,
-      recommendation: interview.recommendation,
       feedback_note: interview.feedback_note,
       outcome_reason: interview.outcome_reason,
       version: interview.version,
@@ -181,8 +169,6 @@ async function replacePanel(
   }
 }
 
-// AC1 (FUT-487): saved with status Scheduled and result Pending (result stays NULL until an
-// outcome is recorded) — only an active application's candidate can have a round scheduled.
 export async function scheduleInterview(
   input: ScheduleInterviewInput & { session: SessionScope },
 ): Promise<{ interview_id: string; version: number }> {
@@ -220,7 +206,6 @@ export async function scheduleInterview(
           tenant_id: session.tenant_id,
           application_id: input.application_id,
           candidate_id: candidateId,
-          round: input.round,
           scheduled_at: new Date(input.scheduled_at),
           duration_minutes: input.duration_minutes,
           mode: input.mode,
@@ -246,8 +231,8 @@ export async function scheduleInterview(
         candidate_id: candidateId,
         application_id: input.application_id,
         kind: 'interview_scheduled',
-        summary: `Interview scheduled — ${ROUND_LABEL[input.round] ?? input.round} round`,
-        detail: { interview_id: created.id, round: input.round, scheduled_at: input.scheduled_at },
+        summary: 'Interview scheduled',
+        detail: { interview_id: created.id, scheduled_at: input.scheduled_at },
       });
       await emit({
         tenantId: session.tenant_id,
@@ -294,7 +279,6 @@ export async function rescheduleInterview(input: {
       const updated = await tx
         .update(interview)
         .set({
-          round: input.input.round,
           scheduled_at: new Date(input.input.scheduled_at),
           duration_minutes: input.input.duration_minutes,
           mode: input.input.mode,
@@ -315,7 +299,7 @@ export async function rescheduleInterview(input: {
         candidate_id: cur.candidate_id,
         application_id: cur.application_id,
         kind: 'interview_rescheduled',
-        summary: `Interview rescheduled — ${ROUND_LABEL[input.input.round] ?? input.input.round} round`,
+        summary: 'Interview rescheduled',
         detail: { interview_id, scheduled_at: input.input.scheduled_at },
       });
       await emit({
@@ -331,8 +315,8 @@ export async function rescheduleInterview(input: {
   return { version: next };
 }
 
-// AC2/AC3 (FUT-487): status → Completed retains the outcome (result + rating/recommendation/
-// feedback) with a timestamped, actor-named audit entry. Also doubles as "edit outcome" — the
+// AC2/AC3 (FUT-487): status → Completed retains the outcome (result + feedback) with a
+// timestamped, actor-named audit entry. Also doubles as "edit outcome" — the
 // panel's feedback is allowed to be corrected after the fact, so an already-completed interview
 // may be recorded again; cancelled/no-show are terminal and may not.
 export async function completeInterview(input: {
@@ -359,8 +343,6 @@ export async function completeInterview(input: {
         .set({
           status: 'completed',
           result: input.input.result,
-          rating: input.input.rating ?? null,
-          recommendation: input.input.recommendation ?? null,
           feedback_note: input.input.feedback_note || null,
           version: next,
           updated_at: new Date(),
@@ -376,7 +358,7 @@ export async function completeInterview(input: {
         application_id: cur.application_id,
         kind: 'interview_completed',
         summary: `Interview ${wasAlreadyCompleted ? 'outcome updated' : 'completed'} — ${RESULT_LABEL[input.input.result] ?? input.input.result}`,
-        detail: { interview_id, result: input.input.result, rating: input.input.rating ?? null },
+        detail: { interview_id, result: input.input.result },
       });
       await emit({
         tenantId: session.tenant_id,
