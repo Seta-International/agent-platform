@@ -12,7 +12,7 @@ const PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 
 const fetchKpiRecordMock = vi.fn();
 const upsertKpiRecordMock = vi.fn();
-const setAppliedMetricMock = vi.fn();
+const setAppliedMetricsMock = vi.fn();
 const fetchAppliedMetricsMock = vi.fn();
 
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
@@ -21,7 +21,7 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
     ...actual,
     fetchKpiRecord: () => fetchKpiRecordMock(),
     upsertKpiRecord: (body: unknown) => upsertKpiRecordMock(body),
-    setAppliedMetric: (...args: unknown[]) => setAppliedMetricMock(...args),
+    setAppliedMetrics: (...args: unknown[]) => setAppliedMetricsMock(...args),
     fetchAppliedMetrics: (...args: unknown[]) => fetchAppliedMetricsMock(...args),
     fetchKpiNorm: () =>
       Promise.resolve({
@@ -179,7 +179,7 @@ describe('KpiConfigureDialog removing a metric, then reopening Manual KPI Input 
     vi.restoreAllMocks();
     fetchKpiRecordMock.mockReset();
     upsertKpiRecordMock.mockReset();
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
@@ -196,16 +196,20 @@ describe('KpiConfigureDialog removing a metric, then reopening Manual KPI Input 
       { metric_id: METRIC_ID, applied_count: 1, entered_count: 1, would_empty_count: 0 },
       { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
     ]);
-    setAppliedMetricMock.mockResolvedValue({});
+    setAppliedMetricsMock.mockResolvedValue({});
     const configure = renderConfigure(qc);
 
     const checkbox = await screen.findByRole('checkbox', { name: /Defect Leakage/ });
     await waitFor(() => expect(checkbox).toBeChecked());
     await user.click(checkbox);
     await screen.findByText(/Its 2026-W32 figures/i);
-    await user.click(screen.getByRole('button', { name: 'Turn off and delete' }));
+    await user.click(screen.getByRole('button', { name: 'Turn it off' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() =>
-      expect(setAppliedMetricMock).toHaveBeenCalledWith(METRIC_ID, false, [PROJECT_ID]),
+      expect(setAppliedMetricsMock).toHaveBeenCalledWith(
+        [{ metric_id: METRIC_ID, applied: false }],
+        [PROJECT_ID],
+      ),
     );
     configure.unmount();
 

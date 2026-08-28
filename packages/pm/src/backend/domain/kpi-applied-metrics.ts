@@ -145,11 +145,30 @@ export async function listAppliedMetrics(
   }));
 }
 
-export async function setAppliedMetric(
-  input: SetAppliedMetricInput & { metric_id: string; session: SessionScope },
-): Promise<{ metric_id: string; applied: boolean; project_ids: string[] }> {
-  const { metric_id, applied, project_ids, session } = input;
+/** One tick in Configure metrics: apply this metric to every selected project, or remove it
+ * from all of them. */
+export interface AppliedMetricChange {
+  metric_id: string;
+  applied: boolean;
+}
+
+/**
+ * Save a whole Configure metrics panel in one transaction (FUT-963). The dialog stages every
+ * tick and sends them together, so a refused change never leaves half the panel applied — and
+ * the "every area keeps at least one applied metric" rule is checked against the state the
+ * save lands on, which lets one save swap the last metric in an area for another one.
+ */
+export async function setAppliedMetrics(input: {
+  changes: AppliedMetricChange[];
+  project_ids: string[];
+  session: SessionScope;
+}): Promise<{ changes: AppliedMetricChange[]; project_ids: string[] }> {
+  const { changes, project_ids, session } = input;
   if (project_ids.length === 0) throw new PmError('VALIDATION', 'Select at least one project');
+  if (changes.length === 0) throw new PmError('VALIDATION', 'Select at least one metric to change');
+  const metric_ids = [...new Set(changes.map((c) => c.metric_id))];
+  if (metric_ids.length !== changes.length)
+    throw new PmError('VALIDATION', 'Each metric can only be changed once per save');
 
   // Same manage gate as Manual KPI input (assertProjectManageable) — PMO/BOD with tenant-wide
   // manage pass every check in one query; an EM/TL only manages projects they own.
@@ -157,53 +176,46 @@ export async function setAppliedMetric(
     await assertProjectManageable(project_id, session);
   }
 
-  const [metric] = await pmDb()
+  const metricRows = await pmDb()
     .select({
       id: kpiNormMetric.id,
       name: kpiNormMetric.name,
-      tier: kpiNormMetric.tier,
       category: kpiNormMetric.category,
     })
     .from(kpiNormMetric)
-    .where(and(eq(kpiNormMetric.id, metric_id), tenantScoped(kpiNormMetric.tenant_id, session)))
-    .limit(1);
-  if (!metric) throw new PmError('NOT_FOUND', `metric ${metric_id} not found`);
+    .where(
+      and(inArray(kpiNormMetric.id, metric_ids), tenantScoped(kpiNormMetric.tenant_id, session)),
+    );
+  const metricById = new Map(metricRows.map((m) => [m.id, m]));
+  const metricOf = (metric_id: string) => {
+    const metric = metricById.get(metric_id);
+    if (!metric) throw new PmError('NOT_FOUND', `metric ${metric_id} not found`);
+    return metric;
+  };
+  for (const id of metric_ids) metricOf(id);
+
+  const turningOn = changes.filter((c) => c.applied);
+  const turningOff = changes.filter((c) => !c.applied);
+  const turningOffIds = turningOff.map((c) => c.metric_id);
 
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      if (applied) {
-        await tx
-          .insert(kpiAppliedMetric)
-          .values(
-            project_ids.map((project_id) => ({
-              tenant_id: session.tenant_id,
-              project_id,
-              metric_id,
-              applied_by: session.user_id,
-            })),
-          )
-          .onConflictDoUpdate({
-            target: [
-              kpiAppliedMetric.tenant_id,
-              kpiAppliedMetric.project_id,
-              kpiAppliedMetric.metric_id,
-            ],
-            set: { applied_by: session.user_id },
-          });
-      } else {
-        const categoryMetricIds = (
-          await tx
-            .select({ id: kpiNormMetric.id })
-            .from(kpiNormMetric)
-            .where(
-              and(
-                tenantScoped(kpiNormMetric.tenant_id, session),
-                eq(kpiNormMetric.category, metric.category),
-              ),
-            )
-        ).map((r) => r.id);
+      const offCategories = [...new Set(turningOff.map((c) => metricOf(c.metric_id).category))];
+      if (offCategories.length > 0) {
+        const categoryRows = await tx
+          .select({ id: kpiNormMetric.id, category: kpiNormMetric.category })
+          .from(kpiNormMetric)
+          .where(
+            and(
+              tenantScoped(kpiNormMetric.tenant_id, session),
+              inArray(kpiNormMetric.category, offCategories),
+            ),
+          );
+        const categoryOfMetric = new Map(categoryRows.map((r) => [r.id, r.category]));
 
+        // FOR UPDATE serialises two saves racing to empty the same area — the loser re-reads
+        // the winner's committed rows before its own check runs.
         const inCategory = await tx
           .select({
             project_id: kpiAppliedMetric.project_id,
@@ -214,30 +226,45 @@ export async function setAppliedMetric(
             and(
               eq(kpiAppliedMetric.tenant_id, session.tenant_id),
               inArray(kpiAppliedMetric.project_id, project_ids),
-              inArray(kpiAppliedMetric.metric_id, categoryMetricIds),
+              inArray(kpiAppliedMetric.metric_id, [...categoryOfMetric.keys()]),
             ),
           )
           .for('update');
 
-        const projectsWithOther = new Set(
-          inCategory.filter((r) => r.metric_id !== metric_id).map((r) => r.project_id),
-        );
-        const projectsWithThis = new Set(
-          inCategory.filter((r) => r.metric_id === metric_id).map((r) => r.project_id),
-        );
-        const empty_project_ids = project_ids.filter(
-          (id) => projectsWithThis.has(id) && !projectsWithOther.has(id),
-        );
-        if (empty_project_ids.length > 0) {
-          const label = CATEGORY_LABEL[metric.category] ?? metric.category;
+        const appliedNow = new Map<string, Set<string>>();
+        for (const r of inCategory) {
+          const key = `${r.project_id}:${categoryOfMetric.get(r.metric_id)}`;
+          const set = appliedNow.get(key) ?? new Set<string>();
+          set.add(r.metric_id);
+          appliedNow.set(key, set);
+        }
+
+        for (const category of offCategories) {
+          const addedHere = turningOn
+            .filter((c) => metricOf(c.metric_id).category === category)
+            .map((c) => c.metric_id);
+          const empty_project_ids = project_ids.filter((project_id) => {
+            const before = appliedNow.get(`${project_id}:${category}`);
+            if (!before || before.size === 0) return false;
+            const after = new Set([...before, ...addedHere]);
+            for (const id of turningOffIds) after.delete(id);
+            return after.size === 0;
+          });
+          if (empty_project_ids.length === 0) continue;
+
+          const blocking = turningOff.filter((c) => metricOf(c.metric_id).category === category);
+          const names = blocking.map((c) => metricOf(c.metric_id).name);
+          const label = CATEGORY_LABEL[category] ?? category;
           throw new PmError(
             'VALIDATION',
-            `Cannot turn off ${metric.name} — it is the last ${label} metric applied to ${
+            `Cannot turn off ${names.join(' and ')} — ${
+              names.length > 1 ? 'they are the last' : 'it is the last'
+            } ${label} metric${names.length > 1 ? 's' : ''} applied to ${
               empty_project_ids.length > 1
                 ? `${empty_project_ids.length} of the selected projects`
                 : 'this project'
             }. Every area needs at least one applied metric.`,
-            { category: metric.category, empty_project_ids },
+            { category, empty_project_ids, metric_ids: blocking.map((c) => c.metric_id) },
           );
         }
 
@@ -247,19 +274,44 @@ export async function setAppliedMetric(
             and(
               eq(kpiAppliedMetric.tenant_id, session.tenant_id),
               inArray(kpiAppliedMetric.project_id, project_ids),
-              eq(kpiAppliedMetric.metric_id, metric_id),
+              inArray(kpiAppliedMetric.metric_id, turningOffIds),
             ),
           );
       }
+
+      if (turningOn.length > 0) {
+        await tx
+          .insert(kpiAppliedMetric)
+          .values(
+            turningOn.flatMap((c) =>
+              project_ids.map((project_id) => ({
+                tenant_id: session.tenant_id,
+                project_id,
+                metric_id: c.metric_id,
+                applied_by: session.user_id,
+              })),
+            ),
+          )
+          .onConflictDoUpdate({
+            target: [
+              kpiAppliedMetric.tenant_id,
+              kpiAppliedMetric.project_id,
+              kpiAppliedMetric.metric_id,
+            ],
+            set: { applied_by: session.user_id },
+          });
+      }
+
       const week = getCurrentIsoWeek();
       if (isWeekEditable(week.iso_year, week.iso_week)) {
-        if (applied) await stampBaselineWeek(tx, session, project_ids, week);
-        else {
+        for (const metric_id of turningOffIds) {
           await unstampBaselineWeek(tx, session, project_ids, metric_id, week);
+        }
+        if (turningOffIds.length > 0) {
           await tx.delete(kpiRecordEntry).where(
             and(
               eq(kpiRecordEntry.tenant_id, session.tenant_id),
-              eq(kpiRecordEntry.metric_id, metric_id),
+              inArray(kpiRecordEntry.metric_id, turningOffIds),
               inArray(
                 kpiRecordEntry.record_id,
                 tx
@@ -277,24 +329,38 @@ export async function setAppliedMetric(
             ),
           );
         }
+        // Runs last so the stamp copies the state the save landed on, not the state it started
+        // from — a metric removed above is no longer live and never gets re-frozen.
+        if (turningOn.length > 0) await stampBaselineWeek(tx, session, project_ids, week);
       }
-      await emit({
-        tenantId: session.tenant_id,
-        aggregateType: 'pm.kpi_applied_metric',
-        aggregateId: metric_id,
-        eventType: PM_KPI_APPLIED_METRIC_CHANGED,
-        eventVersion: 1,
-        payload: {
-          tenant_id: session.tenant_id,
-          metric_id,
-          metric_name: metric.name,
-          applied,
-          project_ids,
-          changed_by_user_id: session.user_id,
-        },
-      });
+
+      for (const c of changes) {
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'pm.kpi_applied_metric',
+          aggregateId: c.metric_id,
+          eventType: PM_KPI_APPLIED_METRIC_CHANGED,
+          eventVersion: 1,
+          payload: {
+            tenant_id: session.tenant_id,
+            metric_id: c.metric_id,
+            metric_name: metricOf(c.metric_id).name,
+            applied: c.applied,
+            project_ids,
+            changed_by_user_id: session.user_id,
+          },
+        });
+      }
     },
   );
 
+  return { changes, project_ids };
+}
+
+export async function setAppliedMetric(
+  input: SetAppliedMetricInput & { metric_id: string; session: SessionScope },
+): Promise<{ metric_id: string; applied: boolean; project_ids: string[] }> {
+  const { metric_id, applied, project_ids, session } = input;
+  await setAppliedMetrics({ changes: [{ metric_id, applied }], project_ids, session });
   return { metric_id, applied, project_ids };
 }

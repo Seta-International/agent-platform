@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
-import { kpiAppliedMetricsQuery, setAppliedMetricInput } from '../../contracts.ts';
-import { listAppliedMetrics, setAppliedMetric } from '../../index.ts';
+import { kpiAppliedMetricsQuery, setAppliedMetricsInput } from '../../contracts.ts';
+import { listAppliedMetrics, setAppliedMetrics } from '../../index.ts';
 
 export function registerPmKpiAppliedMetricsRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/pm/v1/kpi-applied-metrics', async (c) => {
@@ -15,16 +15,10 @@ export function registerPmKpiAppliedMetricsRoutes(app: Hono<SessionEnv>): void {
       coverage: await listAppliedMetrics(c.get('user'), project_ids ?? [], week),
     });
   });
-  app.put('/api/pm/v1/kpi-applied-metrics/:metricId', async (c) => {
-    const parsed = setAppliedMetricInput.safeParse(await c.req.json().catch(() => ({})));
+  app.put('/api/pm/v1/kpi-applied-metrics', async (c) => {
+    const parsed = setAppliedMetricsInput.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
-    return c.json(
-      await setAppliedMetric({
-        metric_id: c.req.param('metricId'),
-        ...parsed.data,
-        session: c.get('user'),
-      }),
-    );
+    return c.json(await setAppliedMetrics({ ...parsed.data, session: c.get('user') }));
   });
 }
