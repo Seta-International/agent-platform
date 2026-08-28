@@ -10,7 +10,7 @@ const DELIVERY_METRIC_ID = '55555555-5555-4555-8555-555555555555';
 const PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 const PROJECT_B_ID = '44444444-4444-4444-8444-444444444444';
 
-const setAppliedMetricMock = vi.fn();
+const setAppliedMetricsMock = vi.fn();
 const fetchAppliedMetricsMock = vi.fn();
 
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
@@ -84,7 +84,7 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
         ],
       }),
     fetchAppliedMetrics: (...args: unknown[]) => fetchAppliedMetricsMock(...args),
-    setAppliedMetric: (...args: unknown[]) => setAppliedMetricMock(...args),
+    setAppliedMetrics: (...args: unknown[]) => setAppliedMetricsMock(...args),
   };
 });
 
@@ -101,13 +101,14 @@ const project = (project_id: string, name: string) => ({
 function renderDialog(
   projects = [project(PROJECT_ID, 'Globex Subscriber Insights')],
   initialProjectId: string | null = PROJECT_ID,
+  onOpenChange: (open: boolean) => void = () => {},
 ) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <KpiConfigureDialog
         open
-        onOpenChange={() => {}}
+        onOpenChange={onOpenChange}
         projects={projects}
         initialProjectId={initialProjectId ?? undefined}
         currentWeek={{ iso_year: 2026, iso_week: 32 }}
@@ -121,12 +122,23 @@ async function uncheck(metricName: string) {
   const checkbox = await screen.findByRole('checkbox', { name: new RegExp(metricName) });
   await waitFor(() => expect(checkbox).toBeChecked());
   await user.click(checkbox);
+  return user;
 }
+
+const clickDone = async (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: 'Done' }));
+
+// useToast self-mounts its viewport on document.body, outside the React root RTL cleans up —
+// without this a success toast survives into the next test.
+afterEach(() => {
+  for (const el of Array.from(document.querySelectorAll('[data-astryx-toast-fallback]')))
+    el.remove();
+});
 
 describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
@@ -149,15 +161,19 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
       { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
       { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
     ]);
-    setAppliedMetricMock.mockResolvedValue({});
+    setAppliedMetricsMock.mockResolvedValue({});
     renderDialog();
 
-    await uncheck('Defect Leakage');
+    const user = await uncheck('Defect Leakage');
+    expect(screen.queryByText(/stop counting towards/i)).not.toBeInTheDocument();
+    await clickDone(user);
 
     await waitFor(() =>
-      expect(setAppliedMetricMock).toHaveBeenCalledWith(METRIC_ID, false, [PROJECT_ID]),
+      expect(setAppliedMetricsMock).toHaveBeenCalledWith(
+        [{ metric_id: METRIC_ID, applied: false }],
+        [PROJECT_ID],
+      ),
     );
-    expect(screen.queryByText(/stop counting towards/i)).not.toBeInTheDocument();
   });
 
   it('warns before saving when figures exist, naming the week and the flag', async () => {
@@ -165,17 +181,17 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
       { metric_id: METRIC_ID, applied_count: 1, entered_count: 1, would_empty_count: 0 },
       { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
     ]);
-    setAppliedMetricMock.mockResolvedValue({});
+    setAppliedMetricsMock.mockResolvedValue({});
     renderDialog();
 
     await uncheck('Defect Leakage');
 
     const warning = await screen.findByText(/Its 2026-W32 figures/i);
     expect(warning).toHaveTextContent(/Quality flag/i);
-    expect(warning).toHaveTextContent(/are deleted/i);
+    expect(warning).toHaveTextContent(/are deleted when you save/i);
     expect(warning).toHaveTextContent(/blank cell/i);
-    expect(screen.getByRole('button', { name: /turn off and delete/i })).toBeVisible();
-    expect(setAppliedMetricMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Turn it off' })).toBeVisible();
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
   });
 
   it('shows one dialog, not two, when the metric is the last one in its category', async () => {
@@ -189,7 +205,7 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
 
     expect(await screen.findByText("Can't turn this off")).toBeVisible();
     expect(screen.queryByText(/Its 2026-W32 figures/i)).not.toBeInTheDocument();
-    expect(setAppliedMetricMock).not.toHaveBeenCalled();
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
   });
 
   it('shows one dialog when un-applying empties the category in only some selected projects', async () => {
@@ -236,60 +252,210 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
 
     expect(await screen.findByText("Can't turn this off")).toBeVisible();
     expect(screen.queryByText(/stop counting towards/i)).not.toBeInTheDocument();
-    expect(setAppliedMetricMock).not.toHaveBeenCalled();
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
   });
 
-  it('locks the metric list until fresh coverage lands after a save', async () => {
-    let releaseRefetch: (() => void) | undefined;
-    fetchAppliedMetricsMock
-      .mockResolvedValueOnce([
-        { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
-        { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
-      ])
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            releaseRefetch = () =>
-              resolve([
-                { metric_id: METRIC_ID, applied_count: 0, entered_count: 0, would_empty_count: 0 },
-                {
-                  metric_id: OTHER_METRIC_ID,
-                  applied_count: 1,
-                  entered_count: 0,
-                  would_empty_count: 1,
-                },
-              ]);
-          }),
-      );
-    setAppliedMetricMock.mockResolvedValue({});
+  it('locks the metric list while the save is in flight', async () => {
+    let finishSave: (() => void) | undefined;
+    fetchAppliedMetricsMock.mockResolvedValue([
+      { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+      { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+    ]);
+    setAppliedMetricsMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishSave = () => resolve({});
+        }),
+    );
     renderDialog();
 
-    await uncheck('Defect Leakage');
-    await waitFor(() => expect(setAppliedMetricMock).toHaveBeenCalled());
+    const user = await uncheck('Defect Leakage');
+    await clickDone(user);
 
     const other = await screen.findByRole('checkbox', { name: /Reopened Defect Rate/ });
     await waitFor(() => expect(other).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
 
-    releaseRefetch?.();
+    finishSave?.();
     await waitFor(() => expect(other).toBeEnabled());
   });
 
-  it('only saves after the warning is confirmed', async () => {
-    const user = userEvent.setup();
+  it('only stages the change after the warning is confirmed', async () => {
     fetchAppliedMetricsMock.mockResolvedValue([
       { metric_id: METRIC_ID, applied_count: 1, entered_count: 1, would_empty_count: 0 },
       { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
     ]);
-    setAppliedMetricMock.mockResolvedValue({});
+    setAppliedMetricsMock.mockResolvedValue({});
+    renderDialog();
+
+    const user = await uncheck('Defect Leakage');
+    await screen.findByText(/Its 2026-W32 figures/i);
+    await user.click(screen.getByRole('button', { name: 'Turn it off' }));
+    await clickDone(user);
+
+    await waitFor(() =>
+      expect(setAppliedMetricsMock).toHaveBeenCalledWith(
+        [{ metric_id: METRIC_ID, applied: false }],
+        [PROJECT_ID],
+      ),
+    );
+  });
+});
+
+describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', () => {
+  const COVERAGE = [
+    { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+    { metric_id: OTHER_METRIC_ID, applied_count: 0, entered_count: 0, would_empty_count: 0 },
+    { metric_id: DELIVERY_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+  ];
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setAppliedMetricsMock.mockReset();
+    fetchAppliedMetricsMock.mockReset();
+  });
+
+  it('keeps a tick out of the server until Done is clicked', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
     renderDialog();
 
     await uncheck('Defect Leakage');
-    await screen.findByText(/Its 2026-W32 figures/i);
-    await user.click(screen.getByRole('button', { name: 'Turn off and delete' }));
+
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
+    expect(await screen.findByText('1 change not saved yet')).toBeVisible();
+  });
+
+  it('sends every staged tick in one save', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
+    setAppliedMetricsMock.mockResolvedValue({});
+    renderDialog();
+
+    const user = await uncheck('Defect Leakage');
+    await user.click(screen.getByRole('checkbox', { name: /Reopened Defect Rate/ }));
+    await screen.findByText('2 changes not saved yet');
+    await clickDone(user);
+
+    await waitFor(() => expect(setAppliedMetricsMock).toHaveBeenCalledTimes(1));
+    expect(setAppliedMetricsMock).toHaveBeenCalledWith(
+      [
+        { metric_id: METRIC_ID, applied: false },
+        { metric_id: OTHER_METRIC_ID, applied: true },
+      ],
+      [PROJECT_ID],
+    );
+  });
+
+  it('drops a tick that puts the metric back where it started', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
+    renderDialog();
+
+    const user = await uncheck('Defect Leakage');
+    await screen.findByText('1 change not saved yet');
+    await user.click(screen.getByRole('checkbox', { name: /Defect Leakage/ }));
 
     await waitFor(() =>
-      expect(setAppliedMetricMock).toHaveBeenCalledWith(METRIC_ID, false, [PROJECT_ID]),
+      expect(screen.queryByText('1 change not saved yet')).not.toBeInTheDocument(),
     );
+  });
+
+  it('closes and reports the save with a toast', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
+    setAppliedMetricsMock.mockResolvedValue({});
+    const onOpenChange = vi.fn();
+    renderDialog([project(PROJECT_ID, 'Globex Subscriber Insights')], PROJECT_ID, onOpenChange);
+
+    const user = await uncheck('Defect Leakage');
+    await clickDone(user);
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(
+      await screen.findByText('Metrics updated for Globex Subscriber Insights'),
+    ).toBeInTheDocument();
+  });
+
+  it('asks before throwing away unsaved ticks, and keeps them when told to', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
+    const onOpenChange = vi.fn();
+    renderDialog([project(PROJECT_ID, 'Globex Subscriber Insights')], PROJECT_ID, onOpenChange);
+
+    const user = await uncheck('Defect Leakage');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByText('Discard changes?')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+
+    await waitFor(() => expect(screen.getByText('Discard changes?')).not.toBeVisible());
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(await screen.findByText('1 change not saved yet')).toBeVisible();
+  });
+
+  it('closes without saving when the unsaved ticks are discarded', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
+    const onOpenChange = vi.fn();
+    renderDialog([project(PROJECT_ID, 'Globex Subscriber Insights')], PROJECT_ID, onOpenChange);
+
+    const user = await uncheck('Defect Leakage');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
+  });
+
+  it('closes straight away when nothing was ticked', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue(COVERAGE);
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog([project(PROJECT_ID, 'Globex Subscriber Insights')], PROJECT_ID, onOpenChange);
+
+    await screen.findByRole('checkbox', { name: /Defect Leakage/ });
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByText('Discard changes?')).not.toBeVisible();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('lets one save swap the last metric in an area for another', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue([
+      { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 1 },
+      { metric_id: OTHER_METRIC_ID, applied_count: 0, entered_count: 0, would_empty_count: 0 },
+      { metric_id: DELIVERY_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 1 },
+    ]);
+    setAppliedMetricsMock.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(await screen.findByRole('checkbox', { name: /Reopened Defect Rate/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Defect Leakage/ }));
+
+    expect(screen.getByText("Can't turn this off")).not.toBeVisible();
+    await clickDone(user);
+    await waitFor(() =>
+      expect(setAppliedMetricsMock).toHaveBeenCalledWith(
+        [
+          { metric_id: OTHER_METRIC_ID, applied: true },
+          { metric_id: METRIC_ID, applied: false },
+        ],
+        [PROJECT_ID],
+      ),
+    );
+  });
+
+  it('blocks the tick that empties an area across several staged changes', async () => {
+    fetchAppliedMetricsMock.mockResolvedValue([
+      { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+      { metric_id: OTHER_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+      { metric_id: DELIVERY_METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 1 },
+    ]);
+    renderDialog();
+
+    const user = await uncheck('Defect Leakage');
+    await user.click(screen.getByRole('checkbox', { name: /Reopened Defect Rate/ }));
+
+    expect(await screen.findByText("Can't turn this off")).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: /Reopened Defect Rate/ })).toBeChecked();
+    expect(screen.getByText('1 change not saved yet')).toBeVisible();
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
   });
 });
 
@@ -302,7 +468,7 @@ describe('KpiConfigureDialog — searching metrics', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
@@ -403,7 +569,7 @@ describe('KpiConfigureDialog — searching metrics', () => {
 describe('KpiConfigureDialog — applied roll-up', () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
@@ -440,14 +606,14 @@ describe('KpiConfigureDialog — applied roll-up', () => {
     fetchAppliedMetricsMock.mockReturnValue(new Promise(() => {}));
     renderDialog();
 
-    expect(await screen.findByText(/1 project · saves automatically/)).toBeVisible();
+    expect(await screen.findByText('1 project')).toBeVisible();
     expect(screen.queryByText(/overall/)).not.toBeInTheDocument();
   });
 });
 
 describe('KpiConfigureDialog — initial project', () => {
   afterEach(() => {
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
@@ -476,7 +642,7 @@ describe('KpiConfigureDialog — initial project', () => {
 
 describe('KpiConfigureDialog — no project to configure', () => {
   afterEach(() => {
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
@@ -496,7 +662,7 @@ describe('KpiConfigureDialog — Select all with a project filter', () => {
   ];
 
   afterEach(() => {
-    setAppliedMetricMock.mockReset();
+    setAppliedMetricsMock.mockReset();
     fetchAppliedMetricsMock.mockReset();
   });
 
