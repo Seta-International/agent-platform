@@ -76,10 +76,6 @@ export const CANDIDATE_EVENT_KINDS = [
 
 export const GENDERS = ['male', 'female', 'prefer_not_to_say'] as const;
 
-// FUT-487: a scheduled interview round, distinct from the application-pipeline `stage`
-// enum above (which merely has an 'interview' *phase*).
-export const INTERVIEW_ROUNDS = ['screening', 'technical', 'culture_fit', 'final'] as const;
-
 // Distinct from INTERVIEW_MODES (requisition.default_interview_mode) — a scheduled event
 // can't be 'either', only requisition-level defaults can.
 export const INTERVIEW_EVENT_MODES = ['online', 'onsite'] as const;
@@ -87,8 +83,6 @@ export const INTERVIEW_EVENT_MODES = ['online', 'onsite'] as const;
 export const INTERVIEW_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const;
 
 export const INTERVIEW_RESULTS = ['pass', 'hold', 'fail'] as const;
-
-export const INTERVIEW_RECOMMENDATIONS = ['hire', 'next_round', 'no_hire'] as const;
 
 export const requisition = hiringSchema.table(
   'requisition',
@@ -395,12 +389,6 @@ export const application = hiringSchema.table(
   ],
 );
 
-// FUT-487: a scheduled interview round against a specific application. candidate_id is
-// denormalized off application.candidate_id (same convention as candidate_event) so reads
-// don't always need the application join. result/rating/recommendation/feedback_note stay
-// NULL until an outcome is recorded (AC1: Scheduled/Pending on save); outcome_reason is the
-// cancellation/no-show note. Enforced by the domain layer (interviews.ts), not a DB check —
-// same trust boundary as application.rejection_reason_id above.
 export const interview = hiringSchema.table(
   'interview',
   {
@@ -412,7 +400,6 @@ export const interview = hiringSchema.table(
     candidate_id: uuid('candidate_id')
       .notNull()
       .references(() => candidate.id, { onDelete: 'cascade' }),
-    round: textEnum('round', INTERVIEW_ROUNDS).notNull(),
     scheduled_at: timestamp('scheduled_at', { withTimezone: true }).notNull(),
     duration_minutes: integer('duration_minutes').notNull().default(60),
     mode: textEnum('mode', INTERVIEW_EVENT_MODES).notNull(),
@@ -420,8 +407,6 @@ export const interview = hiringSchema.table(
     note: text('note'),
     status: textEnum('status', INTERVIEW_STATUSES).notNull().default('scheduled'),
     result: textEnum('result', INTERVIEW_RESULTS),
-    rating: integer('rating'),
-    recommendation: textEnum('recommendation', INTERVIEW_RECOMMENDATIONS),
     feedback_note: text('feedback_note'),
     outcome_reason: text('outcome_reason'),
     version: integer('version').default(1).notNull(),
@@ -432,13 +417,10 @@ export const interview = hiringSchema.table(
     index('interview_by_application').on(t.tenant_id, t.application_id),
     index('interview_by_candidate').on(t.tenant_id, t.candidate_id, t.scheduled_at),
     index('interview_by_status_scheduled_at').on(t.tenant_id, t.status, t.scheduled_at),
-    textEnumCheck('interview', 'round', INTERVIEW_ROUNDS),
     textEnumCheck('interview', 'mode', INTERVIEW_EVENT_MODES),
     textEnumCheck('interview', 'status', INTERVIEW_STATUSES),
     textEnumCheck('interview', 'result', INTERVIEW_RESULTS),
-    textEnumCheck('interview', 'recommendation', INTERVIEW_RECOMMENDATIONS),
     check('interview_duration_check', sql`duration_minutes > 0`),
-    check('interview_rating_check', sql`rating IS NULL OR rating BETWEEN 0 AND 5`),
   ],
 );
 

@@ -250,10 +250,8 @@ export const rejectionReasonInput = z.object({
 export type RejectionReasonInput = z.infer<typeof rejectionReasonInput>;
 
 // ---- Interviews (FUT-487) ----
-export const interviewRound = z.enum(['screening', 'technical', 'culture_fit', 'final']);
 export const interviewEventMode = z.enum(['online', 'onsite']);
 export const interviewResult = z.enum(['pass', 'hold', 'fail']);
-export const interviewRecommendation = z.enum(['hire', 'next_round', 'no_hire']);
 
 export const interviewPanelistInput = z.object({
   user_id: z.string().uuid(),
@@ -262,7 +260,6 @@ export const interviewPanelistInput = z.object({
 export type InterviewPanelistInput = z.infer<typeof interviewPanelistInput>;
 
 const interviewScheduleFields = {
-  round: interviewRound,
   scheduled_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
     message: 'scheduled_at must be a valid date',
   }),
@@ -284,8 +281,6 @@ export type RescheduleInterviewInput = z.infer<typeof rescheduleInterviewInput>;
 
 export const completeInterviewInput = z.object({
   result: interviewResult,
-  rating: z.number().int().min(0).max(5).optional(),
-  recommendation: interviewRecommendation.optional(),
   feedback_note: z.string().optional(),
 });
 export type CompleteInterviewInput = z.infer<typeof completeInterviewInput>;
