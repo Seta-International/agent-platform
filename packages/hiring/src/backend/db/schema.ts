@@ -64,9 +64,25 @@ export const CANDIDATE_EVENT_KINDS = [
   'note_changed',
   'skills_changed',
   'profile_changed',
+  // FUT-487: interview lifecycle audit trail (AC3) — reuses this feed rather than a
+  // dedicated interview_event table, so interview activity also surfaces on the
+  // candidate's existing Activity Timeline.
+  'interview_scheduled',
+  'interview_rescheduled',
+  'interview_completed',
+  'interview_cancelled',
+  'interview_no_show',
 ] as const;
 
 export const GENDERS = ['male', 'female', 'prefer_not_to_say'] as const;
+
+// Distinct from INTERVIEW_MODES (requisition.default_interview_mode) — a scheduled event
+// can't be 'either', only requisition-level defaults can.
+export const INTERVIEW_EVENT_MODES = ['online', 'onsite'] as const;
+
+export const INTERVIEW_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const;
+
+export const INTERVIEW_RESULTS = ['pass', 'hold', 'fail'] as const;
 
 export const requisition = hiringSchema.table(
   'requisition',
@@ -370,6 +386,62 @@ export const application = hiringSchema.table(
       'application_one_subject_check',
       sql`((candidate_id IS NOT NULL) <> (person_id IS NOT NULL)) OR (status = 'hired' AND candidate_id IS NOT NULL AND person_id IS NOT NULL)`,
     ),
+  ],
+);
+
+export const interview = hiringSchema.table(
+  'interview',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    application_id: uuid('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    candidate_id: uuid('candidate_id')
+      .notNull()
+      .references(() => candidate.id, { onDelete: 'cascade' }),
+    scheduled_at: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+    duration_minutes: integer('duration_minutes').notNull().default(60),
+    mode: textEnum('mode', INTERVIEW_EVENT_MODES).notNull(),
+    meeting_link: text('meeting_link'),
+    note: text('note'),
+    status: textEnum('status', INTERVIEW_STATUSES).notNull().default('scheduled'),
+    result: textEnum('result', INTERVIEW_RESULTS),
+    feedback_note: text('feedback_note'),
+    outcome_reason: text('outcome_reason'),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('interview_by_application').on(t.tenant_id, t.application_id),
+    index('interview_by_candidate').on(t.tenant_id, t.candidate_id, t.scheduled_at),
+    index('interview_by_status_scheduled_at').on(t.tenant_id, t.status, t.scheduled_at),
+    textEnumCheck('interview', 'mode', INTERVIEW_EVENT_MODES),
+    textEnumCheck('interview', 'status', INTERVIEW_STATUSES),
+    textEnumCheck('interview', 'result', INTERVIEW_RESULTS),
+    check('interview_duration_check', sql`duration_minutes > 0`),
+  ],
+);
+
+// Interview panel membership — same denormalized-name junction pattern as candidateSkill /
+// requisitionSkill (identity.user, no cross-schema FK). Rows are replaced wholesale on
+// reschedule (see scheduleInterview/rescheduleInterview), never edited in place, so — like
+// candidate_event — there's no updated_at/touch trigger, just RLS.
+export const interviewPanelist = hiringSchema.table(
+  'interview_panelist',
+  {
+    tenant_id: uuid('tenant_id').notNull(),
+    interview_id: uuid('interview_id')
+      .notNull()
+      .references(() => interview.id, { onDelete: 'cascade' }),
+    user_id: uuid('user_id').notNull(), // identity.user (no cross-schema FK)
+    display_name: text('display_name').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tenant_id, t.interview_id, t.user_id] }),
+    index('interview_panelist_by_user').on(t.tenant_id, t.user_id),
   ],
 );
 

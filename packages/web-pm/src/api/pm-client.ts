@@ -872,13 +872,13 @@ export interface KpiExplorerResult {
 export async function fetchKpiExplorer(params: {
   iso_year: number;
   iso_week: number;
-  account_id?: string;
+  account_ids?: string[];
   project_id?: string;
 }): Promise<KpiExplorerResult> {
   const sp = new URLSearchParams();
   sp.set('iso_year', String(params.iso_year));
   sp.set('iso_week', String(params.iso_week));
-  if (params.account_id) sp.set('account_id', params.account_id);
+  if (params.account_ids?.length) sp.set('account_ids', params.account_ids.join(','));
   if (params.project_id) sp.set('project_id', params.project_id);
   const res = await fetch(`/api/pm/v1/kpi-explorer?${sp.toString()}`, { credentials: 'include' });
   return handleResponse<KpiExplorerResult>(res);

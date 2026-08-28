@@ -20,4 +20,7 @@ export const hiringKeys = {
   // id→name resolution for timeline attribution; keyed by the sorted id set.
   actorNames: (ids: string[]) => [...hiringKeys.all, 'actor-names', ...ids] as const,
   projects: (accountId?: string) => [...hiringKeys.all, 'projects', accountId ?? null] as const,
+  interviews: (q = '') => [...hiringKeys.all, 'interviews', q] as const,
+  // Name-search page for the interview panel picker (FUT-487).
+  directoryUsers: (search = '') => [...hiringKeys.all, 'directory-users', search] as const,
 };

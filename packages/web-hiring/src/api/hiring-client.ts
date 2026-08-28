@@ -700,6 +700,102 @@ export async function putCvToS3(uploadUrl: string, file: File): Promise<void> {
   if (!res.ok) throw new Error(`CV upload failed: HTTP ${res.status}`);
 }
 
+// ---- Interviews (FUT-487) ----
+export type InterviewEventMode = 'online' | 'onsite';
+export type InterviewLifecycleStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+export type InterviewResult = 'pass' | 'hold' | 'fail';
+
+export interface InterviewPanelistRow {
+  user_id: string;
+  display_name: string;
+}
+
+export interface InterviewRow {
+  id: string;
+  application_id: string;
+  candidate_id: string;
+  candidate_name: string;
+  requisition_id: string;
+  requisition_title: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  mode: InterviewEventMode;
+  meeting_link: string | null;
+  note: string | null;
+  status: InterviewLifecycleStatus;
+  result: InterviewResult | null;
+  feedback_note: string | null;
+  outcome_reason: string | null;
+  version: number;
+  panel: InterviewPanelistRow[];
+}
+
+export async function fetchInterviews(q?: string): Promise<InterviewRow[]> {
+  const res = await fetch(withQ('/api/hiring/v1/interviews', q), { credentials: 'include' });
+  return (await handleResponse<{ interviews: InterviewRow[] }>(res)).interviews;
+}
+
+export interface ScheduleInterviewPayload {
+  application_id: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  mode: InterviewEventMode;
+  meeting_link?: string;
+  note?: string;
+  panel: { user_id: string; display_name: string }[];
+}
+export async function scheduleInterview(
+  input: ScheduleInterviewPayload,
+): Promise<{ interview_id: string; version: number }> {
+  return handleResponse(await fetch('/api/hiring/v1/interviews', json('POST', input)));
+}
+
+export interface RescheduleInterviewPayload {
+  scheduled_at: string;
+  duration_minutes: number;
+  mode: InterviewEventMode;
+  meeting_link?: string;
+  note?: string;
+  panel: { user_id: string; display_name: string }[];
+}
+export async function rescheduleInterview(
+  id: string,
+  input: { expected_version?: number; input: RescheduleInterviewPayload },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/interviews/${id}/reschedule`, json('POST', input)),
+  );
+}
+
+export interface CompleteInterviewPayload {
+  result: InterviewResult;
+  feedback_note?: string;
+}
+export async function completeInterview(
+  id: string,
+  input: { expected_version?: number; input: CompleteInterviewPayload },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/interviews/${id}/complete`, json('POST', input)),
+  );
+}
+
+export async function cancelInterview(
+  id: string,
+  input: { expected_version?: number; input: { outcome_reason?: string } },
+): Promise<{ version: number }> {
+  return handleResponse(await fetch(`/api/hiring/v1/interviews/${id}/cancel`, json('POST', input)));
+}
+
+export async function markInterviewNoShow(
+  id: string,
+  input: { expected_version?: number; input: { outcome_reason?: string } },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/interviews/${id}/no-show`, json('POST', input)),
+  );
+}
+
 export async function applyInternalRequisition(
   requisitionId: string,
   note?: string,
