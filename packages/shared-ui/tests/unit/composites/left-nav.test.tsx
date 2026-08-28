@@ -57,4 +57,24 @@ describe('LeftNav (single active app)', () => {
     expect(screen.getByText('Pinned')).toBeInTheDocument();
     expect(screen.getByText('My board')).toBeInTheDocument();
   });
+
+  it('lets an explicitly selected dynamic item win over the prefix-matched activeItemId', () => {
+    // activeItemId is a longest-prefix match over static items, so an app-root item
+    // ('/planner') matches every page in the app. Without deferring to the dynamic
+    // item's own isSelected, both would render selected at once.
+    const app: AppManifest = {
+      ...PLANNER,
+      useNavExtensions: () => [
+        {
+          label: 'Pinned',
+          items: [
+            { id: 'planner.pinned', label: 'My board', to: '/planner/p/1', isSelected: true },
+          ],
+        },
+      ],
+    };
+    render(<LeftNav app={app} activeItemId="planner.boards" />);
+    const selected = screen.getAllByRole('link').filter((a) => a.dataset.selected);
+    expect(selected.map((a) => a.textContent)).toEqual(['My board']);
+  });
 });

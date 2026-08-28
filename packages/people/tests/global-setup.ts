@@ -20,9 +20,11 @@ export default async function (): Promise<() => Promise<void>> {
       modules: [
         { name: 'core', dir: resolve(__dirname, '../../core/drizzle/migrations') },
         { name: 'identity', dir: resolve(__dirname, '../../identity/drizzle') },
-        { name: 'people', dir: resolve(__dirname, '../drizzle/migrations') },
-        // people's AM row-scope + org/allocation surfaces read pm.account (see backend/domain).
+        // pm precedes people: migrations run strictly in this order, and people's 0017
+        // backfill reads pm.allocation/pm.project. No pm migration reads people.*, so
+        // the swap is safe. (FUT-739 added 0017 without moving pm up, which broke setup.)
         { name: 'pm', dir: resolve(__dirname, '../../pm/drizzle/migrations') },
+        { name: 'people', dir: resolve(__dirname, '../drizzle/migrations') },
       ],
     });
   } finally {

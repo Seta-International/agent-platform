@@ -63,12 +63,13 @@ import { Route as HiringRequisitionsRequisitionIdRouteImport } from './../../../
 import { Route as HiringSettingsIndexRouteImport } from './../../../packages/web-hiring/src/routes/settings/index'
 import { Route as PeopleEmployeesIndexRouteImport } from './../../../packages/web-people/src/routes/employees/index'
 import { Route as PeopleEmployeesWorkerIdRouteImport } from './../../../packages/web-people/src/routes/employees/$workerId'
+import { Route as PeopleMoraleIndexRouteImport } from './../../../packages/web-people/src/routes/morale/index'
+import { Route as PeopleMoraleHistoryRouteImport } from './../../../packages/web-people/src/routes/morale/history'
 import { Route as PeoplePerformanceIndexRouteImport } from './../../../packages/web-people/src/routes/performance/index'
 import { Route as PeoplePerformanceAuditRouteImport } from './../../../packages/web-people/src/routes/performance/audit'
 import { Route as PeoplePerformanceConfigurationRouteImport } from './../../../packages/web-people/src/routes/performance/configuration'
 import { Route as PeoplePerformanceCycleRouteImport } from './../../../packages/web-people/src/routes/performance/cycle'
 import { Route as PeoplePerformanceHistoryRouteImport } from './../../../packages/web-people/src/routes/performance/history'
-import { Route as PeoplePerformanceMoraleRouteImport } from './../../../packages/web-people/src/routes/performance/morale'
 import { Route as PeoplePerformanceScoringRouteImport } from './../../../packages/web-people/src/routes/performance/scoring'
 import { Route as PeoplePerformanceSelfAssessmentRouteImport } from './../../../packages/web-people/src/routes/performance/self-assessment'
 import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
@@ -365,6 +366,16 @@ const PeopleEmployeesWorkerIdRoute = PeopleEmployeesWorkerIdRouteImport.update({
   path: '/employees/$workerId',
   getParentRoute: () => PeopleRouteRoute,
 } as any)
+const PeopleMoraleIndexRoute = PeopleMoraleIndexRouteImport.update({
+  id: '/morale/',
+  path: '/morale/',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleMoraleHistoryRoute = PeopleMoraleHistoryRouteImport.update({
+  id: '/morale/history',
+  path: '/morale/history',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
 const PeoplePerformanceIndexRoute = PeoplePerformanceIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -392,11 +403,6 @@ const PeoplePerformanceHistoryRoute =
     path: '/history',
     getParentRoute: () => PeoplePerformanceRouteRoute,
   } as any)
-const PeoplePerformanceMoraleRoute = PeoplePerformanceMoraleRouteImport.update({
-  id: '/morale',
-  path: '/morale',
-  getParentRoute: () => PeoplePerformanceRouteRoute,
-} as any)
 const PeoplePerformanceScoringRoute =
   PeoplePerformanceScoringRouteImport.update({
     id: '/scoring',
@@ -539,11 +545,11 @@ export interface FileRoutesByFullPath {
   '/pm/': typeof PmIndexRoute
   '/hiring/requisitions/$requisitionId': typeof HiringRequisitionsRequisitionIdRoute
   '/people/employees/$workerId': typeof PeopleEmployeesWorkerIdRoute
+  '/people/morale/history': typeof PeopleMoraleHistoryRoute
   '/people/performance/audit': typeof PeoplePerformanceAuditRoute
   '/people/performance/configuration': typeof PeoplePerformanceConfigurationRoute
   '/people/performance/cycle': typeof PeoplePerformanceCycleRoute
   '/people/performance/history': typeof PeoplePerformanceHistoryRoute
-  '/people/performance/morale': typeof PeoplePerformanceMoraleRoute
   '/people/performance/scoring': typeof PeoplePerformanceScoringRoute
   '/people/performance/self-assessment': typeof PeoplePerformanceSelfAssessmentRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
@@ -559,6 +565,7 @@ export interface FileRoutesByFullPath {
   '/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
   '/hiring/settings/': typeof HiringSettingsIndexRoute
   '/people/employees/': typeof PeopleEmployeesIndexRoute
+  '/people/morale/': typeof PeopleMoraleIndexRoute
   '/people/performance/': typeof PeoplePerformanceIndexRoute
   '/pm/accounts/': typeof PmAccountsIndexRoute
   '/pm/metrics/': typeof PmMetricsIndexRoute
@@ -610,11 +617,11 @@ export interface FileRoutesByTo {
   '/pm': typeof PmIndexRoute
   '/hiring/requisitions/$requisitionId': typeof HiringRequisitionsRequisitionIdRoute
   '/people/employees/$workerId': typeof PeopleEmployeesWorkerIdRoute
+  '/people/morale/history': typeof PeopleMoraleHistoryRoute
   '/people/performance/audit': typeof PeoplePerformanceAuditRoute
   '/people/performance/configuration': typeof PeoplePerformanceConfigurationRoute
   '/people/performance/cycle': typeof PeoplePerformanceCycleRoute
   '/people/performance/history': typeof PeoplePerformanceHistoryRoute
-  '/people/performance/morale': typeof PeoplePerformanceMoraleRoute
   '/people/performance/scoring': typeof PeoplePerformanceScoringRoute
   '/people/performance/self-assessment': typeof PeoplePerformanceSelfAssessmentRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
@@ -630,6 +637,7 @@ export interface FileRoutesByTo {
   '/hiring/requisitions': typeof HiringRequisitionsIndexRoute
   '/hiring/settings': typeof HiringSettingsIndexRoute
   '/people/employees': typeof PeopleEmployeesIndexRoute
+  '/people/morale': typeof PeopleMoraleIndexRoute
   '/people/performance': typeof PeoplePerformanceIndexRoute
   '/pm/accounts': typeof PmAccountsIndexRoute
   '/pm/metrics': typeof PmMetricsIndexRoute
@@ -691,11 +699,11 @@ export interface FileRoutesById {
   '/_authed/pm/': typeof PmIndexRoute
   '/_authed/hiring/requisitions/$requisitionId': typeof HiringRequisitionsRequisitionIdRoute
   '/_authed/people/employees/$workerId': typeof PeopleEmployeesWorkerIdRoute
+  '/_authed/people/morale/history': typeof PeopleMoraleHistoryRoute
   '/_authed/people/performance/audit': typeof PeoplePerformanceAuditRoute
   '/_authed/people/performance/configuration': typeof PeoplePerformanceConfigurationRoute
   '/_authed/people/performance/cycle': typeof PeoplePerformanceCycleRoute
   '/_authed/people/performance/history': typeof PeoplePerformanceHistoryRoute
-  '/_authed/people/performance/morale': typeof PeoplePerformanceMoraleRoute
   '/_authed/people/performance/scoring': typeof PeoplePerformanceScoringRoute
   '/_authed/people/performance/self-assessment': typeof PeoplePerformanceSelfAssessmentRoute
   '/_authed/planner/groups_/$groupId': typeof PlannerGroupsGroupIdRoute
@@ -711,6 +719,7 @@ export interface FileRoutesById {
   '/_authed/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
   '/_authed/hiring/settings/': typeof HiringSettingsIndexRoute
   '/_authed/people/employees/': typeof PeopleEmployeesIndexRoute
+  '/_authed/people/morale/': typeof PeopleMoraleIndexRoute
   '/_authed/people/performance/': typeof PeoplePerformanceIndexRoute
   '/_authed/pm/accounts/': typeof PmAccountsIndexRoute
   '/_authed/pm/metrics/': typeof PmMetricsIndexRoute
@@ -772,11 +781,11 @@ export interface FileRouteTypes {
     | '/pm/'
     | '/hiring/requisitions/$requisitionId'
     | '/people/employees/$workerId'
+    | '/people/morale/history'
     | '/people/performance/audit'
     | '/people/performance/configuration'
     | '/people/performance/cycle'
     | '/people/performance/history'
-    | '/people/performance/morale'
     | '/people/performance/scoring'
     | '/people/performance/self-assessment'
     | '/planner/groups/$groupId'
@@ -792,6 +801,7 @@ export interface FileRouteTypes {
     | '/hiring/requisitions/'
     | '/hiring/settings/'
     | '/people/employees/'
+    | '/people/morale/'
     | '/people/performance/'
     | '/pm/accounts/'
     | '/pm/metrics/'
@@ -843,11 +853,11 @@ export interface FileRouteTypes {
     | '/pm'
     | '/hiring/requisitions/$requisitionId'
     | '/people/employees/$workerId'
+    | '/people/morale/history'
     | '/people/performance/audit'
     | '/people/performance/configuration'
     | '/people/performance/cycle'
     | '/people/performance/history'
-    | '/people/performance/morale'
     | '/people/performance/scoring'
     | '/people/performance/self-assessment'
     | '/planner/groups/$groupId'
@@ -863,6 +873,7 @@ export interface FileRouteTypes {
     | '/hiring/requisitions'
     | '/hiring/settings'
     | '/people/employees'
+    | '/people/morale'
     | '/people/performance'
     | '/pm/accounts'
     | '/pm/metrics'
@@ -923,11 +934,11 @@ export interface FileRouteTypes {
     | '/_authed/pm/'
     | '/_authed/hiring/requisitions/$requisitionId'
     | '/_authed/people/employees/$workerId'
+    | '/_authed/people/morale/history'
     | '/_authed/people/performance/audit'
     | '/_authed/people/performance/configuration'
     | '/_authed/people/performance/cycle'
     | '/_authed/people/performance/history'
-    | '/_authed/people/performance/morale'
     | '/_authed/people/performance/scoring'
     | '/_authed/people/performance/self-assessment'
     | '/_authed/planner/groups_/$groupId'
@@ -943,6 +954,7 @@ export interface FileRouteTypes {
     | '/_authed/hiring/requisitions/'
     | '/_authed/hiring/settings/'
     | '/_authed/people/employees/'
+    | '/_authed/people/morale/'
     | '/_authed/people/performance/'
     | '/_authed/pm/accounts/'
     | '/_authed/pm/metrics/'
@@ -1342,6 +1354,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeopleEmployeesWorkerIdRouteImport
       parentRoute: typeof PeopleRouteRoute
     }
+    '/_authed/people/morale/': {
+      id: '/_authed/people/morale/'
+      path: '/morale'
+      fullPath: '/people/morale/'
+      preLoaderRoute: typeof PeopleMoraleIndexRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/people/morale/history': {
+      id: '/_authed/people/morale/history'
+      path: '/morale/history'
+      fullPath: '/people/morale/history'
+      preLoaderRoute: typeof PeopleMoraleHistoryRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
     '/_authed/people/performance/': {
       id: '/_authed/people/performance/'
       path: '/'
@@ -1375,13 +1401,6 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/people/performance/history'
       preLoaderRoute: typeof PeoplePerformanceHistoryRouteImport
-      parentRoute: typeof PeoplePerformanceRouteRoute
-    }
-    '/_authed/people/performance/morale': {
-      id: '/_authed/people/performance/morale'
-      path: '/morale'
-      fullPath: '/people/performance/morale'
-      preLoaderRoute: typeof PeoplePerformanceMoraleRouteImport
       parentRoute: typeof PeoplePerformanceRouteRoute
     }
     '/_authed/people/performance/scoring': {
@@ -1605,7 +1624,6 @@ interface PeoplePerformanceRouteRouteChildren {
   PeoplePerformanceConfigurationRoute: typeof PeoplePerformanceConfigurationRoute
   PeoplePerformanceCycleRoute: typeof PeoplePerformanceCycleRoute
   PeoplePerformanceHistoryRoute: typeof PeoplePerformanceHistoryRoute
-  PeoplePerformanceMoraleRoute: typeof PeoplePerformanceMoraleRoute
   PeoplePerformanceScoringRoute: typeof PeoplePerformanceScoringRoute
   PeoplePerformanceSelfAssessmentRoute: typeof PeoplePerformanceSelfAssessmentRoute
   PeoplePerformanceIndexRoute: typeof PeoplePerformanceIndexRoute
@@ -1617,7 +1635,6 @@ const PeoplePerformanceRouteRouteChildren: PeoplePerformanceRouteRouteChildren =
     PeoplePerformanceConfigurationRoute: PeoplePerformanceConfigurationRoute,
     PeoplePerformanceCycleRoute: PeoplePerformanceCycleRoute,
     PeoplePerformanceHistoryRoute: PeoplePerformanceHistoryRoute,
-    PeoplePerformanceMoraleRoute: PeoplePerformanceMoraleRoute,
     PeoplePerformanceScoringRoute: PeoplePerformanceScoringRoute,
     PeoplePerformanceSelfAssessmentRoute: PeoplePerformanceSelfAssessmentRoute,
     PeoplePerformanceIndexRoute: PeoplePerformanceIndexRoute,
@@ -1637,7 +1654,9 @@ interface PeopleRouteRouteChildren {
   PeopleProbationRoute: typeof PeopleProbationRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
   PeopleEmployeesWorkerIdRoute: typeof PeopleEmployeesWorkerIdRoute
+  PeopleMoraleHistoryRoute: typeof PeopleMoraleHistoryRoute
   PeopleEmployeesIndexRoute: typeof PeopleEmployeesIndexRoute
+  PeopleMoraleIndexRoute: typeof PeopleMoraleIndexRoute
 }
 
 const PeopleRouteRouteChildren: PeopleRouteRouteChildren = {
@@ -1649,7 +1668,9 @@ const PeopleRouteRouteChildren: PeopleRouteRouteChildren = {
   PeopleProbationRoute: PeopleProbationRoute,
   PeopleIndexRoute: PeopleIndexRoute,
   PeopleEmployeesWorkerIdRoute: PeopleEmployeesWorkerIdRoute,
+  PeopleMoraleHistoryRoute: PeopleMoraleHistoryRoute,
   PeopleEmployeesIndexRoute: PeopleEmployeesIndexRoute,
+  PeopleMoraleIndexRoute: PeopleMoraleIndexRoute,
 }
 
 const PeopleRouteRouteWithChildren = PeopleRouteRoute._addFileChildren(

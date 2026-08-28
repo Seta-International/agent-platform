@@ -82,6 +82,18 @@ function toSideNavItem(
 }
 
 /**
+ * Does any item in the tree explicitly claim selection?
+ *
+ * `activeItemId` is resolved by longest-prefix match over *static* nav items, so an
+ * app-root item (People's "/people") prefix-matches every page in that app. A dynamic
+ * item that knows its own route is exact knowledge; the prefix match is only a guess.
+ * When the two disagree the guess has to yield, or both items light up at once.
+ */
+function hasExplicitSelection(items: readonly NavItem[]): boolean {
+  return items.some((i) => i.isSelected === true || hasExplicitSelection(i.children ?? []));
+}
+
+/**
  * Converts an app's nav sections into Astryx SideNav's section/item tree.
  * Sections with zero visible items are dropped.
  */
@@ -90,6 +102,9 @@ export function toSideNavSections(
   activeItemId: string | undefined,
   Link: ShellLinkComponent,
 ): ReactNode {
+  const resolvedActiveId = sections.some((s) => hasExplicitSelection(s.items))
+    ? undefined
+    : activeItemId;
   return sections
     .filter((section) => section.items.length > 0)
     .map((section, i) => (
@@ -98,7 +113,7 @@ export function toSideNavSections(
         title={section.label ?? 'Navigation'}
         isHeaderHidden={!section.label}
       >
-        {section.items.map((item) => toSideNavItem(item, activeItemId, Link))}
+        {section.items.map((item) => toSideNavItem(item, resolvedActiveId, Link))}
       </SideNavSection>
     ));
 }
