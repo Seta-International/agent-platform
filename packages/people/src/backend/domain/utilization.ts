@@ -84,9 +84,12 @@ export async function getUtilizationByPerson(
   const month = asOfMon ? asOfMon - 1 : new Date().getUTCMonth();
   const mStart = new Date(Date.UTC(year, month, 1));
   const mEnd = new Date(Date.UTC(year, month + 1, 0));
-  const mStartStr = mStart.toISOString().slice(0, 10);
-  const mEndStr = mEnd.toISOString().slice(0, 10);
   const mWorkingDays = workingDays(mStart, mEnd);
+
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const yearEnd = new Date(Date.UTC(year, 11, 31));
+  const yearStartStr = yearStart.toISOString().slice(0, 10);
+  const yearEndStr = yearEnd.toISOString().slice(0, 10);
 
   const scope = await buildWorkerScope(session);
   const rowScope = query.crossProject ? null : await buildAllocationRowScope(session);
@@ -96,8 +99,8 @@ export async function getUtilizationByPerson(
     eq(workerAllocationProjection.active, true),
     isNotNull(workerAllocationProjection.person_id),
     isNotNull(workerAllocationProjection.planned_pct),
-    sql`(${workerAllocationProjection.date_from} IS NULL OR ${workerAllocationProjection.date_from} <= ${mEndStr})`,
-    sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${mStartStr})`,
+    sql`(${workerAllocationProjection.date_from} IS NULL OR ${workerAllocationProjection.date_from} <= ${yearEndStr})`,
+    sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${yearStartStr})`,
   ];
   if (scope) where.push(scope);
   if (rowScope) where.push(rowScope);
@@ -162,7 +165,7 @@ export async function getUtilizationByPerson(
     return true;
   };
 
-  const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket);
+  const hasSpecificFilter = Boolean(query.accountId || query.projectId || query.bucket || rowScope);
 
   // Calculate true overall month effort per worker across ALL their projects in scope
   const overallByWorker = new Map<string, number>();
@@ -199,7 +202,35 @@ export async function getUtilizationByPerson(
     }
   >();
 
-  if (!hasSpecificFilter) {
+  let filteredRawForUtil: RawRow[];
+  if (query.crossProject) {
+    const matchingWorkerIds = new Set<string>();
+    for (const r of raw) {
+      if (workerMatchesStatus(r.worker_id) && rawMatches(r)) {
+        matchingWorkerIds.add(r.worker_id);
+      }
+    }
+    filteredRawForUtil = raw.filter(
+      (r) => matchingWorkerIds.has(r.worker_id) && workerMatchesStatus(r.worker_id),
+    );
+  } else {
+    filteredRawForUtil = raw.filter((r) => workerMatchesStatus(r.worker_id) && rawMatches(r));
+  }
+
+  if (hasSpecificFilter) {
+    for (const r of filteredRawForUtil) {
+      if (!byWorker.has(r.worker_id)) {
+        byWorker.set(r.worker_id, {
+          worker_id: r.worker_id,
+          employee_no: r.employee_no,
+          full_name: r.full_name ?? '',
+          segmentMap: new Map(),
+          total_pct: 0,
+          split: { billable: 0, internal: 0, bench: 0 },
+        });
+      }
+    }
+  } else {
     for (const p of visiblePersons) {
       if (!workerMatchesStatus(p.worker_id)) continue;
       if (
@@ -221,21 +252,6 @@ export async function getUtilizationByPerson(
     }
   }
 
-  let filteredRawForUtil: RawRow[];
-  if (query.crossProject) {
-    const matchingWorkerIds = new Set<string>();
-    for (const r of raw) {
-      if (workerMatchesStatus(r.worker_id) && rawMatches(r)) {
-        matchingWorkerIds.add(r.worker_id);
-      }
-    }
-    filteredRawForUtil = raw.filter(
-      (r) => matchingWorkerIds.has(r.worker_id) && workerMatchesStatus(r.worker_id),
-    );
-  } else {
-    filteredRawForUtil = raw.filter((r) => workerMatchesStatus(r.worker_id) && rawMatches(r));
-  }
-
   for (const r of filteredRawForUtil) {
     const pct = r.planned_pct == null ? 0 : Number(r.planned_pct);
     const from = r.date_from ? new Date(`${r.date_from}T00:00:00Z`) : mStart;
@@ -246,22 +262,8 @@ export async function getUtilizationByPerson(
     const effortPct = Math.round(pct * frac * 100) / 100;
     if (effortPct <= 0) continue;
 
-    let row = byWorker.get(r.worker_id);
-    if (!row) {
-      if (hasSpecificFilter) {
-        row = {
-          worker_id: r.worker_id,
-          employee_no: r.employee_no,
-          full_name: r.full_name ?? '',
-          segmentMap: new Map(),
-          total_pct: 0,
-          split: { billable: 0, internal: 0, bench: 0 },
-        };
-        byWorker.set(r.worker_id, row);
-      } else {
-        continue;
-      }
-    }
+    const row = byWorker.get(r.worker_id);
+    if (!row) continue;
 
     const existingSeg = row.segmentMap.get(r.project_id);
     if (existingSeg) {
@@ -288,6 +290,10 @@ export async function getUtilizationByPerson(
     over_allocated: (overallByWorker.get(row.worker_id) ?? row.total_pct) > 100,
     split: row.split,
   }));
+
+  allRows.sort(
+    (a, b) => a.full_name.localeCompare(b.full_name) || a.worker_id.localeCompare(b.worker_id),
+  );
 
   return { as_of: asOf, rows: allRows };
 }
