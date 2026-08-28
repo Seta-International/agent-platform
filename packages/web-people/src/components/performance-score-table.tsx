@@ -1,6 +1,6 @@
 import { Avatar, HStack, pixel, type TableColumn, Text, VStack } from '@seta/shared-ui';
 import type { ReactNode } from 'react';
-import type { PerformanceGroupAxis } from '../mock/performance-scores.ts';
+import { formatScore, type GroupAxis } from '../lib/performance-scores.ts';
 import { ScoreChip } from './performance-score-bits.tsx';
 
 /**
@@ -40,7 +40,7 @@ export function PersonCell({
 
 /** One centered ScoreChip column per configured group. */
 export function groupScoreColumns<T extends Record<string, unknown>>(
-  groups: readonly PerformanceGroupAxis[],
+  groups: readonly GroupAxis[],
   getScores: (row: T) => Record<string, number>,
   width = 116,
 ): TableColumn<T>[] {
@@ -57,9 +57,9 @@ export function groupScoreColumns<T extends Record<string, unknown>>(
   }));
 }
 
-/** Bold two-decimal Total column. */
+/** Bold two-decimal Total column; an unscored row shows an em dash, never 0. */
 export function totalColumn<T extends Record<string, unknown>>(
-  getTotal: (row: T) => number,
+  getTotal: (row: T) => number | null,
   width = 84,
 ): TableColumn<T> {
   return {
@@ -69,7 +69,7 @@ export function totalColumn<T extends Record<string, unknown>>(
     width: pixel(width),
     renderCell: (row) => (
       <Text weight="semibold" size="sm" className="tabular-nums">
-        {getTotal(row).toFixed(2)}
+        {formatScore(getTotal(row))}
       </Text>
     ),
   };

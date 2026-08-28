@@ -23,18 +23,10 @@ function capacityId(c: PerformanceCapacity): string {
   return c.kind === 'am' ? c.account_id : c.project_id;
 }
 
-/**
- * Month-scoped capacities for a person (EmployeePort allocation + AM ownership).
- * No "current month only" gate — callers that need that enforce it themselves.
- */
-export async function loadPerformanceCapacities(
-  session: SessionScope,
-  personId: string,
-  month: string,
-): Promise<PerformanceCapacity[]> {
-  const db = peopleDb();
+/** An allocation counts for a review month whenever its window overlaps that month. */
+export function allocationInMonth(month: string) {
   const monthStart = `${month}-01`;
-  const inMonth = and(
+  return and(
     eq(workerAllocationProjection.active, true),
     or(
       isNull(workerAllocationProjection.date_from),
@@ -45,6 +37,19 @@ export async function loadPerformanceCapacities(
       sql`${workerAllocationProjection.date_to} >= ${monthStart}::date`,
     ),
   );
+}
+
+/**
+ * Month-scoped capacities for a person (EmployeePort allocation + AM ownership).
+ * No "current month only" gate — callers that need that enforce it themselves.
+ */
+export async function loadPerformanceCapacities(
+  session: SessionScope,
+  personId: string,
+  month: string,
+): Promise<PerformanceCapacity[]> {
+  const db = peopleDb();
+  const inMonth = allocationInMonth(month);
 
   const allocRows = await db
     .select({

@@ -25,7 +25,7 @@ function readStored(): PerformanceScopeSearch | null {
 }
 
 export type UsePerformanceScopeArgs = {
-  /** Current path to navigate (e.g. /people/performance/scoring) — preserves section. */
+  /** Current path to navigate (e.g. /people/performance/configuration) — preserves section. */
   pathname: string;
   capacities: readonly PerformanceCapacity[];
   default_capacity_index: number;

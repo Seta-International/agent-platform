@@ -303,3 +303,202 @@ export const savePerformanceConfigResponse = z.object({
   applies_to_next_cycle: z.boolean(),
 });
 export type SavePerformanceConfigResponse = z.infer<typeof savePerformanceConfigResponse>;
+
+// --- Evaluate (FUT-784) ---------------------------------------------------
+
+export const evaluationStatus = z.enum(['draft', 'submitted']);
+export type EvaluationStatus = z.infer<typeof evaluationStatus>;
+
+/**
+ * Which seat the evaluation is written from. `self` is a member's own assessment
+ * (FUT-779) — same criteria, same scale, but it never reaches an official score.
+ */
+export const evaluatorCapacity = z.enum(['tl', 'am', 'self']);
+export type EvaluatorCapacity = z.infer<typeof evaluatorCapacity>;
+
+/** Criterion scores are whole numbers on this scale; nothing outside it is offered (AC2). */
+export const SCORE_MIN = 1;
+export const SCORE_MAX = 5;
+/** The scale moves in half points: 1, 1.5, … 5. */
+export const SCORE_STEP = 0.5;
+/** Below this a Top Action is mandatory (AC3). */
+export const TOP_ACTION_REQUIRED_BELOW = 4;
+
+export const evaluationScoreInput = z.object({
+  criterion_id: z.string().uuid(),
+  /** Null = not scored yet. A draft may hold nulls; a submit may not (AC4). */
+  score: z.number().multipleOf(SCORE_STEP).min(SCORE_MIN).max(SCORE_MAX).nullable(),
+  evidence: z.string().trim().max(2000).default(''),
+});
+export type EvaluationScoreInput = z.infer<typeof evaluationScoreInput>;
+
+/** Which evaluation the form is for: one subject, on one project, for one month. */
+export const evaluationTargetQuery = z.object({
+  month: monthYm,
+  subject_person_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+});
+export type EvaluationTargetQuery = z.infer<typeof evaluationTargetQuery>;
+
+export const evaluationWriteInput = z.object({
+  month: monthYm,
+  subject_person_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  /**
+   * The version the form was loaded at — a mismatch means another tab wrote (AC8).
+   * Zero means "no evaluation existed when I loaded", so only an insert may follow.
+   */
+  base_version: z.number().int().nonnegative(),
+  scores: z.array(evaluationScoreInput),
+  strengths: z.string().trim().max(4000).default(''),
+  improve: z.string().trim().max(4000).default(''),
+  top_action: z.string().trim().max(1000).default(''),
+});
+export type EvaluationWriteInput = z.infer<typeof evaluationWriteInput>;
+
+export const evaluationCriterionView = z.object({
+  criterion_id: z.string().uuid(),
+  name: z.string(),
+  /** Read-only in the form (AC2). */
+  weight: z.number(),
+  sort: z.number().int(),
+  score: z.number().nullable(),
+  /**
+   * Carried through writes so an older note survives, but the form no longer asks for
+   * one — an evaluation is a set of scores.
+   */
+  evidence: z.string(),
+});
+export type EvaluationCriterionView = z.infer<typeof evaluationCriterionView>;
+
+export const evaluationGroupView = z.object({
+  group_id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  weight: z.number(),
+  sort: z.number().int(),
+  criteria: z.array(evaluationCriterionView),
+});
+export type EvaluationGroupView = z.infer<typeof evaluationGroupView>;
+
+/**
+ * The evaluation form (AC1). `overall` is null until the evaluation is submitted —
+ * the UI renders "—", never 0 and never an estimate (AC5).
+ */
+export const evaluationView = z.object({
+  month: monthYm,
+  cycle_status: cycleStatusEnum,
+  /** False for a closed month with no unlock — the form renders read-only (AC7). */
+  editable: z.boolean(),
+  subject: z.object({
+    person_id: z.string().uuid(),
+    full_name: z.string(),
+    project_id: z.string().uuid(),
+    project_name: z.string(),
+    account_id: z.string().uuid(),
+  }),
+  evaluator_capacity: evaluatorCapacity,
+  status: evaluationStatus,
+  /** 0 until the first save; every write bumps it. Echo it back as `base_version`. */
+  version: z.number().int().nonnegative(),
+  revision_id: z.string().uuid(),
+  overall: z.number().nullable(),
+  strengths: z.string(),
+  improve: z.string(),
+  top_action: z.string(),
+  /** True when any score is below 4, so a Top Action must be given (AC3). */
+  top_action_required: z.boolean(),
+  submitted_at: z.string().datetime().nullable(),
+  groups: z.array(evaluationGroupView),
+});
+export type EvaluationView = z.infer<typeof evaluationView>;
+
+// --- Dashboard roll-ups (FUT-784) ----------------------------------------
+
+/**
+ * Which slice of the org a dashboard is asking for. Each scope drills exactly one
+ * level: org → accounts → projects, account → projects → people, project → people,
+ * self → the caller's own projects.
+ */
+export const rollupScope = z.enum(['org', 'account', 'project', 'self']);
+export type RollupScope = z.infer<typeof rollupScope>;
+
+export const performanceRollupQuery = z.object({
+  month: monthYm,
+  scope: rollupScope,
+  account_id: z.string().uuid().nullish(),
+  project_id: z.string().uuid().nullish(),
+});
+export type PerformanceRollupQuery = z.infer<typeof performanceRollupQuery>;
+
+/** One heat-map column. Weights are whole percent and sum to 100 across the axis. */
+export const rollupGroupAxis = z.object({
+  group_id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  weight: z.number(),
+  sort: z.number().int(),
+});
+export type RollupGroupAxis = z.infer<typeof rollupGroupAxis>;
+
+const rollupRowShape = {
+  kind: z.enum(['account', 'project', 'person']),
+  id: z.string().uuid(),
+  name: z.string(),
+  /** Whoever owns the row: the AM of an account, the TL of a project, a person's role. */
+  subtitle: z.string(),
+  /** Person rows only: this is the project's lead, so their evaluator is the AM. */
+  is_lead: z.boolean(),
+  member_count: z.number().int().nonnegative(),
+  /** Submitted evaluations under this row, out of those expected. */
+  scored: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  /** group_id → mean score. A group with no submitted score is absent, never 0. */
+  scores: z.record(z.string().uuid(), z.number()),
+  /** Null while nothing under this row has been submitted — the UI renders "—". */
+  overall: z.number().nullable(),
+};
+
+export const rollupLeaf = z.object(rollupRowShape);
+export type RollupLeaf = z.infer<typeof rollupLeaf>;
+
+export const rollupRow = z.object({ ...rollupRowShape, children: z.array(rollupLeaf) });
+export type RollupRow = z.infer<typeof rollupRow>;
+
+/** A written review the signed-in person received this cycle (`scope: 'self'`). */
+export const receivedReview = z.object({
+  project_id: z.string().uuid(),
+  project_name: z.string(),
+  evaluator_name: z.string(),
+  evaluator_capacity: evaluatorCapacity,
+  status: evaluationStatus,
+  overall: z.number().nullable(),
+  scores: z.record(z.string().uuid(), z.number()),
+  strengths: z.string(),
+  improve: z.string(),
+  top_action: z.string(),
+  submitted_at: z.string().datetime().nullable(),
+});
+export type ReceivedReview = z.infer<typeof receivedReview>;
+
+/**
+ * One shape behind every Performance dashboard. `rows` are already at the requested
+ * level with a single level of drill-down in `children`, so the heat map never has to
+ * fetch again to expand a row.
+ */
+export const performanceRollupResponse = z.object({
+  month: monthYm,
+  cycle_status: cycleStatusEnum,
+  scope: rollupScope,
+  /** What the header names: the company, an account, a project, or the person. */
+  label: z.string(),
+  groups: z.array(rollupGroupAxis),
+  /** group_id → mean across `rows`; the whole scope as one heat-map column. */
+  scores: z.record(z.string().uuid(), z.number()),
+  scored: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  overall: z.number().nullable(),
+  rows: z.array(rollupRow),
+  reviews: z.array(receivedReview),
+});
+export type PerformanceRollupResponse = z.infer<typeof performanceRollupResponse>;

@@ -45,7 +45,7 @@ async function assertCanReadAccountConfig(
   });
 }
 
-async function loadRevisionTree(revisionId: string): Promise<PerformanceConfigGroupView[]> {
+export async function loadRevisionTree(revisionId: string): Promise<PerformanceConfigGroupView[]> {
   const db = peopleDb();
   const weights = await db
     .select({

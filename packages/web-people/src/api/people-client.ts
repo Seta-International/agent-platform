@@ -532,3 +532,167 @@ export async function savePerformanceConfig(
   });
   return handleResponse(res);
 }
+
+// --- Dashboard roll-ups (FUT-784) ----------------------------------------
+
+export type RollupScope = 'org' | 'account' | 'project' | 'self';
+
+/** One heat-map column: an evaluation group and the weight it carries. */
+export type RollupGroupAxis = {
+  group_id: string;
+  code: string;
+  name: string;
+  weight: number;
+  sort: number;
+};
+
+export type RollupLeaf = {
+  kind: 'account' | 'project' | 'person';
+  id: string;
+  name: string;
+  subtitle: string;
+  /** Person rows only: this is the project's lead, so their evaluator is the AM. */
+  is_lead: boolean;
+  member_count: number;
+  scored: number;
+  total: number;
+  /** group_id → mean score. Absent groups have nothing submitted — never render 0. */
+  scores: Record<string, number>;
+  overall: number | null;
+};
+
+export type RollupRow = RollupLeaf & { children: RollupLeaf[] };
+
+export type ReceivedReview = {
+  project_id: string;
+  project_name: string;
+  evaluator_name: string;
+  /** Never `self`: a self-assessment is not a review anyone received (FUT-779 AC3). */
+  evaluator_capacity: 'tl' | 'am';
+  status: 'draft' | 'submitted';
+  overall: number | null;
+  scores: Record<string, number>;
+  strengths: string;
+  improve: string;
+  top_action: string;
+  submitted_at: string | null;
+};
+
+export type PerformanceRollup = {
+  month: string;
+  cycle_status: CycleStatus;
+  scope: RollupScope;
+  label: string;
+  groups: RollupGroupAxis[];
+  /** group_id → mean across `rows`; the whole scope as one heat-map column. */
+  scores: Record<string, number>;
+  scored: number;
+  total: number;
+  overall: number | null;
+  rows: RollupRow[];
+  reviews: ReceivedReview[];
+};
+
+export async function fetchPerformanceRollup(input: {
+  month: string;
+  scope: RollupScope;
+  account_id?: string | null;
+  project_id?: string | null;
+}): Promise<PerformanceRollup> {
+  const params = new URLSearchParams({ month: input.month, scope: input.scope });
+  if (input.account_id) params.set('account_id', input.account_id);
+  if (input.project_id) params.set('project_id', input.project_id);
+  const res = await fetch(`/api/people/v1/performance/rollup?${params}`, {
+    credentials: 'include',
+  });
+  return handleResponse<PerformanceRollup>(res);
+}
+
+// --- Evaluation form (FUT-784) -------------------------------------------
+
+export type EvaluationCriterionView = {
+  criterion_id: string;
+  name: string;
+  weight: number;
+  sort: number;
+  score: number | null;
+  /** Kept so a note written before still round-trips; the form no longer collects one. */
+  evidence: string;
+};
+
+export type EvaluationGroupView = {
+  group_id: string;
+  code: string;
+  name: string;
+  weight: number;
+  sort: number;
+  criteria: EvaluationCriterionView[];
+};
+
+export type EvaluationView = {
+  month: string;
+  cycle_status: CycleStatus;
+  editable: boolean;
+  subject: {
+    person_id: string;
+    full_name: string;
+    project_id: string;
+    project_name: string;
+    account_id: string;
+  };
+  /** `self` when the member is scoring themselves (FUT-779). */
+  evaluator_capacity: 'tl' | 'am' | 'self';
+  status: 'draft' | 'submitted';
+  version: number;
+  revision_id: string;
+  overall: number | null;
+  strengths: string;
+  improve: string;
+  top_action: string;
+  top_action_required: boolean;
+  submitted_at: string | null;
+  groups: EvaluationGroupView[];
+};
+
+export type EvaluationWriteBody = {
+  month: string;
+  subject_person_id: string;
+  project_id: string;
+  base_version: number;
+  scores: { criterion_id: string; score: number | null; evidence: string }[];
+  strengths: string;
+  improve: string;
+  top_action: string;
+};
+
+export async function fetchEvaluation(input: {
+  month: string;
+  subject_person_id: string;
+  project_id: string;
+}): Promise<EvaluationView> {
+  const params = new URLSearchParams(input);
+  const res = await fetch(`/api/people/v1/performance/evaluation?${params}`, {
+    credentials: 'include',
+  });
+  return handleResponse<EvaluationView>(res);
+}
+
+export async function saveEvaluationDraft(body: EvaluationWriteBody): Promise<EvaluationView> {
+  const res = await fetch('/api/people/v1/performance/evaluation', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<EvaluationView>(res);
+}
+
+export async function submitEvaluation(body: EvaluationWriteBody): Promise<EvaluationView> {
+  const res = await fetch('/api/people/v1/performance/evaluation/submit', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<EvaluationView>(res);
+}

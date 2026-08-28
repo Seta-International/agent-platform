@@ -14,6 +14,9 @@ export type PerformanceScopeSearch = {
    * to a capacity-holder without permission (FUT-781).
    */
   view?: 'organization';
+  /** Evaluation dialog target: who is being scored, on which project. */
+  subject?: string;
+  subject_project?: string;
 };
 
 export type ResolvedPerformanceScope =
@@ -42,7 +45,12 @@ export function parsePerformanceSearch(s: Record<string, unknown>): PerformanceS
   const month =
     typeof s.month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s.month) ? s.month : undefined;
   const view = s.view === 'organization' ? 'organization' : undefined;
-  return { kind, account, project, month, view };
+  const subject = typeof s.subject === 'string' && s.subject.length > 0 ? s.subject : undefined;
+  const subject_project =
+    typeof s.subject_project === 'string' && s.subject_project.length > 0
+      ? s.subject_project
+      : undefined;
+  return { kind, account, project, month, view, subject, subject_project };
 }
 
 /** True when the URL carries an explicit capacity/month context (not a bare path). */
@@ -69,12 +77,27 @@ export function capacityMatchesSearch(
   return search.kind === undefined || search.kind === c.kind;
 }
 
+/**
+ * An open evaluation belongs to one person on one project, so leaving that context —
+ * switching capacity or to the organization view — always closes it. Spelled out on
+ * every canonical search rather than left to callers, since a stale target would
+ * reopen the dialog on someone the new scope has no business showing.
+ */
+const NO_EVALUATION_TARGET = { subject: undefined, subject_project: undefined } as const;
+
 export function searchFromCapacity(
   c: PerformanceCapacity,
   month: string,
 ): Required<Pick<PerformanceScopeSearch, 'kind' | 'month'>> & PerformanceScopeSearch {
   if (c.kind === 'am') {
-    return { kind: 'am', account: c.account_id, project: undefined, month, view: undefined };
+    return {
+      kind: 'am',
+      account: c.account_id,
+      project: undefined,
+      month,
+      view: undefined,
+      ...NO_EVALUATION_TARGET,
+    };
   }
   return {
     kind: c.kind,
@@ -82,12 +105,20 @@ export function searchFromCapacity(
     account: c.account_id,
     month,
     view: undefined,
+    ...NO_EVALUATION_TARGET,
   };
 }
 
 /** Canonical search for the explicit organization view — clears any capacity tuple. */
 export function searchFromOrg(month: string): PerformanceScopeSearch {
-  return { view: 'organization', kind: undefined, account: undefined, project: undefined, month };
+  return {
+    view: 'organization',
+    kind: undefined,
+    account: undefined,
+    project: undefined,
+    month,
+    ...NO_EVALUATION_TARGET,
+  };
 }
 
 /**
