@@ -11,9 +11,15 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('../../../src/api/people-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/api/people-client.ts')>()),
-  // What the server answers for anyone outside the Member / Team Lead capacities: HR,
-  // PMO, BoD, an AM with no allocation of their own, or a login with no employee record.
-  fetchMoraleRecipients: vi.fn().mockResolvedValue({ can_submit: false, groups: [] }),
+  // The only answer that still withholds the form: a login with no employee record.
+  // Holding no allocation is no longer a bar — an HR or BoD manager gets `can_submit`
+  // true with an empty `projects` and the PMO/BoD groups.
+  fetchMoraleRecipients: vi.fn().mockResolvedValue({
+    can_submit: false,
+    projects: [],
+    selected_project_id: null,
+    groups: [],
+  }),
 }));
 
 function renderPage() {
@@ -25,12 +31,12 @@ function renderPage() {
   );
 }
 
-describe('Morale for someone outside Member / Team Lead', () => {
+describe('Morale for a login with no employee record', () => {
   it('explains why instead of rendering the form', async () => {
     renderPage();
 
     expect(
-      await screen.findByText('Morale notes are for project members and team leads'),
+      await screen.findByText('No employee record is linked to your account'),
     ).toBeInTheDocument();
 
     // The whole point of the gate: nothing submittable is on screen. Checking the rating

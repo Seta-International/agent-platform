@@ -16,6 +16,8 @@ function noteWith(recipientCount: number): MoraleNoteView {
     rating: 4,
     concern_text: 'Something worth saying',
     submitted_at: '2026-08-18T03:00:00.000Z',
+    project_id: '11111111-1111-4111-8111-111111111111',
+    project_name: 'Atlas',
     recipients: Array.from({ length: recipientCount }, (_, i) => ({
       recipient_tag: 'pmo' as const,
       full_name_snapshot: `Person ${i + 1}`,

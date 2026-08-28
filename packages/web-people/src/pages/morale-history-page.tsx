@@ -19,7 +19,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { moraleHistoryOptions } from '../api/morale-query.ts';
 import type { MoraleNoteView } from '../api/people-client.ts';
-import { RATING_LABELS, TAG_LABELS } from './morale-labels.ts';
+import { RATING_LABELS, TAG_LABELS, UNNAMED_PROJECT } from './morale-labels.ts';
 import { MoraleFrame } from './morale-page.tsx';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -72,9 +72,25 @@ function NoteCard({ note }: { note: MoraleNoteView }) {
     <Card padding={4}>
       <VStack gap={2}>
         <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
-          <Text size="sm" color="secondary">
-            {formatSubmittedAt(note.submitted_at)}
-          </Text>
+          <HStack vAlign="center" gap={2} wrap="wrap">
+            <Text size="sm" color="secondary">
+              {formatSubmittedAt(note.submitted_at)}
+            </Text>
+            {/*
+              Keyed off project_id, not the name: a note filed against no project (an HR
+              or BoD sender) shows nothing here, while one whose project has left the
+              projection still says so rather than silently reading as project-less.
+            */}
+            {note.project_id && (
+              // Not Text's `color="accent"`: theme-neutral is greyscale, so its accent
+              // resolves to #262626 — indistinguishable from body text, which is the one
+              // thing this label must not be. `--color-text-blue` is a real theme token
+              // and carries its own dark-mode half via light-dark().
+              <Text size="sm" weight="semibold" style={{ color: 'var(--color-text-blue)' }}>
+                {note.project_name ?? UNNAMED_PROJECT}
+              </Text>
+            )}
+          </HStack>
           <Text size="sm">
             Your rating: {note.rating} — {RATING_LABELS[note.rating]}
           </Text>

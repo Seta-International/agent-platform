@@ -13,6 +13,7 @@ import {
   LayoutContent,
   LayoutHeader,
   MultiSelector,
+  Selector,
   Spinner,
   Text,
   Textarea,
@@ -24,17 +25,24 @@ import { Link } from '@tanstack/react-router';
 import { Angry, Frown, History, Meh, Smile, SmilePlus } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import { moraleRecipientsOptions } from '../api/morale-query.ts';
-import type { MoraleRecipientGroup } from '../api/people-client.ts';
+import type {
+  MoraleProjectOption,
+  MoraleRecipientGroup,
+  MoraleRecipientsResponse,
+} from '../api/people-client.ts';
 import { submitMorale } from '../api/people-client.ts';
 import { moraleKeys } from '../state/morale-query-keys.ts';
 import {
   HR_BADGE,
   HR_REASON,
   initialsOf,
+  PROJECT_PLACEHOLDER,
+  PROJECT_REQUIRED_HINT,
   RATING_LABELS,
   TAG_EMPTY_ERROR,
   TAG_LABELS,
   TAG_ORDER,
+  UNNAMED_PROJECT,
 } from './morale-labels.ts';
 
 /**
@@ -272,14 +280,82 @@ function RoleGroup({
   );
 }
 
-function MoraleSubmitForm({ groups }: { groups: MoraleRecipientGroup[] }) {
+/**
+ * Which project the note is filed against — the first thing on the form, because every
+ * recipient below it is read from that choice.
+ *
+ * Only rendered as a control when there is a decision to make. One project is stated
+ * rather than asked: the sender still sees what will be stored against their note, but a
+ * dropdown holding a single option is a question with one answer. No project at all
+ * renders nothing — an HR or BoD manager files a note that belongs to no project, and an
+ * empty picker would imply they were missing something.
+ */
+function ProjectScope({
+  projects,
+  value,
+  onChange,
+}: {
+  projects: MoraleProjectOption[];
+  value: string | null;
+  onChange: (projectId: string) => void;
+}) {
+  if (projects.length === 0) return null;
+
+  if (projects.length === 1) {
+    const only = projects[0];
+    return (
+      <VStack gap={1}>
+        <Text size="sm" weight="semibold">
+          Project
+        </Text>
+        <Text size="sm" color="secondary">
+          This note is filed against {only?.name ?? UNNAMED_PROJECT}.
+        </Text>
+      </VStack>
+    );
+  }
+
+  return (
+    <Selector
+      label="Project"
+      isRequired
+      options={projects.map((p) => ({ value: p.project_id, label: p.name ?? UNNAMED_PROJECT }))}
+      // undefined rather than null: the non-clearable Selector treats null as a cleared
+      // value, and this field is required once there is more than one project.
+      value={value ?? undefined}
+      onChange={onChange}
+      placeholder={PROJECT_PLACEHOLDER}
+      hasSearch
+      searchPlaceholder="Search projects..."
+      width="100%"
+    />
+  );
+}
+
+function MoraleSubmitForm({ bootstrap }: { bootstrap: MoraleRecipientsResponse }) {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  /**
+   * Null means "let the server decide": with one project it resolves to that project,
+   * with none it stays null, and only a sender holding several has to fill this in. That
+   * keeps the common cases on a single cache entry instead of refetching an answer the
+   * first response already contained.
+   */
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [concernText, setConcernText] = useState('');
   const [byRole, setByRole] = useState<Record<string, string[]>>({});
   const [openRoles, setOpenRoles] = useState<Record<string, boolean>>({});
+
+  // Recipients are re-fetched per project; `bootstrap` is this query's own cached first
+  // page while `projectId` is null, so the initial render costs no extra request.
+  const recipients = useQuery(moraleRecipientsOptions(projectId));
+  const projects = recipients.data?.projects ?? bootstrap.projects;
+  const groups = recipients.data?.groups ?? [];
+
+  /** Several projects and none chosen: TL and AM cannot be resolved, so Submit waits. */
+  const needsProject = projects.length > 1 && !recipients.data?.selected_project_id;
 
   const selectedIds = useMemo(() => [...new Set(Object.values(byRole).flat())], [byRole]);
 
@@ -295,10 +371,25 @@ function MoraleSubmitForm({ groups }: { groups: MoraleRecipientGroup[] }) {
     [openRoles, byRole],
   );
 
-  /** Everything the sender staged, back to a blank form. */
+  /**
+   * Everything the sender staged, back to a blank form. The project deliberately
+   * survives: it is the context the note was written in rather than part of its content,
+   * and someone filing a second note is almost always still on the same project.
+   */
   const resetForm = () => {
     setRating(null);
     setConcernText('');
+    setByRole({});
+    setOpenRoles({});
+  };
+
+  /**
+   * Switching project invalidates every pick below it: the Team Leader and Account
+   * Manager belong to the old project, and PMO/BoD selections are cleared with them
+   * rather than surviving alone, so what is ticked always matches the list on screen.
+   */
+  const onProjectChange = (next: string) => {
+    setProjectId(next);
     setByRole({});
     setOpenRoles({});
   };
@@ -316,6 +407,9 @@ function MoraleSubmitForm({ groups }: { groups: MoraleRecipientGroup[] }) {
       return submitMorale({
         rating,
         concern_text: concernText || undefined,
+        // The sender's own pick, not the resolved one: with a single project or none,
+        // null is correct and the server fills in the only possible answer.
+        project_id: projectId,
         recipient_person_ids: selectedIds,
       });
     },
@@ -342,6 +436,8 @@ function MoraleSubmitForm({ groups }: { groups: MoraleRecipientGroup[] }) {
         <Text size="lg" weight="semibold">
           How are you feeling?
         </Text>
+
+        <ProjectScope projects={projects} value={projectId} onChange={onProjectChange} />
 
         <VStack gap={2}>
           <Text size="sm" weight="semibold">
@@ -389,16 +485,30 @@ function MoraleSubmitForm({ groups }: { groups: MoraleRecipientGroup[] }) {
             </VStack>
           </Card>
 
-          {ordered.map((g) => (
-            <RoleGroup
-              key={g.tag}
-              group={g}
-              isOpen={openRoles[g.tag] ?? false}
-              onOpenChange={(open) => setRoleOpen(g.tag, open)}
-              selected={byRole[g.tag] ?? []}
-              onChange={(ids) => setByRole((prev) => ({ ...prev, [g.tag]: ids }))}
-            />
-          ))}
+          {recipients.isPending ? (
+            // Only the recipient list reloads on a project switch — the rating and the
+            // concern the sender already typed stay on screen and keep their state.
+            <HStack hAlign="center">
+              <Spinner />
+            </HStack>
+          ) : (
+            ordered.map((g) => (
+              <RoleGroup
+                key={g.tag}
+                group={g}
+                isOpen={openRoles[g.tag] ?? false}
+                onOpenChange={(open) => setRoleOpen(g.tag, open)}
+                selected={byRole[g.tag] ?? []}
+                onChange={(ids) => setByRole((prev) => ({ ...prev, [g.tag]: ids }))}
+              />
+            ))
+          )}
+
+          {needsProject && !recipients.isPending && (
+            <Text size="sm" color="secondary">
+              {PROJECT_REQUIRED_HINT}
+            </Text>
+          )}
         </VStack>
 
         <HStack>
@@ -406,7 +516,15 @@ function MoraleSubmitForm({ groups }: { groups: MoraleRecipientGroup[] }) {
             label="Submit"
             variant="primary"
             onClick={() => mutation.mutate()}
-            isDisabled={!rating || hasEmptyRole || mutation.isPending}
+            isDisabled={
+              !rating ||
+              hasEmptyRole ||
+              // Submitting now would be refused server-side for want of a project, so the
+              // block is stated here where PROJECT_REQUIRED_HINT can explain it.
+              needsProject ||
+              recipients.isPending ||
+              mutation.isPending
+            }
           />
         </HStack>
       </VStack>
@@ -443,9 +561,11 @@ export function MoralePage() {
     );
   }
 
-  // Everyone reaches this page from the nav, but only people who hold a delivery
-  // capacity have anything to submit. The rest get an explanation rather than a form
-  // they cannot use — the manager view that serves them is a separate ticket.
+  // Holding no allocation is no longer a bar: an HR or BoD manager is a member of the
+  // company even when they sit on no project, and their note reaches PMO and BoD with no
+  // project attached. What remains is the one case with nothing to resolve at all — a
+  // login with no employee record behind it, which is an admin problem rather than a
+  // form the sender could complete.
   //
   // No History action here either: history is the record of what this page submits, so
   // someone who may not submit has nothing to read and the button would only lead to a
@@ -454,8 +574,8 @@ export function MoralePage() {
     return (
       <MoraleFrame current="Morale">
         <EmptyState
-          title="Morale notes are for project members and team leads"
-          description="You are not currently allocated to a project, so there is no reporting line to send a note along. If you manage people, the review view is coming in a later release."
+          title="No employee record is linked to your account"
+          description="A morale note is filed against your employee record, and this login has none. Ask HR or an administrator to link them, then reopen this page."
         />
       </MoraleFrame>
     );
@@ -463,7 +583,7 @@ export function MoralePage() {
 
   return (
     <MoraleFrame current="Morale" action={historyButton}>
-      <MoraleSubmitForm groups={recipientsQuery.data.groups} />
+      <MoraleSubmitForm bootstrap={recipientsQuery.data} />
     </MoraleFrame>
   );
 }

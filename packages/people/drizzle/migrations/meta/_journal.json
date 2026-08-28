@@ -99,6 +99,13 @@
       "when": 1787197570668,
       "tag": "0021_morale_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787901600491,
+      "tag": "0022_morale_note_project",
+      "breakpoints": true
     }
   ]
 }

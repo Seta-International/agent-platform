@@ -3,10 +3,15 @@ import { moraleKeys } from '../state/morale-query-keys.ts';
 import type { MoraleHistoryRange } from './people-client.ts';
 import { fetchMoraleHistory, fetchMoraleRecipients } from './people-client.ts';
 
-export function moraleRecipientsOptions() {
+/**
+ * Keyed by project so switching the picker swaps to that project's Team Lead and Account
+ * Manager rather than mutating one shared cache entry — going back to a project the
+ * sender already viewed is then instant, and no request can land on the wrong project.
+ */
+export function moraleRecipientsOptions(projectId: string | null = null) {
   return queryOptions({
-    queryKey: moraleKeys.recipients(),
-    queryFn: () => fetchMoraleRecipients(),
+    queryKey: moraleKeys.recipientsFor(projectId),
+    queryFn: () => fetchMoraleRecipients(projectId),
     // People leave and change roles; a stale list would let the sender pick someone
     // the server will reject at submit time.
     staleTime: 60 * 1000,

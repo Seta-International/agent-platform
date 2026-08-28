@@ -7,7 +7,7 @@ import type {
   MoraleRecipientTag,
 } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { moraleNote, moraleNoteRecipient } from '../db/schema.ts';
+import { moraleNote, moraleNoteRecipient, projectProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { VN_OFFSET_MS } from './month-clock.ts';
 
@@ -57,8 +57,13 @@ export async function listMoraleNotes(
       rating: moraleNote.rating,
       concern_text: moraleNote.concern_text,
       submitted_at: moraleNote.submitted_at,
+      project_id: moraleNote.project_id,
+      project_name: projectProjection.name,
     })
     .from(moraleNote)
+    // Left, not inner: a note with no project (an HR or BoD sender) must still come back,
+    // and so must one whose project has since left the projection.
+    .leftJoin(projectProjection, eq(projectProjection.project_id, moraleNote.project_id))
     .where(
       and(
         eq(moraleNote.tenant_id, session.tenant_id),
@@ -106,6 +111,8 @@ export async function listMoraleNotes(
     rating: n.rating,
     concern_text: n.concern_text,
     submitted_at: n.submitted_at.toISOString(),
+    project_id: n.project_id,
+    project_name: n.project_name,
     recipients: (recipientsByNote.get(n.id) ?? []).sort(
       (a, b) => TAG_ORDER.indexOf(a.recipient_tag) - TAG_ORDER.indexOf(b.recipient_tag),
     ),

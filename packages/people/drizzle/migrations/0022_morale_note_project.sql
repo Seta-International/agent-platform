@@ -1,0 +1,2 @@
+ALTER TABLE "people"."morale_note" ADD COLUMN "project_id" uuid;--> statement-breakpoint
+CREATE INDEX "morale_note_by_project" ON "people"."morale_note" USING btree ("tenant_id","project_id","submitted_at");

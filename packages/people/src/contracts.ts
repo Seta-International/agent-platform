@@ -318,6 +318,12 @@ export type MoraleRecipientTag = z.infer<typeof moraleRecipientTag>;
 export const submitMoraleInput = z.object({
   rating: z.number().int().min(1).max(5),
   concern_text: z.string().max(5000).optional(),
+  /**
+   * Which project the note is about. Omitted when the sender has nothing to choose —
+   * one project (the server picks it) or none at all (it stays NULL). The server never
+   * trusts this value: it re-derives the sender's projects and rejects anything else.
+   */
+  project_id: z.string().uuid().nullable().optional(),
   recipient_person_ids: z.array(z.string().uuid()),
 });
 export type SubmitMoraleInput = z.infer<typeof submitMoraleInput>;
@@ -333,6 +339,14 @@ export const moraleNoteView = z.object({
   rating: z.number().int().min(1).max(5),
   concern_text: z.string().nullable(),
   submitted_at: z.string(),
+  /** Null for a note filed by someone on no project — an HR or BoD manager. */
+  project_id: z.string().uuid().nullable(),
+  /**
+   * Read live from the project projection rather than snapshotted on the note, so a
+   * renamed project reads back under the name it has today. Null when `project_id` is
+   * null, and also when the projection no longer carries that project.
+   */
+  project_name: z.string().nullable(),
   recipients: z.array(moraleRecipientView),
 });
 export type MoraleNoteView = z.infer<typeof moraleNoteView>;
@@ -367,15 +381,42 @@ export const moraleRecipientGroup = z.object({
 });
 export type MoraleRecipientGroup = z.infer<typeof moraleRecipientGroup>;
 
+/** A project the sender is allocated to, and so may file a note against. */
+export const moraleProjectOption = z.object({
+  project_id: z.string().uuid(),
+  name: z.string().nullable(),
+});
+export type MoraleProjectOption = z.infer<typeof moraleProjectOption>;
+
 export const moraleRecipientsResponse = z.object({
   /**
-   * False for every role outside Member/TL. They still reach the page from the nav,
-   * but there is nothing for them to submit until the manager view ships.
+   * False only for a login with no employee record — there is no reporting line to
+   * resolve and nobody to attribute a note to. Holding no allocation is *not* a bar:
+   * an HR or BoD manager still submits, reaching PMO and BoD with a NULL project.
    */
   can_submit: z.boolean(),
+  /**
+   * Every project the sender touches, as Member or as Team Lead. Empty for a sender
+   * with no active allocation. One entry means the choice is already made; two or more
+   * means the client must offer it, because TL and AM differ per project.
+   */
+  projects: z.array(moraleProjectOption),
+  /**
+   * The project `groups` below is scoped to. Resolved server-side: the only project when
+   * there is exactly one, the requested one when it is genuinely the sender's, and null
+   * otherwise — including the "several projects, none picked yet" state, where TL and AM
+   * cannot be determined and are therefore absent from `groups`.
+   */
+  selected_project_id: z.string().uuid().nullable(),
   groups: z.array(moraleRecipientGroup),
 });
 export type MoraleRecipientsResponse = z.infer<typeof moraleRecipientsResponse>;
+
+/** Which project the recipient list should be scoped to; absent means "not chosen yet". */
+export const moraleRecipientsQuery = z.object({
+  project_id: z.string().uuid().optional(),
+});
+export type MoraleRecipientsQuery = z.infer<typeof moraleRecipientsQuery>;
 
 /**
  * Calendar-date history window, both ends inclusive and read in Asia/Ho_Chi_Minh.

@@ -30,6 +30,19 @@ export const TAG_EMPTY_ERROR: Record<MoraleSelectableTag, string> = {
   bod: 'Please select a board member to include them.',
 };
 
+/**
+ * Stand-in when a project id resolves to no name — the projection has dropped the row,
+ * rather than the project genuinely being untitled. Keeps a blank from being rendered
+ * where a name belongs, in both the picker and the history list.
+ */
+export const UNNAMED_PROJECT = 'Unknown project';
+
+export const PROJECT_PLACEHOLDER = 'Select the project this note is about...';
+
+/** Why the recipient list looks short, and why Submit is still off. */
+export const PROJECT_REQUIRED_HINT =
+  'Choose a project above to see your Team Leader and Account Manager.';
+
 export const RATING_LABELS: Record<number, string> = {
   1: 'Very unhappy',
   2: 'Unhappy',

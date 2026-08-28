@@ -280,12 +280,20 @@ export const moraleNote = peopleSchema.table(
       .references(() => person.id),
     /** Sender's org unit frozen at submit time, so a later transfer can't rewrite history. */
     org_unit_id: uuid('org_unit_id'),
+    /**
+     * Project the note was filed against, frozen at submit time like `org_unit_id`.
+     * NULL when the sender holds no active allocation (an HR or BoD manager) — there is
+     * no project to attribute the note to, which is a real state rather than missing data.
+     * Bare uuid: projects live in `pm`, and cross-schema FKs are not allowed.
+     */
+    project_id: uuid('project_id'),
     rating: integer('rating').notNull(),
     concern_text: text('concern_text'),
     submitted_at: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index('morale_note_by_person').on(t.tenant_id, t.person_id, t.submitted_at),
+    index('morale_note_by_project').on(t.tenant_id, t.project_id, t.submitted_at),
     check('morale_note_rating_range', sql`rating >= 1 AND rating <= 5`),
   ],
 );

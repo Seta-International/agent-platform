@@ -560,8 +560,26 @@ export type MoraleRecipientGroup = {
   unavailable_reason: string | null;
 };
 
+/** A project the sender is allocated to, and so may file a note against. */
+export type MoraleProjectOption = {
+  project_id: string;
+  name: string | null;
+};
+
 export type MoraleRecipientsResponse = {
+  /**
+   * False only for a login with no employee record. Holding no allocation is not a bar:
+   * an HR or BoD manager still submits, reaching PMO and BoD with a null project.
+   */
   can_submit: boolean;
+  /** Every project the sender touches. Two or more means the picker has to be shown. */
+  projects: MoraleProjectOption[];
+  /**
+   * The project `groups` is scoped to. Null when the sender has no project at all, and
+   * also when they hold several and have yet to pick — in that second case TL and AM are
+   * absent from `groups` because they cannot be determined yet.
+   */
+  selected_project_id: string | null;
   groups: MoraleRecipientGroup[];
 };
 
@@ -575,6 +593,10 @@ export type MoraleNoteView = {
   rating: number;
   concern_text: string | null;
   submitted_at: string;
+  /** Null for a note filed by someone on no project — an HR or BoD manager. */
+  project_id: string | null;
+  /** Null when there is no project, and when the projection no longer carries it. */
+  project_name: string | null;
   recipients: MoraleRecipientView[];
 };
 
@@ -593,11 +615,16 @@ export type MoraleHistoryRange = {
 export type SubmitMoraleBody = {
   rating: number;
   concern_text?: string;
+  /** Which project the note is about; omitted when the sender has nothing to choose. */
+  project_id?: string | null;
   recipient_person_ids: string[];
 };
 
-export async function fetchMoraleRecipients(): Promise<MoraleRecipientsResponse> {
-  const res = await fetch('/api/people/v1/morale/recipients', {
+export async function fetchMoraleRecipients(
+  projectId?: string | null,
+): Promise<MoraleRecipientsResponse> {
+  const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+  const res = await fetch(`/api/people/v1/morale/recipients${qs}`, {
     credentials: 'include',
   });
   return handleResponse<MoraleRecipientsResponse>(res);
