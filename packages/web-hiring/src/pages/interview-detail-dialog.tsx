@@ -16,21 +16,18 @@ import {
   Textarea,
   VStack,
 } from '@seta/shared-ui';
-import { Briefcase, Building2, CalendarDays, Star, UserX, Video, XCircle } from 'lucide-react';
+import { Briefcase, Building2, CalendarDays, UserX, Video, XCircle } from 'lucide-react';
 import { useId, useState } from 'react';
 import { DetailRow } from './detail-row.tsx';
 import {
+  dayBucketOf,
   formatDayAndTime,
   type Interview,
-  type InterviewRecommendation,
   type InterviewResult,
-  RECOMMENDATION_LABEL,
   RESULT_BADGE_VARIANT,
   RESULT_LABEL,
-  ROUND_LABEL,
   STATUS_LABEL,
 } from './interview-utils.ts';
-import { StarRating } from './star-rating.tsx';
 
 function OutcomeReasonDialog({
   isOpen,
@@ -105,20 +102,14 @@ export function InterviewDetailDialog({
   // pattern below (no effect needed) keeps it in sync without ever showing a stale draft.
   const [formFor, setFormFor] = useState<string | null>(null);
   const [result, setResult] = useState<InterviewResult>('pass');
-  const [rating, setRating] = useState<number | null>(4);
-  const [recommendation, setRecommendation] = useState<InterviewRecommendation>('hire');
   const [feedbackNote, setFeedbackNote] = useState('');
   const [editingOutcome, setEditingOutcome] = useState(false);
   const [reasonDialog, setReasonDialog] = useState<'cancelled' | 'no_show' | null>(null);
   const resultFieldId = useId();
-  const ratingFieldId = useId();
-  const recommendationFieldId = useId();
 
   if (interview && formFor !== interview.id) {
     setFormFor(interview.id);
     setResult(interview.result ?? 'pass');
-    setRating(interview.rating ?? 4);
-    setRecommendation(interview.recommendation ?? 'hire');
     setFeedbackNote(interview.feedback_note ?? '');
     setEditingOutcome(false);
     setReasonDialog(null);
@@ -127,14 +118,16 @@ export function InterviewDetailDialog({
   const isRecording = interview?.status === 'scheduled';
   const isEditing = interview?.status === 'completed' && editingOutcome;
   const showsForm = isRecording || isEditing;
+  // Same day-bucket rule the agenda's "Needs an outcome" section uses — the dialog should
+  // agree with the list on what counts as overdue rather than judging it separately.
+  const isOverdue =
+    isRecording && interview && dayBucketOf(interview.scheduled_at, new Date()) === 'overdue';
 
   function saveOutcome() {
     if (!interview) return;
     onUpdate(interview.id, {
       status: 'completed',
       result,
-      rating,
-      recommendation,
       feedback_note: feedbackNote.trim(),
     });
     setEditingOutcome(false);
@@ -155,13 +148,22 @@ export function InterviewDetailDialog({
             header={
               <DialogHeader
                 title={interview.candidate_name}
-                subtitle={`${ROUND_LABEL[interview.round]} round · ${interview.requisition_title}`}
+                subtitle={interview.requisition_title}
                 onOpenChange={(open) => !open && onClose()}
               />
             }
             content={
               <LayoutContent padding={0} isScrollable={false}>
                 <div className="flex h-full min-h-0 flex-col">
+                  {isOverdue && (
+                    <div className="flex-none px-6 pt-4">
+                      <Banner
+                        status="warning"
+                        title="This interview already happened."
+                        description="Record the outcome below, or mark it cancelled or no-show, so it doesn't linger on the agenda."
+                      />
+                    </div>
+                  )}
                   {interview.status === 'cancelled' && (
                     <div className="flex-none px-6 pt-4">
                       <Banner
@@ -204,31 +206,6 @@ export function InterviewDetailDialog({
                                 <SegmentedControlItem value="fail" label="Fail" />
                               </SegmentedControl>
                             </Field>
-                            <Field
-                              label="Rating"
-                              inputID={ratingFieldId}
-                              labelID={ratingFieldId}
-                              isGroupLabel
-                            >
-                              <StarRating level={rating} onChange={setRating} />
-                            </Field>
-                            <Field
-                              label="Recommendation"
-                              inputID={recommendationFieldId}
-                              labelID={recommendationFieldId}
-                              isGroupLabel
-                            >
-                              <SegmentedControl
-                                label="Recommendation"
-                                value={recommendation}
-                                onChange={(v) => setRecommendation(v as InterviewRecommendation)}
-                                className="self-start"
-                              >
-                                <SegmentedControlItem value="hire" label="Hire" />
-                                <SegmentedControlItem value="next_round" label="Next round" />
-                                <SegmentedControlItem value="no_hire" label="Don't hire" />
-                              </SegmentedControl>
-                            </Field>
                             <Textarea
                               label="Feedback — strengths & concerns"
                               isOptional
@@ -255,19 +232,6 @@ export function InterviewDetailDialog({
                                       : 'Not recorded'
                                   }
                                 />
-                              }
-                            />
-                            <DetailRow
-                              icon={<Star className="size-3.5" aria-hidden />}
-                              label="Rating"
-                              value={<StarRating level={interview.rating ?? null} />}
-                            />
-                            <DetailRow
-                              label="Recommendation"
-                              value={
-                                interview.recommendation
-                                  ? RECOMMENDATION_LABEL[interview.recommendation]
-                                  : 'Not given'
                               }
                             />
                             <VStack gap={1} className="pt-3">

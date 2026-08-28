@@ -1,5 +1,6 @@
 import {
   Button,
+  createStaticSource,
   DateInput,
   Dialog,
   DialogFooter,
@@ -8,33 +9,40 @@ import {
   Input,
   Layout,
   LayoutContent,
-  MultiSelector,
+  type SearchableItem,
   SegmentedControl,
   SegmentedControlItem,
   Selector,
+  SelectorOption,
   Text,
   Textarea,
-  TimeInput,
+  Token,
+  Tokenizer,
   useToast,
   VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Video } from 'lucide-react';
-import { useState } from 'react';
+import { Building2, Clock, Video } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { fetchCandidates, scheduleInterview } from '../api/hiring-client.ts';
 import { fetchDirectoryUsers } from '../api/identity-directory.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { BOARD_COLUMNS } from './candidate-utils.ts';
 import {
   DURATION_OPTIONS,
   type InterviewMode,
-  type InterviewRound,
-  ROUND_LABEL,
-  ROUND_OPTIONS,
+  TIME_OPTIONS,
   toIsoDateTime,
 } from './interview-utils.ts';
 import { capitalizeErrorMessage } from './utils.ts';
 
 const TODAY = new Date().toISOString().slice(0, 10);
+
+const STAGE_LABEL: Record<string, string> = Object.fromEntries(
+  BOARD_COLUMNS.map((c) => [c.id, c.label]),
+);
+
+type PanelistItem = SearchableItem<{ email: string }>;
 
 export function ScheduleInterviewDialog({
   isOpen,
@@ -50,14 +58,15 @@ export function ScheduleInterviewDialog({
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  // Reuses the Candidates page's own cache key — instant options if that page was ever loaded
-  // this session. Only active applications qualify for a new round (mirrors the backend guard).
   const { data: candidates } = useQuery({
     queryKey: hiringKeys.candidates(),
     queryFn: () => fetchCandidates(),
     enabled: isOpen,
   });
-  const schedulable = (candidates ?? []).filter((c) => c.status === 'active');
+  const schedulable = useMemo(
+    () => (candidates ?? []).filter((c) => c.status === 'active'),
+    [candidates],
+  );
 
   const { data: directory } = useQuery({
     queryKey: hiringKeys.directoryUsers(),
@@ -65,8 +74,8 @@ export function ScheduleInterviewDialog({
     enabled: isOpen,
   });
 
+  const [requisitionId, setRequisitionId] = useState<string | undefined>(undefined);
   const [applicationId, setApplicationId] = useState<string | undefined>(undefined);
-  const [round, setRound] = useState<InterviewRound>('technical');
   const [date, setDate] = useState<string | undefined>(undefined);
   const [time, setTime] = useState<string | undefined>('10:00');
   const [duration, setDuration] = useState('60');
@@ -76,28 +85,90 @@ export function ScheduleInterviewDialog({
   const [note, setNote] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // Adjust-during-render (no effect): once the candidate list is available, default the
-  // selection to the preset candidate's active application, or the first one — but only when
-  // the current selection isn't already a valid choice, so it never fights a manual pick.
-  const presetApplicationId = presetCandidateId
-    ? schedulable.find((c) => c.candidate_id === presetCandidateId)?.application_id
+  const requisitions = useMemo(() => {
+    const byId = new Map<string, { id: string; title: string; count: number }>();
+    for (const c of schedulable) {
+      const seen = byId.get(c.requisition_id);
+      if (seen) seen.count += 1;
+      else
+        byId.set(c.requisition_id, { id: c.requisition_id, title: c.requisition_title, count: 1 });
+    }
+    return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title));
+  }, [schedulable]);
+
+  const requisitionCandidates = useMemo(
+    () => schedulable.filter((c) => c.requisition_id === requisitionId),
+    [schedulable, requisitionId],
+  );
+
+  const chosenPanelIds = useMemo(() => new Set(panelIds), [panelIds]);
+
+  // Dropdown source = directory users NOT already on the panel; searchable by name + email.
+  const panelSource = useMemo(
+    () =>
+      createStaticSource<PanelistItem>(
+        (directory ?? [])
+          .filter((p) => !chosenPanelIds.has(p.user_id))
+          .map((p) => ({ id: p.user_id, label: p.name, auxiliaryData: { email: p.email } })),
+        { keywords: (i) => [i.auxiliaryData?.email ?? ''] },
+      ),
+    [directory, chosenPanelIds],
+  );
+
+  // Controlled token items derived from panelIds (single source of truth).
+  const panelItems: PanelistItem[] = panelIds.flatMap((id) => {
+    const p = (directory ?? []).find((d) => d.user_id === id);
+    return p ? [{ id: p.user_id, label: p.name, auxiliaryData: { email: p.email } }] : [];
+  });
+
+  // FUT-759-style reopen (see SkillPicker): after picking a panelist, blur+focus
+  // reopens the dropdown so adding several people in a row doesn't need a fresh
+  // click each time. Only when focus is still inside the field — a click outside
+  // already dismissed the popover, and reopening it there would fight the user.
+  const panelFieldRef = useRef<HTMLDivElement>(null);
+  const panelControlRef = useRef<{ focus(): void; blur(): void }>(null);
+
+  const handlePanelChange = useCallback((items: PanelistItem[], change: { type: string }) => {
+    setPanelIds(items.map((i) => i.id));
+    if (change.type === 'add') {
+      setTimeout(() => {
+        if (panelFieldRef.current?.contains(document.activeElement)) {
+          panelControlRef.current?.blur();
+          panelControlRef.current?.focus();
+        }
+      }, 0);
+    }
+  }, []);
+
+  const presetApplication = presetCandidateId
+    ? schedulable.find((c) => c.candidate_id === presetCandidateId)
     : undefined;
+  if (isOpen && presetApplication && requisitionId === undefined) {
+    setRequisitionId(presetApplication.requisition_id);
+  }
   if (
     isOpen &&
-    schedulable.length > 0 &&
-    !schedulable.some((c) => c.application_id === applicationId)
+    requisitionId &&
+    !requisitionCandidates.some((c) => c.application_id === applicationId)
   ) {
-    setApplicationId(presetApplicationId ?? schedulable[0]?.application_id);
+    const preset = requisitionCandidates.find((c) => c.candidate_id === presetCandidateId);
+    const next =
+      preset?.application_id ??
+      (requisitionCandidates.length === 1 ? requisitionCandidates[0]?.application_id : undefined);
+    if (next !== applicationId) setApplicationId(next);
   }
 
-  const selectedApplication = schedulable.find((c) => c.application_id === applicationId);
+  const selectedApplication = requisitionCandidates.find((c) => c.application_id === applicationId);
+  const noneSchedulable = requisitions.length === 0;
+  const requisitionMissing = !requisitionId;
+  const candidateMissing = !selectedApplication;
   const dateMissing = !date;
   const panelMissing = panelIds.length === 0;
   const canSubmit = !!selectedApplication && !dateMissing && !!time && !panelMissing;
 
   function reset() {
+    setRequisitionId(undefined);
     setApplicationId(undefined);
-    setRound('technical');
     setDate(undefined);
     setTime('10:00');
     setDuration('60');
@@ -135,7 +206,6 @@ export function ScheduleInterviewDialog({
       .map((p) => ({ user_id: p.user_id, display_name: p.name }));
     mutation.mutate({
       application_id: selectedApplication.application_id,
-      round,
       scheduled_at: toIsoDateTime(date, time),
       duration_minutes: Number(duration),
       mode,
@@ -153,7 +223,7 @@ export function ScheduleInterviewDialog({
         onOpenChange(open);
       }}
       purpose="form"
-      width={560}
+      width={680}
       aria-label="Schedule interview"
     >
       <Layout
@@ -169,21 +239,69 @@ export function ScheduleInterviewDialog({
             <VStack gap={4}>
               <Grid columns={2} gap={4}>
                 <Selector
+                  label="Requisition"
+                  hasSearch
+                  searchPlaceholder="Search requisitions…"
+                  options={requisitions.map((r) => ({ value: r.id, label: r.title }))}
+                  value={requisitionId}
+                  onChange={setRequisitionId}
+                  isDisabled={noneSchedulable}
+                  placeholder={
+                    noneSchedulable ? 'No candidates to schedule' : 'Select a requisition'
+                  }
+                  renderOption={(option) => {
+                    const count = requisitions.find((r) => r.id === option.value)?.count ?? 0;
+                    return (
+                      <SelectorOption
+                        label={option.label}
+                        endContent={
+                          <Text size="sm" color="secondary">
+                            {count} candidate{count === 1 ? '' : 's'}
+                          </Text>
+                        }
+                      />
+                    );
+                  }}
+                  status={
+                    submitAttempted && requisitionMissing
+                      ? { type: 'error', message: 'Pick a requisition.' }
+                      : undefined
+                  }
+                />
+                <Selector
                   label="Candidate"
-                  options={schedulable.map((c) => ({
+                  hasSearch
+                  searchPlaceholder="Search candidates…"
+                  options={requisitionCandidates.map((c) => ({
                     value: c.application_id,
-                    label: `${c.name} — ${c.requisition_title}`,
+                    label: c.name,
                   }))}
                   value={applicationId}
                   onChange={setApplicationId}
-                  isDisabled={schedulable.length === 0}
-                  placeholder={schedulable.length === 0 ? 'No active candidates' : undefined}
-                />
-                <Selector
-                  label="Round"
-                  options={ROUND_OPTIONS.map((r) => ({ value: r, label: ROUND_LABEL[r] }))}
-                  value={round}
-                  onChange={(v) => setRound(v as InterviewRound)}
+                  isDisabled={requisitionMissing}
+                  placeholder={
+                    requisitionMissing ? 'Pick a requisition first' : 'Select a candidate'
+                  }
+                  renderOption={(option) => {
+                    const candidate = requisitionCandidates.find(
+                      (c) => c.application_id === option.value,
+                    );
+                    return (
+                      <SelectorOption
+                        label={option.label}
+                        endContent={
+                          <Text size="sm" color="secondary">
+                            {candidate ? (STAGE_LABEL[candidate.stage] ?? candidate.stage) : ''}
+                          </Text>
+                        }
+                      />
+                    );
+                  }}
+                  status={
+                    submitAttempted && !requisitionMissing && candidateMissing
+                      ? { type: 'error', message: 'Pick a candidate.' }
+                      : undefined
+                  }
                 />
               </Grid>
               <Grid columns={3} gap={4}>
@@ -198,7 +316,15 @@ export function ScheduleInterviewDialog({
                       : undefined
                   }
                 />
-                <TimeInput label="Time" hourFormat="24h" value={time} onChange={setTime} />
+                <Selector
+                  label="Time"
+                  startIcon={<Clock aria-hidden="true" />}
+                  hasSearch
+                  searchPlaceholder="Search a time…"
+                  options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+                  value={time}
+                  onChange={setTime}
+                />
                 <Selector
                   label="Duration"
                   options={DURATION_OPTIONS.map((m) => ({ value: String(m), label: `${m} min` }))}
@@ -214,6 +340,7 @@ export function ScheduleInterviewDialog({
                   label="Interview mode"
                   value={mode}
                   onChange={(v) => setMode(v as InterviewMode)}
+                  className="self-start"
                 >
                   <SegmentedControlItem
                     value="online"
@@ -236,14 +363,19 @@ export function ScheduleInterviewDialog({
                   placeholder="Paste a Zoom / Meet / Teams link"
                 />
               )}
-              <MultiSelector
+              <Tokenizer<PanelistItem>
                 label="Interview panel"
-                hasSearch
-                searchPlaceholder="Search people…"
-                placeholder="Add panelists"
-                options={(directory ?? []).map((p) => ({ value: p.user_id, label: p.name }))}
-                value={panelIds}
-                onChange={setPanelIds}
+                placeholder="Search people…"
+                searchSource={panelSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                value={panelItems}
+                onChange={handlePanelChange}
+                ref={panelFieldRef}
+                handleRef={panelControlRef}
+                renderToken={(item, onRemove) => (
+                  <Token key={item.id} label={item.label} onRemove={onRemove} />
+                )}
                 status={
                   submitAttempted && panelMissing
                     ? { type: 'error', message: 'Add at least one panelist.' }

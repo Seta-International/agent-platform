@@ -701,11 +701,9 @@ export async function putCvToS3(uploadUrl: string, file: File): Promise<void> {
 }
 
 // ---- Interviews (FUT-487) ----
-export type InterviewRound = 'screening' | 'technical' | 'culture_fit' | 'final';
 export type InterviewEventMode = 'online' | 'onsite';
 export type InterviewLifecycleStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type InterviewResult = 'pass' | 'hold' | 'fail';
-export type InterviewRecommendation = 'hire' | 'next_round' | 'no_hire';
 
 export interface InterviewPanelistRow {
   user_id: string;
@@ -719,7 +717,6 @@ export interface InterviewRow {
   candidate_name: string;
   requisition_id: string;
   requisition_title: string;
-  round: InterviewRound;
   scheduled_at: string;
   duration_minutes: number;
   mode: InterviewEventMode;
@@ -727,8 +724,6 @@ export interface InterviewRow {
   note: string | null;
   status: InterviewLifecycleStatus;
   result: InterviewResult | null;
-  rating: number | null;
-  recommendation: InterviewRecommendation | null;
   feedback_note: string | null;
   outcome_reason: string | null;
   version: number;
@@ -742,7 +737,6 @@ export async function fetchInterviews(q?: string): Promise<InterviewRow[]> {
 
 export interface ScheduleInterviewPayload {
   application_id: string;
-  round: InterviewRound;
   scheduled_at: string;
   duration_minutes: number;
   mode: InterviewEventMode;
@@ -757,7 +751,6 @@ export async function scheduleInterview(
 }
 
 export interface RescheduleInterviewPayload {
-  round: InterviewRound;
   scheduled_at: string;
   duration_minutes: number;
   mode: InterviewEventMode;
@@ -776,8 +769,6 @@ export async function rescheduleInterview(
 
 export interface CompleteInterviewPayload {
   result: InterviewResult;
-  rating?: number;
-  recommendation?: InterviewRecommendation;
   feedback_note?: string;
 }
 export async function completeInterview(

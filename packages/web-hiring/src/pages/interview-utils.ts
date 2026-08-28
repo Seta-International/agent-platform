@@ -1,11 +1,9 @@
 // Types, labels, and pure helpers for the Interviews agenda — backed by the real
 // hiring.interview lifecycle (FUT-487, packages/hiring/src/backend/domain/interviews.ts).
 
-export type InterviewRound = 'screening' | 'technical' | 'culture_fit' | 'final';
 export type InterviewMode = 'online' | 'onsite';
 export type InterviewStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type InterviewResult = 'pass' | 'hold' | 'fail';
-export type InterviewRecommendation = 'hire' | 'next_round' | 'no_hire';
 
 export interface InterviewPanelist {
   user_id: string;
@@ -18,7 +16,6 @@ export interface Interview {
   candidate_id: string;
   candidate_name: string;
   requisition_title: string;
-  round: InterviewRound;
   scheduled_at: string; // ISO datetime
   duration_minutes: number;
   mode: InterviewMode;
@@ -27,21 +24,21 @@ export interface Interview {
   note: string | null;
   status: InterviewStatus;
   result?: InterviewResult | null;
-  rating?: number | null;
-  recommendation?: InterviewRecommendation | null;
   feedback_note?: string | null;
   outcome_reason?: string | null;
   version: number;
 }
 
-export const ROUND_OPTIONS: InterviewRound[] = ['screening', 'technical', 'culture_fit', 'final'];
-export const ROUND_LABEL: Record<InterviewRound, string> = {
-  screening: 'Screening',
-  technical: 'Technical',
-  culture_fit: 'Culture fit',
-  final: 'Final',
-};
 export const DURATION_OPTIONS = [30, 45, 60, 90] as const;
+
+// Half-hour slots from 07:00 to 20:00 — covers early and evening interviews
+// without listing every minute of the day.
+export const TIME_OPTIONS: string[] = Array.from({ length: 27 }, (_, i) => {
+  const totalMinutes = 7 * 60 + i * 30;
+  const h = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+  const m = String(totalMinutes % 60).padStart(2, '0');
+  return `${h}:${m}`;
+});
 
 export const STATUS_LABEL: Record<InterviewStatus, string> = {
   scheduled: 'Scheduled',
@@ -59,12 +56,6 @@ export const RESULT_BADGE_VARIANT: Record<InterviewResult, 'success' | 'warning'
   pass: 'success',
   hold: 'warning',
   fail: 'error',
-};
-
-export const RECOMMENDATION_LABEL: Record<InterviewRecommendation, string> = {
-  hire: 'Hire',
-  next_round: 'Next round',
-  no_hire: "Don't hire",
 };
 
 // Which of an "All interviews" filter bucket an interview belongs to — mirrors the segmented

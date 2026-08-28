@@ -15,7 +15,6 @@ import {
   PageContainer,
   SegmentedControl,
   SegmentedControlItem,
-  Selector,
   Skeleton,
   StatusToneDot,
   Text,
@@ -24,17 +23,7 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Building2,
-  CalendarCheck,
-  CalendarClock,
-  CalendarDays,
-  Percent,
-  Plus,
-  Search,
-  Video,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Building2, CalendarCheck, CalendarClock, Plus, Search, Video } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   cancelInterview,
@@ -46,34 +35,16 @@ import { hiringKeys } from '../state/query-keys.ts';
 import { InterviewDetailDialog } from './interview-detail-dialog.tsx';
 import {
   type DayGroup,
-  dayBucketOf,
   formatTime,
   groupByDay,
   type Interview,
   RESULT_BADGE_VARIANT,
   RESULT_LABEL,
-  ROUND_LABEL,
-  ROUND_OPTIONS,
 } from './interview-utils.ts';
 import { ScheduleInterviewDialog } from './schedule-interview-dialog.tsx';
 import { on409 } from './utils.ts';
 
-const NONE = '__none__';
 type StatusFilter = 'all' | 'upcoming' | 'completed';
-
-function stat(label: string, value: ReactNode, icon: ReactNode) {
-  return (
-    <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-5 py-4">
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface text-secondary">
-        {icon}
-      </div>
-      <div>
-        <div className="text-5xl font-semibold tabular-nums text-primary">{value}</div>
-        <div className="mt-1 text-sm text-secondary">{label}</div>
-      </div>
-    </div>
-  );
-}
 
 function TimeChip({ iso, showDate }: { iso: string; showDate: boolean }) {
   return (
@@ -115,12 +86,7 @@ function AgendaRow({
     <ListItem
       onClick={onOpen}
       startContent={<TimeChip iso={interview.scheduled_at} showDate={showDate} />}
-      label={
-        <HStack gap={2} vAlign="center">
-          <Text weight="medium">{interview.candidate_name}</Text>
-          <Badge variant="neutral" label={ROUND_LABEL[interview.round]} />
-        </HStack>
-      }
+      label={<Text weight="medium">{interview.candidate_name}</Text>}
       description={
         <HStack gap={2} vAlign="center">
           <Text size="sm" color="secondary">
@@ -150,12 +116,7 @@ function PastRow({ interview, onOpen }: { interview: Interview; onOpen: () => vo
     <ListItem
       onClick={onOpen}
       startContent={<TimeChip iso={interview.scheduled_at} showDate />}
-      label={
-        <HStack gap={2} vAlign="center">
-          <Text weight="medium">{interview.candidate_name}</Text>
-          <Badge variant="neutral" label={ROUND_LABEL[interview.round]} />
-        </HStack>
-      }
+      label={<Text weight="medium">{interview.candidate_name}</Text>}
       description={
         <Text size="sm" color="secondary">
           {interview.requisition_title}
@@ -218,7 +179,6 @@ export function InterviewsPage() {
   });
   const interviews = data ?? [];
   const [q, setQ] = useState('');
-  const [roundFilter, setRoundFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('upcoming');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -231,12 +191,11 @@ export function InterviewsPage() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return interviews.filter((i) => {
-      if (roundFilter && i.round !== roundFilter) return false;
       if (needle && !`${i.candidate_name} ${i.requisition_title}`.toLowerCase().includes(needle))
         return false;
       return true;
     });
-  }, [interviews, q, roundFilter]);
+  }, [interviews, q]);
 
   const scheduled = useMemo(() => filtered.filter((i) => i.status === 'scheduled'), [filtered]);
   const completed = useMemo(() => filtered.filter((i) => i.status === 'completed'), [filtered]);
@@ -249,24 +208,16 @@ export function InterviewsPage() {
   );
 
   const upcomingGroups = useMemo(() => groupByDay(scheduled, now), [scheduled, now]);
+  // The Upcoming tab is a short "what needs my attention next" view — only overdue (needs an
+  // outcome), today, and tomorrow. This week / later still show up, just under All.
+  const nearTermGroups = useMemo(
+    () => upcomingGroups.filter((g) => g.key !== 'week' && g.key !== 'later'),
+    [upcomingGroups],
+  );
   const completedSorted = useMemo(
     () => [...completed].sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at)),
     [completed],
   );
-
-  // Tiles summarize the whole schedule regardless of which tab is open below — unlike the
-  // Requisitions stat row, these four numbers are distinct facets of one dataset, not a
-  // breakdown that should re-total per tab. They still respect search/round.
-  const thisWeekCount = useMemo(
-    () =>
-      filtered.filter(
-        (i) => i.status === 'scheduled' && dayBucketOf(i.scheduled_at, now) !== 'later',
-      ).length,
-    [filtered, now],
-  );
-  const passRate = completed.length
-    ? Math.round((completed.filter((i) => i.result === 'pass').length / completed.length) * 100)
-    : 0;
 
   const selected = interviews.find((i) => i.id === selectedId) ?? null;
 
@@ -276,8 +227,6 @@ export function InterviewsPage() {
         expected_version: m.version,
         input: {
           result: m.patch.result as NonNullable<Interview['result']>,
-          rating: m.patch.rating ?? undefined,
-          recommendation: m.patch.recommendation ?? undefined,
           feedback_note: m.patch.feedback_note ?? undefined,
         },
       }),
@@ -363,7 +312,7 @@ export function InterviewsPage() {
                   Interviews
                 </Text>
                 <Text color="secondary">
-                  Schedule rounds, share the meeting link, and record the panel's outcome.
+                  Schedule interviews, share the meeting link, and record the panel's outcome.
                 </Text>
               </HStack>
               {canManage && (
@@ -382,21 +331,6 @@ export function InterviewsPage() {
       content={
         <LayoutContent padding={0}>
           <PageContainer className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {stat(
-                'Scheduled',
-                scheduled.length,
-                <CalendarClock className="size-5" aria-hidden />,
-              )}
-              {stat('This week', thisWeekCount, <CalendarDays className="size-5" aria-hidden />)}
-              {stat(
-                'Completed',
-                completed.length,
-                <CalendarCheck className="size-5" aria-hidden />,
-              )}
-              {stat('Pass rate', `${passRate}%`, <Percent className="size-5" aria-hidden />)}
-            </div>
-
             <div className="flex flex-wrap items-center gap-3">
               <Input
                 label="Search interviews"
@@ -406,17 +340,6 @@ export function InterviewsPage() {
                 value={q}
                 onChange={setQ}
                 className="max-w-xs flex-1"
-              />
-              <Selector
-                label="Filter by round"
-                isLabelHidden
-                options={[
-                  { value: NONE, label: 'All rounds' },
-                  ...ROUND_OPTIONS.map((r) => ({ value: r, label: ROUND_LABEL[r] })),
-                ]}
-                value={roundFilter || NONE}
-                onChange={(v) => setRoundFilter(v === NONE ? '' : v)}
-                placeholder="Round"
               />
               <div className="ml-auto">
                 <SegmentedControl
@@ -441,25 +364,28 @@ export function InterviewsPage() {
               <EmptyState
                 icon={<CalendarClock className="size-6" />}
                 title="No interviews scheduled"
-                description="Schedule a round from the button above to get the panel moving."
+                description="Schedule an interview from the button above to get the panel moving."
               />
             ) : emptyFiltered ? (
               <EmptyState
                 icon={<Search className="size-6" />}
                 title="No interviews match"
-                description="Try a different candidate, position, or round."
+                description="Try a different candidate or position."
               />
             ) : (
               <VStack gap={6}>
                 {statusFilter !== 'completed' &&
-                  (upcomingGroups.length ? (
-                    <AgendaSection groups={upcomingGroups} onOpen={setSelectedId} />
+                  ((statusFilter === 'upcoming' ? nearTermGroups : upcomingGroups).length ? (
+                    <AgendaSection
+                      groups={statusFilter === 'upcoming' ? nearTermGroups : upcomingGroups}
+                      onOpen={setSelectedId}
+                    />
                   ) : (
                     statusFilter === 'upcoming' && (
                       <EmptyState
                         icon={<CalendarCheck className="size-6" />}
                         title="Nothing on the schedule"
-                        description="Every round is recorded. Schedule the next one when you're ready."
+                        description="Every interview is recorded. Schedule the next one when you're ready."
                       />
                     )
                   ))}
@@ -485,8 +411,8 @@ export function InterviewsPage() {
                   ) : (
                     <EmptyState
                       icon={<CalendarCheck className="size-6" />}
-                      title="No completed rounds yet"
-                      description="Outcomes will show up here once a round is marked done."
+                      title="No completed interviews yet"
+                      description="Outcomes will show up here once an interview is marked done."
                     />
                   ))}
 
