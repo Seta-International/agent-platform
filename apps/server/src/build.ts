@@ -262,7 +262,10 @@ export function buildServerApp(
       workers: deps.workers,
       streams: streamsView,
       log: deps.log,
-      resolveModel: (opts) => resolveAgentModel(undefined, opts).model,
+      // Module HTTP LLM hooks (CV parse today). Client may pass an explicit
+      // catalog key (model picker); otherwise resolveModel falls back to the
+      // default/tier auto-pick from AGENT_MODELS when modelKey is undefined.
+      resolveModel: (opts) => resolveAgentModel(opts?.modelKey, opts).model,
     });
     app.route(route.mountAt, subApp as unknown as Hono<SessionEnv>);
   }

@@ -186,6 +186,8 @@ async function ensureMonthPinIfNeeded(
 ): Promise<{ applies_to_next_cycle: boolean }> {
   const at = monthClockNow();
   const month = vnYearMonth(at);
+  // No manual-unlock override here: an unlock (FUT-781) only ever targets the latest
+  // CLOSED cycle, never the current month this pin is about, so it can never apply.
   const { status } = classifyCycleStatus({ month, at });
   if (!cycleWindowActive(status)) {
     return { applies_to_next_cycle: false };

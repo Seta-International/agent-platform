@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PerformanceCapacity } from '../../src/api/people-client.ts';
-import {
-  amTopTabs,
-  isPerformanceNavAllowed,
-  isPerformancePathAllowed,
-} from '../../src/nav/performance-nav.ts';
+import { isPerformancePathAllowed, performanceTopTabs } from '../../src/nav/performance-nav.ts';
 
 const tl: PerformanceCapacity = {
   kind: 'tl',
@@ -20,43 +16,61 @@ const member: PerformanceCapacity = {
 };
 const am: PerformanceCapacity = { kind: 'am', account_id: 'a1', label: 'Contoso' };
 
-describe('amTopTabs', () => {
+const ids = (tabs: readonly { id: string }[]) => tabs.map((t) => t.id);
+
+describe('performanceTopTabs', () => {
   it('AM gets Reviews + Configuration; other capacities get none', () => {
-    expect(amTopTabs(am).map((t) => t.id)).toEqual(['reviews', 'configuration']);
-    expect(amTopTabs(tl)).toEqual([]);
-    expect(amTopTabs(member)).toEqual([]);
-    expect(amTopTabs(null)).toEqual([]);
+    expect(ids(performanceTopTabs({ capacity: am, canUnlock: false }))).toEqual([
+      'reviews',
+      'configuration',
+    ]);
+    expect(performanceTopTabs({ capacity: tl, canUnlock: false })).toEqual([]);
+    expect(performanceTopTabs({ capacity: member, canUnlock: false })).toEqual([]);
+    expect(performanceTopTabs({ capacity: null, canUnlock: false })).toEqual([]);
+  });
+
+  it('unlock permission adds a Cycle unlock tab, even with no delivery capacity', () => {
+    expect(ids(performanceTopTabs({ capacity: null, canUnlock: true }))).toEqual([
+      'reviews',
+      'cycle',
+    ]);
+    expect(ids(performanceTopTabs({ capacity: am, canUnlock: true }))).toEqual([
+      'reviews',
+      'configuration',
+      'cycle',
+    ]);
   });
 });
 
 describe('isPerformancePathAllowed', () => {
+  const allowed = (
+    pathname: string,
+    roleSlugs: readonly string[],
+    capacity: PerformanceCapacity | null,
+    canUnlock = false,
+  ) => isPerformancePathAllowed({ pathname, roleSlugs, capacity, canUnlock });
+
   it('home is always allowed; configuration is AM-only', () => {
-    expect(isPerformancePathAllowed('/people/performance', ['pm.pmo'], null)).toBe(true);
-    expect(isPerformancePathAllowed('/people/performance/configuration', [], am)).toBe(true);
-    expect(isPerformancePathAllowed('/people/performance/configuration', [], tl)).toBe(false);
+    expect(allowed('/people/performance', ['pm.pmo'], null)).toBe(true);
+    expect(allowed('/people/performance/configuration', [], am)).toBe(true);
+    expect(allowed('/people/performance/configuration', [], tl)).toBe(false);
   });
 
   it('scoring is TL/AM; self-assessment is member', () => {
-    expect(isPerformancePathAllowed('/people/performance/scoring', [], tl)).toBe(true);
-    expect(isPerformancePathAllowed('/people/performance/scoring', [], member)).toBe(false);
-    expect(isPerformancePathAllowed('/people/performance/self-assessment', [], member)).toBe(true);
-    expect(isPerformancePathAllowed('/people/performance/self-assessment', [], tl)).toBe(false);
+    expect(allowed('/people/performance/scoring', [], tl)).toBe(true);
+    expect(allowed('/people/performance/scoring', [], member)).toBe(false);
+    expect(allowed('/people/performance/self-assessment', [], member)).toBe(true);
+    expect(allowed('/people/performance/self-assessment', [], tl)).toBe(false);
   });
 
-  it('audit/cycle are strategic roles', () => {
-    expect(isPerformancePathAllowed('/people/performance/audit', ['pm.pmo'], null)).toBe(true);
-    expect(isPerformancePathAllowed('/people/performance/cycle', ['people.manager'], tl)).toBe(
-      true,
-    );
-    expect(isPerformancePathAllowed('/people/performance/audit', ['people.viewer'], tl)).toBe(
-      false,
-    );
+  it('cycle unlock follows the permission, not the role list', () => {
+    expect(allowed('/people/performance/cycle', [], null, true)).toBe(true);
+    // A strategic role without people.performance.unlock still can't reach it.
+    expect(allowed('/people/performance/cycle', ['people.manager'], tl, false)).toBe(false);
   });
 
-  it('isPerformanceNavAllowed mirrors path checks', () => {
-    expect(isPerformanceNavAllowed('scoring', ['pm.pmo'], null)).toBe(false);
-    expect(isPerformanceNavAllowed('audit', ['pm.pmo'], null)).toBe(true);
-    expect(isPerformanceNavAllowed('scoring', [], tl)).toBe(true);
-    expect(isPerformanceNavAllowed('configuration', [], am)).toBe(true);
+  it('audit stays on the strategic roles', () => {
+    expect(allowed('/people/performance/audit', ['pm.pmo'], null)).toBe(true);
+    expect(allowed('/people/performance/audit', ['people.viewer'], tl)).toBe(false);
   });
 });

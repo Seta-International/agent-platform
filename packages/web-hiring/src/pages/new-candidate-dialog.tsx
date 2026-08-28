@@ -16,9 +16,10 @@ import {
   Textarea,
   useToast,
 } from '@seta/shared-ui';
+import { firstConcreteModelKey, ModelSelector, useModelCatalog } from '@seta/web-agent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, X } from 'lucide-react';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   addCandidate,
   type CandidateDuplicate,
@@ -74,6 +75,13 @@ export function NewCandidateDialog() {
   const [note, setNote] = useState('');
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvModel, setCvModel] = useState('');
+  const { data: modelCatalog } = useModelCatalog();
+  useEffect(() => {
+    if (cvModel) return;
+    const next = firstConcreteModelKey(modelCatalog?.models);
+    if (next) setCvModel(next);
+  }, [cvModel, modelCatalog?.models]);
   // FUT-559: the parsed CV carries a content hash + any candidates it may duplicate; warn the
   // recruiter before they create a second record, and pass the hash through on save so the
   // stored CV is dedup-aware.
@@ -210,7 +218,8 @@ export function NewCandidateDialog() {
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
-    mutationFn: (file: File) => parseCandidateCvDraft(file, abortRef.current?.signal ?? undefined),
+    mutationFn: (file: File) =>
+      parseCandidateCvDraft(file, abortRef.current?.signal ?? undefined, cvModel || undefined),
   });
 
   const mutation = useMutation({
@@ -303,6 +312,15 @@ export function NewCandidateDialog() {
           content={
             <LayoutContent>
               <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-secondary">Parse model</span>
+                  <ModelSelector
+                    value={cvModel}
+                    onChange={setCvModel}
+                    includeAuto={false}
+                    variant="bordered"
+                  />
+                </div>
                 {cvFile ? (
                   <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-base">
                     <FileText className="size-4 flex-none text-secondary" aria-hidden />

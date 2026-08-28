@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { listSkills, type SessionScope } from '@seta/core';
+import { canonicalizeSkill, requireSkillPermission, type SessionScope } from '@seta/core';
 import { type CvProfileDraft, type ParseCvProfileDeps, parseCvProfile } from '@seta/knowledge';
 import { tenantScoped } from '@seta/shared-rbac';
 import { buildTenantKey, presignedDownloadUrl, presignedUploadUrl } from '@seta/shared-storage';
@@ -25,7 +25,7 @@ export interface CandidateCvDraft {
   gender: 'male' | 'female' | null;
   seniority: string | null;
   note: string | null;
-  /** Raw names the LLM found that resolved to catalog skills. */
+  /** Catalog skills resolved from LLM names (slug + alias). */
   skills: Array<{ skill_id: string; skill_name: string }>;
   /** Names with no catalog match — surfaced as suggestions, never auto-created. */
   skill_suggestions: string[];
@@ -102,23 +102,39 @@ async function matchSkillsToCatalog(
   session: SessionScope,
   names: string[],
 ): Promise<{ skills: CandidateCvDraft['skills']; suggestions: string[] }> {
-  let catalog: Array<{ id: string; name: string }> = [];
+  // Gate on the catalog-read permission without fetching the whole catalog:
+  // canonicalizeSkill below is a normalization utility that does not re-check it.
   try {
-    catalog = await listSkills(session, { activeOnly: true });
+    requireSkillPermission(session, 'core.skill.read');
   } catch {
-    catalog = [];
+    const suggestions: string[] = [];
+    const seen = new Set<string>();
+    for (const raw of names) {
+      const norm = raw.trim();
+      if (!norm || seen.has(norm.toLowerCase())) continue;
+      seen.add(norm.toLowerCase());
+      suggestions.push(norm);
+    }
+    return { skills: [], suggestions };
   }
-  const byName = new Map(catalog.map((s) => [s.name.toLowerCase(), s]));
+
   const skills: CandidateCvDraft['skills'] = [];
   const suggestions: string[] = [];
-  const seen = new Set<string>();
+  const seenRaw = new Set<string>();
+  const seenIds = new Set<string>();
   for (const raw of names) {
     const norm = raw.trim();
-    if (!norm || seen.has(norm.toLowerCase())) continue;
-    seen.add(norm.toLowerCase());
-    const hit = byName.get(norm.toLowerCase());
-    if (hit) skills.push({ skill_id: hit.id, skill_name: hit.name });
-    else suggestions.push(norm);
+    if (!norm || seenRaw.has(norm.toLowerCase())) continue;
+    seenRaw.add(norm.toLowerCase());
+    const hit = await canonicalizeSkill(session, norm);
+    if (hit) {
+      if (!seenIds.has(hit.skill_id)) {
+        seenIds.add(hit.skill_id);
+        skills.push({ skill_id: hit.skill_id, skill_name: hit.name });
+      }
+    } else {
+      suggestions.push(norm);
+    }
   }
   return { skills, suggestions };
 }

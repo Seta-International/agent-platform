@@ -289,9 +289,10 @@ export interface WorkerCvDraft {
 }
 
 /** Stateless parse: nothing is stored until the reviewer saves the form. */
-export async function parseWorkerCvDraft(file: File): Promise<WorkerCvDraft> {
+export async function parseWorkerCvDraft(file: File, model?: string): Promise<WorkerCvDraft> {
   const fd = new FormData();
   fd.set('file', file);
+  if (model) fd.set('model', model);
   const res = await fetch('/api/people/v1/cv/parse-draft', {
     method: 'POST',
     credentials: 'include',
@@ -344,6 +345,10 @@ export type PerformanceContext =
       role_slugs: string[];
       capacities: PerformanceCapacity[];
       default_capacity_index: number;
+      /** Session holds people.performance.read_org — gates the org (strategic/PMO) view. */
+      can_view_org: boolean;
+      /** Session holds people.performance.unlock — gates the PMO manual-unlock panel. */
+      can_unlock: boolean;
     };
 
 export async function fetchPerformanceContext(asOfMonth: string): Promise<PerformanceContext> {
@@ -362,9 +367,82 @@ export type CycleStatusResponse = {
   evaluated_at: string;
 };
 
-export async function fetchCycleStatus(month: string): Promise<CycleStatusResponse> {
+// --- Manual cycle unlock (FUT-781) ---------------------------------------
+// Types mirror @seta/people contracts (web packages can't import the module).
+export type UnlockAction = 'unlock' | 'relock';
+
+export type CycleUnlockEntry = {
+  id: string;
+  review_month: string;
+  account_id: string;
+  action: UnlockAction;
+  expires_at: string | null;
+  actor_person_id: string | null;
+  actor_user_id: string;
+  created_at: string;
+};
+
+export type CycleUnlockAccountState = {
+  account_id: string;
+  name: string;
+  /** ISO deadline of the running window, or null when the account is locked. */
+  unlocked_until: string | null;
+};
+
+export type CycleUnlockPanelData = {
+  /** The only month that may be unlocked now — the latest closed cycle. */
+  unlockable_month: string;
+  max_days: number;
+  accounts: CycleUnlockAccountState[];
+  entries: CycleUnlockEntry[];
+};
+
+export type CycleUnlockBody = {
+  month: string;
+  account_id: string;
+  days: number;
+};
+
+export type CycleRelockBody = {
+  month: string;
+  account_id: string;
+};
+
+export async function fetchCycleUnlockPanel(): Promise<CycleUnlockPanelData> {
+  const res = await fetch('/api/people/v1/performance/cycle-unlocks', {
+    credentials: 'include',
+  });
+  return handleResponse<CycleUnlockPanelData>(res);
+}
+
+export async function unlockCycle(body: CycleUnlockBody): Promise<CycleUnlockEntry> {
+  const res = await fetch('/api/people/v1/performance/cycle-unlocks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CycleUnlockEntry>(res);
+}
+
+export async function relockCycle(body: CycleRelockBody): Promise<CycleUnlockEntry> {
+  const res = await fetch('/api/people/v1/performance/cycle-relocks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CycleUnlockEntry>(res);
+}
+
+export async function fetchCycleStatus(
+  month: string,
+  accountId?: string | null,
+): Promise<CycleStatusResponse> {
+  // A manual unlock is scoped to one account, so the badge needs the account in view.
+  const account = accountId ? `&account_id=${encodeURIComponent(accountId)}` : '';
   const res = await fetch(
-    `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}`,
+    `/api/people/v1/performance/cycle-status?month=${encodeURIComponent(month)}${account}`,
     { credentials: 'include' },
   );
   return handleResponse<CycleStatusResponse>(res);

@@ -14,6 +14,12 @@ export {
 } from './backend/domain/allocation-grid.ts';
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
+export {
+  readCycleUnlockPanel,
+  relockCycle,
+  resolveOverrideActive,
+  unlockCycle,
+} from './backend/domain/cycle-unlock.ts';
 export { type DeleteOrgUnitInput, deleteOrgUnit } from './backend/domain/delete-org-unit.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
@@ -27,6 +33,7 @@ export {
 } from './backend/domain/match-users-to-topic.ts';
 export {
   classifyCycleStatus,
+  latestClosedCycleMonth,
   monthClockNow,
   setMonthClock,
   vnYearMonth,
@@ -103,9 +110,14 @@ export {
 } from './backend/embeddings/vector-store.ts';
 export type {
   CreateWorkerInput,
+  CycleRelockInput,
   CycleStatus,
   CycleStatusQuery,
   CycleStatusResponse,
+  CycleUnlockAccountState,
+  CycleUnlockEntry,
+  CycleUnlockInput,
+  CycleUnlockPanel,
   EditWorkerInput,
   MonthTaskCard,
   MonthTaskGroup,
@@ -132,9 +144,13 @@ export type {
   SubmitMoraleInput,
 } from './contracts.ts';
 export {
+  cycleRelockInput,
   cycleStatusEnum,
   cycleStatusQuery,
   cycleStatusResponse,
+  cycleUnlockEntry,
+  cycleUnlockInput,
+  cycleUnlockPanel,
   GENDER_VALUES,
   type GenderValue,
   genderValue,

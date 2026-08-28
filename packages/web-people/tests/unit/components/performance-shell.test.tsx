@@ -43,7 +43,7 @@ describe('PerformanceShell', () => {
     pathname = '/people/performance';
   });
 
-  it('non-AM: no top tabs; shows cycle badge + context switcher', async () => {
+  it('capacity-less org viewer without unlock: no top tabs; shows cycle badge + switcher', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
@@ -51,6 +51,8 @@ describe('PerformanceShell', () => {
           role_slugs={['pm.pmo']}
           capacities={[]}
           default_capacity_index={-1}
+          can_view_org={true}
+          can_unlock={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -69,6 +71,35 @@ describe('PerformanceShell', () => {
     );
   });
 
+  it('unlock permission: Cycle unlock gets its own tab, and hides the period picker there', () => {
+    pathname = '/people/performance/cycle';
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <PerformanceShell
+          role_slugs={['pm.pmo']}
+          capacities={[]}
+          default_capacity_index={-1}
+          can_view_org={true}
+          can_unlock={true}
+          as_of_month="2026-07"
+        >
+          <div>body</div>
+        </PerformanceShell>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId('performance-top-tabs')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Reviews' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Cycle unlock' })).toBeChecked();
+    // The unlockable month is fixed by the server, so a period picker would be dead.
+    expect(screen.queryByTestId('performance-period-selector')).not.toBeInTheDocument();
+    // A permitted section must never bounce back to Reviews (scope sync stays on /cycle).
+    expect(navigate.mock.calls.map((c) => (c[0] as { to: string }).to)).not.toContain(
+      '/people/performance',
+    );
+  });
+
   it('AM capacity: Shows Reviews | Configuration top tabs', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -77,6 +108,8 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'am', account_id: 'a1', label: 'Contoso' }]}
           default_capacity_index={0}
+          can_view_org={false}
+          can_unlock={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -98,6 +131,8 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'tl', project_id: 'p1', account_id: 'a1', label: 'Atlas' }]}
           default_capacity_index={0}
+          can_view_org={false}
+          can_unlock={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -118,6 +153,8 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'tl', project_id: 'p1', account_id: 'a1', label: 'Atlas' }]}
           default_capacity_index={0}
+          can_view_org={false}
+          can_unlock={false}
           as_of_month="2026-07"
         >
           <div>body</div>
@@ -141,6 +178,8 @@ describe('PerformanceShell', () => {
           role_slugs={['people.viewer']}
           capacities={[{ kind: 'tl', project_id: 'p1', account_id: 'a1', label: 'Atlas' }]}
           default_capacity_index={0}
+          can_view_org={false}
+          can_unlock={false}
           as_of_month="2026-07"
         >
           <div>body</div>

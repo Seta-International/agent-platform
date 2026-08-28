@@ -62,6 +62,19 @@ const mockModel = () =>
       }) as never,
   });
 
+function modelReturning(text: string) {
+  return new MockLanguageModelV3({
+    doGenerate: async () =>
+      ({
+        rawCall: { rawPrompt: null, rawSettings: {} },
+        finishReason: 'stop',
+        usage,
+        content: [{ type: 'text', text }],
+        warnings: [],
+      }) as never,
+  });
+}
+
 async function seedSkill(pool: Pool, tenant_id: string, name: string): Promise<string> {
   const catId = crypto.randomUUID();
   const skillId = crypto.randomUUID();
@@ -77,6 +90,19 @@ async function seedSkill(pool: Pool, tenant_id: string, name: string): Promise<s
   return skillId;
 }
 
+async function seedSkillAlias(
+  pool: Pool,
+  tenant_id: string,
+  skill_id: string,
+  alias: string,
+): Promise<void> {
+  const slug = alias.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  await pool.query(
+    `INSERT INTO core.skill_alias (id, tenant_id, skill_id, alias, slug) VALUES ($1,$2,$3,$4,$5)`,
+    [crypto.randomUUID(), tenant_id, skill_id, alias, slug],
+  );
+}
+
 describe('parseWorkerCvDraft', () => {
   it('maps the LLM draft to worker fields and splits skills into catalog matches vs suggestions', () =>
     withDb(async ({ pool, t }) => {
@@ -90,6 +116,32 @@ describe('parseWorkerCvDraft', () => {
       expect(draft.full_name).toBe('Nguyen Van B');
       expect(draft.personal_email).toBe('b@gmail.com');
       expect(draft.job_title).toBe('Backend Dev');
+      expect(draft.skills).toEqual([{ skill_id: goId, skill_name: 'Go' }]);
+      expect(draft.skill_suggestions).toEqual(['Cobol']);
+    }));
+
+  it('resolves Golang via alias to Go and dedupes Go+Golang to one catalog skill', () =>
+    withDb(async ({ pool, t }) => {
+      const goId = await seedSkill(pool, t.tenant_id, 'Go');
+      await seedSkillAlias(pool, t.tenant_id, goId, 'Golang');
+
+      const draft = await parseWorkerCvDraft(
+        {
+          buffer: Buffer.from(CV_TEXT, 'utf-8'),
+          filename: 'cv.txt',
+          session: t.adminSession,
+        },
+        {
+          resolveModel: () =>
+            modelReturning(
+              JSON.stringify({
+                ...LLM_DRAFT,
+                skills: ['Golang', 'Go', 'Cobol'],
+              }),
+            ),
+        },
+      );
+
       expect(draft.skills).toEqual([{ skill_id: goId, skill_name: 'Go' }]);
       expect(draft.skill_suggestions).toEqual(['Cobol']);
     }));

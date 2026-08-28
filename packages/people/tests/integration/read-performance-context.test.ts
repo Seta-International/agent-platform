@@ -166,6 +166,66 @@ describe('readPerformanceContext', () => {
     });
   });
 
+  it('exposes can_view_org=true when the session holds people.performance.read_org (pm.pmo)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const me = crypto.randomUUID();
+        const db = peopleDb();
+        await db.insert(person).values({ id: me, tenant_id: t.tenant_id, full_name: 'PMO Person' });
+        const session = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.pmo'],
+          person_id: me,
+        });
+        const result = await readPerformanceContext(session, { as_of_month: CURRENT_MONTH });
+        if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
+        expect(result.can_view_org).toBe(true);
+        expect(result.can_unlock).toBe(true);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('exposes can_view_org=false for a plain reader without read_org (people.viewer)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const me = crypto.randomUUID();
+        const db = peopleDb();
+        await db.insert(person).values({ id: me, tenant_id: t.tenant_id, full_name: 'Plain' });
+        const session = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['people.viewer'],
+          person_id: me,
+        });
+        const result = await readPerformanceContext(session, { as_of_month: CURRENT_MONTH });
+        if (result.status !== 'ok') throw new Error(`expected ok, got ${result.status}`);
+        expect(result.can_view_org).toBe(false);
+        expect(result.can_unlock).toBe(false);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('windows allocations to the requested month (expired ones excluded)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

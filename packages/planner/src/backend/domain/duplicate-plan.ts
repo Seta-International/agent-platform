@@ -1,6 +1,5 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { requestNotification } from '@seta/notifications';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import {
   emitPlannerBucketCreated,
@@ -16,7 +15,6 @@ import { plannerDb } from '../db/index.ts';
 import {
   buckets,
   checklistItems,
-  groups,
   labels,
   planCategories,
   plans,
@@ -29,7 +27,6 @@ import { priorityToNumber, progressToPercent } from '../db/task-enums.ts';
 import type { PlanRow, TaskPreviewType, TaskReferenceType } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
-import { resolveGroupMemberIds } from './recipients.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 type TaskDbRow = typeof tasks.$inferSelect;
@@ -63,12 +60,6 @@ export async function duplicatePlan(input: {
 
       await requirePermission(input.session, 'planner.plan.create', source.group_id);
 
-      const [group] = await tx
-        .select({ name: groups.name })
-        .from(groups)
-        .where(eq(groups.id, source.group_id))
-        .limit(1);
-
       const newName = `${source.name} (copy)`;
       const actor = { type: 'user' as const, user_id: input.session.user_id };
 
@@ -99,7 +90,7 @@ export async function duplicatePlan(input: {
         );
       }
 
-      const { eventId } = await emitPlannerPlanCreated({
+      await emitPlannerPlanCreated({
         actor,
         tenant_id: source.tenant_id,
         after: {
@@ -200,22 +191,6 @@ export async function duplicatePlan(input: {
           createdBy: input.session.user_id,
         });
       }
-
-      const memberIds = await resolveGroupMemberIds(source.tenant_id, source.group_id, tx);
-      const recipients = memberIds.filter((u) => u !== input.session.user_id);
-      await requestNotification({
-        tenant_id: source.tenant_id,
-        event_type: 'planner.plan.created',
-        user_ids: recipients,
-        source_event_id: eventId,
-        payload: {
-          title: 'Plan duplicated',
-          body: `Plan "${newName}" was created in "${group?.name ?? ''}"`,
-          plan_id: row.id,
-          group_id: source.group_id,
-          actor: { user_id: input.session.user_id, name: input.session.user_id },
-        },
-      });
     },
   );
 

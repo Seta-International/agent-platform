@@ -2,6 +2,7 @@ import { queryOptions } from '@tanstack/react-query';
 import { performanceKeys } from '../state/performance-query-keys.ts';
 import {
   fetchCycleStatus,
+  fetchCycleUnlockPanel,
   fetchMonthTasks,
   fetchPerformanceConfig,
   fetchPerformanceContext,
@@ -26,11 +27,19 @@ export function performanceContextOptions(asOfMonth: string) {
   });
 }
 
-export function cycleStatusOptions(month: string) {
+export function cycleStatusOptions(month: string, accountId?: string | null) {
   return queryOptions({
-    queryKey: performanceKeys.cycleStatus(month),
-    queryFn: () => fetchCycleStatus(month),
+    queryKey: performanceKeys.cycleStatus(month, accountId),
+    queryFn: () => fetchCycleStatus(month, accountId),
     // Window flips on calendar boundaries — don't serve a stale open/makeup for a minute.
+    staleTime: 0,
+  });
+}
+
+export function cycleUnlockPanelOptions() {
+  return queryOptions({
+    queryKey: performanceKeys.cycleUnlocks(),
+    queryFn: () => fetchCycleUnlockPanel(),
     staleTime: 0,
   });
 }

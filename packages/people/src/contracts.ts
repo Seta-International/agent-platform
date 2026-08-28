@@ -84,6 +84,8 @@ const monthYm = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 
 export const cycleStatusQuery = z.object({
   month: monthYm,
+  /** Account in view — a manual unlock (FUT-781) is scoped to one account. */
+  account_id: z.string().uuid().nullish(),
 });
 export type CycleStatusQuery = z.infer<typeof cycleStatusQuery>;
 
@@ -97,6 +99,63 @@ export const cycleStatusResponse = z.object({
   evaluated_at: z.string().datetime(),
 });
 export type CycleStatusResponse = z.infer<typeof cycleStatusResponse>;
+
+// --- Manual cycle unlock (FUT-781) ---------------------------------------
+
+export const unlockAction = z.enum(['unlock', 'relock']);
+export type UnlockAction = z.infer<typeof unlockAction>;
+
+/** A manual unlock may reopen an account's cycle for at most this many days. */
+export const UNLOCK_MAX_DAYS = 5;
+
+/** PMO reopens one account's review month for a bounded number of days. */
+export const cycleUnlockInput = z.object({
+  month: monthYm,
+  account_id: z.string().uuid(),
+  days: z.number().int().min(1).max(UNLOCK_MAX_DAYS),
+});
+export type CycleUnlockInput = z.infer<typeof cycleUnlockInput>;
+
+/** PMO closes an account's window before it expires on its own. */
+export const cycleRelockInput = z.object({
+  month: monthYm,
+  account_id: z.string().uuid(),
+});
+export type CycleRelockInput = z.infer<typeof cycleRelockInput>;
+
+export const cycleUnlockEntry = z.object({
+  id: z.string().uuid(),
+  review_month: monthYm,
+  account_id: z.string().uuid(),
+  action: unlockAction,
+  /** When the window closes; null on re-lock rows (effective immediately). */
+  expires_at: z.string().datetime().nullable(),
+  actor_person_id: z.string().uuid().nullable(),
+  actor_user_id: z.string().uuid(),
+  created_at: z.string().datetime(),
+});
+export type CycleUnlockEntry = z.infer<typeof cycleUnlockEntry>;
+
+export const cycleUnlockAccountState = z.object({
+  account_id: z.string().uuid(),
+  name: z.string(),
+  /** ISO deadline of the running unlock, or null when the account is locked. */
+  unlocked_until: z.string().datetime().nullable(),
+});
+export type CycleUnlockAccountState = z.infer<typeof cycleUnlockAccountState>;
+
+/**
+ * Everything the PMO unlock panel needs: the one month that may be unlocked right
+ * now (the latest closed cycle), each account's current state, and the immutable
+ * trail for that month, newest first.
+ */
+export const cycleUnlockPanel = z.object({
+  unlockable_month: monthYm,
+  max_days: z.number().int(),
+  accounts: z.array(cycleUnlockAccountState),
+  entries: z.array(cycleUnlockEntry),
+});
+export type CycleUnlockPanel = z.infer<typeof cycleUnlockPanel>;
 
 export type PerformanceCapacity =
   | { kind: 'am'; account_id: string; label: string }
@@ -178,6 +237,14 @@ export type PerformanceContext =
       /** Sorted: am < tl < member, then label asc, then id asc — deterministic (AC4). */
       capacities: PerformanceCapacity[];
       default_capacity_index: 0 | -1;
+      /**
+       * True iff the session holds `people.performance.read_org` — gates the explicit
+       * "Organization" (strategic/PMO) view. Org mode is a deliberate choice, never a
+       * fallback for capacity-less users (FUT-781).
+       */
+      can_view_org: boolean;
+      /** True iff the session holds `people.performance.unlock` — gates the PMO unlock panel. */
+      can_unlock: boolean;
     };
 
 const weightPct = z.number().finite().min(0).max(100);

@@ -17,9 +17,11 @@ export const cvProfileDraft = z.object({
   full_name: z.string().nullable(),
   personal_email: z.string().nullable(),
   phone: z.string().nullable(),
+  // Use [0-9] not \d — llama.cpp JSON-schema→GBNF rejects PCRE shorthands
+  // ("Failed to initialize samplers: failed to parse grammar").
   dob: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
     .nullable(),
   gender: z.enum(['male', 'female']).nullable(),
   current_title: z.string().nullable(),

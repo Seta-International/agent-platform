@@ -16,6 +16,7 @@
     "@seta/module-sdk": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-ui": "workspace:^",
+    "@seta/web-agent": "workspace:*",
     "@seta/web-identity": "workspace:^",
     "@xyflow/react": "^12.11.2",
     "lucide-react": "^1.25.0",

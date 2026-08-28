@@ -27,7 +27,6 @@ import {
   computeEntryStatus,
   computeOverallHealth,
   computeScoredValue,
-  kpiValuePrecision,
   type RagStatus,
 } from './kpi-health.ts';
 import type { BandCondition } from './kpi-norm-data.ts';
@@ -60,10 +59,6 @@ interface AppliedMetricDef {
   yellow_band: BandCondition;
   red_band: BandCondition;
   insight: string | null;
-}
-
-function precisionOf(def: AppliedMetricDef): number {
-  return kpiValuePrecision(def.green_band, def.yellow_band, def.red_band);
 }
 
 function statusOf(def: AppliedMetricDef, value: number | null): RagStatus | null {
@@ -179,7 +174,7 @@ export interface KpiExplorerResult {
 export async function listKpiExplorer(input: {
   iso_year: number;
   iso_week: number;
-  account_id?: string;
+  account_ids?: string[];
   project_id?: string;
   session: SessionScope;
 }): Promise<KpiExplorerResult> {
@@ -192,7 +187,7 @@ export async function listKpiExplorer(input: {
     inArray(project.status, LIVE_PROJECT_STATUSES),
   ];
   if (input.project_id) conds.push(eq(project.id, input.project_id));
-  if (input.account_id) conds.push(eq(project.account_id, input.account_id));
+  if (input.account_ids?.length) conds.push(inArray(project.account_id, input.account_ids));
   const scope = buildProjectScope(session);
 
   let projectRows = await pmDb()
@@ -484,7 +479,6 @@ export async function upsertKpiRecord(
       def.component_count,
       e.component_1_value,
       e.component_2_value,
-      precisionOf(def),
     );
     return {
       ...e,

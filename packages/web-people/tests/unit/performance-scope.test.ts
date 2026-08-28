@@ -131,6 +131,42 @@ describe('performance-scope', () => {
     expect(result.resolved).toEqual({ mode: 'organization', month: '2026-07', capacity: null });
   });
 
+  it('explicit view=organization resolves to org mode for an org-viewer WITH capacities (FUT-781)', () => {
+    const result = resolvePerformanceScope({
+      search: { view: 'organization', month: '2026-07' },
+      capacities: [tlA, memberB],
+      default_capacity_index: 0,
+      as_of_month: '2026-07',
+      can_view_org: true,
+    });
+    expect(result.resolved).toEqual({ mode: 'organization', month: '2026-07', capacity: null });
+    expect(result.corrected).toBe(false);
+  });
+
+  it('view=organization is ignored without permission — falls back to a capacity (no leak)', () => {
+    const result = resolvePerformanceScope({
+      search: { view: 'organization', month: '2026-07' },
+      capacities: [tlA, memberB],
+      default_capacity_index: 0,
+      as_of_month: '2026-07',
+      can_view_org: false,
+    });
+    expect(result.resolved.mode).toBe('capacity');
+    expect(result.resolved.capacity).toEqual(tlA);
+    expect(result.corrected).toBe(true);
+  });
+
+  it('parses and detects the organization view param', () => {
+    expect(parsePerformanceSearch({ view: 'organization', month: '2026-07' })).toEqual({
+      kind: undefined,
+      account: undefined,
+      project: undefined,
+      month: '2026-07',
+      view: 'organization',
+    });
+    expect(hasExplicitScope({ view: 'organization' })).toBe(true);
+  });
+
   it('bare URL has no explicit scope; searchFromCapacity fills defaults', () => {
     expect(hasExplicitScope({})).toBe(false);
     expect(searchFromCapacity(tlA, '2026-07')).toEqual({

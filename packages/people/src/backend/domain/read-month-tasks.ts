@@ -11,6 +11,7 @@ import type {
 import { peopleDb } from '../db/client.ts';
 import { moraleNote, person, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
+import { unlockedAccountIds } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
 import { loadPerformanceCapacities } from './read-performance-context.ts';
 
@@ -151,14 +152,11 @@ export async function readMonthTasks(
   requirePermission(session, 'people.performance.read');
 
   const at = monthClockNow();
-  const { status: cycle_status } = classifyCycleStatus({
-    month: input.month,
-    at,
-    overrideActive: false,
-  });
+  // Without capacities there is no account in scope, so no manual unlock can apply.
+  const lockedStatus = classifyCycleStatus({ month: input.month, at }).status;
 
   if (!session.person_id) {
-    return { month: input.month, cycle_status, groups: [] };
+    return { month: input.month, cycle_status: lockedStatus, groups: [] };
   }
 
   const me = session.person_id;
@@ -170,10 +168,30 @@ export async function readMonthTasks(
       and(eq(person.id, me), eq(person.tenant_id, session.tenant_id), isNull(person.deleted_at)),
     );
   if (!p) {
-    return { month: input.month, cycle_status, groups: [] };
+    return { month: input.month, cycle_status: lockedStatus, groups: [] };
   }
 
   const capacities = await loadPerformanceCapacities(session, me, input.month);
+  // Unlock is per account (FUT-781), so each group carries its OWN window: reopening
+  // account A must not make a still-locked account B's cards editable.
+  const openAccounts = await unlockedAccountIds(
+    session,
+    input.month,
+    capacities.map((c) => c.account_id),
+  );
+  const statusFor = (accountId: string) =>
+    classifyCycleStatus({
+      month: input.month,
+      at,
+      overrideActive: openAccounts.has(accountId),
+    }).status;
+  // The response-level status summarises the month — reopened as soon as anything the
+  // caller works on is. Per-group cards below are the authority on what is editable.
+  const { status: cycle_status } = classifyCycleStatus({
+    month: input.month,
+    at,
+    overrideActive: openAccounts.size > 0,
+  });
   const groups: MonthTaskGroup[] = [];
 
   for (const capacity of capacities) {
@@ -199,7 +217,7 @@ export async function readMonthTasks(
       label: capacityGroupLabel(capacity),
       cards: await buildCardsForCapacity({
         capacity,
-        cycleStatus: cycle_status,
+        cycleStatus: statusFor(capacity.account_id),
         totalToScore,
         personId: me,
         tenantId: session.tenant_id,

@@ -17,7 +17,7 @@ import { PerformanceTlDashboard } from './performance-tl-dashboard.tsx';
  * keep the empty mount point so the shell tabs and routing stay wired.
  */
 export function PerformanceHome() {
-  const { resolved, role_slugs } = usePerformanceScopeContext();
+  const { resolved, role_slugs, can_view_org } = usePerformanceScopeContext();
   const capacity = resolved.capacity;
 
   if (capacity?.kind === 'am') {
@@ -62,9 +62,12 @@ export function PerformanceHome() {
     );
   }
 
-  // No delivery capacity → org tier. PMO / BoD / admin get the company view;
-  // HR's cycle-config surface lands in a later ticket (keeps the empty mount).
-  if (resolveDashboardId(role_slugs, capacity) === 'strategic') {
+  // No delivery capacity → org tier. Only an org-viewer (people.performance.read_org)
+  // gets the company view; everyone else lands on the empty mount — never a data leak.
+  // HR's own cycle-config surface is a later ticket, so a people.manager who is also an
+  // org-viewer gets the same org home rather than a blank page.
+  const dashboard = resolveDashboardId(role_slugs, capacity, can_view_org);
+  if (dashboard === 'strategic' || (dashboard === 'hr' && can_view_org)) {
     return <PerformanceStrategicDashboard month={resolved.month} />;
   }
 

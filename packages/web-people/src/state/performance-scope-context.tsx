@@ -8,6 +8,10 @@ import type {
 export type PerformanceScopeContextValue = {
   role_slugs: readonly string[];
   capacities: readonly PerformanceCapacity[];
+  /** Session holds people.performance.read_org — gates the org (strategic/PMO) view. */
+  can_view_org: boolean;
+  /** Session holds people.performance.unlock — gates the PMO manual-unlock panel. */
+  can_unlock: boolean;
   resolved: ResolvedPerformanceScope;
   search: PerformanceScopeSearch;
   /** Change the active cycle month (YYYY-MM), keeping the capacity context. */

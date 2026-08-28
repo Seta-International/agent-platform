@@ -27,7 +27,11 @@ function permsFor(roles: string[]): ReadonlySet<string> {
 
 function makeAdminSession(overrides: Partial<SessionScope> = {}): SessionScope {
   const roles = overrides.role_summary?.roles ?? ['tenant.admin'];
-  const role_summary = overrides.role_summary ?? { roles, cross_tenant_read: false };
+  const role_summary = overrides.role_summary ?? {
+    roles,
+    cross_tenant_read: false,
+    assignments: [],
+  };
   return {
     session_id: crypto.randomUUID(),
     user_id: crypto.randomUUID(),
@@ -37,6 +41,7 @@ function makeAdminSession(overrides: Partial<SessionScope> = {}): SessionScope {
     role_summary,
     role_summary_hash: 'h',
     permissions: permsFor(role_summary.roles),
+    assignments: [],
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -51,7 +56,8 @@ describe('listNotificationPrefs', () => {
       const session = makeAdminSession();
       const result = await listNotificationPrefs({ session });
       expect(result.rows).toHaveLength(NOTIFICATION_CATEGORIES.length);
-      expect(result.rows[0]).toMatchObject({
+      const assignedRow = result.rows.find((r) => r.event_type === 'planner.task.assigned');
+      expect(assignedRow).toMatchObject({
         event_type: 'planner.task.assigned',
         label: 'Task assigned',
         in_app_enabled: true,
@@ -101,7 +107,7 @@ describe('listNotificationPrefs', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession({
-        role_summary: { roles: ['planner.member'], cross_tenant_read: false },
+        role_summary: { roles: ['planner.member'], cross_tenant_read: false, assignments: [] },
       });
       await expect(listNotificationPrefs({ session })).rejects.toBeInstanceOf(
         NotificationPrefError,
@@ -218,7 +224,7 @@ describe('setNotificationPref', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession({
-        role_summary: { roles: ['planner.member'], cross_tenant_read: false },
+        role_summary: { roles: ['planner.member'], cross_tenant_read: false, assignments: [] },
       });
       await expect(
         withEmit({ actor: { userId: session.user_id, tenantId: session.tenant_id } }, () =>

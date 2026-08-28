@@ -8,6 +8,7 @@ import {
   type ResolvedPerformanceScope,
   resolvePerformanceScope,
   searchFromCapacity,
+  searchFromOrg,
 } from '../state/performance-scope.ts';
 
 const STORAGE_KEY = 'people.performance.context';
@@ -28,6 +29,8 @@ export type UsePerformanceScopeArgs = {
   pathname: string;
   capacities: readonly PerformanceCapacity[];
   default_capacity_index: number;
+  /** Session holds people.performance.read_org — enables the explicit org view (FUT-781). */
+  can_view_org: boolean;
   as_of_month: string;
 };
 
@@ -44,11 +47,13 @@ export function usePerformanceScope({
   pathname,
   capacities,
   default_capacity_index,
+  can_view_org,
   as_of_month,
 }: UsePerformanceScopeArgs): {
   search: PerformanceScopeSearch;
   resolved: ResolvedPerformanceScope;
   setCapacity: (c: PerformanceCapacity) => void;
+  setOrg: () => void;
   setSearch: (patch: Partial<PerformanceScopeSearch>) => void;
 } {
   const rawSearch = useSearch({ strict: false }) as Record<string, unknown>;
@@ -66,8 +71,9 @@ export function usePerformanceScope({
         capacities,
         default_capacity_index,
         as_of_month,
+        can_view_org,
       }),
-    [search, capacities, default_capacity_index, as_of_month],
+    [search, capacities, default_capacity_index, as_of_month, can_view_org],
   );
 
   const bootstrapped = useRef(false);
@@ -141,5 +147,9 @@ export function usePerformanceScope({
     setSearch(searchFromCapacity(c, resolved.month));
   };
 
-  return { search: canonical, resolved, setCapacity, setSearch };
+  const setOrg = () => {
+    setSearch(searchFromOrg(resolved.month));
+  };
+
+  return { search: canonical, resolved, setCapacity, setOrg, setSearch };
 }

@@ -29,7 +29,11 @@ export interface RouteBuildDeps {
    * modules must not import @seta/agent directly (depcruise-enforced), so the
    * server injects this instead.
    */
-  resolveModel?: (opts?: { tierHint?: 'fast' | 'balanced' | 'reasoning' }) => unknown;
+  resolveModel?: (opts?: {
+    tierHint?: 'fast' | 'balanced' | 'reasoning';
+    /** Explicit catalog key from the client (e.g. CV parse model picker). */
+    modelKey?: string;
+  }) => unknown;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Hono's env generic is invariant; route builders return Hono<SessionEnv> and we collect them via this widened any.

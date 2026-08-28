@@ -235,7 +235,7 @@ export type KpiAppliedMetricsQuery = z.infer<typeof kpiAppliedMetricsQuery>;
 export const kpiExplorerQuery = z.object({
   iso_year: z.coerce.number().int(),
   iso_week: z.coerce.number().int().min(1).max(53),
-  account_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  account_ids: commaSeparatedUuids,
   project_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 });
 export type KpiExplorerQuery = z.infer<typeof kpiExplorerQuery>;
@@ -308,33 +308,18 @@ export function bandThresholds(cond: BandCondition, out: number[] = []): number[
   return out;
 }
 
-function decimalsOf(value: number): number {
-  const text = String(value);
-  const dot = text.indexOf('.');
-  return dot === -1 ? 0 : text.length - dot - 1;
-}
-
-export function kpiValuePrecision(
-  green_band: BandCondition,
-  yellow_band: BandCondition,
-  red_band: BandCondition,
-): number {
-  const marks = [
-    ...bandThresholds(green_band),
-    ...bandThresholds(yellow_band),
-    ...bandThresholds(red_band),
-  ];
-  return Math.max(...marks.map(decimalsOf));
-}
-
+/** The value that gets stored and scored. Rounded only to the precision the column itself holds
+ * (`numeric(15,4)`) — never to the granularity the bands happen to be written in, which used to
+ * collapse a whole band into a single representable point (FUT-955: every lead time under a day
+ * snapped to 0 or 1). Scoring reads this same rounded number, so recomputing a colour from the
+ * stored value can never disagree with the colour stored beside it. */
 export function computeScoredValue(
   component_count: 1 | 2,
   component_1_value: number | null,
   component_2_value: number | null,
-  precision: number,
 ): number | null {
   if (component_1_value === null) return null;
-  const scale = 10 ** precision;
+  const scale = 10 ** KPI_VALUE_MAX_DECIMALS;
   if (component_count === 1) return Math.round(component_1_value * scale) / scale;
   if (component_2_value === null || component_2_value === 0) return null;
   return Math.round((component_1_value * scale) / component_2_value) / scale;
@@ -526,7 +511,7 @@ export interface KpiFigures {
 }
 
 export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFigures | null {
-  const precision = kpiValuePrecision(metric.green_band, metric.yellow_band, metric.red_band);
+  const precision = KPI_VALUE_MAX_DECIMALS;
   const marks = [
     ...bandThresholds(metric.green_band),
     ...bandThresholds(metric.yellow_band),
@@ -535,7 +520,9 @@ export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFi
   const step = 10 ** -precision;
   const values = new Set<number>([0, step, 1]);
   for (const mark of marks) {
-    for (const offset of [-2 * step, -step, 0, step, 2 * step]) values.add(mark + offset);
+    for (const grain of [step, 1]) {
+      for (const offset of [-2 * grain, -grain, 0, grain, 2 * grain]) values.add(mark + offset);
+    }
     for (const factor of [0, 0.2, 0.5, 0.8, 0.9, 1.1, 1.2, 1.5, 2, 3, 5]) values.add(mark * factor);
   }
 
@@ -553,12 +540,7 @@ export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFi
     const issues = validateKpiEntry(metric, component_1_value, denominator);
     if (issues.component_1 !== null || issues.component_2 !== null) continue;
 
-    const computed = computeScoredValue(
-      metric.component_count,
-      component_1_value,
-      denominator,
-      precision,
-    );
+    const computed = computeScoredValue(metric.component_count, component_1_value, denominator);
     const status = computeEntryStatus(
       computed,
       metric.green_band,
@@ -570,9 +552,53 @@ export function figuresForStatus(metric: BandedMetric, target: RagStatus): KpiFi
   return null;
 }
 
+function matchedBand(
+  value: number,
+  green_band: BandCondition,
+  yellow_band: BandCondition,
+  red_band: BandCondition,
+): RagStatus | null {
+  if (evaluateBand(green_band, value)) return 'green';
+  if (evaluateBand(yellow_band, value)) return 'yellow';
+  if (evaluateBand(red_band, value)) return 'red';
+  return null;
+}
+
+/** The norm writes its bands as separate ranges that do not always meet — "≤ 5%" green next to
+ * "6–15%" amber leaves 5.x% belonging to neither. This walks outward to the nearest band on each
+ * side and returns the worse of the two: a metric is only Green when it lands demonstrably inside
+ * Green (FUT-955). */
+function pessimisticBand(
+  value: number,
+  green_band: BandCondition,
+  yellow_band: BandCondition,
+  red_band: BandCondition,
+): RagStatus | null {
+  const marks = [
+    ...new Set([
+      ...bandThresholds(green_band),
+      ...bandThresholds(yellow_band),
+      ...bandThresholds(red_band),
+    ]),
+  ].sort((a, b) => a - b);
+
+  const neighbour = (direction: 1 | -1): RagStatus | null => {
+    const ordered = direction === 1 ? marks : [...marks].reverse();
+    for (const mark of ordered) {
+      if (direction === 1 ? mark < value : mark > value) continue;
+      const status = matchedBand(mark, green_band, yellow_band, red_band);
+      if (status !== null) return status;
+    }
+    return null;
+  };
+
+  const adjacent = [neighbour(-1), neighbour(1)].filter((s): s is RagStatus => s !== null);
+  return adjacent.length === 0 ? null : worstStatus(adjacent);
+}
+
 /** `null` when the metric has no value yet (not entered) — distinct from a real red/yellow/green
- * result. Bands are expected to partition the number line; if none match (malformed norm data)
- * this also returns `null` rather than guessing. */
+ * result. A value that no band claims is resolved by `pessimisticBand`, so only a norm with no
+ * usable bands at all still comes back `null`. */
 export function computeEntryStatus(
   value: number | null,
   green_band: BandCondition,
@@ -580,10 +606,10 @@ export function computeEntryStatus(
   red_band: BandCondition,
 ): RagStatus | null {
   if (value === null) return null;
-  if (evaluateBand(green_band, value)) return 'green';
-  if (evaluateBand(yellow_band, value)) return 'yellow';
-  if (evaluateBand(red_band, value)) return 'red';
-  return null;
+  return (
+    matchedBand(value, green_band, yellow_band, red_band) ??
+    pessimisticBand(value, green_band, yellow_band, red_band)
+  );
 }
 
 const RAG_RANK: Record<RagStatus, number> = { green: 0, yellow: 1, red: 2 };

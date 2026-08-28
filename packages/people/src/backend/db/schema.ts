@@ -2,6 +2,7 @@ import { textEnum, textEnumCheck, textEnumValuesSql } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
+  bigserial,
   boolean,
   check,
   date,
@@ -416,5 +417,53 @@ export const performanceConfigMonthPin = peopleSchema.table(
   (t) => [
     primaryKey({ columns: [t.tenant_id, t.account_id, t.review_month] }),
     check('perf_config_month_pin_ym', sql`review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  ],
+);
+
+export const UNLOCK_ACTIONS = ['unlock', 'relock'] as const;
+
+/** A manual unlock may reopen an account's cycle for at most this many days (FUT-781). */
+export const UNLOCK_MAX_DAYS = 5;
+
+/**
+ * Append-only audit log of PMO manual cycle unlock / re-lock actions (FUT-781).
+ *
+ * One row per action, scoped to a single account for one review month. Rows are never
+ * updated or deleted — an early re-lock is a new `relock` row. The current state for a
+ * (review_month, account) is the latest row by `seq`: unlocked while that row is an
+ * `unlock` whose `expires_at` is still in the future, locked otherwise. Expiry is
+ * therefore evaluated on read; no scheduled job re-locks anything.
+ *
+ * `expires_at` is set on `unlock` rows and NULL on `relock` rows.
+ */
+export const performanceCycleUnlock = peopleSchema.table(
+  'performance_cycle_unlock',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /**
+     * Insertion order. `created_at` alone cannot order the log: two actions can share a
+     * timestamp (same millisecond in production, same injected instant under test), and
+     * falling back to the random uuid would make "latest row wins" non-deterministic.
+     */
+    seq: bigserial('seq', { mode: 'number' }).notNull(),
+    tenant_id: uuid('tenant_id').notNull(),
+    review_month: text('review_month').notNull(),
+    account_id: uuid('account_id').notNull(),
+    action: textEnum('action', UNLOCK_ACTIONS).notNull(),
+    expires_at: timestamp('expires_at', { withTimezone: true }),
+    actor_person_id: uuid('actor_person_id'),
+    actor_user_id: uuid('actor_user_id').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('perf_cycle_unlock_lookup').on(t.tenant_id, t.review_month, t.account_id, t.seq),
+    textEnumCheck('performance_cycle_unlock', 'action', UNLOCK_ACTIONS),
+    check('perf_cycle_unlock_ym', sql`review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    // An unlock always carries its expiry; a re-lock takes effect immediately.
+    check('perf_cycle_unlock_expiry', sql`(action = 'unlock') = (expires_at IS NOT NULL)`),
+    check(
+      'perf_cycle_unlock_window',
+      sql`expires_at IS NULL OR expires_at <= created_at + interval '${sql.raw(String(UNLOCK_MAX_DAYS))} days'`,
+    ),
   ],
 );
