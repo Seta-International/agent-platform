@@ -99,27 +99,6 @@
       "when": 1787740800000,
       "tag": "0019_interview_lifecycle",
       "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1787740800001,
-      "tag": "0020_interview_platform",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1787740800002,
-      "tag": "0021_interview_drop_rating_recommendation",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1787740800003,
-      "tag": "0022_interview_drop_round",
-      "breakpoints": true
     }
   ]
 }
