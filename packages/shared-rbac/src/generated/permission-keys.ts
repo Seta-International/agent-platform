@@ -77,6 +77,8 @@ export type PermissionKey =
   | 'people.org_unit.manage'
   | 'people.performance.configure'
   | 'people.performance.read'
+  | 'people.performance.read_org'
+  | 'people.performance.unlock'
   | 'people.self.manage'
   | 'people.self.read'
   | 'people.worker.create'
@@ -214,6 +216,8 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'people.org_unit.manage',
   'people.performance.configure',
   'people.performance.read',
+  'people.performance.read_org',
+  'people.performance.unlock',
   'people.self.manage',
   'people.self.read',
   'people.worker.create',

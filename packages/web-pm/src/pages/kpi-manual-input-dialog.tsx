@@ -37,7 +37,6 @@ import {
   KPI_CATEGORY_LABELS,
   kpiColourBadge,
   kpiResultValue,
-  kpiValuePrecision,
   metricUnit,
   ragBadge,
   validateKpiEntry,
@@ -254,14 +253,7 @@ export function KpiManualInputDialog({
       if (isUnreadable(e.c1)) issues.component_1 = NOT_A_FIGURE;
       if (isUnreadable(e.c2)) issues.component_2 = NOT_A_FIGURE;
       issuesByMetric.set(m.metric_id, issues);
-      const value = hasKpiEntryIssue(issues)
-        ? null
-        : computeScoredValue(
-            m.component_count,
-            c1,
-            c2,
-            kpiValuePrecision(m.green_band, m.yellow_band, m.red_band),
-          );
+      const value = hasKpiEntryIssue(issues) ? null : computeScoredValue(m.component_count, c1, c2);
       valueByMetric.set(m.metric_id, value);
       statusByMetric.set(
         m.metric_id,

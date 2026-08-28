@@ -111,7 +111,10 @@ export function MoralePage({
     );
   }
 
-  if (recipientsQuery.error) {
+  // `isLoading` above only covers the first fetch, so an errored or absent response still
+  // lands here — both get the banner rather than a form with nothing behind it.
+  const bootstrap = recipientsQuery.data;
+  if (recipientsQuery.error || !bootstrap) {
     return (
       <MoraleFrame current="Morale">
         <Banner status="error" title="Couldn't load Morale. Please try again." />
@@ -119,7 +122,7 @@ export function MoralePage({
     );
   }
 
-  const canSubmit = recipientsQuery.data?.can_submit ?? false;
+  const canSubmit = bootstrap.can_submit;
   // A stale `?tab=received` from a bookmark must not strand someone who lost the capacity.
   const active: MoraleTab = !canReview && tab !== 'send' ? 'send' : tab;
 
@@ -153,9 +156,7 @@ export function MoralePage({
           {canReview && <Tab value="trend" label="Morale Trend" />}
         </TabList>
 
-        {active === 'send' && (
-          <MoraleSendTab canSubmit={canSubmit} groups={recipientsQuery.data?.groups ?? []} />
-        )}
+        {active === 'send' && <MoraleSendTab bootstrap={bootstrap} />}
         {active === 'received' && <MoraleInboxTab />}
         {active === 'trend' && <MoraleTrendTab />}
       </VStack>

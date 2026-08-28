@@ -20,7 +20,7 @@ import {
   listMoraleInbox,
   listMoraleInboxFilters,
   markMoraleNoteRead,
-  resolvePrimaryProject,
+  resolveSenderProjectContext,
   submitMoraleNote,
 } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
@@ -362,8 +362,8 @@ describe('markMoraleNoteRead (FUT-786)', () => {
   });
 });
 
-describe('resolvePrimaryProject (FUT-786)', () => {
-  it('files a note under the project the sender holds the largest share of', async () => {
+describe('resolveSenderProjectContext (FUT-786, scoped by FUT-782)', () => {
+  it('describes the project the sender picked, not the one they work on most', async () => {
     await withPeople(async (pool) => {
       const t = await seedTenant(pool);
       const big = await seedProject(t.tenant_id, 'Project Atlas', 'Account Meridian');
@@ -388,18 +388,24 @@ describe('resolvePrimaryProject (FUT-786)', () => {
         plannedPct: '80',
       });
 
-      const resolved = await resolvePrimaryProject(t.tenant_id, me.person_id);
+      // The 80% project would win any "where do they mostly work" rule. The sender said
+      // the note is about the 20% one, and that is the answer that gets stored.
+      const resolved = await resolveSenderProjectContext(
+        t.tenant_id,
+        me.person_id,
+        small.project_id,
+      );
 
       expect(resolved).toMatchObject({
-        project_id: big.project_id,
-        project_name: 'Project Atlas',
-        account_id: big.account_id,
+        project_id: small.project_id,
+        project_name: 'Team Nova',
+        account_id: small.account_id,
         capacity: 'member',
       });
     });
   });
 
-  it('marks a lead as such, and leaves an unallocated sender without a project', async () => {
+  it('marks a lead as such, and returns nothing when no project was chosen', async () => {
     await withPeople(async (pool) => {
       const t = await seedTenant(pool);
       const atlas = await seedProject(t.tenant_id, 'Project Atlas', 'Account Meridian');
@@ -414,11 +420,15 @@ describe('resolvePrimaryProject (FUT-786)', () => {
         leadPersonId: lead.person_id,
       });
 
-      expect(await resolvePrimaryProject(t.tenant_id, lead.person_id)).toMatchObject({
+      expect(
+        await resolveSenderProjectContext(t.tenant_id, lead.person_id, atlas.project_id),
+      ).toMatchObject({
         project_id: atlas.project_id,
         capacity: 'tl',
       });
-      expect(await resolvePrimaryProject(t.tenant_id, stranger.person_id)).toBeNull();
+      // An HR or BoD sender holds no allocation, so nothing was chosen and nothing is
+      // snapshotted — their note groups under "No project" rather than being hidden.
+      expect(await resolveSenderProjectContext(t.tenant_id, stranger.person_id, null)).toBeNull();
     });
   });
 });

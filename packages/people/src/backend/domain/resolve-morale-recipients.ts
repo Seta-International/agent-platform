@@ -3,6 +3,7 @@ import { listUserIdsByRoleSlugs } from '@seta/identity';
 import { listAccountManagers } from '@seta/pm';
 import { and, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import type {
+  MoraleProjectOption,
   MoraleRecipientCandidate,
   MoraleRecipientGroup,
   MoraleRecipientsForm,
@@ -135,17 +136,26 @@ function toCandidates(
  * you a TL here, being allocated to one makes you a Member, and someone doing both gets
  * the union. Self-send is filtered rather than special-cased, so a lead never has to be
  * excluded from their own team's list by name.
+ *
+ * `requestedProjectId` narrows TL and AM to one project. It only matters for a sender on
+ * several: with one project there is nothing to choose, and with none there is no TL or
+ * AM to scope. PMO and BoD ignore it entirely — they are granted at tenant scope
+ * (`pm.pmo` / `pm.bod`), so they are the same people on every project and switching
+ * projects must not appear to swap them out.
  */
 export async function resolveMoraleRecipients(
   session: SessionScope,
   senderPersonId: string | null,
+  requestedProjectId?: string | null,
 ): Promise<MoraleRecipientsForm> {
   requirePermission(session, 'people.performance.read');
 
-  // A login with no employee record holds neither capacity, which is the same answer the
-  // page needs for an unallocated employee — not an error. Rejecting here would replace
-  // the screen's explanation with a retry banner that retrying can never clear.
-  if (!senderPersonId) return { can_submit: false, groups: [] };
+  // A login with no employee record has no reporting line to resolve and nobody to
+  // attribute a note to — not an error. Rejecting here would replace the screen's
+  // explanation with a retry banner that retrying can never clear.
+  if (!senderPersonId) {
+    return { can_submit: false, projects: [], selected_project_id: null, groups: [] };
+  }
 
   const tenantId = session.tenant_id;
   const db = peopleDb();
@@ -182,10 +192,39 @@ export async function resolveMoraleRecipients(
       ),
     );
 
-  const asMember = allocations.filter((a) => a.person_id === senderPersonId);
-  const asLead = allocations.filter((a) => a.lead_person_id === senderPersonId);
-  const canSubmit = asMember.length > 0 || asLead.length > 0;
-  if (!canSubmit) return { can_submit: false, groups: [] };
+  // Every project the sender touches in either capacity, name-sorted so the picker is
+  // stable across reloads. Deduplicated by id: sitting on a project *and* leading it is
+  // two allocation rows but one choice.
+  const projectsById = new Map<string, MoraleProjectOption>();
+  for (const a of allocations) {
+    if (!projectsById.has(a.project_id)) {
+      projectsById.set(a.project_id, { project_id: a.project_id, name: a.project_name });
+    }
+  }
+  const projects = [...projectsById.values()].sort((a, b) =>
+    (a.name ?? '').localeCompare(b.name ?? ''),
+  );
+
+  /**
+   * One project means the choice is already made, so a stale or wrong `project_id` from
+   * the client is ignored rather than rejected — there is only one right answer and the
+   * server knows it. Several projects and no valid pick leaves this null: TL and AM are
+   * genuinely undetermined until the sender chooses, which the client renders as the
+   * project prompt rather than as an empty recipient list.
+   */
+  const selectedProjectId =
+    projects.length === 1
+      ? (projects[0]?.project_id ?? null)
+      : requestedProjectId && projectsById.has(requestedProjectId)
+        ? requestedProjectId
+        : null;
+
+  // Nobody is barred from submitting: an HR or BoD manager with no allocation still
+  // reaches PMO and BoD, and their note is filed against no project at all.
+  const scoped = selectedProjectId
+    ? allocations.filter((a) => a.project_id === selectedProjectId)
+    : [];
+  const asMember = scoped.filter((a) => a.person_id === senderPersonId);
 
   // TL is offered to Members only, scoped to the leads of the projects they sit on.
   const tlContext = new Map<string, Set<string>>();
@@ -196,9 +235,10 @@ export async function resolveMoraleRecipients(
     tlContext.set(a.lead_person_id, set);
   }
 
-  // AM covers both capacities: the accounts behind every project the sender touches.
+  // AM covers both capacities, but only within the chosen project — an AM reachable
+  // through a *different* project is not part of this note's escalation path.
   const accountNames = new Map<string, string | null>();
-  for (const a of allocations) accountNames.set(a.account_id, a.account_name);
+  for (const a of scoped) accountNames.set(a.account_id, a.account_name);
 
   const amContext = new Map<string, Set<string>>();
   for (const a of await listAccountManagers(tenantId)) {
@@ -227,6 +267,10 @@ export async function resolveMoraleRecipients(
   const seen = new Set<string>();
   const groups: MoraleRecipientGroup[] = [];
   for (const tag of TAG_PRIORITY) {
+    // TL and AM hang off a project, so with none in scope they are absent rather than
+    // empty — "does not apply" instead of "nobody qualifies". That covers both the
+    // projectless sender and the one who has yet to pick among several.
+    if ((tag === 'tl' || tag === 'am') && !selectedProjectId) continue;
     // A Team Lead escalates past their own level: no TL group at all, as opposed to an
     // empty one, so the UI drops the checkbox instead of showing it greyed out.
     if (tag === 'tl' && asMember.length === 0) continue;
@@ -242,5 +286,5 @@ export async function resolveMoraleRecipients(
     });
   }
 
-  return { can_submit: true, groups };
+  return { can_submit: true, projects, selected_project_id: selectedProjectId, groups };
 }

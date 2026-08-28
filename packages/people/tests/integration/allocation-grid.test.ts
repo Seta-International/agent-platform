@@ -345,6 +345,20 @@ describe('getAllocationGrid', () => {
         const under = await getAllocationGrid(t.adminSession, { year: 2026, status: 'under' });
         expect(new Set(under.rows.map((r) => r.worker_id))).toEqual(new Set([dung]));
 
+        // Combined status=over with accountId filter:
+        // Hưng is over-allocated overall (80% Acme + 40% Internal = 120%).
+        // When filtering for Internal account with status=over, Hưng must still appear with his Internal row!
+        const overInternal = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'over',
+          accountId: internalAcc,
+        });
+        expect(overInternal.rows).toHaveLength(1);
+        expect(overInternal.rows[0]!.worker_id).toBe(hung);
+        expect(overInternal.rows[0]!.account_id).toBe(internalAcc);
+        expect(overInternal.kpis.over_allocated_count).toBe(1);
+        expect(overInternal.kpis.member_count).toBe(1);
+
         // account filter keeps only that account's rows.
         const acme = await getAllocationGrid(t.adminSession, { year: 2026, accountId: acmeAcc });
         expect(acme.rows.every((r) => r.account_id === acmeAcc)).toBe(true);
@@ -1376,6 +1390,178 @@ describe('getAllocationGrid', () => {
         });
         expect(gridOnlyOver.kpis.member_count).toBe(1);
         expect(gridOnlyOver.kpis.avg_utilization).toBe(100);
+
+        // Add an unallocated / idle person D (0% allocation)
+        const personD = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([{ id: personD, tenant_id: t.tenant_id, full_name: 'Member D (Idle)' }]);
+
+        const gridWithIdle = await getAllocationGrid(t.adminSession, { year: 2026 });
+        // 4 members total in scope: A(30%), B(150%->100%), C(100%), D(0%)
+        // (30 + 100 + 100 + 0) / 4 = 230 / 4 = 57.5%
+        expect(gridWithIdle.kpis.member_count).toBe(4);
+        expect(gridWithIdle.kpis.avg_utilization).toBe(57.5);
+
+        // Under-utilized filter includes A (30% < 85%) and D (0% < 85%)
+        const gridUnder = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'under',
+        });
+        expect(gridUnder.kpis.member_count).toBe(2);
+        // (30% + 0%) / 2 = 15%
+        expect(gridUnder.kpis.avg_utilization).toBe(15);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('renders unallocated persons as idle with blank months and zero load in allocation grid (FUT-339 AC 2)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const accountId = crypto.randomUUID();
+        const projA = crypto.randomUUID();
+
+        const allocatedWorker = crypto.randomUUID();
+        const idleWorker = crypto.randomUUID();
+
+        await peopleDb()
+          .insert(person)
+          .values([
+            {
+              id: allocatedWorker,
+              tenant_id: t.tenant_id,
+              full_name: 'Allocated Person',
+              employee_no: 'A100',
+            },
+            {
+              id: idleWorker,
+              tenant_id: t.tenant_id,
+              full_name: 'Idle Person',
+              employee_no: 'I200',
+            },
+          ]);
+
+        await peopleDb()
+          .insert(projectProjection)
+          .values([
+            { project_id: projA, tenant_id: t.tenant_id, account_id: accountId, name: 'Alpha' },
+          ]);
+
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: allocatedWorker,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        expect(grid.rows).toHaveLength(2);
+
+        const idleRow = grid.rows.find((r) => r.worker_id === idleWorker)!;
+        expect(idleRow).toBeDefined();
+        expect(idleRow.full_name).toBe('Idle Person');
+        expect(idleRow.employee_no).toBe('I200');
+        expect(idleRow.account_id).toBe('');
+        expect(idleRow.account_name).toBe('');
+        expect(idleRow.project_id).toBe('');
+        expect(idleRow.project_name).toBeNull();
+        expect(idleRow.bucket).toBeNull();
+        expect(idleRow.months).toEqual(new Array(12).fill(null));
+        expect(idleRow.total_mm).toBe(0);
+
+        const idleTotals = grid.worker_totals.find((w) => w.worker_id === idleWorker)!;
+        expect(idleTotals).toBeDefined();
+        expect(idleTotals.totals).toEqual(new Array(12).fill(0));
+        expect(idleTotals.over_months).toEqual([]);
+
+        expect(grid.kpis.member_count).toBe(2);
+        expect(grid.kpis.project_count).toBe(1);
+        expect(grid.kpis.avg_utilization).toBe(50); // (100 + 0) / 2 = 50
+
+        // Search by employee ID finds the idle worker
+        const searchUtil = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          search: 'I200',
+        });
+        expect(searchUtil.rows).toHaveLength(1);
+        expect(searchUtil.rows[0]!.worker_id).toBe(idleWorker);
+
+        // Status filter: 'under' includes idle worker
+        const underGrid = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'under',
+        });
+        expect(underGrid.rows.some((r) => r.worker_id === idleWorker)).toBe(true);
+
+        // Status filter: 'over' excludes idle worker
+        const overGrid = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          status: 'over',
+        });
+        expect(overGrid.rows.some((r) => r.worker_id === idleWorker)).toBe(false);
+
+        // Specific account filter excludes idle worker without allocations in that account
+        const accountGrid = await getAllocationGrid(t.adminSession, {
+          year: 2026,
+          accountId,
+        });
+        expect(accountGrid.rows.some((r) => r.worker_id === idleWorker)).toBe(false);
+
+        // A worker allocated only in past year (2025) appears as idle in 2026 without phantom project rows
+        const pastWorker = crypto.randomUUID();
+        await peopleDb()
+          .insert(person)
+          .values([
+            {
+              id: pastWorker,
+              tenant_id: t.tenant_id,
+              full_name: 'Past Year Worker',
+              employee_no: 'P300',
+            },
+          ]);
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              person_id: pastWorker,
+              project_id: projA,
+              account_id: accountId,
+              date_from: '2025-01-01',
+              date_to: '2025-12-31',
+              planned_pct: '100',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid2026 = await getAllocationGrid(t.adminSession, { year: 2026 });
+        const pastRow2026 = grid2026.rows.find((r) => r.worker_id === pastWorker)!;
+        expect(pastRow2026).toBeDefined();
+        expect(pastRow2026.project_name).toBeNull();
+        expect(pastRow2026.months).toEqual(new Array(12).fill(null));
+        expect(pastRow2026.total_mm).toBe(0);
       } finally {
         resetPeopleDb();
         resetPmDb();

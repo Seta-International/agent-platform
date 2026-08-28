@@ -40,6 +40,8 @@ describe('Morale tabs (FUT-786)', () => {
     fetchMoraleRecipients.mockResolvedValue({
       can_submit: true,
       can_review: false,
+      projects: [],
+      selected_project_id: null,
       groups: [],
     });
 
@@ -56,6 +58,8 @@ describe('Morale tabs (FUT-786)', () => {
     fetchMoraleRecipients.mockResolvedValue({
       can_submit: false,
       can_review: true,
+      projects: [],
+      selected_project_id: null,
       groups: [],
     });
     fetchMoraleInbox.mockResolvedValue({ total_notes: 3, unread_notes: 3, projects: [] });
@@ -73,6 +77,8 @@ describe('Morale tabs (FUT-786)', () => {
     fetchMoraleRecipients.mockResolvedValue({
       can_submit: true,
       can_review: false,
+      projects: [],
+      selected_project_id: null,
       groups: [],
     });
 
@@ -87,6 +93,8 @@ describe('Morale tabs (FUT-786)', () => {
     fetchMoraleRecipients.mockResolvedValue({
       can_submit: true,
       can_review: true,
+      projects: [],
+      selected_project_id: null,
       groups: [],
     });
     fetchMoraleInbox.mockResolvedValue({ total_notes: 0, unread_notes: 0, projects: [] });

@@ -67,6 +67,28 @@ function nextMonth(year: number, month: number): { year: number; month: number }
   return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
 }
 
+function minusMonths(year: number, month: number, n: number): { year: number; month: number } {
+  const zero = year * 12 + (month - 1) - n;
+  return { year: Math.floor(zero / 12), month: (zero % 12) + 1 };
+}
+
+/**
+ * The most recent review month whose evaluation window has fully ended (FUT-781).
+ *
+ * A month M is evaluable from the 25th of M through the end of day 4 of M+1 (open +
+ * makeup). Once that has passed M is closed, and it is the only month PMO may manually
+ * unlock — every earlier month is view-only for good. Note this is not simply "the
+ * latest locked month": a month whose window has not opened yet also classifies as
+ * locked, and reopening that early is not what a manual unlock is for.
+ */
+export function latestClosedCycleMonth(at: Date = monthClockNow()): string {
+  const p = vnParts(at);
+  // The previous calendar month closes only after its makeup window (2nd–4th) ends;
+  // before then the latest closed cycle is one month further back.
+  const candidate = minusMonths(p.year, p.month, p.day > 4 ? 1 : 2);
+  return `${candidate.year}-${String(candidate.month).padStart(2, '0')}`;
+}
+
 /**
  * Classify cycle window for `month` (YYYY-MM) at transaction-start `at`.
  * Open = 25th → last day of cycle month (inclusive ms).

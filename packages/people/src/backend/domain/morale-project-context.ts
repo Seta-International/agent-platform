@@ -3,7 +3,7 @@ import type { MoraleSenderCapacity } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
 import { projectProjection, workerAllocationProjection } from '../db/schema.ts';
 
-export interface MoralePrimaryProject {
+export interface MoraleProjectContext {
   project_id: string;
   project_name: string | null;
   account_id: string;
@@ -11,40 +11,36 @@ export interface MoralePrimaryProject {
 }
 
 /**
- * The one project a morale note is filed under (FUT-786).
+ * The delivery context a morale note is filed under, for the project the sender chose.
  *
- * A note is about a person, not a project, so nothing in the domain forces a single
- * answer — but the recipients' inbox groups by project, and a note that appeared under
- * every project its author touches would make the per-project totals add up to more
- * than the inbox's own total. So one is chosen here, once, at submit time.
+ * *Which* project that is has already been settled by `resolveMoraleRecipients` (FUT-782):
+ * the sender's only project when they hold one, their own pick when they hold several,
+ * and none at all when they hold none. This resolves the rest of the snapshot the
+ * recipients' inbox needs — name, account, and the capacity the sender wrote in — because
+ * a note is grouped by project and people move between projects, so deriving any of it at
+ * read time would silently re-file notes someone has already read.
  *
- * The rule is "where this person mostly works": the allocation they hold the largest
- * share of, ties broken by the most recently started one and then by project name so the
- * choice is stable rather than whatever the planner happens to return first. Leading a
- * project counts only when the sender has no allocation of their own — a lead who also
- * delivers on a different team writes from the team they deliver on.
+ * Null for `projectId: null`: an HR or BoD manager with no allocation files against no
+ * project, and their notes group under "No project" rather than being hidden.
  *
- * Null for someone with no active allocation at all; their notes group under "No project"
- * rather than being hidden.
+ * Several rows can describe one person on one project — a re-allocation, or delivering on
+ * a project they also lead. The sender's own allocation outranks a lead-only row, because
+ * `planned_pct` describes the former and is meaningless for the latter; the rest of the
+ * ordering only makes the pick stable rather than whatever the planner returns first.
  */
-export async function resolvePrimaryProject(
+export async function resolveSenderProjectContext(
   tenantId: string,
   personId: string,
-): Promise<MoralePrimaryProject | null> {
+  projectId: string | null,
+): Promise<MoraleProjectContext | null> {
+  if (!projectId) return null;
+
   const rows = await peopleDb()
     .select({
       project_id: workerAllocationProjection.project_id,
       account_id: workerAllocationProjection.account_id,
       lead_person_id: workerAllocationProjection.lead_person_id,
-      planned_pct: workerAllocationProjection.planned_pct,
-      date_from: workerAllocationProjection.date_from,
       project_name: projectProjection.name,
-      // Allocations where the sender is the worker outrank ones where they are only the
-      // project's lead: `planned_pct` describes the former and is meaningless for the
-      // latter, so mixing the two would compare a real share against a null.
-      is_member: sql<boolean>`${workerAllocationProjection.person_id} = ${personId}`.as(
-        'is_member',
-      ),
     })
     .from(workerAllocationProjection)
     .leftJoin(
@@ -54,6 +50,7 @@ export async function resolvePrimaryProject(
     .where(
       and(
         eq(workerAllocationProjection.tenant_id, tenantId),
+        eq(workerAllocationProjection.project_id, projectId),
         eq(workerAllocationProjection.active, true),
         or(
           eq(workerAllocationProjection.person_id, personId),
@@ -65,11 +62,12 @@ export async function resolvePrimaryProject(
       sql`(${workerAllocationProjection.person_id} = ${personId}) DESC`,
       sql`${workerAllocationProjection.planned_pct} DESC NULLS LAST`,
       sql`${workerAllocationProjection.date_from} DESC NULLS LAST`,
-      sql`${projectProjection.name} ASC NULLS LAST`,
-      workerAllocationProjection.project_id,
     );
 
   const winner = rows.at(0);
+  // Not an error: the caller only reaches here with a project the sender demonstrably
+  // sits on, so an empty result means the allocation was withdrawn mid-submit. The note
+  // still stands — it files under no project rather than being refused at the last step.
   if (!winner) return null;
 
   return {

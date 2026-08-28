@@ -327,13 +327,17 @@ export const INVENTORY: StatementSpec[] = [
     statement: {
       'people.worker': ['read', 'create', 'update', 'manage'],
       'people.self': ['read', 'manage'],
-      'people.performance': ['read', 'configure'],
+      'people.performance': ['read', 'configure', 'read_org', 'unlock'],
       'people.org_unit': ['manage'],
     },
     descriptions: {
       'people.performance.read': 'Enter the Performance surface and read own capacities',
       'people.performance.configure':
         'Save evaluation group/criteria weights for accounts the principal manages (AM)',
+      'people.performance.read_org':
+        'See the organization-wide performance view (all accounts/projects)',
+      'people.performance.unlock':
+        'Manually unlock or re-lock a review cycle window (PMO override)',
       'people.org_unit.manage': 'Rename, re-parent, and delete org units',
     },
     roles: [
@@ -349,6 +353,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.self.manage',
           'people.performance.read',
           'people.performance.configure',
+          'people.performance.read_org',
           'people.org_unit.manage',
           'core.skill.read',
         ],
@@ -475,6 +480,9 @@ export const INVENTORY: StatementSpec[] = [
           'pm.project.read',
           'pm.project.manage',
           'people.performance.read',
+          // PMO owns the org-wide performance view and the manual cycle-unlock override.
+          'people.performance.read_org',
+          'people.performance.unlock',
           // Post-approval staffing looks up people to allocate; see pm.manager note above.
           'people.worker.read',
         ],
@@ -488,6 +496,9 @@ export const INVENTORY: StatementSpec[] = [
           'pm.charter.read',
           'pm.project.read',
           'people.performance.read',
+          // BOD shares PMO's org-wide read + manual cycle-unlock override.
+          'people.performance.read_org',
+          'people.performance.unlock',
         ],
       },
       {

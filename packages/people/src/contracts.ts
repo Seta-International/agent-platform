@@ -84,6 +84,8 @@ const monthYm = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 
 export const cycleStatusQuery = z.object({
   month: monthYm,
+  /** Account in view — a manual unlock (FUT-781) is scoped to one account. */
+  account_id: z.string().uuid().nullish(),
 });
 export type CycleStatusQuery = z.infer<typeof cycleStatusQuery>;
 
@@ -97,6 +99,63 @@ export const cycleStatusResponse = z.object({
   evaluated_at: z.string().datetime(),
 });
 export type CycleStatusResponse = z.infer<typeof cycleStatusResponse>;
+
+// --- Manual cycle unlock (FUT-781) ---------------------------------------
+
+export const unlockAction = z.enum(['unlock', 'relock']);
+export type UnlockAction = z.infer<typeof unlockAction>;
+
+/** A manual unlock may reopen an account's cycle for at most this many days. */
+export const UNLOCK_MAX_DAYS = 5;
+
+/** PMO reopens one account's review month for a bounded number of days. */
+export const cycleUnlockInput = z.object({
+  month: monthYm,
+  account_id: z.string().uuid(),
+  days: z.number().int().min(1).max(UNLOCK_MAX_DAYS),
+});
+export type CycleUnlockInput = z.infer<typeof cycleUnlockInput>;
+
+/** PMO closes an account's window before it expires on its own. */
+export const cycleRelockInput = z.object({
+  month: monthYm,
+  account_id: z.string().uuid(),
+});
+export type CycleRelockInput = z.infer<typeof cycleRelockInput>;
+
+export const cycleUnlockEntry = z.object({
+  id: z.string().uuid(),
+  review_month: monthYm,
+  account_id: z.string().uuid(),
+  action: unlockAction,
+  /** When the window closes; null on re-lock rows (effective immediately). */
+  expires_at: z.string().datetime().nullable(),
+  actor_person_id: z.string().uuid().nullable(),
+  actor_user_id: z.string().uuid(),
+  created_at: z.string().datetime(),
+});
+export type CycleUnlockEntry = z.infer<typeof cycleUnlockEntry>;
+
+export const cycleUnlockAccountState = z.object({
+  account_id: z.string().uuid(),
+  name: z.string(),
+  /** ISO deadline of the running unlock, or null when the account is locked. */
+  unlocked_until: z.string().datetime().nullable(),
+});
+export type CycleUnlockAccountState = z.infer<typeof cycleUnlockAccountState>;
+
+/**
+ * Everything the PMO unlock panel needs: the one month that may be unlocked right
+ * now (the latest closed cycle), each account's current state, and the immutable
+ * trail for that month, newest first.
+ */
+export const cycleUnlockPanel = z.object({
+  unlockable_month: monthYm,
+  max_days: z.number().int(),
+  accounts: z.array(cycleUnlockAccountState),
+  entries: z.array(cycleUnlockEntry),
+});
+export type CycleUnlockPanel = z.infer<typeof cycleUnlockPanel>;
 
 export type PerformanceCapacity =
   | { kind: 'am'; account_id: string; label: string }
@@ -178,6 +237,14 @@ export type PerformanceContext =
       /** Sorted: am < tl < member, then label asc, then id asc — deterministic (AC4). */
       capacities: PerformanceCapacity[];
       default_capacity_index: 0 | -1;
+      /**
+       * True iff the session holds `people.performance.read_org` — gates the explicit
+       * "Organization" (strategic/PMO) view. Org mode is a deliberate choice, never a
+       * fallback for capacity-less users (FUT-781).
+       */
+      can_view_org: boolean;
+      /** True iff the session holds `people.performance.unlock` — gates the PMO unlock panel. */
+      can_unlock: boolean;
     };
 
 const weightPct = z.number().finite().min(0).max(100);
@@ -251,6 +318,12 @@ export type MoraleRecipientTag = z.infer<typeof moraleRecipientTag>;
 export const submitMoraleInput = z.object({
   rating: z.number().int().min(1).max(5),
   concern_text: z.string().max(5000).optional(),
+  /**
+   * Which project the note is about. Omitted when the sender has nothing to choose —
+   * one project (the server picks it) or none at all (it stays NULL). The server never
+   * trusts this value: it re-derives the sender's projects and rejects anything else.
+   */
+  project_id: z.string().uuid().nullable().optional(),
   recipient_person_ids: z.array(z.string().uuid()),
 });
 export type SubmitMoraleInput = z.infer<typeof submitMoraleInput>;
@@ -266,6 +339,15 @@ export const moraleNoteView = z.object({
   rating: z.number().int().min(1).max(5),
   concern_text: z.string().nullable(),
   submitted_at: z.string(),
+  /** Null for a note filed by someone on no project — an HR or BoD manager. */
+  project_id: z.string().uuid().nullable(),
+  /**
+   * The project's name as it stood when the note was filed — the same snapshot the
+   * recipients' inbox groups under, so one note never reads back under two different
+   * names. Null when `project_id` is null, and on notes filed before the snapshot
+   * existed.
+   */
+  project_name: z.string().nullable(),
   recipients: z.array(moraleRecipientView),
 });
 export type MoraleNoteView = z.infer<typeof moraleNoteView>;
@@ -300,13 +382,34 @@ export const moraleRecipientGroup = z.object({
 });
 export type MoraleRecipientGroup = z.infer<typeof moraleRecipientGroup>;
 
-/** What the send form needs: whether this person may submit, and to whom. */
+/** A project the sender is allocated to, and so may file a note against. */
+export const moraleProjectOption = z.object({
+  project_id: z.string().uuid(),
+  name: z.string().nullable(),
+});
+export type MoraleProjectOption = z.infer<typeof moraleProjectOption>;
+
+/** What the send form needs: whether this person may submit, against what, and to whom. */
 export const moraleRecipientsForm = z.object({
   /**
-   * False for every role outside Member/TL. They still reach the page from the nav,
-   * but there is nothing for them to submit — the manager tabs are what serve them.
+   * False only for a login with no employee record — there is no reporting line to
+   * resolve and nobody to attribute a note to. Holding no allocation is *not* a bar:
+   * an HR or BoD manager still submits, reaching PMO and BoD with a NULL project.
    */
   can_submit: z.boolean(),
+  /**
+   * Every project the sender touches, as Member or as Team Lead. Empty for a sender
+   * with no active allocation. One entry means the choice is already made; two or more
+   * means the client must offer it, because TL and AM differ per project.
+   */
+  projects: z.array(moraleProjectOption),
+  /**
+   * The project `groups` below is scoped to. Resolved server-side: the only project when
+   * there is exactly one, the requested one when it is genuinely the sender's, and null
+   * otherwise — including the "several projects, none picked yet" state, where TL and AM
+   * cannot be determined and are therefore absent from `groups`.
+   */
+  selected_project_id: z.string().uuid().nullable(),
   groups: z.array(moraleRecipientGroup),
 });
 export type MoraleRecipientsForm = z.infer<typeof moraleRecipientsForm>;
@@ -321,6 +424,12 @@ export const moraleRecipientsResponse = moraleRecipientsForm.extend({
   can_review: z.boolean(),
 });
 export type MoraleRecipientsResponse = z.infer<typeof moraleRecipientsResponse>;
+
+/** Which project the recipient list should be scoped to; absent means "not chosen yet". */
+export const moraleRecipientsQuery = z.object({
+  project_id: z.string().uuid().optional(),
+});
+export type MoraleRecipientsQuery = z.infer<typeof moraleRecipientsQuery>;
 
 /**
  * Calendar-date history window, both ends inclusive and read in Asia/Ho_Chi_Minh.

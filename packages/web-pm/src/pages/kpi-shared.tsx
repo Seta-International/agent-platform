@@ -1,3 +1,4 @@
+import { KPI_VALUE_MAX_DECIMALS } from '@seta/pm/contracts';
 import { Badge as AstryxBadge } from '@seta/shared-ui';
 import type {
   BandCondition,
@@ -49,9 +50,20 @@ function isPercentMetric(metricName: string, component_count: 1 | 2): boolean {
   return component_count === 2 && !DENSITY_METRIC_NAMES.has(metricName);
 }
 
+/** Trims a value to the decimals the storage column actually holds, dropping trailing zeros —
+ * `Number(toFixed())` also absorbs the binary noise a `× 100` leaves behind (0.0501 × 100 is
+ * 5.010000000000001). */
+function trimmed(value: number, decimals: number): string {
+  return String(Number(value.toFixed(decimals)));
+}
+
 /** Formats a single already-computed metric value the same way its norm band is formatted
  * (see formatBand) — so a value of 0.89 for a percentage metric reads "89%", matching the band's
- * own units, and a value of 3 for a day-count metric reads "3". */
+ * own units, and a value of 3 for a day-count metric reads "3".
+ *
+ * Prints the stored value itself rather than re-rounding it (FUT-955): a second rounding here
+ * could move the number to the far side of the threshold that picked its colour, printing "1"
+ * next to a Green that was earned by 0.996. */
 export function formatMetricValue(
   value: number | null,
   metricName: string,
@@ -59,8 +71,8 @@ export function formatMetricValue(
 ): string {
   if (value === null) return '·';
   return isPercentMetric(metricName, component_count)
-    ? `${Math.round(value * 1000) / 10}%`
-    : String(Math.round(value * 100) / 100);
+    ? `${trimmed(value * 100, KPI_VALUE_MAX_DECIMALS - 2)}%`
+    : trimmed(value, KPI_VALUE_MAX_DECIMALS);
 }
 
 export function formatBand(
@@ -291,7 +303,6 @@ export {
   hasKpiEntryIssue,
   incompleteRecordMetrics,
   kpiComponentIssue,
-  kpiValuePrecision,
   validateKpiEntry,
 } from '@seta/pm/contracts';
 

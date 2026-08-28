@@ -12,7 +12,7 @@ import {
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { setMonthClock, vnYearMonth } from '../../src/backend/domain/month-clock.ts';
-import { readMonthTasks } from '../../src/index.ts';
+import { readMonthTasks, unlockCycle } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -186,6 +186,85 @@ describe('readMonthTasks (FUT-695 / TC-19..21)', () => {
         const result = await readMonthTasks(session, { month });
         expect(result.cycle_status).toBe('locked');
         expect(result.groups[0]?.cards).toEqual([{ kind: 'cycle_locked' }]);
+      } finally {
+        resetPeopleDb();
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('an unlock on one account leaves the other account locked (FUT-781)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const me = crypto.randomUUID();
+        const open = crypto.randomUUID();
+        const shut = crypto.randomUUID();
+        const projOpen = crypto.randomUUID();
+        const projShut = crypto.randomUUID();
+        const db = peopleDb();
+        await db.insert(person).values({ id: me, tenant_id: t.tenant_id, full_name: 'Dual' });
+        await db
+          .insert(userProjection)
+          .values({ user_id: crypto.randomUUID(), tenant_id: t.tenant_id, person_id: me });
+        await db.insert(accountProjection).values([
+          { account_id: open, tenant_id: t.tenant_id, name: 'Reopened' },
+          { account_id: shut, tenant_id: t.tenant_id, name: 'Still closed' },
+        ]);
+        await db.insert(projectProjection).values([
+          { project_id: projOpen, tenant_id: t.tenant_id, account_id: open, name: 'Alpha' },
+          { project_id: projShut, tenant_id: t.tenant_id, account_id: shut, name: 'Beta' },
+        ]);
+        await db.insert(workerAllocationProjection).values([
+          {
+            allocation_id: crypto.randomUUID(),
+            tenant_id: t.tenant_id,
+            person_id: me,
+            project_id: projOpen,
+            account_id: open,
+            lead_person_id: null,
+            active: true,
+          },
+          {
+            allocation_id: crypto.randomUUID(),
+            tenant_id: t.tenant_id,
+            person_id: me,
+            project_id: projShut,
+            account_id: shut,
+            lead_person_id: null,
+            active: true,
+          },
+        ]);
+
+        // Aug 13 2026 → July is the latest closed cycle, so July is unlockable.
+        setMonthClock(() => vn(2026, 8, 13, 10));
+        const pmo = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.pmo'],
+          person_id: crypto.randomUUID(),
+          assignments: [{ role_slug: 'pm.pmo', scope_kind: 'tenant', scope_id: null }],
+        });
+        await unlockCycle(pmo, { month: '2026-07', account_id: open, days: 2 });
+
+        const session = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['people.viewer'],
+          person_id: me,
+        });
+        const result = await readMonthTasks(session, { month: '2026-07' });
+
+        const groups = new Map(result.groups.map((g) => [g.capacity.account_id, g]));
+        expect(groups.get(open)?.cards.map((c) => c.kind)).toEqual(['self_assessment', 'morale']);
+        // The unlock is scoped to one account — the other stays read-only.
+        expect(groups.get(shut)?.cards).toEqual([{ kind: 'cycle_locked' }]);
       } finally {
         resetPeopleDb();
         resetPmDb();

@@ -57,6 +57,11 @@ export async function listMoraleNotes(
       rating: moraleNote.rating,
       concern_text: moraleNote.concern_text,
       submitted_at: moraleNote.submitted_at,
+      project_id: moraleNote.project_id,
+      // The name frozen on the note, not today's from the projection: the recipients'
+      // inbox groups by the same snapshot, and one note reading under two different
+      // project names in two views is the one thing worse than a stale name.
+      project_name: moraleNote.project_name_snapshot,
     })
     .from(moraleNote)
     .where(
@@ -106,6 +111,8 @@ export async function listMoraleNotes(
     rating: n.rating,
     concern_text: n.concern_text,
     submitted_at: n.submitted_at.toISOString(),
+    project_id: n.project_id,
+    project_name: n.project_name,
     recipients: (recipientsByNote.get(n.id) ?? []).sort(
       (a, b) => TAG_ORDER.indexOf(a.recipient_tag) - TAG_ORDER.indexOf(b.recipient_tag),
     ),

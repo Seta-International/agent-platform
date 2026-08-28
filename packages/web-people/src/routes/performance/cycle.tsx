@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { PerformanceSectionStub } from '../../components/performance-shell.tsx';
+import { CycleUnlockPage } from '../../pages/cycle-unlock-page.tsx';
 
 export const Route = createFileRoute('/_authed/people/performance/cycle')({
-  component: () => <PerformanceSectionStub title="Cycle" />,
+  component: CycleUnlockPage,
 });

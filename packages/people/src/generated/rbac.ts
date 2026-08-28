@@ -3,6 +3,8 @@ export type PeoplePermission =
   | 'people.org_unit.manage'
   | 'people.performance.configure'
   | 'people.performance.read'
+  | 'people.performance.read_org'
+  | 'people.performance.unlock'
   | 'people.self.manage'
   | 'people.self.read'
   | 'people.worker.create'
@@ -14,6 +16,8 @@ export const PEOPLE_PERMISSIONS: readonly PeoplePermission[] = [
   'people.org_unit.manage',
   'people.performance.configure',
   'people.performance.read',
+  'people.performance.read_org',
+  'people.performance.unlock',
   'people.self.manage',
   'people.self.read',
   'people.worker.create',

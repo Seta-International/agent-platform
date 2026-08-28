@@ -13,7 +13,7 @@ import {
 } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { vnYearMonth } from './month-clock.ts';
-import { resolvePrimaryProject } from './morale-primary-project.ts';
+import { resolveSenderProjectContext } from './morale-project-context.ts';
 import { resolveMoraleHrRecipients, resolveMoraleRecipients } from './resolve-morale-recipients.ts';
 
 interface ResolvedRecipient {
@@ -84,12 +84,24 @@ export async function submitMoraleNote(
   // Re-resolve rather than trust the client: between loading the form and pressing
   // Submit a recipient may have left, been deactivated, or lost the role. Flattening
   // the groups is lossless — resolution already gives each person a single tag.
-  const { can_submit, groups } = await resolveMoraleRecipients(session, senderPersonId);
+  //
+  // The project comes back from the same resolution instead of being read off the input,
+  // so what gets stored is a project the sender demonstrably sits on — the client's value
+  // is only ever a request.
+  const { can_submit, groups, projects, selected_project_id } = await resolveMoraleRecipients(
+    session,
+    senderPersonId,
+    input.project_id ?? null,
+  );
   if (!can_submit) {
-    throw new PeopleError(
-      'FORBIDDEN',
-      'Only project Members and Team Leads can submit a morale note',
-    );
+    throw new PeopleError('FORBIDDEN', 'No employee record is linked to this user');
+  }
+
+  // Several projects and nothing resolved means the sender either skipped the picker or
+  // sent a project they are not on. Storing NULL would quietly file the note against no
+  // project — and route it to no TL or AM — so it is refused instead.
+  if (projects.length > 0 && !selected_project_id) {
+    throw new PeopleError('VALIDATION', 'Select which project this note is about');
   }
   const byId = new Map(
     groups.flatMap((g) => g.candidates.map((c) => [c.person_id, { ...c, tag: g.tag }] as const)),
@@ -139,8 +151,13 @@ export async function submitMoraleNote(
 
   const senderOrgUnitId = me?.org_unit_id ?? null;
   // Frozen here rather than resolved when a recipient opens their inbox (FUT-786): a
-  // transfer next month must not silently re-file notes someone has already read.
-  const primaryProject = await resolvePrimaryProject(session.tenant_id, senderPersonId);
+  // transfer next month must not silently re-file notes someone has already read. The
+  // project itself is the sender's, resolved above; this fills in the rest of the snapshot.
+  const projectContext = await resolveSenderProjectContext(
+    session.tenant_id,
+    senderPersonId,
+    selected_project_id,
+  );
   const period = vnYearMonth();
   let noteId = '';
 
@@ -155,10 +172,12 @@ export async function submitMoraleNote(
           org_unit_id: senderOrgUnitId,
           rating: input.rating,
           concern_text: input.concern_text ?? null,
-          project_id: primaryProject?.project_id ?? null,
-          project_name_snapshot: primaryProject?.project_name ?? null,
-          account_id: primaryProject?.account_id ?? null,
-          sender_capacity: primaryProject?.capacity ?? null,
+          // Null is the honest value for a sender with no allocation (HR, BoD): the note
+          // is theirs, not any project's.
+          project_id: selected_project_id,
+          project_name_snapshot: projectContext?.project_name ?? null,
+          account_id: projectContext?.account_id ?? null,
+          sender_capacity: projectContext?.capacity ?? null,
         })
         .returning({ id: moraleNote.id });
 
@@ -184,8 +203,8 @@ export async function submitMoraleNote(
         // Delivery dimensions, so a lead or AM can be shown the trend for the group they
         // are accountable for. Still no person_id: what these add is how coarsely a
         // rating can be grouped, not a way back to who gave it.
-        project_id: primaryProject?.project_id ?? null,
-        account_id: primaryProject?.account_id ?? null,
+        project_id: selected_project_id,
+        account_id: projectContext?.account_id ?? null,
       });
 
       const { eventId } = await emit({

@@ -8,6 +8,12 @@ export type PerformanceScopeSearch = {
   account?: string;
   project?: string;
   month?: string;
+  /**
+   * Explicit organization (strategic/PMO) view. Only honored when the session holds
+   * `people.performance.read_org`; otherwise ignored so it can never leak the org view
+   * to a capacity-holder without permission (FUT-781).
+   */
+  view?: 'organization';
 };
 
 export type ResolvedPerformanceScope =
@@ -35,7 +41,8 @@ export function parsePerformanceSearch(s: Record<string, unknown>): PerformanceS
   const project = typeof s.project === 'string' && s.project.length > 0 ? s.project : undefined;
   const month =
     typeof s.month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s.month) ? s.month : undefined;
-  return { kind, account, project, month };
+  const view = s.view === 'organization' ? 'organization' : undefined;
+  return { kind, account, project, month, view };
 }
 
 /** True when the URL carries an explicit capacity/month context (not a bare path). */
@@ -44,7 +51,8 @@ export function hasExplicitScope(search: PerformanceScopeSearch): boolean {
     search.kind !== undefined ||
     search.account !== undefined ||
     search.project !== undefined ||
-    search.month !== undefined
+    search.month !== undefined ||
+    search.view !== undefined
   );
 }
 
@@ -66,14 +74,20 @@ export function searchFromCapacity(
   month: string,
 ): Required<Pick<PerformanceScopeSearch, 'kind' | 'month'>> & PerformanceScopeSearch {
   if (c.kind === 'am') {
-    return { kind: 'am', account: c.account_id, project: undefined, month };
+    return { kind: 'am', account: c.account_id, project: undefined, month, view: undefined };
   }
   return {
     kind: c.kind,
     project: c.project_id,
     account: c.account_id,
     month,
+    view: undefined,
   };
+}
+
+/** Canonical search for the explicit organization view — clears any capacity tuple. */
+export function searchFromOrg(month: string): PerformanceScopeSearch {
+  return { view: 'organization', kind: undefined, account: undefined, project: undefined, month };
 }
 
 /**
@@ -85,8 +99,20 @@ export function resolvePerformanceScope(input: {
   capacities: readonly PerformanceCapacity[];
   default_capacity_index: number;
   as_of_month: string;
+  /** Session holds people.performance.read_org — enables the explicit org view (FUT-781). */
+  can_view_org?: boolean;
 }): { resolved: ResolvedPerformanceScope; search: PerformanceScopeSearch; corrected: boolean } {
   const month = input.search.month ?? input.as_of_month;
+
+  // Explicit organization view — a deliberate choice by an org-viewer, honored even when
+  // the principal also holds delivery capacities. Ignored without permission (no leak).
+  if (input.search.view === 'organization' && input.can_view_org) {
+    return {
+      resolved: { mode: 'organization', month, capacity: null },
+      search: searchFromOrg(month),
+      corrected: input.search.month === undefined,
+    };
+  }
 
   if (input.capacities.length === 0) {
     const search: PerformanceScopeSearch = { month };

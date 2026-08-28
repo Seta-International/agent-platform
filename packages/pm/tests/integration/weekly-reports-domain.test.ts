@@ -644,4 +644,118 @@ describe('weekly reports domain', () => {
       }
     });
   });
+
+  it('keeps the worst declaration across reporters, not the last one submitted', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmoPerson = crypto.randomUUID();
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id, pmoPerson);
+        const pmSession = reporterSession(t.tenant_id, t.admin_user_id);
+        const pmoSession = reporterSession(t.tenant_id, t.admin_user_id, pmoPerson);
+
+        await upsertWeeklyReport({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          executive_summary: 'PM sees a red quality week',
+          category_colours: {
+            quality: 'red',
+            cost_capacity: 'green',
+            delivery: 'green',
+            process: 'green',
+          },
+          session: pmSession,
+        });
+        const pmoSaved = await upsertWeeklyReport({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          executive_summary: 'PMO is more relaxed',
+          category_colours: {
+            quality: 'yellow',
+            cost_capacity: 'green',
+            delivery: 'green',
+            process: 'green',
+          },
+          session: pmoSession,
+        });
+        expect(pmoSaved.overall_colour).toBe('yellow');
+
+        const detail = await getWeeklyReportDetail({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          session: pmSession,
+        });
+        expect(detail.flags.find((f) => f.category === 'quality')?.final_colour).toBe('red');
+        expect(detail.overall_colour).toBe('red');
+        expect(
+          detail.reports.find((r) => r.reporter_id === pmoSession.person_id)?.overall_colour,
+        ).toBe('yellow');
+
+        const { rows } = await listWeeklyReports({
+          iso_year: 2026,
+          iso_week: 29,
+          project_id: projectId,
+          session: pmSession,
+        });
+        expect(rows[0]?.overall_colour).toBe('red');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('lifts the shared flag when the reporter who declared the worst colour revises it down', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmoPerson = crypto.randomUUID();
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id, pmoPerson);
+        const pmSession = reporterSession(t.tenant_id, t.admin_user_id);
+        const pmoSession = reporterSession(t.tenant_id, t.admin_user_id, pmoPerson);
+        const base = {
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+        };
+
+        await upsertWeeklyReport({
+          ...base,
+          executive_summary: 'PM red',
+          category_colours: { quality: 'red' },
+          session: pmSession,
+        });
+        await upsertWeeklyReport({
+          ...base,
+          executive_summary: 'PMO yellow',
+          category_colours: { quality: 'yellow' },
+          session: pmoSession,
+        });
+        await upsertWeeklyReport({
+          ...base,
+          executive_summary: 'PM recovered',
+          category_colours: { quality: 'green' },
+          session: pmSession,
+        });
+
+        const detail = await getWeeklyReportDetail({ ...base, session: pmSession });
+        expect(detail.flags.find((f) => f.category === 'quality')?.final_colour).toBe('yellow');
+        expect(detail.overall_colour).toBe('yellow');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

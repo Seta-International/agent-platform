@@ -33,6 +33,7 @@ export function KpiConfigureDialog({
   open,
   onOpenChange,
   projects,
+  accountNames,
   initialProjectId,
   currentWeek,
 }: {
@@ -41,11 +42,18 @@ export function KpiConfigureDialog({
   /** Projects the caller may configure — already scoped (PMO/BOD: every tenant project;
    * EM/TL: only projects they own via `can_manage`, functional-analysis.md §2d). */
   projects: ProjectListRow[];
+  /** Account id → name, used to head each group once the list spans more than one account. */
+  accountNames?: ReadonlyMap<string, string>;
   initialProjectId?: string;
   currentWeek?: { iso_year: number; iso_week: number };
 }) {
   const queryClient = useQueryClient();
-  const sortedProjects = [...projects].sort((a, b) => a.name.localeCompare(b.name));
+  const accountNameOf = (accountId: string) => accountNames?.get(accountId) ?? 'Unknown account';
+  const sortedProjects = [...projects].sort(
+    (a, b) =>
+      accountNameOf(a.account_id).localeCompare(accountNameOf(b.account_id)) ||
+      a.name.localeCompare(b.name),
+  );
   const [selected, setSelected] = useState<Set<string>>(
     () =>
       new Set(
@@ -143,10 +151,20 @@ export function KpiConfigureDialog({
     appliedQuery.data && metrics.length > 0
       ? `${metrics.filter((m) => (coverage.get(m.metric_id) ?? 0) === selectedIds.length).length}/${metrics.length}`
       : null;
+  const appliedLabel = selectedIds.length > 1 ? 'applied to all' : 'applied';
 
   const visibleProjects = filter.trim()
     ? sortedProjects.filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase()))
     : sortedProjects;
+  const projectGroups = [
+    ...visibleProjects
+      .reduce((groups, p) => {
+        groups.set(p.account_id, [...(groups.get(p.account_id) ?? []), p]);
+        return groups;
+      }, new Map<string, ProjectListRow[]>())
+      .entries(),
+  ];
+  const showAccountHeadings = projectGroups.length > 1;
   const visibleSelectedCount = visibleProjects.filter((p) => selected.has(p.project_id)).length;
   const allSelected = visibleProjects.length > 0 && visibleSelectedCount === visibleProjects.length;
   const selectAllState: boolean | 'indeterminate' = allSelected
@@ -225,28 +243,37 @@ export function KpiConfigureDialog({
                             : `No project matches “${filter.trim()}”`}
                         </p>
                       ) : (
-                        visibleProjects.map((p) => {
-                          const checkboxId = `kpi-project-${p.project_id}`;
-                          return (
-                            <div
-                              key={p.project_id}
-                              data-project-row={p.project_id}
-                              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-body"
-                            >
-                              <Checkbox
-                                id={checkboxId}
-                                checked={selected.has(p.project_id)}
-                                onCheckedChange={() => toggleProject(p.project_id)}
-                              />
-                              <label
-                                htmlFor={checkboxId}
-                                className="min-w-0 flex-1 cursor-pointer truncate text-base text-primary"
-                              >
-                                {p.name}
-                              </label>
-                            </div>
-                          );
-                        })
+                        projectGroups.map(([accountId, groupProjects]) => (
+                          <div key={accountId} className="space-y-0.5">
+                            {showAccountHeadings ? (
+                              <div className="truncate px-2 pt-2 pb-1 text-xs uppercase tracking-wide text-secondary">
+                                {accountNameOf(accountId)}
+                              </div>
+                            ) : null}
+                            {groupProjects.map((p) => {
+                              const checkboxId = `kpi-project-${p.project_id}`;
+                              return (
+                                <div
+                                  key={p.project_id}
+                                  data-project-row={p.project_id}
+                                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-body"
+                                >
+                                  <Checkbox
+                                    id={checkboxId}
+                                    checked={selected.has(p.project_id)}
+                                    onCheckedChange={() => toggleProject(p.project_id)}
+                                  />
+                                  <label
+                                    htmlFor={checkboxId}
+                                    className="min-w-0 flex-1 cursor-pointer truncate text-base text-primary"
+                                  >
+                                    {p.name}
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))
                       )}
                     </div>
                   </ScrollArea>
@@ -313,8 +340,8 @@ export function KpiConfigureDialog({
                                 {metricQuery
                                   ? `${visibleMetrics.length} of ${catMetrics.length} shown`
                                   : appliedSummary
-                                    ? `${appliedCount}/${catMetrics.length} applied · ${appliedSummary} overall`
-                                    : `${appliedCount}/${catMetrics.length} applied`}
+                                    ? `${appliedCount}/${catMetrics.length} ${appliedLabel} · ${appliedSummary} overall`
+                                    : `${appliedCount}/${catMetrics.length} ${appliedLabel}`}
                               </span>
                             </div>
                             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">

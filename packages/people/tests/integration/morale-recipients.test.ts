@@ -194,30 +194,181 @@ describe('resolveMoraleRecipients (FUT-782)', () => {
 
       // Three projects: one led by someone who left, one by a disabled login, one by the
       // sender themselves — none of them should be offered back.
+      const projectIds: string[] = [];
       for (const leadPersonId of [gone.person_id, disabled.person_id, me.person_id]) {
+        const projectId = crypto.randomUUID();
+        projectIds.push(projectId);
         await seedAllocation({
           tenantId: t.tenant_id,
           personId: me.person_id,
-          projectId: crypto.randomUUID(),
+          projectId,
           accountId,
           leadPersonId,
         });
       }
 
-      const res = await resolveMoraleRecipients(sessionFor(t.tenant_id, me), me.person_id);
-
-      expect(groupFor(res, 'tl')?.candidates).toEqual([]);
+      // Checked one project at a time, because that is now the only way a TL is offered
+      // at all — and it keeps each of the three exclusions its own assertion rather than
+      // letting one empty merged list stand in for all of them.
+      for (const projectId of projectIds) {
+        const res = await resolveMoraleRecipients(
+          sessionFor(t.tenant_id, me),
+          me.person_id,
+          projectId,
+        );
+        expect(groupFor(res, 'tl')?.candidates).toEqual([]);
+      }
     });
   });
 
-  it('reports can_submit false for someone with no allocation at all', async () => {
+  it('lets someone with no allocation submit, with no project and no TL or AM', async () => {
     await withPeople(async (pool) => {
       const t = await seedTenant(pool);
+      // The shape an HR or BoD manager has: a real employee, on no project.
       const me = await seedPerson(t.tenant_id, 'Unallocated');
 
       const res = await resolveMoraleRecipients(sessionFor(t.tenant_id, me), me.person_id);
 
-      expect(res).toEqual({ can_submit: false, groups: [] });
+      expect(res.can_submit).toBe(true);
+      expect(res.projects).toEqual([]);
+      // Null, not a placeholder: the note genuinely belongs to no project.
+      expect(res.selected_project_id).toBeNull();
+      // TL and AM hang off a project, so they are absent rather than empty — there is no
+      // "nobody qualifies" to explain, the roles simply do not apply.
+      expect(res.groups.map((g) => g.tag)).toEqual(['pmo', 'bod']);
+    });
+  });
+
+  it('auto-selects the only project, leaving nothing to choose', async () => {
+    await withPeople(async (pool) => {
+      const t = await seedTenant(pool);
+      const lead = await seedPerson(t.tenant_id, 'Lead One');
+      const me = await seedPerson(t.tenant_id, 'Member One');
+      const projectId = crypto.randomUUID();
+      await peopleDb().insert(accountProjection).values({
+        account_id: '11111111-1111-4111-8111-111111111111',
+        tenant_id: t.tenant_id,
+        name: 'Acme',
+      });
+      await peopleDb().insert(projectProjection).values({
+        project_id: projectId,
+        tenant_id: t.tenant_id,
+        account_id: '11111111-1111-4111-8111-111111111111',
+        name: 'Solo',
+      });
+      await seedAllocation({
+        tenantId: t.tenant_id,
+        personId: me.person_id,
+        projectId,
+        accountId: '11111111-1111-4111-8111-111111111111',
+        leadPersonId: lead.person_id,
+      });
+
+      const res = await resolveMoraleRecipients(sessionFor(t.tenant_id, me), me.person_id);
+
+      expect(res.projects).toEqual([{ project_id: projectId, name: 'Solo' }]);
+      // Resolved without the caller asking for it: one project is not a decision.
+      expect(res.selected_project_id).toBe(projectId);
+      expect(groupFor(res, 'tl')?.candidates).toHaveLength(1);
+    });
+  });
+
+  describe('a sender on several projects', () => {
+    /** Two projects under one account, each with its own lead, plus the sender on both. */
+    async function seedTwoProjects(tenantId: string, me: Actor) {
+      const accountId = crypto.randomUUID();
+      await peopleDb()
+        .insert(accountProjection)
+        .values({ account_id: accountId, tenant_id: tenantId, name: 'Acme' });
+
+      const leads: Record<string, Actor> = {};
+      const ids: Record<string, string> = {};
+      for (const name of ['Alpha', 'Beta']) {
+        const projectId = crypto.randomUUID();
+        ids[name] = projectId;
+        leads[name] = await seedPerson(tenantId, `Lead ${name}`);
+        await peopleDb()
+          .insert(projectProjection)
+          .values({ project_id: projectId, tenant_id: tenantId, account_id: accountId, name });
+        await seedAllocation({
+          tenantId,
+          personId: me.person_id,
+          projectId,
+          accountId,
+          leadPersonId: leads[name]?.person_id ?? null,
+        });
+      }
+      return { ids, leads };
+    }
+
+    it('withholds TL and AM until a project is chosen', async () => {
+      await withPeople(async (pool) => {
+        const t = await seedTenant(pool);
+        const me = await seedPerson(t.tenant_id, 'Member One');
+        const { ids } = await seedTwoProjects(t.tenant_id, me);
+
+        const res = await resolveMoraleRecipients(sessionFor(t.tenant_id, me), me.person_id);
+
+        // Both offered, name-sorted, so the picker is stable across reloads.
+        expect(res.projects.map((p) => p.name)).toEqual(['Alpha', 'Beta']);
+        expect(res.selected_project_id).toBeNull();
+        // Undetermined rather than empty: picking Alpha and picking Beta give different
+        // answers, so neither may be shown as *the* answer before the sender says which.
+        expect(res.groups.map((g) => g.tag)).toEqual(['pmo', 'bod']);
+        expect(Object.values(ids)).toHaveLength(2);
+      });
+    });
+
+    it('scopes the TL to the chosen project and leaves PMO and BoD alone', async () => {
+      await withPeople(async (pool) => {
+        const t = await seedTenant(pool);
+        const me = await seedPerson(t.tenant_id, 'Member One');
+        const { ids, leads } = await seedTwoProjects(t.tenant_id, me);
+
+        const alpha = await resolveMoraleRecipients(
+          sessionFor(t.tenant_id, me),
+          me.person_id,
+          ids.Alpha,
+        );
+        const beta = await resolveMoraleRecipients(
+          sessionFor(t.tenant_id, me),
+          me.person_id,
+          ids.Beta,
+        );
+
+        expect(alpha.selected_project_id).toBe(ids.Alpha);
+        expect(groupFor(alpha, 'tl')?.candidates).toEqual([
+          { person_id: leads.Alpha?.person_id, full_name: 'Lead Alpha', context: 'Alpha' },
+        ]);
+        // The other project's lead is not merely lower in the list — they are absent.
+        expect(groupFor(beta, 'tl')?.candidates).toEqual([
+          { person_id: leads.Beta?.person_id, full_name: 'Lead Beta', context: 'Beta' },
+        ]);
+
+        // PMO and BoD are granted at tenant scope, so switching project must not appear
+        // to swap them out. Both empty here, but identically so.
+        expect(groupFor(alpha, 'pmo')).toEqual(groupFor(beta, 'pmo'));
+        expect(groupFor(alpha, 'bod')).toEqual(groupFor(beta, 'bod'));
+      });
+    });
+
+    it('ignores a project the sender is not on', async () => {
+      await withPeople(async (pool) => {
+        const t = await seedTenant(pool);
+        const me = await seedPerson(t.tenant_id, 'Member One');
+        await seedTwoProjects(t.tenant_id, me);
+
+        // A stale bookmark, or a client trying its luck. Neither may widen the audience,
+        // so this lands back on "nothing chosen" rather than on someone else's lead.
+        const res = await resolveMoraleRecipients(
+          sessionFor(t.tenant_id, me),
+          me.person_id,
+          crypto.randomUUID(),
+        );
+
+        expect(res.selected_project_id).toBeNull();
+        expect(res.groups.map((g) => g.tag)).toEqual(['pmo', 'bod']);
+      });
     });
   });
 
@@ -225,8 +376,8 @@ describe('resolveMoraleRecipients (FUT-782)', () => {
     await withPeople(async (pool) => {
       const t = await seedTenant(pool);
 
-      // A login with no `person_id` can never hold a Member or Team Lead capacity, so it
-      // belongs on the same "nothing to submit" answer as an unallocated employee.
+      // The one remaining bar. A note is filed against an employee record, and this login
+      // has none — so unlike an unallocated employee there is nothing to resolve at all.
       // Failing the request instead would put an error banner in front of the one screen
       // that exists to explain why the form is not there.
       const res = await resolveMoraleRecipients(
@@ -239,7 +390,12 @@ describe('resolveMoraleRecipients (FUT-782)', () => {
         null,
       );
 
-      expect(res).toEqual({ can_submit: false, groups: [] });
+      expect(res).toEqual({
+        can_submit: false,
+        projects: [],
+        selected_project_id: null,
+        groups: [],
+      });
     });
   });
 });

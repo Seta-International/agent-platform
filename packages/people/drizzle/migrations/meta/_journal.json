@@ -89,15 +89,22 @@
     {
       "idx": 12,
       "version": "7",
-      "when": 1787197570668,
-      "tag": "0019_morale_notes",
+      "when": 1786685740927,
+      "tag": "0019_performance_cycle_unlock",
       "breakpoints": true
     },
     {
       "idx": 13,
       "version": "7",
+      "when": 1787197570668,
+      "tag": "0021_morale_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
       "when": 1787600000000,
-      "tag": "0020_morale_inbox",
+      "tag": "0022_morale_inbox",
       "breakpoints": true
     }
   ]

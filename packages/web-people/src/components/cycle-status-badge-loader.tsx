@@ -6,8 +6,15 @@ import { CycleStatusBadge } from './cycle-status-badge.tsx';
  * Loads server cycleStatus for `month` and echoes it (FE-AD-12).
  * Never classifies from the client clock.
  */
-export function CycleStatusBadgeLoader({ month }: { month: string }) {
-  const query = useQuery(cycleStatusOptions(month));
+export function CycleStatusBadgeLoader({
+  month,
+  accountId,
+}: {
+  month: string;
+  /** Account in view — a manual unlock (FUT-781) reopens one account at a time. */
+  accountId?: string | null;
+}) {
+  const query = useQuery(cycleStatusOptions(month, accountId));
 
   if (query.isPending) {
     return (

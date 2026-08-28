@@ -1299,9 +1299,43 @@ export async function upsertWeeklyReport(
       // Flags: shared per (project, week, category). Final colour resolves in three steps:
       // (1) new flag → final follows computed with an initial audit entry (actor null =
       // system); (2) computed moved since last save → final follows it ONLY if never manually
-      // overridden; (3) the reporter's declared colour, when it differs from where final
-      // landed, becomes an audited override — including declaring back to the computed
-      // colour, which clears a previous override.
+      // overridden; (3) the WORST colour declared across the week's published reports, when it
+      // differs from where final landed, becomes an audited override — including declaring back
+      // to the computed colour, which clears a previous override.
+      //
+      // The flag is shared, so it takes the worst of the reporters' CURRENT declarations, never
+      // the last one written: a milder later report can't lift a red another reporter declared,
+      // and the red does lift once its own author revises it down. Each report keeps its own
+      // overall_colour (the worst of ITS four pillars) untouched.
+      const publishedDeclarations = await tx
+        .select({
+          report_id: reportRevision.report_id,
+          declared_colours: reportRevision.declared_colours,
+        })
+        .from(reportRevision)
+        .innerJoin(report, eq(report.id, reportRevision.report_id))
+        .where(
+          and(
+            eq(reportRevision.tenant_id, session.tenant_id),
+            eq(report.project_id, project_id),
+            eq(report.iso_year, iso_year),
+            eq(report.iso_week, iso_week),
+          ),
+        )
+        .orderBy(reportRevision.created_at);
+      type DeclaredColours = Partial<Record<KpiCategory, ReportColour>>;
+      const declaredByReport = new Map<string, DeclaredColours | null>();
+      for (const rev of publishedDeclarations) {
+        declaredByReport.set(rev.report_id, rev.declared_colours as DeclaredColours | null);
+      }
+      declaredByReport.set(report_id, input.category_colours ?? null);
+      const declaredColours = Object.fromEntries(
+        CATEGORIES.map((c) => [
+          c,
+          worstColour([...declaredByReport.values()].map((d) => d?.[c] ?? null)),
+        ]),
+      ) as Record<KpiCategory, ReportColour | null>;
+
       const existingFlags = await tx
         .select()
         .from(flag)
@@ -1339,7 +1373,7 @@ export async function upsertWeeklyReport(
       };
       for (const category of CATEGORIES) {
         const computed = computation.category_colours[category];
-        const declared = input.category_colours?.[category];
+        const declared = declaredColours[category];
         const row = flagByCategory.get(category);
 
         if (!row) {

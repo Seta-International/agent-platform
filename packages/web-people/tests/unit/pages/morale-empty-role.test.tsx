@@ -16,6 +16,9 @@ vi.mock('../../../src/api/people-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/api/people-client.ts')>()),
   fetchMoraleRecipients: vi.fn().mockResolvedValue({
     can_submit: true,
+    // One project: the server has already resolved it, so no picker is on screen.
+    projects: [{ project_id: 'proj-1', name: 'Atlas' }],
+    selected_project_id: 'proj-1',
     groups: [
       {
         tag: 'tl',
