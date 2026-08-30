@@ -1,21 +1,18 @@
 import {
+  Button,
   Dialog,
   DialogFooter,
   DialogHeader,
+  Divider,
   HStack,
   Layout,
   LayoutContent,
   Text,
-  Token,
   VStack,
 } from '@seta/shared-ui';
 import type { MoraleInboxNote } from '../api/people-client.ts';
-import {
-  formatNoteTimestamp,
-  RATING_ONLY_TEXT,
-  SENDER_CAPACITY_LABELS,
-  TAG_LABELS,
-} from './morale-labels.ts';
+import { formatNoteTimestamp, RATING_ONLY_TEXT, SENDER_CAPACITY_LABELS } from './morale-labels.ts';
+import { MoraleRecipientTokens } from './morale-recipient-tokens.tsx';
 
 /**
  * One note in full.
@@ -64,6 +61,13 @@ export function MoraleNoteDialog({
                   </Text>
                 </HStack>
 
+                {/*
+                  Rules above and below the text, so who wrote it and who else holds it
+                  read as framing rather than as more of the note. Without them the tags
+                  sit directly under the sender's last sentence and look like part of it.
+                */}
+                <Divider />
+
                 {note.concern_text ? (
                   // pre-wrap: the sender's paragraph breaks are part of what they wrote.
                   <Text style={{ whiteSpace: 'pre-wrap' }}>{note.concern_text}</Text>
@@ -73,30 +77,26 @@ export function MoraleNoteDialog({
                   </Text>
                 )}
 
-                <VStack gap={1}>
-                  <Text size="sm" color="secondary">
-                    Also received by
-                  </Text>
-                  <HStack gap={1} wrap="wrap">
-                    {note.recipient_tags.map((tag) => (
-                      <Token
-                        key={tag}
-                        size="sm"
-                        color={tag === 'hr' ? 'yellow' : 'default'}
-                        label={tag === 'hr' ? `${TAG_LABELS.hr} · required` : TAG_LABELS[tag]}
-                      />
-                    ))}
-                  </HStack>
-                </VStack>
+                <Divider />
+
+                {/*
+                  Uncaptioned: "Also received by" was true of the other roles and false of
+                  the viewer's own, and the viewer's own is exactly what these tags now
+                  single out. The tags name themselves.
+                */}
+                <MoraleRecipientTokens note={note} />
               </VStack>
             )}
           </LayoutContent>
         }
         footer={
           <DialogFooter>
-            <Text size="sm" color="secondary">
-              Replying to the sender is not available yet.
-            </Text>
+            {/*
+              A second way out beside the header's ✕. The ✕ is small, unlabelled and at
+              the far corner from where reading ends; after a long note the pointer is at
+              the bottom of the dialog already.
+            */}
+            <Button variant="secondary" label="Close" onClick={onClose} />
           </DialogFooter>
         }
       />

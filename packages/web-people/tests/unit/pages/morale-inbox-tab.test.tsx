@@ -26,6 +26,7 @@ function note(n: number, overrides: Partial<MoraleInboxNote> = {}): MoraleInboxN
     submitted_at: `2026-08-${String(28 - n).padStart(2, '0')}T09:00:00.000Z`,
     concern_text: `Concern ${n}`,
     recipient_tags: ['hr'],
+    my_tags: ['hr'],
     is_read: true,
     ...overrides,
   };
@@ -180,6 +181,62 @@ describe('Notes Received filters (FUT-786)', () => {
   });
 });
 
+describe('Notes Received row shape (FUT-786)', () => {
+  // Trimmed: getByText normalises whitespace, so a trailing space would never match.
+  const longText = 'Scope changed three times this sprint.'.repeat(12).trim();
+
+  it('marks a truncated note with a label rather than a second control', async () => {
+    const user = userEvent.setup();
+    fetchMoraleInbox.mockResolvedValue({
+      total_notes: 1,
+      unread_notes: 0,
+      projects: [
+        group('Project Atlas', [note(1, { concern_text: longText, is_read: false })], 'p-1'),
+      ],
+    });
+
+    renderTab();
+    expect(await screen.findByText('+ more')).toBeInTheDocument();
+
+    // A button here would be a second way to do the one thing a click on this row does,
+    // and an invalid nesting besides — the row is itself an invisible button.
+    expect(screen.queryByRole('button', { name: '+ more' })).not.toBeInTheDocument();
+
+    // The row is the control, and it opens the note in full rather than unfolding it in
+    // place: a long note unfolded inside the list pushes every other one off the screen.
+    await user.click(screen.getByText('Sender 1'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(longText)).toBeInTheDocument();
+    expect(screen.getByText('+ more')).toBeInTheDocument();
+    expect(markMoraleNoteRead).toHaveBeenCalledWith('note-1');
+  });
+
+  it('names the group senders wrote from no project at all', async () => {
+    fetchMoraleInbox.mockResolvedValue({
+      total_notes: 1,
+      unread_notes: 0,
+      projects: [
+        {
+          project_id: null,
+          project_name: 'No project',
+          total_notes: 1,
+          unread_notes: 0,
+          notes: [note(1)],
+        },
+      ],
+    });
+
+    renderTab();
+
+    // Someone between allocations still has a morale note worth reading, and dropping
+    // them because the grouping key is null would lose exactly the people whose situation
+    // the key describes.
+    expect(await screen.findByText('No project')).toBeInTheDocument();
+    expect(screen.getByText('Sender 1')).toBeInTheDocument();
+  });
+});
+
 describe('Reading a note (FUT-786)', () => {
   it('marks it read on open and puts the badge back if the server refuses', async () => {
     const user = userEvent.setup();
@@ -197,6 +254,7 @@ describe('Reading a note (FUT-786)', () => {
 
     expect(markMoraleNoteRead).toHaveBeenCalledWith('note-1');
     // The optimistic clear is rolled back, so the group's unread count survives a failure.
-    await waitFor(() => expect(screen.getByText('1 unread')).toBeInTheDocument());
+    // Found by its accessible name: the badge itself shows the bare figure.
+    await waitFor(() => expect(screen.getByLabelText('1 unread')).toBeInTheDocument());
   });
 });

@@ -5,19 +5,19 @@ import {
   Checkbox,
   Collapsible,
   DateInput,
+  Divider,
   EmptyState,
   HStack,
   List,
   ListItem,
   Selector,
   Spinner,
-  StatusDot,
   Text,
-  Token,
+  VisuallyHidden,
   VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { type CSSProperties, useMemo, useState } from 'react';
 import { moraleInboxFiltersOptions, moraleInboxOptions } from '../api/morale-query.ts';
 import type {
   MoraleInboxNote,
@@ -32,10 +32,10 @@ import {
   previewOf,
   RATING_ONLY_TEXT,
   SENDER_CAPACITY_LABELS,
-  TAG_LABELS,
   vnDay,
 } from './morale-labels.ts';
 import { MoraleNoteDialog } from './morale-note-dialog.tsx';
+import { MoraleRecipientTokens } from './morale-recipient-tokens.tsx';
 
 /** Sentinels for "no filter", so the pickers never have to carry an empty value. */
 const ALL_PROJECTS = 'all';
@@ -64,16 +64,72 @@ function projectKey(projectId: string | null): string {
   return projectId ?? NO_PROJECT_FILTER;
 }
 
+/**
+ * What every note row carries whether it is read or not: even breathing room down both
+ * edges, and a rule under it that can actually be seen.
+ *
+ * ListItem's own inline padding is 8px, which puts the sender's name almost against the
+ * unread rule on one side and the timestamp against the card's edge on the other. Set as
+ * an absolute value rather than "8px plus a bit": an inline style cannot add to a
+ * computed one, and a row that quietly followed Astryx's density would move whenever
+ * that density did.
+ *
+ * `List hasDividers` already draws the rule, in `--color-border` — 8% black, which
+ * disappears entirely between a white row and a grey one and left the notes reading as
+ * one block of text. Only the colour is overridden: the width and the `:last-child`
+ * suppression stay Astryx's, so the bottom of the list still closes without a line.
+ */
+const ROW_BASE: CSSProperties = {
+  paddingInlineStart: 'var(--spacing-3)',
+  paddingInlineEnd: 'var(--spacing-3)',
+  borderBlockEndColor: 'var(--color-border-emphasized)',
+};
+
+/**
+ * Unread rows hold a field of their own with a rule down the leading edge; read rows fall
+ * back to the card. The pair reads as a queue — what is still grey has still to be dealt
+ * with, and clearing one drops it back onto the page.
+ *
+ * The rule is an inset shadow rather than a border so both states share one geometry: a
+ * 3px border would push every unread row's text sideways by its own width, and the
+ * misalignment reads as a bug long before it reads as a state. Blue rather than
+ * `--color-accent`, which theme-neutral resolves to near-black — at the same value as
+ * body text the rule stops being a mark and becomes chrome.
+ *
+ * In dark mode `--color-background-muted` and the card are the same value, so the field
+ * flattens and the rule carries the state on its own.
+ */
+const UNREAD_ROW: CSSProperties = {
+  ...ROW_BASE,
+  backgroundColor: 'var(--color-background-muted)',
+  boxShadow: 'inset 3px 0 0 0 var(--color-text-blue)',
+};
+
+/**
+ * Both states name their own background, which also switches off Astryx's hover tint —
+ * it sets `backgroundColor`, and an inline value outranks it.
+ *
+ * That is the point rather than a side effect: the tint is the same muted grey as an
+ * unread row, so hovering a read one made it look unread for as long as the pointer sat
+ * there. A row that lies about its state while you reach for it is worse than a row that
+ * does not light up; the cursor and the focus ring still say it can be clicked.
+ */
+const READ_ROW: CSSProperties = {
+  ...ROW_BASE,
+  backgroundColor: 'var(--color-background-card)',
+};
+
+/** A caption over the list, not a sentence in it. Uppercased in CSS: some screen readers
+ * spell an all-caps literal out letter by letter. */
+const GROUPING_CAPTION: CSSProperties = { textTransform: 'uppercase' };
+
 function NoteRow({ note, onOpen }: { note: MoraleInboxNote; onOpen: () => void }) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const { shown, isTruncated } = previewOf(note.concern_text ?? '');
 
   return (
     <ListItem
       onClick={onOpen}
-      startContent={
-        note.is_read ? undefined : <StatusDot variant="accent" label="Unread" tooltip="Unread" />
-      }
+      style={note.is_read ? READ_ROW : UNREAD_ROW}
       label={
         <HStack gap={2} vAlign="center" wrap="wrap">
           <Text weight={note.is_read ? 'normal' : 'semibold'}>{note.sender_name ?? 'Unknown'}</Text>
@@ -82,25 +138,28 @@ function NoteRow({ note, onOpen }: { note: MoraleInboxNote; onOpen: () => void }
               {SENDER_CAPACITY_LABELS[note.sender_capacity]}
             </Text>
           )}
+          {/*
+            WCAG 1.4.1: a coloured edge is exactly the state colour may not carry alone.
+            The word leaves the screen for the rule but stays in the accessibility tree,
+            where it also lands inside the row's own accessible name.
+          */}
+          {!note.is_read && <VisuallyHidden>Unread</VisuallyHidden>}
         </HStack>
       }
       description={
         <VStack gap={2}>
           {note.concern_text ? (
             <Text size="sm" color={note.is_read ? 'secondary' : 'primary'}>
-              {isTruncated && !isExpanded ? `${shown}… ` : note.concern_text}
-              {isTruncated && !isExpanded && (
-                // Expands in place rather than opening the note: reading more is not the
-                // same act as opening it, and opening is what marks it read.
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  label="+ more"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsExpanded(true);
-                  }}
-                />
+              {isTruncated ? `${shown}… ` : note.concern_text}
+              {isTruncated && (
+                // A label, not a control: the whole row already opens the note, so a
+                // button here would be a second way to do the one thing a click on this
+                // row can do — and, being a button inside the row's own invisible button,
+                // an invalid nesting the browser warns about. It says there is more text,
+                // and the row says how to reach it.
+                <Text size="sm" color="secondary" weight="semibold">
+                  + more
+                </Text>
               )}
             </Text>
           ) : (
@@ -108,16 +167,7 @@ function NoteRow({ note, onOpen }: { note: MoraleInboxNote; onOpen: () => void }
               {RATING_ONLY_TEXT}
             </Text>
           )}
-          <HStack gap={1} wrap="wrap">
-            {note.recipient_tags.map((tag) => (
-              <Token
-                key={tag}
-                size="sm"
-                color={tag === 'hr' ? 'yellow' : 'default'}
-                label={tag === 'hr' ? `${TAG_LABELS.hr} · required` : TAG_LABELS[tag]}
-              />
-            ))}
-          </HStack>
+          <MoraleRecipientTokens note={note} />
         </VStack>
       }
       endContent={
@@ -149,18 +199,44 @@ function ProjectGroup({
       <Collapsible
         isOpen={isOpen}
         onOpenChange={onOpenChange}
+        // Without this the row has no padding, the chevron trails at the far right, and
+        // the unread count stops beside the project name wherever that happens to end.
+        hasHeaderTrigger
         trigger={
-          <HStack gap={2} vAlign="center" wrap="wrap" width="100%">
-            <Text weight="semibold">{group.project_name}</Text>
-            <Text size="sm" color="secondary">
-              {noteCountLabel(group.total_notes)}
-            </Text>
+          <HStack gap={2} vAlign="center" hAlign="between" wrap="wrap" width="100%">
+            <HStack gap={2} vAlign="center" wrap="wrap">
+              <Text weight="semibold">{group.project_name}</Text>
+              <Text size="sm" color="secondary">
+                {noteCountLabel(group.total_notes)}
+              </Text>
+            </HStack>
+            {/*
+              A figure, not a sentence, parked at the far edge: down a column of groups
+              the counts line up and compare against each other, which "3 unread" set
+              loose beside a project name of any length cannot do. The word survives as
+              the badge's accessible name for anyone who cannot see where it sits.
+            */}
             {group.unread_notes > 0 && (
-              <Badge variant="info" label={`${group.unread_notes} unread`} />
+              <Badge
+                variant="info"
+                aria-label={`${group.unread_notes} unread`}
+                label={group.unread_notes}
+              />
             )}
           </HStack>
         }
       >
+        {/*
+          Closes the header off from the notes under it. Astryx puts no edge between a
+          Collapsible's trigger and its content, so the project name sat directly on the
+          first sender's name and the two read as one block. A component rather than a
+          border on the list, so it survives the list being empty.
+
+          `strong` is the same `--color-border-emphasized` the rows below rule themselves
+          with: the default `subtle` is 8% black, which vanishes against an unread row's
+          grey exactly where the first separation matters most.
+        */}
+        <Divider variant="strong" />
         <List hasDividers>
           {shown.map((note) => (
             <NoteRow key={note.id} note={note} onOpen={() => onOpenNote(note)} />
@@ -382,7 +458,7 @@ export function MoraleInboxTab() {
       {groups.length > 0 && (
         <>
           <HStack gap={2} vAlign="center" wrap="wrap">
-            <Text size="sm" color="secondary">
+            <Text size="sm" color="secondary" weight="semibold" style={GROUPING_CAPTION}>
               Grouped by project
             </Text>
             <Button

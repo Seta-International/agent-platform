@@ -677,6 +677,11 @@ export type MoraleInboxNote = {
   concern_text: string | null;
   /** Roles the note reached, never names. */
   recipient_tags: MoraleRecipientTag[];
+  /**
+   * The subset of `recipient_tags` this viewer is one of — why the note is in their inbox,
+   * as opposed to who else was told. Always non-empty, and often more than one.
+   */
+  my_tags: MoraleRecipientTag[];
   is_read: boolean;
 };
 

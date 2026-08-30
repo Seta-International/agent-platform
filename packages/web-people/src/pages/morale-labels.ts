@@ -96,11 +96,17 @@ export const NOTE_PREVIEW_CHARS = 180;
  *
  * Returns the whole text unchanged when it already fits, so a short note never grows a
  * "+ more" that reveals nothing.
+ *
+ * Trailing punctuation comes off the cut. The word boundary it lands on is as often as
+ * not the one after a full stop, and the caller adds an ellipsis of its own — leaving the
+ * stop in place gives "…quietly wrong…." , four dots that read as a rendering fault
+ * rather than as a truncation.
  */
 export function previewOf(text: string): { shown: string; isTruncated: boolean } {
   if (text.length <= NOTE_PREVIEW_CHARS) return { shown: text, isTruncated: false };
   const cut = text.lastIndexOf(' ', NOTE_PREVIEW_CHARS);
-  return { shown: text.slice(0, cut > 0 ? cut : NOTE_PREVIEW_CHARS), isTruncated: true };
+  const shown = text.slice(0, cut > 0 ? cut : NOTE_PREVIEW_CHARS);
+  return { shown: shown.replace(/[\s.,;:!?—-]+$/u, ''), isTruncated: true };
 }
 
 /** 'YYYY-MM-DD' for an instant as seen in Asia/Ho_Chi_Minh, matching the server's window. */
