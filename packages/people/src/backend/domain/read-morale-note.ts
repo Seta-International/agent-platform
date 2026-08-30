@@ -1,10 +1,15 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq } from 'drizzle-orm';
-import type { MoraleInboxNote, MoraleRecipientTag, MoraleSenderCapacity } from '../../contracts.ts';
+import type { MoraleInboxNote, MoraleSenderCapacity } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { moraleNote, moraleNoteRead, moraleNoteRecipient, person } from '../db/schema.ts';
+import { moraleNote, moraleNoteRead, person } from '../db/schema.ts';
 import { PeopleError } from '../rbac.ts';
-import { addressedTo, readByCondition, requireMoraleReviewer } from './list-morale-inbox.ts';
+import {
+  addressedTo,
+  loadRecipientTags,
+  readByCondition,
+  requireMoraleReviewer,
+} from './list-morale-inbox.ts';
 
 /**
  * One note, for the detail dialog.
@@ -45,10 +50,9 @@ export async function getMoraleNote(
     throw new PeopleError('NOT_FOUND', 'No morale note addressed to you with that id');
   }
 
-  const tags = await peopleDb()
-    .selectDistinct({ recipient_tag: moraleNoteRecipient.recipient_tag })
-    .from(moraleNoteRecipient)
-    .where(eq(moraleNoteRecipient.note_id, noteId));
+  // Shared with the list rather than queried again here: the dialog and the row it opened
+  // from must agree on both the roles and their order, and two copies of that would drift.
+  const tags = await loadRecipientTags([noteId], me);
 
   return {
     id: row.id,
@@ -57,7 +61,8 @@ export async function getMoraleNote(
     sender_capacity: (row.sender_capacity as MoraleSenderCapacity | null) ?? null,
     submitted_at: row.submitted_at.toISOString(),
     concern_text: row.concern_text,
-    recipient_tags: tags.map((t) => t.recipient_tag as MoraleRecipientTag),
+    recipient_tags: tags.get(noteId)?.all ?? [],
+    my_tags: tags.get(noteId)?.mine ?? [],
     is_read: row.read_at !== null,
   };
 }

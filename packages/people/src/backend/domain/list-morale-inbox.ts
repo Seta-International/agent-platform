@@ -126,7 +126,10 @@ export async function listMoraleInbox(
   const visible = query.unread_only ? rows.filter((r) => r.read_at === null) : rows;
   if (visible.length === 0) return { total_notes: 0, unread_notes: 0, projects: [] };
 
-  const tagsByNote = await loadRecipientTags(visible.map((r) => r.id));
+  const tagsByNote = await loadRecipientTags(
+    visible.map((r) => r.id),
+    me,
+  );
 
   const notes: (MoraleInboxNote & { project_id: string | null; project_name: string })[] =
     visible.map((r) => ({
@@ -136,7 +139,8 @@ export async function listMoraleInbox(
       sender_capacity: (r.sender_capacity as MoraleSenderCapacity | null) ?? null,
       submitted_at: r.submitted_at.toISOString(),
       concern_text: r.concern_text,
-      recipient_tags: tagsByNote.get(r.id) ?? [],
+      recipient_tags: tagsByNote.get(r.id)?.all ?? [],
+      my_tags: tagsByNote.get(r.id)?.mine ?? [],
       is_read: r.read_at !== null,
       project_id: r.project_id,
       project_name: r.project_name_snapshot ?? NO_PROJECT_LABEL,
@@ -149,26 +153,49 @@ export async function listMoraleInbox(
   };
 }
 
-/** Roles a note went to, deduped — recipients see who else was told, never by name. */
-async function loadRecipientTags(noteIds: string[]): Promise<Map<string, MoraleRecipientTag[]>> {
+/**
+ * Roles a note went to, deduped — recipients see who else was told, never by name — split
+ * from the roles this particular reader is one of.
+ *
+ * The two are separate lists rather than a flag per tag because they answer separate
+ * questions, and the reader's own roles are a strict subset: a tag lands in `mine` when
+ * *this* reader carries it, and stays in `all` regardless of who else does.
+ *
+ * `selectDistinct` runs over the ownership flag as well as the tag, so a role held by the
+ * reader and by someone else yields two rows; the dedupe below folds them back into one
+ * entry in `all` while keeping the reader's claim on it.
+ */
+export async function loadRecipientTags(
+  noteIds: string[],
+  readerPersonId: string,
+): Promise<Map<string, { all: MoraleRecipientTag[]; mine: MoraleRecipientTag[] }>> {
   const rows = await peopleDb()
     .selectDistinct({
       note_id: moraleNoteRecipient.note_id,
       recipient_tag: moraleNoteRecipient.recipient_tag,
+      is_mine: sql<boolean>`${moraleNoteRecipient.recipient_person_id} = ${readerPersonId}`,
     })
     .from(moraleNoteRecipient)
     .where(inArray(moraleNoteRecipient.note_id, noteIds));
 
-  const byNote = new Map<string, MoraleRecipientTag[]>();
+  const byNote = new Map<string, { all: Set<MoraleRecipientTag>; mine: Set<MoraleRecipientTag> }>();
   for (const r of rows) {
-    const list = byNote.get(r.note_id) ?? [];
-    list.push(r.recipient_tag as MoraleRecipientTag);
-    byNote.set(r.note_id, list);
+    const entry = byNote.get(r.note_id) ?? { all: new Set(), mine: new Set() };
+    const tag = r.recipient_tag as MoraleRecipientTag;
+    entry.all.add(tag);
+    if (r.is_mine) entry.mine.add(tag);
+    byNote.set(r.note_id, entry);
   }
-  for (const list of byNote.values()) {
-    list.sort((a, b) => TAG_ORDER.indexOf(a) - TAG_ORDER.indexOf(b));
-  }
-  return byNote;
+
+  const inTagOrder = (tags: Set<MoraleRecipientTag>) =>
+    [...tags].sort((a, b) => TAG_ORDER.indexOf(a) - TAG_ORDER.indexOf(b));
+
+  return new Map(
+    [...byNote].map(([noteId, entry]) => [
+      noteId,
+      { all: inTagOrder(entry.all), mine: inTagOrder(entry.mine) },
+    ]),
+  );
 }
 
 /**

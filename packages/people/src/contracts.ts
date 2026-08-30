@@ -478,6 +478,16 @@ export const moraleInboxNote = z.object({
   submitted_at: z.string(),
   concern_text: z.string().nullable(),
   recipient_tags: z.array(moraleRecipientTag),
+  /**
+   * The subset of `recipient_tags` this viewer is one of — why the note is in their inbox
+   * at all, as opposed to who else was told.
+   *
+   * Always non-empty for a note the inbox returns, and often more than one: someone can
+   * be picked as PMO and swept up by the HR roster in the same submission. It travels
+   * from the server because nothing on the client knows which roles the viewer holds;
+   * deriving it there would mean shipping the viewer's whole role set to do it.
+   */
+  my_tags: z.array(moraleRecipientTag),
   is_read: z.boolean(),
 });
 export type MoraleInboxNote = z.infer<typeof moraleInboxNote>;

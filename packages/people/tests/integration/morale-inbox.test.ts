@@ -273,6 +273,29 @@ describe('listMoraleInbox (FUT-786)', () => {
     });
   });
 
+  it('separates the roles a viewer holds on a note from the roles it also went to', async () => {
+    await withPeople(async (pool) => {
+      const s = await seedInbox(pool);
+      const byId = async (session: Parameters<typeof listMoraleInbox>[0]) =>
+        (await listMoraleInbox(session, {})).projects
+          .flatMap((p) => p.notes)
+          .find((n) => n.id === s.notes.toLead);
+
+      // One note, two viewers, the same list of roles — but a different one of them is
+      // the reason each is looking at it. That difference cannot be derived on the client
+      // (nothing there knows which roles the viewer holds), and it is the whole point of
+      // the distinction: "who else was told" reads differently from "why this is mine".
+      expect(await byId(s.hrSession)).toMatchObject({
+        recipient_tags: ['hr', 'tl'],
+        my_tags: ['hr'],
+      });
+      expect(await byId(s.leadSession)).toMatchObject({
+        recipient_tags: ['hr', 'tl'],
+        my_tags: ['tl'],
+      });
+    });
+  });
+
   it('records the sender capacity the note was written from', async () => {
     await withPeople(async (pool) => {
       const s = await seedInbox(pool);

@@ -1,5 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
+import { createAccount } from '@seta/pm';
 import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -159,6 +160,53 @@ describe('getMoraleTrend (FUT-786)', () => {
 
       // The other project's five 1s are invisible here — they are not this lead's team.
       expect(pointFor(res, '2026-08')).toEqual({ period: '2026-08', responses: 4, average: 4 });
+    });
+  });
+
+  it('scopes an Account Manager to the accounts they own', async () => {
+    await withPeople(async (pool) => {
+      const t = await seedTenant(pool);
+      const amPersonId = await seedPerson(t.tenant_id, 'Phan Thi Hoa');
+
+      // AM ownership lives in pm.account (am_person_id), so it is seeded through pm's
+      // public surface rather than written into a people-side projection.
+      const { account_id: mine } = await createAccount({
+        name: 'Account A',
+        am_worker_id: amPersonId,
+        session: buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.manager'],
+          assignments: [{ role_slug: 'pm.manager', scope_kind: 'tenant', scope_id: null }],
+        }),
+      });
+      const theirs = crypto.randomUUID();
+
+      await seedRatings({
+        tenantId: t.tenant_id,
+        period: '2026-08',
+        ratings: [5, 5, 5, 5],
+        accountId: mine,
+      });
+      await seedRatings({
+        tenantId: t.tenant_id,
+        period: '2026-08',
+        ratings: [1, 1, 1, 1, 1, 1],
+        accountId: theirs,
+      });
+
+      const amSession = buildSession({
+        tenant_id: t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['people.viewer'],
+        person_id: amPersonId,
+      });
+
+      const res = await getMoraleTrend(amSession, { from_month: '2026-08', to_month: '2026-08' });
+
+      // The other account's six 1s are not this AM's to see, and they must not drag the
+      // average of the account that is.
+      expect(pointFor(res, '2026-08')).toEqual({ period: '2026-08', responses: 4, average: 5 });
     });
   });
 
