@@ -200,6 +200,7 @@ export * from './primitives/toolbar';
 export * from './primitives/tooltip';
 export * from './primitives/typeahead';
 export * from './primitives/use-seeded-item';
+export * from './primitives/visually-hidden';
 // Rich text
 export * from './rich-text/RichTextDisplay';
 export * from './rich-text/RichTextEditor';
