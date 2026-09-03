@@ -1,7 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The tail section reads the transcript to learn which approvals a turn already
+// anchors. Tests drive that transcript directly rather than standing up a runtime.
+let transcript: unknown[] = [];
+vi.mock('@assistant-ui/react', () => ({
+  useAuiState: (select: (s: { thread: { messages: unknown[] } }) => unknown) =>
+    select({ thread: { messages: transcript } }),
+}));
+
 import type { WorkflowApprovalRow } from '../../../../src/workflows/api/schemas.ts';
 import { workflowsApi } from '../../../../src/workflows/api/workflows.ts';
 import { ChatEmbeddedHitl } from '../../../../src/workflows/components/chat-embedded-hitl.tsx';
@@ -36,6 +45,7 @@ const PENDING_APPROVAL: WorkflowApprovalRow = {
     meta: { toolId: 'planner_proposeAssignment' },
   },
   approverUserId: 'u-1',
+  toolCallId: null,
   surfaceCanvas: true,
   surfaceChatThreadId: 'thread-x',
   agentic: false,
@@ -69,9 +79,40 @@ function withQuery(children: React.ReactNode) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
+function anchor(toolCallId: string) {
+  return { content: [{ type: 'data', name: 'approval', data: { toolCallId } }] };
+}
+
 describe('ChatEmbeddedHitl', () => {
+  beforeEach(() => {
+    transcript = [];
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('leaves an approval to its own turn once that turn anchors it', async () => {
+    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([
+      { ...PENDING_APPROVAL, toolCallId: 'tc-1' },
+    ]);
+    transcript = [anchor('tc-1')];
+
+    render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
+
+    await waitFor(() => expect(workflowsApi.listThreadApprovals).toHaveBeenCalled());
+    expect(screen.queryByText('Assign to Jane')).not.toBeInTheDocument();
+  });
+
+  it('still shows an approval whose turn is not on screen', async () => {
+    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([
+      { ...PENDING_APPROVAL, toolCallId: 'tc-old' },
+    ]);
+    transcript = [anchor('tc-1')];
+
+    render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
+
+    expect(await screen.findByText('Assign to Jane')).toBeInTheDocument();
   });
 
   it('renders an interactive card for pending approvals', async () => {

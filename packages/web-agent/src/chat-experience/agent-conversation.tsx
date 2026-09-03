@@ -434,7 +434,7 @@ export function AgentConversation() {
           </ChatMessageList>
         </div>
       </ChatLayout>
-      <ToolUIRegistry />
+      <ToolUIRegistry threadId={selection.threadId} />
       <ThreadListRefresher threadId={selection.threadId} />
     </>
   );

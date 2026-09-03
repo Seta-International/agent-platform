@@ -20,5 +20,8 @@ describe('ToolUIRegistry data registrations', () => {
     render(<ToolUIRegistry />);
     expect(registered).toContain('result');
     expect(registered).toContain('trust');
+    // The in-turn approval anchor; without this registration the card has no
+    // renderer at its turn and only the transcript tail shows it.
+    expect(registered).toContain('approval');
   });
 });

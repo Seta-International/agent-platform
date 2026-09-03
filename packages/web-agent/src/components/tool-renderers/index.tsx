@@ -5,6 +5,7 @@ import { AgentStreamPart } from '../../chat-experience/agent-stream-part';
 import { DataResultPart } from '../../chat-experience/data-result-part';
 import { DataTrustPart } from '../../chat-experience/data-trust-part';
 import { useToolCatalog } from '../../hooks/use-tool-catalog';
+import { InMessageApproval } from '../../workflows/components/in-message-approval';
 import { ServerTimeRenderer } from './core.server-time';
 import { ListMyRolesRenderer } from './identity.list-my-roles';
 import { WhoAmIRenderer } from './identity.who-am-i';
@@ -90,6 +91,20 @@ function TrustRegistration() {
   return null;
 }
 
+function ApprovalRegistration({ threadId }: { threadId: string | undefined }) {
+  // The anchor part is position-only; the card body is read from the approval
+  // row, keyed by the toolCallId the anchor carries.
+  useAssistantDataUI({
+    name: 'approval',
+    render: (props: { data: unknown }) => {
+      const toolCallId = (props.data as { toolCallId?: unknown } | undefined)?.toolCallId;
+      if (typeof toolCallId !== 'string') return null;
+      return <InMessageApproval threadId={threadId} toolCallId={toolCallId} />;
+    },
+  });
+  return null;
+}
+
 function GenericToolRegistration({ id, name }: { id: string; name: string }) {
   useAssistantToolUI({
     toolName: id,
@@ -118,13 +133,14 @@ function GenericToolRegistration({ id, name }: { id: string; name: string }) {
   return null;
 }
 
-export function ToolUIRegistry() {
+export function ToolUIRegistry({ threadId }: { threadId?: string | undefined } = {}) {
   const { tools, nameFor } = useToolCatalog();
   return (
     <>
       <AgentStreamRegistration />
       <ResultRegistration />
       <TrustRegistration />
+      <ApprovalRegistration threadId={threadId} />
       <ServerTimeRegistration name={nameFor('core_serverTime')} />
       <WhoAmIRegistration name={nameFor('identity_whoAmI')} />
       <ListMyRolesRegistration name={nameFor('identity_listMyRoles')} />

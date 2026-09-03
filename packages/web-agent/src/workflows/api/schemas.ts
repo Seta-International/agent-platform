@@ -57,6 +57,10 @@ export const WorkflowApprovalRow = z.object({
   approverUserId: z.string(),
   surfaceCanvas: z.boolean(),
   surfaceChatThreadId: z.string().nullable(),
+  // The chat tool call that raised the approval. The transcript anchors the card
+  // to the turn carrying the matching `data-approval` part; null (or unmatched)
+  // rows have no turn to sit in and fall back to the transcript's tail.
+  toolCallId: z.string().nullable().default(null),
   // True when the row is an agentic native-suspend card (resume via /chat/resume).
   agentic: z.boolean().default(false),
   // Decision fields are absent on the legacy my-pending-approvals response —

@@ -13,7 +13,8 @@ export type OrchestrationAssistantPart =
   | { type: 'text'; text: string }
   | { type: 'reasoning'; text: string }
   | { type: 'data-result'; id: 'result'; data: unknown }
-  | { type: 'data-trust'; id: 'trust'; data: unknown };
+  | { type: 'data-trust'; id: 'trust'; data: unknown }
+  | { type: 'data-approval'; id: string; data: { toolCallId: string } };
 
 /** The suspend signal as it survives `@mastra/ai-sdk` conversion: a data part
  *  carrying the run id, tool-call id, and the tool's suspend payload (our card). */
@@ -161,8 +162,14 @@ class ThinkStreamSplitter {
  * - `text-delta` parts pass through a `ThinkStreamSplitter`: `<think>` blocks
  *   are emitted as reasoning events; only non-think deltas accumulate in answer.
  * - A `data-tool-call-suspended` part means the run paused for approval: the
- *   `onApproval` hook fires (writes the read-model row) and `finalize` is NOT
- *   called (a suspended turn has no assembled result).
+ *   `onApproval` hook fires (writes the read-model row), a `data-approval`
+ *   anchor is streamed + persisted, and `finalize` is NOT called (a suspended
+ *   turn has no assembled result). The anchor is the turn's only record that an
+ *   approval was raised here: the approval row itself is keyed on the thread,
+ *   not the message, so without a part on this message the client can only
+ *   guess at the position and falls back to pinning the card to the transcript's
+ *   bottom. Keyed by `toolCallId` because that is the one id both the stream and
+ *   the persisted approval row carry.
  * - On normal completion, `finalize()` produces the structured result + trust,
  *   written as reconciled `data-result` / `data-trust` cards.
  */
@@ -223,6 +230,13 @@ export async function pumpOrchestrationStream(
 
   if (suspend) {
     await opts.onApproval(suspend);
+    const anchor = {
+      type: 'data-approval' as const,
+      id: suspend.toolCallId,
+      data: { toolCallId: suspend.toolCallId },
+    };
+    writer.write(anchor);
+    assistantParts.push(anchor);
     return { assistantParts, timing };
   }
 
