@@ -1,6 +1,6 @@
 import './otel.ts'; // MUST be first; see otel.ts header comment.
 import './undici-timeouts.ts'; // MUST run before any outbound fetch.
-import { AgentRunStateRepository, resolveModel } from '@seta/agent';
+import { AgentRunStateRepository, resolveDefaultModel } from '@seta/agent';
 import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
 import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
 import { readLatestScores } from '@seta/core/agent-eval';
@@ -161,7 +161,7 @@ const {
   assignmentOrchestration,
   actionOrchestration,
 } = composeRegistries({
-  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  resolveModel: () => resolveDefaultModel({ tierHint: 'fast' }).model,
   embeddingProvider: resolveEmbeddingProvider(),
   databaseUrl: env.DATABASE_URL,
   assignmentPorts: {
@@ -186,7 +186,7 @@ const {
 // agent engine stays import-isolated and receives one chatOrchestration function.
 const chatRouter = makeChatRouter({
   classify: makeIntentClassifier({
-    resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+    resolveModel: () => resolveDefaultModel({ tierHint: 'fast' }).model,
   }),
   assignment: assignmentOrchestration.runStream,
   plannerQuery: plannerQueryOrchestration.runStream,
