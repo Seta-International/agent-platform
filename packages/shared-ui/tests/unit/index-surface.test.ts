@@ -2,6 +2,7 @@ import { ChatMessage as AstryxChatMessage } from '@astryxdesign/core/Chat';
 import { Collapsible as AstryxCollapsible } from '@astryxdesign/core/Collapsible';
 import { describe, expect, it } from 'vitest';
 import * as Surface from '../../src/index';
+import { Collapsible as SetaCollapsible } from '../../src/primitives/collapsible';
 
 const REQUIRED = [
   'Avatar',
@@ -65,8 +66,17 @@ describe('@seta/shared-ui public surface', () => {
   // shadowing (or being shadowed by) the primitive. Assert object identity so
   // the barrel is pinned to the real Astryx component, not merely to *a*
   // `ChatMessage`.
-  it('resolves ChatMessage/Collapsible to the Astryx components themselves', () => {
+  it('resolves ChatMessage to the Astryx component itself', () => {
     expect(Surface.ChatMessage).toBe(AstryxChatMessage);
-    expect(Surface.Collapsible).toBe(AstryxCollapsible);
+  });
+
+  // FUT-786 gave `Collapsible` a deliberate wrapper — one opt-in prop for a header-shaped
+  // trigger, everything else forwarded — so it is no longer Astryx's own function. The
+  // `export *` hazard above has not gone away, though: the barrel must resolve to *that*
+  // wrapper and not to some other `Collapsible` that happens to win the ambiguity, so the
+  // identity check moves to the module we wrote rather than being dropped.
+  it('resolves Collapsible to the repo wrapper, not to a second one', () => {
+    expect(Surface.Collapsible).toBe(SetaCollapsible);
+    expect(Surface.Collapsible).not.toBe(AstryxCollapsible);
   });
 });

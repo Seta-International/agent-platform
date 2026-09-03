@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 import {
   Bar,
   CartesianGrid,
@@ -42,7 +42,7 @@ export interface TrendLineChartProps {
   ticks?: number[];
   /** Glyph per point. Default is a plain dot for everything. */
   markerFor?: (value: number) => TrendMarker;
-  /** Word printed down the middle of a withheld column. */
+  /** Printed in the middle of a withheld column, wrapped to fit its width. */
   withheldLabel?: string;
   height?: number;
   /** Accessible summary of the whole series, for readers who never see the marks. */
@@ -61,6 +61,93 @@ const MARKER_SIZE = 6.5;
 const LINE_COLOR = 'var(--color-accent)';
 
 const TOOLTIP_BOX: CSSProperties = { ...CHART_TOOLTIP_STYLE, padding: '7px 10px' };
+
+/**
+ * The band's label, set small enough to wrap inside a bar barely wider than one word.
+ *
+ * 9px is below the size body text may be set at, and deliberately so: this is a caption on
+ * a shaded region, not prose, and the same words are on the tooltip and in the chart's
+ * description for anyone who needs them at a readable size.
+ */
+const BAND_LABEL_FONT = 9;
+const BAND_LABEL_LINE = 10;
+/** Rough advance width of the label font — enough to wrap on, not to typeset with. */
+const BAND_CHAR_WIDTH = BAND_LABEL_FONT * 0.55;
+
+/**
+ * Greedy word wrap to a pixel width.
+ *
+ * A word longer than the line is kept whole and allowed to overhang rather than broken:
+ * "anonymously" split across two lines costs more to read than a few pixels of overlap
+ * with a chart region that is, by definition, empty.
+ */
+function wrapLabel(text: string, width: number): { text: string; offset: number }[] {
+  const max = Math.max(1, Math.floor(width / BAND_CHAR_WIDTH));
+  // Each line carries where it started in the original string: a stable key that, unlike
+  // the line's own words, cannot repeat between two lines of the same label.
+  const lines: { text: string; offset: number }[] = [];
+  let line = '';
+  let offset = 0;
+  let cursor = 0;
+  for (const word of text.split(' ')) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && next.length > max) {
+      lines.push({ text: line, offset });
+      cursor += line.length + 1;
+      offset = cursor;
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push({ text: line, offset });
+  return lines;
+}
+
+/**
+ * Wrapped, horizontal, centred in the band.
+ *
+ * recharts' own LabelList draws one unbroken line, which for anything past a word runs out
+ * over the months on either side and covers the very points the band is explaining. Turning
+ * it on its side avoids that but asks the reader to tilt their head; wrapping keeps the
+ * words upright and inside the shading.
+ */
+function BandLabel(props: {
+  x?: string | number;
+  y?: string | number;
+  width?: string | number;
+  height?: string | number;
+  // Matches recharts' own RenderableText, which admits booleans and null as well.
+  value?: string | number | boolean | null;
+}): ReactElement | null {
+  const x = Number(props.x);
+  const y = Number(props.y);
+  const width = Number(props.width);
+  const height = Number(props.height);
+  const text = String(props.value ?? '');
+  if (!text || [x, y, width, height].some(Number.isNaN)) return null;
+
+  const lines = wrapLabel(text, width);
+  const cx = x + width / 2;
+  const top = y + height / 2 - ((lines.length - 1) * BAND_LABEL_LINE) / 2;
+
+  return (
+    <text
+      x={cx}
+      y={top}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fill="var(--color-text-secondary)"
+      fontSize={BAND_LABEL_FONT}
+    >
+      {lines.map((line) => (
+        <tspan key={line.offset} x={cx} dy={line.offset === 0 ? 0 : BAND_LABEL_LINE}>
+          {line.text}
+        </tspan>
+      ))}
+    </text>
+  );
+}
 
 /** The four glyphs, drawn around (cx, cy) so every one reads at the same optical weight. */
 function markerPath(marker: TrendMarker, cx: number, cy: number): ReactNode {
@@ -149,12 +236,7 @@ export function TrendLineChart({
           barSize={44}
           legendType="none"
         >
-          <LabelList
-            dataKey="bandLabel"
-            position="center"
-            fill="var(--color-text-secondary)"
-            fontSize={11}
-          />
+          <LabelList dataKey="bandLabel" content={BandLabel} />
         </Bar>
         <Line
           dataKey="value"
