@@ -79,11 +79,10 @@ export function KpiConfigureDialog({
   const [draft, setDraft] = useState<Map<string, boolean>>(new Map());
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmOff, setConfirmOff] = useState<{
-    metricId: string;
-    name: string;
-    category: KpiCategory;
-    enteredCount: number;
+    metrics: { metricId: string; name: string; category: KpiCategory; enteredCount: number }[];
+    intent: 'stage' | 'save';
   } | null>(null);
+  const [confirmedOff, setConfirmedOff] = useState<Map<string, ReadonlySet<string>>>(new Map());
   const [categoryBlocked, setCategoryBlocked] = useState<{
     metricNames: string[];
     category: KpiCategory;
@@ -141,6 +140,7 @@ export function KpiConfigureDialog({
           ? (projects.find((p) => p.project_id === selectedIds[0])?.name ?? '1 project')
           : `${selectedIds.length} projects`;
       setDraft(new Map());
+      setConfirmedOff(new Map());
       queryClient.removeQueries({ queryKey: pmKeys.kpiRecords() });
       queryClient.invalidateQueries({ queryKey: pmKeys.all });
       toast({ body: `Metrics updated for ${projectLabel}` });
@@ -193,12 +193,57 @@ export function KpiConfigureDialog({
     if (next) onOpenChange(true);
     else requestClose();
   };
+  const submit = () =>
+    save.mutate([...draft].map(([metric_id, applied]) => ({ metric_id, applied })));
+  const deletionWarning = (
+    list: { name: string; category: KpiCategory; enteredCount: number }[],
+  ): string => {
+    const flags = [...new Set(list.map((m) => flagLabel(m.category)))];
+    const flagClause = `stop counting towards the ${joinNames(flags)} ${
+      flags.length > 1 ? 'flags' : 'flag'
+    }, so ${flags.length > 1 ? 'those colours' : 'that colour'} can drop`;
+    const only = list.length === 1 ? list[0] : undefined;
+    if (only)
+      return `${
+        selectedIds.length === 1
+          ? `Its ${weekLabel} figures`
+          : `${weekLabel} figures in ${only.enteredCount} of ${selectedIds.length} selected projects`
+      } are deleted when you save, and ${flagClause}. Turning it back on starts from a blank cell. Closed weeks keep their figures.`;
+    return `${joinNames(list.map((m) => m.name))} still hold ${weekLabel} figures${
+      selectedIds.length === 1 ? '' : ' in some of the selected projects'
+    }. They are deleted when you save, and ${flagClause}. Turning them back on starts from a blank cell. Closed weeks keep their figures.`;
+  };
+  const unwarnedDeletions = () =>
+    [...draft]
+      .filter(([metricId, applied]) => {
+        if (applied || (entered.get(metricId) ?? 0) === 0) return false;
+        const covered = confirmedOff.get(metricId);
+        return covered === undefined || !selectedIds.every((id) => covered.has(id));
+      })
+      .flatMap(([metricId]) => {
+        const metric = metrics.find((m) => m.metric_id === metricId);
+        return metric
+          ? [
+              {
+                metricId,
+                name: metric.name,
+                category: metric.category,
+                enteredCount: entered.get(metricId) ?? 0,
+              },
+            ]
+          : [];
+      });
   const done = () => {
     if (!dirty) {
       onOpenChange(false);
       return;
     }
-    save.mutate([...draft].map(([metric_id, applied]) => ({ metric_id, applied })));
+    const unwarned = unwarnedDeletions();
+    if (unwarned.length > 0) {
+      setConfirmOff({ metrics: unwarned, intent: 'save' });
+      return;
+    }
+    submit();
   };
 
   const metricQuery = metricFilter.trim().toLowerCase();
@@ -471,10 +516,15 @@ export function KpiConfigureDialog({
                                           const enteredCount = entered.get(m.metric_id) ?? 0;
                                           if (enteredCount > 0) {
                                             setConfirmOff({
-                                              metricId: m.metric_id,
-                                              name: m.name,
-                                              category: m.category,
-                                              enteredCount,
+                                              metrics: [
+                                                {
+                                                  metricId: m.metric_id,
+                                                  name: m.name,
+                                                  category: m.category,
+                                                  enteredCount,
+                                                },
+                                              ],
+                                              intent: 'stage',
                                             });
                                             return;
                                           }
@@ -540,22 +590,14 @@ export function KpiConfigureDialog({
           </LayoutContent>
         }
         footer={
-          <DialogFooter
-            startContent={
-              dirty ? (
-                <span className="text-sm text-secondary">
-                  {draft.size} {draft.size === 1 ? 'change' : 'changes'} not saved yet
-                </span>
-              ) : undefined
-            }
-          >
+          <DialogFooter>
             <Button variant="secondary" onClick={requestClose} disabled={save.isPending}>
               Cancel
             </Button>
             <Button
               variant="primary"
               onClick={done}
-              disabled={save.isPending || (dirty && selectedIds.length === 0)}
+              disabled={listLocked || (dirty && selectedIds.length === 0)}
             >
               {save.isPending ? 'Saving…' : 'Done'}
             </Button>
@@ -587,23 +629,33 @@ export function KpiConfigureDialog({
         onOpenChange={(o) => {
           if (!o) setConfirmOff(null);
         }}
-        title={`Turn off ${confirmOff?.name ?? ''}?`}
-        description={
-          confirmOff
-            ? `${
-                selectedIds.length === 1
-                  ? `Its ${weekLabel} figures`
-                  : `${weekLabel} figures in ${confirmOff.enteredCount} of ${selectedIds.length} selected projects`
-              } are deleted when you save, and stop counting towards the ${flagLabel(
-                confirmOff.category,
-              )} flag, so that colour can drop. Turning it back on starts from a blank cell. Closed weeks keep their figures.`
-            : ''
+        title={
+          confirmOff === null
+            ? ''
+            : confirmOff.metrics.length === 1
+              ? `Turn off ${confirmOff.metrics[0]?.name}?`
+              : `Turn off ${confirmOff.metrics.length} metrics?`
         }
-        cancelLabel="Keep it on"
-        actionLabel="Turn it off"
+        description={confirmOff ? deletionWarning(confirmOff.metrics) : ''}
+        cancelLabel={confirmOff?.intent === 'save' ? 'Keep editing' : 'Keep it on'}
+        actionLabel={
+          confirmOff?.intent === 'save'
+            ? confirmOff.metrics.length === 1
+              ? 'Turn it off and save'
+              : 'Turn them off and save'
+            : 'Turn it off'
+        }
         actionVariant="destructive"
         onAction={() => {
-          if (confirmOff) stage(confirmOff.metricId, false);
+          if (!confirmOff) return;
+          const covered: ReadonlySet<string> = new Set(selectedIds);
+          setConfirmedOff((prev) => {
+            const next = new Map(prev);
+            for (const m of confirmOff.metrics) next.set(m.metricId, covered);
+            return next;
+          });
+          if (confirmOff.intent === 'save') submit();
+          else for (const m of confirmOff.metrics) stage(m.metricId, false);
           setConfirmOff(null);
         }}
       />

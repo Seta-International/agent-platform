@@ -119,20 +119,16 @@ function withSlot(entry: Entry, slot: 'c1' | 'c2', value: string): Entry {
 
 const COMPONENT_BOX_WIDTH = 96;
 
-type FigureGap = 'blank' | 'unreadable';
-
-function figureGap(text: string): FigureGap | null {
-  if (text.trim() === '') return 'blank';
-  return readFigure(text) === null ? 'unreadable' : null;
+function isHalfTyped(text: string): boolean {
+  return text.trim() !== '' && readFigure(text) === null;
 }
 
 function boxStatus(
   issue: string | null | undefined,
-  gap: FigureGap | null,
+  halfTyped: boolean,
 ): { type: 'error'; message?: string } | undefined {
   if (issue) return { type: 'error', message: issue };
-  if (gap === 'unreadable') return { type: 'error', message: NOT_A_FIGURE };
-  return gap ? { type: 'error' } : undefined;
+  return halfTyped ? { type: 'error', message: NOT_A_FIGURE } : undefined;
 }
 
 const HIDE_STATUS_ICON = '[&>.astryx-icon]:hidden!';
@@ -278,8 +274,11 @@ export function KpiManualInputDialog({
     const fields: string[] = [];
     for (const m of orderedMetrics) {
       const issues = live.issuesByMetric.get(m.metric_id);
-      if (issues?.component_1) fields.push(`${m.metric_id}:c1`);
-      if (issues?.component_2) fields.push(`${m.metric_id}:c2`);
+      const e = entries[m.metric_id] ?? EMPTY_ENTRY;
+      if (issues?.component_1 || isHalfTyped(e.c1)) fields.push(`${m.metric_id}:c1`);
+      if (issues?.component_2 || (m.component_count === 2 && isHalfTyped(e.c2))) {
+        fields.push(`${m.metric_id}:c2`);
+      }
     }
     if (fields.length > 0) {
       const noun = fields.length === 1 ? 'figure needs' : 'figures need';
@@ -288,18 +287,8 @@ export function KpiManualInputDialog({
     if (orderedMetrics.length === 0) {
       return { field: null, message: 'No metric is applied to this project yet' };
     }
-    const grey = orderedMetrics.filter(
-      (m) => (live.statusByMetric.get(m.metric_id) ?? null) === null,
-    );
-    if (grey.length > 0) {
-      const noun = grey.length === 1 ? 'metric is' : 'metrics are';
-      return {
-        field: grey[0] ? `${grey[0].metric_id}:c1` : null,
-        message: `${grey.length} ${noun} still Grey — every metric needs its figures to save`,
-      };
-    }
     return null;
-  }, [orderedMetrics, live]);
+  }, [orderedMetrics, entries, live]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -467,9 +456,6 @@ export function KpiManualInputDialog({
                               {catMetrics.map((m) => {
                                 const e = entries[m.metric_id] ?? EMPTY_ENTRY;
                                 const issues = live.issuesByMetric.get(m.metric_id);
-                                const markMissing =
-                                  saveAttempted &&
-                                  (live.statusByMetric.get(m.metric_id) ?? null) === null;
                                 const result = live.valueByMetric.get(m.metric_id) ?? null;
                                 const bands = formatBandTriple(
                                   m.name,
@@ -518,7 +504,7 @@ export function KpiManualInputDialog({
                                         className={HIDE_STATUS_ICON}
                                         status={boxStatus(
                                           issues?.component_1,
-                                          markMissing ? figureGap(e.c1) : null,
+                                          saveAttempted && isHalfTyped(e.c1),
                                         )}
                                         onPaste={pasteFigure(m.metric_id, 'c1')}
                                         onChange={(next) => setComponent(m.metric_id, 'c1', next)}
@@ -543,7 +529,7 @@ export function KpiManualInputDialog({
                                             className={HIDE_STATUS_ICON}
                                             status={boxStatus(
                                               issues?.component_2,
-                                              markMissing ? figureGap(e.c2) : null,
+                                              saveAttempted && isHalfTyped(e.c2),
                                             )}
                                             onPaste={pasteFigure(m.metric_id, 'c2')}
                                             onChange={(next) =>

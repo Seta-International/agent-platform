@@ -703,12 +703,13 @@ describe('KpiMetricsPage — entry actions', () => {
     expect(accountFilter).toHaveTextContent('All accounts');
   });
 
-  it('derives the account from a project filter when no account is picked', async () => {
+  it('lists only the picked project when no account is filtered', async () => {
     const user = userEvent.setup();
     routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-globex' };
     fetchProjectsMock.mockResolvedValue([
       projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
       projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+      projectRow('p-globex-two', 'Globex Recommendation Engine', true, 'acc-2'),
     ]);
     fetchKpiExplorerMock.mockResolvedValue({
       rows: [explorerRow('p-globex', 'Globex Subscriber Insights', true)],
@@ -723,7 +724,59 @@ describe('KpiMetricsPage — entry actions', () => {
     expect(
       await screen.findByRole('checkbox', { name: 'Globex Subscriber Insights' }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Globex Recommendation Engine' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: 'Acme Billing Revamp' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the whole filtered account listed when a project is picked inside it', async () => {
+    const user = userEvent.setup();
+    routerState.search = {
+      iso_year: 2026,
+      iso_week: 32,
+      accounts: 'acc-2',
+      project: 'p-globex',
+    };
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-acme', 'Acme Billing Revamp', true, 'acc-1'),
+      projectRow('p-globex', 'Globex Subscriber Insights', true, 'acc-2'),
+      projectRow('p-globex-two', 'Globex Recommendation Engine', true, 'acc-2'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-globex', 'Globex Subscriber Insights', true)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await waitFor(async () => expect(await configureButton()).toBeEnabled());
+    await user.click(await configureButton());
+
+    expect(
+      await screen.findByRole('checkbox', { name: 'Globex Subscriber Insights' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: 'Globex Recommendation Engine' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Acme Billing Revamp' })).not.toBeInTheDocument();
+  });
+
+  it('disables Configure metrics when the picked project is one the viewer cannot manage', async () => {
+    routerState.search = { iso_year: 2026, iso_week: 32, project: 'p-globex' };
+    fetchProjectsMock.mockResolvedValue([
+      projectRow('p-globex', 'Globex Subscriber Insights', false, 'acc-2'),
+      projectRow('p-globex-two', 'Globex Recommendation Engine', true, 'acc-2'),
+    ]);
+    fetchKpiExplorerMock.mockResolvedValue({
+      rows: [explorerRow('p-globex', 'Globex Subscriber Insights', false)],
+      applied_metric_ids: [],
+      metrics: [],
+    });
+    renderPage();
+
+    await actionCellFor('Globex Subscriber Insights');
+    expect(await configureButton()).toBeDisabled();
   });
 });
 
