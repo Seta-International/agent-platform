@@ -656,12 +656,6 @@ export function computeRecordOverallColour(
   return worstStatus(known as readonly RagStatus[]);
 }
 
-export function incompleteRecordMetrics<T extends { name: string }>(
-  defs: readonly T[],
-  statusOf: (def: T) => RagStatus | null,
-): string[] {
-  return defs.filter((d) => statusOf(d) === null).map((d) => d.name);
-}
 export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
 
 export const weeklyReportsQuery = z.object({

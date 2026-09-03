@@ -408,15 +408,16 @@ describe('WeeklyReportsPage — norm-check line', () => {
     fetchDetailMock.mockResolvedValue(detail);
   });
 
-  it('names the worst metric with the norm it missed and how many metrics are off', async () => {
+  it('names the worst metric with the norm it missed and counts nothing else', async () => {
     fetchWeeklyReportsMock.mockResolvedValue([offNormCard]);
     renderPage();
 
     expect(await screen.findByText('Release Predictability')).toBeInTheDocument();
     expect(screen.getByText('62%')).toBeInTheDocument();
     expect(screen.getByText(/norm ≥ 85%/)).toBeInTheDocument();
-    expect(screen.getByText(/3 red · 2 amber/)).toBeInTheDocument();
-    expect(screen.getByText('12/14 metrics · 4 reports')).toBeInTheDocument();
+    expect(screen.getByText('4 reports')).toBeInTheDocument();
+    expect(screen.queryByText(/\d+ red/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d+\/\d+ metrics/)).not.toBeInTheDocument();
   });
 
   it('stays quiet when every measured metric is on norm', async () => {
@@ -425,8 +426,8 @@ describe('WeeklyReportsPage — norm-check line', () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText('All on norm')).toBeInTheDocument();
-    expect(screen.getByText('6/6 metrics · 2 reports')).toBeInTheDocument();
+    expect(await screen.findByText('KPI Metrics: All on norm')).toBeInTheDocument();
+    expect(screen.getByText('2 reports')).toBeInTheDocument();
   });
 
   it('says nothing was measured instead of showing a zero', async () => {
@@ -448,24 +449,11 @@ describe('WeeklyReportsPage — norm-check line', () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText('No figures this week')).toBeInTheDocument();
-    expect(screen.getByText('Staffed 3/4 · No reports')).toBeInTheDocument();
+    expect(await screen.findByText('KPI Metrics: No figures this week')).toBeInTheDocument();
+    expect(screen.getByText('No reports')).toBeInTheDocument();
+    expect(screen.queryByText(/Staffed/)).not.toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Not assessed')).toBeInTheDocument();
-  });
-
-  it('drops the staffing hint when the charter has no team size', async () => {
-    fetchWeeklyReportsMock.mockResolvedValue([
-      {
-        ...card,
-        stats: { applied_count: 11, measured_count: 0, yellow_count: 0, red_count: 0, worst: null },
-        team_size: null,
-        report_count: 0,
-      },
-    ]);
-    renderPage();
-
-    expect(await screen.findByText('No reports')).toBeInTheDocument();
   });
 
   it('reports the same empty state to a reader who cannot write', async () => {
@@ -481,7 +469,7 @@ describe('WeeklyReportsPage — norm-check line', () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText('Staffed 3/4 · No reports')).toBeInTheDocument();
+    expect(await screen.findByText('No reports')).toBeInTheDocument();
   });
 });
 

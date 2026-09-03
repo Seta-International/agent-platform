@@ -323,14 +323,7 @@ export function WeeklyReportsPage() {
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {pageCards.map((card) => {
                     const overall = card.overall_colour;
-                    const { worst, measured_count, applied_count, red_count, yellow_count } =
-                      card.stats;
-                    const coverage =
-                      measured_count > 0
-                        ? `${measured_count}/${applied_count} metrics`
-                        : card.team_size != null
-                          ? `Staffed ${card.staffed}/${card.team_size}`
-                          : null;
+                    const { worst, measured_count } = card.stats;
                     const reportsPart =
                       card.report_count > 0
                         ? `${card.report_count} report${card.report_count === 1 ? '' : 's'}`
@@ -422,23 +415,16 @@ export function WeeklyReportsPage() {
                           </div>
                         ) : (
                           <Text type="supporting" color="secondary" display="block">
-                            {measured_count > 0 ? 'All on norm' : 'No figures this week'}
+                            {measured_count > 0
+                              ? 'KPI Metrics: All on norm'
+                              : 'KPI Metrics: No figures this week'}
                           </Text>
                         )}
 
-                        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
-                          <span className="min-w-0">
-                            {worst ? (
-                              <Text type="supporting" color="secondary" maxLines={1}>
-                                {`${red_count} red · ${yellow_count} amber`}
-                              </Text>
-                            ) : null}
-                          </span>
-                          <span className="shrink-0">
-                            <Text type="supporting" color="secondary">
-                              {coverage ? `${coverage} · ${reportsPart}` : reportsPart}
-                            </Text>
-                          </span>
+                        <div className="mt-auto flex items-center border-t border-border pt-3">
+                          <Text type="supporting" color="secondary" maxLines={1}>
+                            {reportsPart}
+                          </Text>
                         </div>
                       </ClickableCard>
                     );

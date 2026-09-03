@@ -300,6 +300,63 @@ describe('KpiConfigureDialog — un-applying a metric (FUT-802 AC5)', () => {
       ),
     );
   });
+
+  it('warns at Done when a project added after the tick has figures for the week', async () => {
+    fetchAppliedMetricsMock.mockImplementation((projectIds: string[]) =>
+      Promise.resolve(
+        projectIds.length === 1
+          ? [
+              { metric_id: METRIC_ID, applied_count: 1, entered_count: 0, would_empty_count: 0 },
+              {
+                metric_id: OTHER_METRIC_ID,
+                applied_count: 1,
+                entered_count: 0,
+                would_empty_count: 0,
+              },
+            ]
+          : [
+              { metric_id: METRIC_ID, applied_count: 2, entered_count: 1, would_empty_count: 0 },
+              {
+                metric_id: OTHER_METRIC_ID,
+                applied_count: 2,
+                entered_count: 0,
+                would_empty_count: 0,
+              },
+            ],
+      ),
+    );
+    setAppliedMetricsMock.mockResolvedValue({});
+    renderDialog([
+      project(PROJECT_ID, 'Globex Subscriber Insights'),
+      project(PROJECT_B_ID, 'Nordic Mobile Checkout'),
+    ]);
+
+    const user = await uncheck('Defect Leakage');
+    expect(screen.queryByText(/stop counting towards/i)).not.toBeInTheDocument();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Nordic Mobile Checkout' }));
+    await waitFor(() =>
+      expect(fetchAppliedMetricsMock).toHaveBeenCalledWith([PROJECT_ID, PROJECT_B_ID], {
+        iso_year: 2026,
+        iso_week: 32,
+      }),
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Done' })).toBeEnabled());
+    await clickDone(user);
+
+    const warning = await screen.findByText(/2026-W32 figures/i);
+    expect(warning).toHaveTextContent(/Quality flag/i);
+    expect(warning).toHaveTextContent(/deleted/i);
+    expect(setAppliedMetricsMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Turn it off and save' }));
+    await waitFor(() =>
+      expect(setAppliedMetricsMock).toHaveBeenCalledWith(
+        [{ metric_id: METRIC_ID, applied: false }],
+        [PROJECT_ID, PROJECT_B_ID],
+      ),
+    );
+  });
 });
 
 describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', () => {
@@ -322,7 +379,7 @@ describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', (
     await uncheck('Defect Leakage');
 
     expect(setAppliedMetricsMock).not.toHaveBeenCalled();
-    expect(await screen.findByText('1 change not saved yet')).toBeVisible();
+    expect(await screen.findByText('Not saved')).toBeVisible();
   });
 
   it('sends every staged tick in one save', async () => {
@@ -332,7 +389,7 @@ describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', (
 
     const user = await uncheck('Defect Leakage');
     await user.click(screen.getByRole('checkbox', { name: /Reopened Defect Rate/ }));
-    await screen.findByText('2 changes not saved yet');
+    await waitFor(() => expect(screen.getAllByText('Not saved')).toHaveLength(2));
     await clickDone(user);
 
     await waitFor(() => expect(setAppliedMetricsMock).toHaveBeenCalledTimes(1));
@@ -350,12 +407,10 @@ describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', (
     renderDialog();
 
     const user = await uncheck('Defect Leakage');
-    await screen.findByText('1 change not saved yet');
+    await screen.findByText('Not saved');
     await user.click(screen.getByRole('checkbox', { name: /Defect Leakage/ }));
 
-    await waitFor(() =>
-      expect(screen.queryByText('1 change not saved yet')).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText('Not saved')).not.toBeInTheDocument());
   });
 
   it('closes and reports the save with a toast', async () => {
@@ -386,7 +441,7 @@ describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', (
 
     await waitFor(() => expect(screen.getByText('Discard changes?')).not.toBeVisible());
     expect(onOpenChange).not.toHaveBeenCalled();
-    expect(await screen.findByText('1 change not saved yet')).toBeVisible();
+    expect(await screen.findByText('Not saved')).toBeVisible();
   });
 
   it('closes without saving when the unsaved ticks are discarded', async () => {
@@ -454,7 +509,7 @@ describe('KpiConfigureDialog — Done and Cancel replace auto-save (FUT-963)', (
 
     expect(await screen.findByText("Can't turn this off")).toBeVisible();
     expect(screen.getByRole('checkbox', { name: /Reopened Defect Rate/ })).toBeChecked();
-    expect(screen.getByText('1 change not saved yet')).toBeVisible();
+    expect(screen.getByText('Not saved')).toBeVisible();
     expect(setAppliedMetricsMock).not.toHaveBeenCalled();
   });
 });

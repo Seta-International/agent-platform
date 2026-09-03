@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  computeRecordCategoryColour,
-  computeRecordOverallColour,
-  incompleteRecordMetrics,
-} from '../../src/contracts.ts';
+import { computeRecordCategoryColour, computeRecordOverallColour } from '../../src/contracts.ts';
 
 describe('computeRecordCategoryColour — one Grey metric turns the whole QCDP flag Grey', () => {
   it('is Grey when a single applied metric has no figures', () => {
@@ -40,33 +36,5 @@ describe('computeRecordOverallColour', () => {
   it('carries no colour when no pillar has an applied metric', () => {
     expect(computeRecordOverallColour([null, null, null, null])).toBeNull();
     expect(computeRecordOverallColour([])).toBeNull();
-  });
-});
-
-describe('incompleteRecordMetrics — names what is holding the record back', () => {
-  const defs = [
-    { metric_id: 'a', name: 'Defect Leakage' },
-    { metric_id: 'b', name: 'Margin' },
-    { metric_id: 'c', name: 'On-time Delivery' },
-  ];
-
-  it('lists every applied metric with no assessed colour, in the order given', () => {
-    const statuses = new Map<string, 'green' | 'yellow' | 'red' | null>([
-      ['a', 'green'],
-      ['b', null],
-      ['c', null],
-    ]);
-    expect(incompleteRecordMetrics(defs, (d) => statuses.get(d.metric_id) ?? null)).toEqual([
-      'Margin',
-      'On-time Delivery',
-    ]);
-  });
-
-  it('is empty once every applied metric is assessed', () => {
-    expect(incompleteRecordMetrics(defs, () => 'green')).toEqual([]);
-  });
-
-  it('is empty when nothing is applied', () => {
-    expect(incompleteRecordMetrics([], () => null)).toEqual([]);
   });
 });

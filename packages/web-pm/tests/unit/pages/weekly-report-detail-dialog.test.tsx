@@ -140,6 +140,11 @@ const renderComposer = () => renderDialog({ startInCompose: true });
 const riskSwitch = () => screen.getByRole('switch', { name: /active Risk \/ Issue this week/i });
 const submitButton = () => screen.getByRole('button', { name: /Submit report/i });
 const field = (name: RegExp) => screen.getByRole('textbox', { name });
+const dueField = () => screen.getByRole('combobox', { name: /Due/ }) as HTMLInputElement;
+const redRadio = () =>
+  within(screen.getByRole('radiogroup', { name: /Q — Quality/ })).getByRole('radio', {
+    name: 'Red',
+  });
 
 describe('WeeklyReportDetailDialog — active risk declaration', () => {
   beforeEach(() => {
@@ -179,16 +184,43 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
     expect(screen.getByRole('textbox', { name: /Road-to-Green action/ })).toBeTruthy();
   });
 
-  it('asks for the due as a week, starting after the one being reported on', async () => {
+  it('asks for the due as a date, and carries the picked day through to the report', async () => {
     const user = userEvent.setup();
     renderComposer();
     await screen.findByRole('radiogroup', { name: /Q — Quality/ });
 
     await user.click(riskSwitch());
-    await user.click(screen.getByRole('combobox', { name: /Due/ }));
+    await user.click(redRadio());
+    await user.type(field(/Executive summary/), 'Vendor slipped the integration date.');
+    await user.type(field(/Risk \/ Issue/), 'Third-party sandbox is down.');
+    await user.type(field(/Road-to-Green action/), 'Escalate to the vendor account team.');
+    await user.type(dueField(), '2026-08-12');
+    await user.tab();
+    expect(dueField().value).toBe('12 Aug 2026');
 
-    expect(await screen.findByRole('option', { name: '2026-W33' })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: '2026-W32' })).toBeNull();
+    await user.click(submitButton());
+
+    await waitFor(() => expect(upsertMock).toHaveBeenCalled());
+    expect(upsertMock.mock.calls[0]?.[0]).toMatchObject({ road_to_green_due: '2026-08-12' });
+  });
+
+  it('takes no due inside 2026-W32, the week being reported on, which ends Sunday the 9th', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    await screen.findByRole('radiogroup', { name: /Q — Quality/ });
+
+    await user.click(riskSwitch());
+    await user.click(redRadio());
+    await user.type(field(/Executive summary/), 'Vendor slipped the integration date.');
+    await user.type(field(/Risk \/ Issue/), 'Third-party sandbox is down.');
+    await user.type(field(/Road-to-Green action/), 'Escalate to the vendor account team.');
+    await user.type(dueField(), '2026-08-07');
+    await user.tab();
+    await user.click(submitButton());
+
+    expect(upsertMock).not.toHaveBeenCalled();
+    expect(dueField().value).toBe('');
+    expect(await screen.findByText(/Pick the date the Road-to-Green action is due/)).toBeTruthy();
   });
 
   it('submits summary only, clearing any risk fields, when the switch is off', async () => {
@@ -235,7 +267,7 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
 
     expect(screen.queryByText(/Describe the risk or issue before submitting/)).toBeNull();
     expect(screen.queryByText(/A Road-to-Green action is required/)).toBeNull();
-    expect(screen.queryByText(/Pick the week the Road-to-Green action is due/)).toBeNull();
+    expect(screen.queryByText(/Pick the date the Road-to-Green action is due/)).toBeNull();
     expect(screen.queryByText(/All four flags are Green/)).toBeNull();
     expect(screen.getByText(/Add an executive summary before submitting/)).toBeTruthy();
   });
@@ -249,14 +281,14 @@ describe('WeeklyReportDetailDialog — active risk declaration', () => {
     await user.type(field(/Risk \/ Issue/), 'Third-party sandbox is down.');
     await user.type(field(/Road-to-Green action/), 'Escalate to the vendor account team.');
     await user.click(submitButton());
-    expect(await screen.findByText(/Pick the week the Road-to-Green action is due/)).toBeTruthy();
+    expect(await screen.findByText(/Pick the date the Road-to-Green action is due/)).toBeTruthy();
 
     await user.click(riskSwitch());
     await user.click(riskSwitch());
 
     expect((field(/Risk \/ Issue/) as HTMLTextAreaElement).value).toBe('');
     expect((field(/Road-to-Green action/) as HTMLTextAreaElement).value).toBe('');
-    expect(screen.queryByText(/Pick the week the Road-to-Green action is due/)).toBeNull();
+    expect(screen.queryByText(/Pick the date the Road-to-Green action is due/)).toBeNull();
     expect(screen.queryByText(/Describe the risk or issue before submitting/)).toBeNull();
   });
 });
