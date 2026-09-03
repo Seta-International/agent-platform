@@ -263,7 +263,7 @@ export function MoraleTrendTab() {
               domain={SCALE}
               ticks={TICKS}
               markerFor={markerFor}
-              withheldLabel="hidden"
+              withheldLabel="Not enough responses"
               description={describeTrend(trend.points, trend.min_responses)}
             />
 
@@ -281,8 +281,8 @@ export function MoraleTrendTab() {
                 △ 4–5 · ◇ 3 · ▽ 1–2 — shape, not colour.
               </Text>
               <Text size="sm" color="secondary">
-                Months under {trend.min_responses} responses stay hidden; the line breaks rather
-                than bridging them.
+                Months under {trend.min_responses} responses have too few to show anonymously; the
+                line breaks rather than bridging them.
               </Text>
             </VStack>
           </VStack>
