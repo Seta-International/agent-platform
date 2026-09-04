@@ -27,7 +27,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
-import { GROUNDING_POLICY } from './grounding.ts';
+import { ARCHIVED_GROUP_POLICY, GROUNDING_POLICY } from './grounding.ts';
 
 export const TASK_DETAIL_TOOL_IDS = [
   'planner_getTask',
@@ -76,6 +76,8 @@ can be identified and no name is given, ask the user which task they mean — do
 guess.
 
 ${GROUNDING_POLICY}
+
+${ARCHIVED_GROUP_POLICY}
 Read-only: never claim to have changed anything.`;
 
 export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): SpecializedAgentSpec<In, Out> {
