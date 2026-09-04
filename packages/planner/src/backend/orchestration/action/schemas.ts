@@ -195,5 +195,55 @@ export type LinkTasksResume = z.infer<typeof LinkTasksResumeSchema>;
  * the suspended tool by `toolCallId`, and each tool re-parses with its own schema
  * — so this union only types the resumer's parameter. It is NOT a dispatcher.
  */
-export const ActionResumeSchema = z.union([UpdateTaskResumeSchema, LinkTasksResumeSchema]);
-export type ActionResume = UpdateTaskResume | LinkTasksResume;
+/**
+ * Two NAMED refs. Not `taskRefs: [a, b]` and not one link tool with a `mode`
+ * (design D6): the two arguments are not interchangeable, because one of them
+ * ends up in the trash. A transposition here is a wrong task deleted, so the
+ * shape makes transposition unrepresentable rather than merely discouraged.
+ */
+export const MergeTasksToolInputSchema = z
+  .object({
+    duplicateTaskRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(`The task that will be SENT TO TRASH. ${TASK_REF_DESCRIPTION}`),
+    keepTaskRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(`The task that SURVIVES. ${TASK_REF_DESCRIPTION}`),
+  })
+  .strict();
+
+export const MergeTasksToolOutputSchema = z.object({
+  merged: z.boolean(),
+  keptTaskId: z.string().nullable(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const MergeTasksSuspendSchema = z.object({ card: z.unknown() });
+
+/**
+ * Only the duplicate carries a version. A merge does not modify the keeper — it
+ * only adds an inbound link row — so binding the keeper's version would fail
+ * merges for a reason the user cannot see on the card. `.strict()` is what keeps
+ * a well-meaning `keepExpectedVersion` from reappearing later.
+ */
+export const MergeTasksResumeSchema = z
+  .object({
+    action: z.enum(['merge', 'decline']),
+    duplicateTaskId: z.string(),
+    duplicateExpectedVersion: z.number().int(),
+    keepTaskId: z.string(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type MergeTasksResume = z.infer<typeof MergeTasksResumeSchema>;
+
+export const ActionResumeSchema = z.union([
+  UpdateTaskResumeSchema,
+  LinkTasksResumeSchema,
+  MergeTasksResumeSchema,
+]);
+export type ActionResume = UpdateTaskResume | LinkTasksResume | MergeTasksResume;

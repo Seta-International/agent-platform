@@ -25,8 +25,35 @@ describe('A2 instructions', () => {
     const text = instructionsText();
     expect(text).toMatch(/create tasks/i);
     expect(text).toMatch(/who a task is assigned to/i);
-    // merge and link arrive in later plans; until then the prompt must say so.
-    expect(text).toMatch(/merge tasks/i);
+  });
+});
+
+describe('A2 instructions — linking', () => {
+  it('no longer claims it cannot link tasks', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*link tasks/i);
+  });
+
+  it('explains the direction of duplicates and blocks', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/duplicates/i);
+    expect(text).toMatch(/blocks/i);
+  });
+});
+
+describe('A2 instructions — merging', () => {
+  it('no longer claims it cannot merge tasks', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*merge tasks/i);
+  });
+
+  it('tells the model which side of a merge gets trashed', () => {
+    expect(instructionsText()).toMatch(/duplicateTaskRef/);
+    expect(instructionsText()).toMatch(/trash/i);
+  });
+
+  it('still refuses to create tasks or assign people', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/create tasks/i);
+    expect(text).toMatch(/assign/i);
   });
 });
 
