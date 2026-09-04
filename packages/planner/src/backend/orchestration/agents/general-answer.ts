@@ -20,7 +20,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
-import { GROUNDING_POLICY } from './grounding.ts';
+import { ARCHIVED_GROUP_POLICY, GROUNDING_POLICY } from './grounding.ts';
 
 export interface QueryGeneralAnswerDeps {
   /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
@@ -39,7 +39,9 @@ passed to you) plus the user's question. If a question needs data you were not
 given, say what is missing rather than inventing it. Be concise. Never claim to
 have taken an action — this is a read-only question-answering flow.
 
-${GROUNDING_POLICY}`;
+${GROUNDING_POLICY}
+
+${ARCHIVED_GROUP_POLICY}`;
 
 export function makeQueryGeneralAnswerAgent(
   deps: QueryGeneralAnswerDeps,

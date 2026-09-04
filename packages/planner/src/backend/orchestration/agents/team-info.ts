@@ -32,7 +32,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
-import { GROUNDING_POLICY } from './grounding.ts';
+import { ARCHIVED_GROUP_POLICY, GROUNDING_POLICY } from './grounding.ts';
 
 export const TEAM_INFO_TOOL_IDS = [
   'planner_getGroupOverview',
@@ -147,6 +147,8 @@ groupId / planId / userId are internal tool handles only — never print a raw i
 in your answer. Always refer to groups, plans, and people by name.
 
 ${GROUNDING_POLICY}
+
+${ARCHIVED_GROUP_POLICY}
 Read-only.`;
 }
 

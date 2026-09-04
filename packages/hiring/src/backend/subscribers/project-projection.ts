@@ -16,5 +16,6 @@ export const [projectProjectionCreated, projectProjectionUpdated] = makeProjecti
     tenant_id: p.tenant_id,
     account_id: p.account_id,
     name: p.name,
+    date_to: p.date_to,
   }),
 });

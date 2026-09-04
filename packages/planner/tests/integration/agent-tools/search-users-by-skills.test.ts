@@ -393,19 +393,20 @@ describe('planner_searchGroupMembersBySkills tool', () => {
     );
   });
 
-  it('throws when group does not exist', async () => {
+  it('reports a missing group through the recoverable error branch', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
-      await expect(
-        plannerSearchGroupMembersBySkillsTool.execute!(
-          {
-            groupId: crypto.randomUUID(),
-            skills: ['TypeScript'],
-            limit: 5,
-          },
-          makeToolContext({ user_id: admin_user_id, tenant_id }),
-        ),
-      ).rejects.toThrow();
+      const res = (await plannerSearchGroupMembersBySkillsTool.execute!(
+        {
+          groupId: crypto.randomUUID(),
+          skills: ['TypeScript'],
+          limit: 5,
+        },
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
+      )) as { candidates?: unknown[]; error?: string };
+
+      expect(res.error).toMatch(/no accessible group/i);
+      expect(res.candidates).toBeUndefined();
     });
   });
 });

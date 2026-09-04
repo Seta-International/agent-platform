@@ -2,30 +2,30 @@
 # T3 paths auto-request the tech lead; core changes always ship as their own PR.
 
 # T3 — core business modules
-/packages/core/       @seta-canhta @seta-haile
-/packages/identity/   @seta-canhta @seta-haile
+/packages/core/       @seta-haile
+/packages/identity/   @seta-haile
 
 # T3 — design system / component library
-/packages/shared-ui/  @seta-canhta @seta-haile
+/packages/shared-ui/  @seta-haile
 
 # T3 — CI, tooling, infra
-/.github/             @seta-canhta @seta-haile
-/scripts/             @seta-canhta @seta-haile
-/infra/               @seta-canhta @seta-haile
+/.github/             @seta-haile
+/scripts/             @seta-haile
+/infra/               @seta-haile
 
 # T3 — DB migrations (generated + hand-written)
-drizzle/              @seta-canhta @seta-haile
+drizzle/              @seta-haile
 
 # T2 — shared surfaces and SDK contracts
-/packages/shared-config/        @seta-canhta @seta-haile
-/packages/shared-crypto/        @seta-canhta @seta-haile
-/packages/shared-db/            @seta-canhta @seta-haile
-/packages/shared-embeddings/    @seta-canhta @seta-haile
-/packages/shared-mailer/        @seta-canhta @seta-haile
-/packages/shared-orchestration/ @seta-canhta @seta-haile
-/packages/shared-rbac/          @seta-canhta @seta-haile
-/packages/shared-retrieval/     @seta-canhta @seta-haile
-/packages/shared-storage/       @seta-canhta @seta-haile
-/packages/shared-testing/       @seta-canhta @seta-haile
-/packages/shared-types/         @seta-canhta @seta-haile
-/sdks/                          @seta-canhta @seta-haile
+/packages/shared-config/        @seta-haile
+/packages/shared-crypto/        @seta-haile
+/packages/shared-db/            @seta-haile
+/packages/shared-embeddings/    @seta-haile
+/packages/shared-mailer/        @seta-haile
+/packages/shared-orchestration/ @seta-haile
+/packages/shared-rbac/          @seta-haile
+/packages/shared-retrieval/     @seta-haile
+/packages/shared-storage/       @seta-haile
+/packages/shared-testing/       @seta-haile
+/packages/shared-types/         @seta-haile
+/sdks/                          @seta-haile

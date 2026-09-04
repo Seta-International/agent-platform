@@ -3,7 +3,12 @@ import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getPlanChartData } from '../domain/get-plan-chart-data.ts';
 import { listGroupPlansWithRollups } from '../domain/list-group-plans-with-rollups.ts';
-import { resolveGroupScope, resolvePlanScope, withScopeError } from './resolve-scope.ts';
+import {
+  archivedGroupError,
+  resolveGroupScope,
+  resolvePlanScope,
+  withScopeError,
+} from './resolve-scope.ts';
 
 export const plannerGetStatsTool = defineAgentTool({
   id: 'planner_getStats',
@@ -77,6 +82,9 @@ export const plannerGetStatsTool = defineAgentTool({
     });
     if ('notFound' in resolved) {
       return { error: 'No accessible group found matching that criteria.' };
+    }
+    if ('archived' in resolved) {
+      return { error: archivedGroupError(resolved.name) };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');

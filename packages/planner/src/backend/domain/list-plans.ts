@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { plans } from '../db/schema.ts';
+import { groups, plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
@@ -11,6 +11,12 @@ export async function listPlans(input: {
   group_id?: string;
   include_deleted?: boolean;
   include_archived?: boolean;
+  /**
+   * Opt back into plans owned by an archived (soft-deleted) group. Default false
+   * for the same reason as listTasks (FUT-832): only the web UI browses them.
+   * Unrelated to `include_archived`, which is about the plan's own archived_at.
+   */
+  include_archived_groups?: boolean;
   session: SessionScope;
 }): Promise<PlanRow[]> {
   await requirePermission(input.session, 'planner.plan.read');
@@ -34,6 +40,15 @@ export async function listPlans(input: {
     conditions.push(isNull(plans.archived_at));
   }
   // include_deleted=true: no filter on deleted_at or archived_at (show everything).
+
+  if (!input.include_archived_groups) {
+    conditions.push(
+      inArray(
+        plans.group_id,
+        db.select({ id: groups.id }).from(groups).where(isNull(groups.deleted_at)),
+      ),
+    );
+  }
 
   if (filter !== null) {
     if (filter.length === 0) {

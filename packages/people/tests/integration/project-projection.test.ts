@@ -60,6 +60,7 @@ describe('projectProjectionCreated', () => {
           account_id: accountId,
           name: 'Alpha Project',
           charter_id: crypto.randomUUID(),
+          date_to: null,
         };
 
         await peopleDb().transaction(async (tx) => {
@@ -103,6 +104,7 @@ describe('projectProjectionCreated', () => {
           account_id: accountId1,
           name: 'Original Name',
           charter_id: crypto.randomUUID(),
+          date_to: null,
         };
         const second: ProjectCreatedPayload = {
           ...first,
@@ -159,6 +161,7 @@ describe('projectProjectionUpdated', () => {
           account_id: newAccountId,
           name: 'New Name',
           fields: ['name', 'account_id'],
+          date_to: null,
         };
 
         await peopleDb().transaction(async (tx) => {
