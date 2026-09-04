@@ -7,6 +7,18 @@ import { PM_PROJECT_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+import { assertProjectManageable } from './assert-project-manageable.ts';
+import { canAssignProjectLeadership } from './scope.ts';
+
+// Patch fields whose names differ from their `project` column (mirrors the edit-charter.ts
+// field→column map — EM/PMO are addressed as `*_worker_id` everywhere else in the contract,
+// e.g. submitCharterInput, but the column is `*_person_id`).
+const FIELD_TO_COLUMN: Record<string, string> = {
+  pm_worker_id: 'pm_person_id',
+  pmo_worker_id: 'pmo_person_id',
+};
+
+const LEADERSHIP_FIELDS = ['pm_worker_id', 'pmo_worker_id'];
 
 async function applyProjectUpdate(
   session: SessionScope,
@@ -16,6 +28,7 @@ async function applyProjectUpdate(
   opts?: { allowClosed?: boolean; requireClosed?: boolean },
 ): Promise<{ version: number }> {
   requirePermission(session, 'pm.project.manage');
+  await assertProjectManageable(project_id, session);
   const [current] = await pmDb()
     .select()
     .from(project)
@@ -28,6 +41,15 @@ async function applyProjectUpdate(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'project not found');
+  if (
+    LEADERSHIP_FIELDS.some((f) => f in patch) &&
+    !canAssignProjectLeadership(session, current.org_unit_id)
+  ) {
+    throw new PmError(
+      'FORBIDDEN',
+      "reassigning this project's EM/PMO requires a tenant-wide or org-unit-scoped pm.manager/pm.pmo grant",
+    );
+  }
   if (opts?.requireClosed && current.status !== 'closed') {
     throw new PmError('CONFLICT', 'project is not closed');
   }
@@ -38,9 +60,11 @@ async function applyProjectUpdate(
     throw new PmError('CONFLICT', 'version mismatch');
   }
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined);
-  const changes = entries.filter(
-    ([f, v]) => JSON.stringify((current as Record<string, unknown>)[f]) !== JSON.stringify(v),
-  );
+  // Compare against the mapped column value; report the patch field name in the event.
+  const changes = entries.filter(([f, v]) => {
+    const col = FIELD_TO_COLUMN[f] ?? f;
+    return JSON.stringify((current as Record<string, unknown>)[col]) !== JSON.stringify(v);
+  });
   if (changes.length === 0) return { version: current.version };
 
   const nextVersion = current.version + 1;
@@ -48,7 +72,7 @@ async function applyProjectUpdate(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const set: Record<string, unknown> = { version: nextVersion, updated_at: new Date() };
-      for (const [f, v] of changes) set[f] = v;
+      for (const [f, v] of changes) set[FIELD_TO_COLUMN[f] ?? f] = v;
       const updated = await tx
         .update(project)
         .set(set)

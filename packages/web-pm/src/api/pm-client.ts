@@ -289,6 +289,8 @@ export interface ProjectPatch {
   phase?: string;
   status?: 'active' | 'on_hold' | 'closed';
   org_unit_id?: string | null;
+  pm_worker_id?: string | null;
+  pmo_worker_id?: string | null;
 }
 
 export interface ProjectAccessRow {
