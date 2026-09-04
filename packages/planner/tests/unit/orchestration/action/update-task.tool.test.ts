@@ -6,7 +6,6 @@ import {
   fakePreviewPort,
   injectedPreview,
   OPEN_APPROVAL_ID,
-  OTHER_APPROVAL_ID,
   runFirstPass,
 } from './revision-test-kit.ts';
 
@@ -391,8 +390,6 @@ describe('planner_updateTask — resume pass', () => {
 });
 
 const OPEN_ID = OPEN_APPROVAL_ID;
-const OTHER_ID = OTHER_APPROVAL_ID;
-
 /** The persisted proposal a revision merges onto: due 15/08 AND priority Urgent. */
 function openArgsPatch(over: Record<string, unknown> = {}) {
   return {
@@ -436,7 +433,8 @@ function buildWithPreview(
   const tool = makeUpdateTaskTool({
     ports: { taskRead, taskUpdate, preview } as never,
     ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
-    openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+    openPreview:
+      over.openPreview === undefined ? injectedPreview({ taskIds: [TASK_ID] }) : over.openPreview,
   });
   return { tool, taskRead, taskUpdate, preview };
 }
@@ -450,16 +448,36 @@ async function suspendedCard(
 }
 
 describe('planner_updateTask — the revision branch (FUT-840)', () => {
-  it('takes its targets FROM THE CARD and ignores the model taskRefs (AC5.1)', async () => {
-    const { tool } = buildWithPreview();
-    const { card } = await suspendedCard(tool, {
-      // The model names a different task alongside a valid revisionOf. Targets
-      // come from the card, so no adjustment can move the change to another task.
-      taskRefs: [TASK_ID_2],
-      patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
+  it('takes its targets FROM THE CARD, not from the model refs (AC5.1)', async () => {
+    // The refs must MATCH the card's task set for this to be an adjustment at all
+    // (design D20), but they need not match its ORDER — and the per-target
+    // `expectedVersion` exists only on the card. Both facts hold only if the
+    // targets are read off the persisted row rather than rebuilt from the refs.
+    const { tool } = buildWithPreview({
+      // Versions come from the FRESH read, not the card — a task can move between
+      // two turns — so the snapshots carry the numbers asserted below.
+      snapshots: [snap({ version: 4 }), snap({ taskId: TASK_ID_2, version: 7 })],
+      loaded: {
+        approvalId: OPEN_ID,
+        toolId: 'planner_updateTask',
+        argsPatch: openArgsPatch({
+          targets: [
+            { taskId: TASK_ID, expectedVersion: 1 },
+            { taskId: TASK_ID_2, expectedVersion: 1 },
+          ],
+        }),
+      },
+      openPreview: injectedPreview({ taskIds: [TASK_ID, TASK_ID_2] }),
     });
-    expect(card?.primary.argsPatch.targets).toEqual([{ taskId: TASK_ID, expectedVersion: 4 }]);
+    const { card } = await suspendedCard(tool, {
+      taskRefs: [TASK_ID_2, TASK_ID],
+      patch: { dueAt: '2026-08-21' },
+    });
+    expect(card?.primary.argsPatch.targets).toEqual([
+      { taskId: TASK_ID, expectedVersion: 4 },
+      { taskId: TASK_ID_2, expectedVersion: 7 },
+    ]);
+    expect(card?.meta.supersedes).toBe(OPEN_ID);
   });
 
   it('MERGES onto the previous patch — a named field overrides, an unnamed one survives (design D3)', async () => {
@@ -467,7 +485,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
     });
     // "Cho sang thứ Sáu tuần sau" on a `due 15/08 · priority Urgent` preview must
     // KEEP Urgent. Replace-semantics would silently drop a value the user already
@@ -483,7 +500,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: null },
-      revisionOf: OPEN_ID,
     });
     // toDomainPatch already distinguishes three cases on the wire: absent means
     // untouched, and due_at: null CLEARS. Any merge that filters null/undefined
@@ -497,7 +513,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: {},
-      revisionOf: OPEN_ID,
       dropFields: ['priority'],
     });
     // "đừng đổi priority nữa" — a drop, not a value. priority is a word enum with
@@ -510,7 +525,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: {},
-      revisionOf: OPEN_ID,
       dropFields: ['dueAt', 'priority'],
     });
     expect(suspend).not.toHaveBeenCalled();
@@ -523,7 +537,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: {},
-      revisionOf: OPEN_ID,
       dropFields: ['deadline'],
     });
     expect(suspend).not.toHaveBeenCalled();
@@ -536,7 +549,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
     });
     // Reuse the key and a confirm on the stale card burns it; the confirm on the
     // final card then returns the EARLIER result as `replayed` — the wrong values
@@ -550,7 +562,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
     });
     expect(card?.meta.supersedes).toBe(OPEN_ID);
   });
@@ -563,7 +574,7 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const suspend = vi.fn(async () => {});
     await expect(
       tool.execute!(
-        { taskRefs: [TASK_ID], patch: { dueAt: '2026-08-21' }, revisionOf: OPEN_ID } as never,
+        { taskRefs: [TASK_ID], patch: { dueAt: '2026-08-21' } } as never,
         firstPassCtx(suspend),
       ),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
@@ -579,7 +590,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
     });
     expect(taskRead.readMany).toHaveBeenCalledWith(expect.objectContaining({ taskIds: [TASK_ID] }));
     // Group membership can change between two turns, so the re-gate must run on
@@ -590,19 +600,45 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     expect(card?.primary.argsPatch.targets).toEqual([{ taskId: TASK_ID, expectedVersion: 9 }]);
   });
 
-  it('refuses a revisionOf that is not the injected id, leaving the old card pending (design D15)', async () => {
-    const { tool, preview } = buildWithPreview();
-    const { out, suspend } = await suspendedCard(tool, {
-      taskRefs: [TASK_ID],
-      patch: { dueAt: '2026-08-21' },
-      revisionOf: OTHER_ID,
+  it('suspends with a RENDERED diff, so the sentence quotes rather than derives', async () => {
+    // Production wrote "Thứ Hai, 15/08/2026" for a Saturday. Handing the model the
+    // finished string removes the arithmetic from its job (design D20).
+    const { tool } = buildWithPreview();
+    let payload:
+      | { revised?: { taskTitle: string; diff: unknown[]; approvalId: string } }
+      | undefined;
+    const suspend = vi.fn(async (p: unknown) => {
+      payload = p as typeof payload;
     });
-    expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/only change the preview that is open/i);
-    expect(preview.loadPreview).not.toHaveBeenCalled();
+    await tool.execute!(
+      { taskRefs: [TASK_ID], patch: { dueAt: '2026-08-15' } } as never,
+      firstPassCtx(suspend),
+    );
+    expect(payload?.revised?.taskTitle).toBe('AWS migration');
+    expect(payload?.revised?.approvalId).toBe(OPEN_ID);
+    expect(payload?.revised?.diff).toContainEqual({
+      field: 'dueAt',
+      from: 'thứ Tư 12/08/2026',
+      to: 'thứ Bảy 15/08/2026',
+    });
   });
 
-  it('an omitted revisionOf while a preview is open is an ordinary new request (AC3)', async () => {
+  it('a NEW card carries no revised note — nothing has been adjusted', async () => {
+    // Its absence is what stops the assistant reporting "đã cập nhật" for a
+    // proposal that has not even been agreed to yet.
+    const { tool } = build();
+    let payload: { revised?: unknown } | undefined;
+    const suspend = vi.fn(async (p: unknown) => {
+      payload = p as typeof payload;
+    });
+    await tool.execute!(
+      { taskRefs: [TASK_ID], patch: { dueAt: '2026-08-15' } } as never,
+      firstPassCtx(suspend),
+    );
+    expect(payload?.revised).toBeUndefined();
+  });
+
+  it('a DIFFERENT task while a preview is open is an ordinary new request (AC3)', async () => {
     const { tool, preview } = buildWithPreview();
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID_2],
@@ -630,7 +666,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { suspend } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
     });
     expect(preview.takenDedupKeys).not.toHaveBeenCalled();
     expect(suspend).toHaveBeenCalledTimes(1);
@@ -647,7 +682,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { dueAt: '2026-08-21' },
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/incomplete/i);
@@ -674,7 +708,6 @@ describe('planner_updateTask — the revision branch (FUT-840)', () => {
     const { card } = await suspendedCard(tool, {
       taskRefs: [TASK_ID],
       patch: { status: 'completed' },
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.targets).toHaveLength(2);
   });

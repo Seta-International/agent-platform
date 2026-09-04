@@ -50,12 +50,15 @@ export function fakePreviewPort(
 /** The `openPreview` the run context carries. Only `approvalId` is load-bearing;
  *  the rest exists so the shape matches what the router really sends. */
 export function injectedPreview(
-  over: { approvalId?: string; toolId?: string } = {},
+  over: { approvalId?: string; toolId?: string; taskIds?: string[] } = {},
 ): ActionOpenPreview {
   return {
     approvalId: over.approvalId ?? OPEN_APPROVAL_ID,
     toolId: over.toolId ?? 'planner_updateTask',
     intent: 'Update "AWS migration"',
+    // Empty by default: a card whose tasks are unknown matches only a turn that
+    // resolved none of its own. Every revision case names its task explicitly.
+    taskIds: over.taskIds ?? [],
     proposedRows: [{ k: 'Due', v: '12 Aug 2026 → 15 Aug 2026' }],
   };
 }

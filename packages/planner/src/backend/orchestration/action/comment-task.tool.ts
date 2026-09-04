@@ -19,8 +19,8 @@ export interface CommentTaskToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
   /** The preview the SERVER found open for this turn, or null (FUT-840). It
-   *  arrives through the run context and never through tool arguments, which is
-   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+   *  arrives through the run context and never through tool arguments, and the
+   *  server — not the model — decides whether this call adjusts it (design D20). */
   openPreview?: ActionOpenPreview | null;
 }
 
@@ -60,7 +60,7 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
     // Declarative metadata only — nothing reads it at runtime, which is why the
     // first pass calls assertCanComment itself.
     rbac: 'planner.task.comment.create',
-    execute: async ({ taskRef, body, revisionOf }, toolCtx) => {
+    execute: async ({ taskRef, body }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -93,16 +93,18 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
+      // Resolve the ref BEFORE deciding revision-or-new: the server matches the
+      // resolved task against the open card's tasks (design D20), so it needs it in
+      // hand.
+      const resolvedTaskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+
       const revision = await resolveRevision({
         preview: ports.preview,
         actor,
-        revisionOf,
         openPreview,
         toolId: 'planner_commentTask',
+        resolvedTaskIds: [resolvedTaskId],
       });
-      if (revision.kind === 'refused') {
-        return { commented: false, commentId: null, refusal: revision.refusal };
-      }
 
       let taskId: string;
       if (revision.kind === 'revision') {
@@ -115,7 +117,7 @@ export function makeCommentTaskTool(deps: CommentTaskToolDeps) {
         }
         taskId = fromCard;
       } else {
-        taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+        taskId = resolvedTaskId;
       }
       // The read port the update tool already uses: a comment needs the same two
       // facts (title, group), and a second read path would be a second place for

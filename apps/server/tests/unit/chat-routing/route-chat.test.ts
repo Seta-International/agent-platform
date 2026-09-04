@@ -89,6 +89,7 @@ describe('makeChatRouter — the open preview reaches A2 (FUT-840)', () => {
     approvalId: '7f3a1c2e-1111-4222-8333-444455556666',
     toolId: 'planner_updateTask',
     intent: 'Update "Deploy API"',
+    taskIds: ['66be2be2-394d-4184-b106-c412289fd1e1'],
     proposedRows: [{ k: 'Due', v: '12 Aug 2026 → 21 Aug 2026' }],
   };
 

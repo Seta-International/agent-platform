@@ -187,19 +187,25 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     const tool = makeCommentTaskTool({
       ports: { comment, taskRead, preview } as never,
       ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
-      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+      openPreview:
+        over.openPreview === undefined
+          ? injectedPreview({ toolId: 'planner_commentTask', taskIds: [TASK_A] })
+          : over.openPreview,
     });
     return { tool, comment, taskRead, preview };
   }
 
-  it('takes the task FROM THE CARD and ignores the model taskRef (AC5.1)', async () => {
+  it('a DIFFERENT task is a new request, so no adjustment can retarget the card (AC5.1)', async () => {
+    // Design D20: the server matches the resolved task against the card's own, so
+    // naming another task never reaches the revision branch — it proposes a
+    // separate card and leaves the open one confirmable.
     const { tool } = buildRev();
     const { card } = await runFirstPass(tool, {
       taskRef: OTHER_TASK,
       body: 'vendor replied',
-      revisionOf: OPEN_ID,
     });
-    expect(card?.primary.argsPatch.taskId).toBe(TASK_A);
+    expect(card?.primary.argsPatch.taskId).toBe(OTHER_TASK);
+    expect(card?.meta.supersedes).toBeUndefined();
   });
 
   it('REPLACES the body — the user is confirming text, not accumulating it', async () => {
@@ -209,7 +215,6 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       taskRef: TASK_A,
       body: 'vendor replied',
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.body).toBe('vendor replied');
   });
@@ -221,7 +226,6 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       taskRef: TASK_A,
       body: long,
-      revisionOf: OPEN_ID,
     });
     const text = card?.details.find((d) => d.kind === 'text');
     expect(text?.body).toBe(long);
@@ -235,10 +239,7 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     });
     const suspend = vi.fn(async () => {});
     await expect(
-      tool.execute!(
-        { taskRef: TASK_A, body: 'vendor replied', revisionOf: OPEN_ID } as never,
-        firstPassCtx(suspend),
-      ),
+      tool.execute!({ taskRef: TASK_A, body: 'vendor replied' } as never, firstPassCtx(suspend)),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
     expect(suspend).not.toHaveBeenCalled();
   });
@@ -248,23 +249,25 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       taskRef: TASK_A,
       body: 'vendor replied',
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
     expect(card?.meta.supersedes).toBe(OPEN_ID);
   });
 
-  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+  it('refuses via the mutex when the open preview belongs to a different tool (design D4)', async () => {
+    // D20 reaches D4's outcome through ONE mechanism: a card owned by another tool
+    // is not adjustable, so this falls through to the new-card path, where the
+    // `task:` key that card holds refuses it in a sentence.
     const { tool } = buildRev({
-      loaded: { approvalId: OPEN_ID, toolId: 'planner_updateTask', argsPatch: openArgsPatch },
+      openPreview: injectedPreview({ toolId: 'planner_updateTask', taskIds: [TASK_A] }),
+      taken: [`task:${TASK_A}`],
     });
     const { out, suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       body: 'vendor replied',
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/different kind of change/i);
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
   });
 
   it('refuses a card with no taskId rather than rebuilding from half of it', async () => {
@@ -278,7 +281,6 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       body: 'vendor replied',
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/incomplete/i);
@@ -299,7 +301,6 @@ describe('planner_commentTask — the revision branch (FUT-840)', () => {
     const { suspend } = await runFirstPass(tool, {
       taskRef: TASK_A,
       body: 'vendor replied',
-      revisionOf: OPEN_ID,
     });
     expect(preview.takenDedupKeys).not.toHaveBeenCalled();
     expect(suspend).toHaveBeenCalledTimes(1);

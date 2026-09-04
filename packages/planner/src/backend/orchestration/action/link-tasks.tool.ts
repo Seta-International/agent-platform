@@ -20,8 +20,8 @@ export interface LinkTasksToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
   /** The preview the SERVER found open for this turn, or null (FUT-840). It
-   *  arrives through the run context and never through tool arguments, which is
-   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+   *  arrives through the run context and never through tool arguments, and the
+   *  server — not the model — decides whether this call adjusts it (design D20). */
   openPreview?: ActionOpenPreview | null;
 }
 
@@ -67,7 +67,7 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
     resumeSchema: LinkTasksResumeSchema,
     // Declarative metadata only; the first pass gates for itself, on BOTH groups.
     rbac: 'planner.task.update',
-    execute: async ({ sourceTaskRef, targetTaskRef, kind, revisionOf }, toolCtx) => {
+    execute: async ({ sourceTaskRef, targetTaskRef, kind }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -95,16 +95,28 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
+      // Resolve BOTH endpoints BEFORE deciding revision-or-new: the server matches
+      // the resolved pair against the open card's tasks (design D20). That is what
+      // makes "link A to C instead of B" fall through to a NEW card by itself,
+      // rather than adjusting the A→B card in place.
+      const resolved = await resolveTwoEndpoints({
+        port: ports.taskLink,
+        actor,
+        toolCtx,
+        sourceRef: sourceTaskRef,
+        targetRef: targetTaskRef,
+      });
+      if (!resolved.ok) {
+        return { linked: false, linkId: null, refusal: resolved.refusal };
+      }
+
       const revision = await resolveRevision({
         preview: ports.preview,
         actor,
-        revisionOf,
         openPreview,
         toolId: 'planner_linkTasks',
+        resolvedTaskIds: [resolved.source.taskId, resolved.target.taskId],
       });
-      if (revision.kind === 'refused') {
-        return { linked: false, linkId: null, refusal: revision.refusal };
-      }
 
       let source: ActionTaskSnapshot;
       let target: ActionTaskSnapshot;
@@ -135,16 +147,6 @@ export function makeLinkTasksTool(deps: LinkTasksToolDeps) {
           groupIds: [source.groupId, target.groupId],
         });
       } else {
-        const resolved = await resolveTwoEndpoints({
-          port: ports.taskLink,
-          actor,
-          toolCtx,
-          sourceRef: sourceTaskRef,
-          targetRef: targetTaskRef,
-        });
-        if (!resolved.ok) {
-          return { linked: false, linkId: null, refusal: resolved.refusal };
-        }
         source = resolved.source;
         target = resolved.target;
 

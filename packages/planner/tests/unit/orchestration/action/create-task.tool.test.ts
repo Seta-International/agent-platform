@@ -317,7 +317,10 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const tool = makeCreateTaskTool({
       ports: { taskCreate, similarTasks, preview } as never,
       ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
-      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+      openPreview:
+        over.openPreview === undefined
+          ? injectedPreview({ toolId: 'planner_createTask' })
+          : over.openPreview,
     });
     return { tool, taskCreate, similarTasks, preview };
   }
@@ -330,7 +333,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       planRef: 'Some Other Plan',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
     });
     expect(taskCreate.resolvePlan).toHaveBeenCalledWith(expect.objectContaining({ planRef: 'p1' }));
     expect(card?.primary.argsPatch.planId).toBe('p1');
@@ -342,7 +344,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
       dueAt: '2026-08-21',
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.draft).toEqual({
       title: 'Write the release notes',
@@ -356,7 +357,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
       dropFields: ['priority'],
     });
     expect(card?.primary.argsPatch.draft).toEqual({ title: 'Write the release notes' });
@@ -367,7 +367,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
       dropFields: ['title'],
     });
     expect(suspend).not.toHaveBeenCalled();
@@ -379,7 +378,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
       dropFields: ['deadline'],
     });
     expect(suspend).not.toHaveBeenCalled();
@@ -398,7 +396,7 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const suspend = vi.fn(async () => {});
     await expect(
       tool.execute!(
-        { planRef: 'Sprint 32', title: 'Write the release notes', revisionOf: OPEN_ID } as never,
+        { planRef: 'Sprint 32', title: 'Write the release notes' } as never,
         firstPassCtx(suspend),
       ),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
@@ -410,7 +408,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const { card } = await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
     });
     expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
     expect(card?.meta.supersedes).toBe(OPEN_ID);
@@ -423,24 +420,25 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Draft the changelog',
-      revisionOf: OPEN_ID,
     });
     expect(similarTasks.search.mock.calls[0]![0]).toMatchObject({
       queryText: 'Draft the changelog',
     });
   });
 
-  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+  it('proposes a NEW card when the open preview belongs to a different tool (AC3)', async () => {
+    // This is AC3's second bullet exactly: "create a task for the release notes"
+    // typed while an UPDATE preview waits must go through. A create draft holds no
+    // `task:` key, so nothing refuses it and the update card stays confirmable.
     const { tool } = buildRev({
-      loaded: { approvalId: OPEN_ID, toolId: 'planner_updateTask', argsPatch: openArgsPatch },
+      openPreview: injectedPreview({ toolId: 'planner_updateTask' }),
     });
-    const { out, suspend } = await runFirstPass(tool, {
+    const { card } = await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
     });
-    expect(suspend).not.toHaveBeenCalled();
-    expect(out.refusal).toMatch(/different kind of change/i);
+    expect(card?.primary.argsPatch.draft).toMatchObject({ title: 'Write the release notes' });
+    expect(card?.meta.supersedes).toBeUndefined();
   });
 
   it('refuses a card missing its planId rather than rebuilding from half of it', async () => {
@@ -454,7 +452,6 @@ describe('planner_createTask — the revision branch (FUT-840)', () => {
     const { out, suspend } = await runFirstPass(tool, {
       planRef: 'Sprint 32',
       title: 'Write the release notes',
-      revisionOf: OPEN_ID,
     });
     expect(suspend).not.toHaveBeenCalled();
     expect(out.refusal).toMatch(/incomplete/i);

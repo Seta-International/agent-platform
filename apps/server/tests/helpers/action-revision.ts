@@ -243,6 +243,27 @@ export async function proposeThroughTool(args: {
   return { approvalId: written.approvalId, runId: written.runId, card, refusal: null };
 }
 
+/** Pending cards holding this task's mutex key, newest first.
+ *
+ *  Reads `agent.workflow_approvals` from apps/server, which is allowed: the
+ *  raw-SQL rule bans cross-MODULE schema access inside packages, and apps/server
+ *  is the composition tier that already owns both halves of this matrix. */
+export async function pendingCardsFor(
+  pool: Pool,
+  tenantId: string,
+  taskId: string,
+): Promise<Array<{ approvalId: string }>> {
+  const res = await pool.query<{ approval_id: string }>(
+    `SELECT approval_id FROM agent.workflow_approvals
+      WHERE tenant_id = $1
+        AND status = 'pending'
+        AND proposed_payload -> 'meta' -> 'dedupKeys' ? $2
+      ORDER BY created_at DESC`,
+    [tenantId, `task:${taskId}`],
+  );
+  return res.rows.map((r) => ({ approvalId: r.approval_id }));
+}
+
 /** The idempotency key a card carries, which must be FRESH on every revision. */
 export function keyOf(card: ProposedCard): string {
   return card.primary.argsPatch.idempotencyKey as string;

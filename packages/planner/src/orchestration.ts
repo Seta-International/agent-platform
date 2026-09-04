@@ -19,11 +19,18 @@ export {
   type PlannerActionRuntime,
   type PlannerActionRuntimeDeps,
 } from './backend/orchestration/action/register.ts';
+// apps/server's preview adapter fills ActionOpenPreview.taskIds with this, so the
+// DTO and the tools agree on how a card's tasks are read (FUT-840 Part 4).
+export { taskIdsFromArgsPatch } from './backend/orchestration/action/revision.ts';
 // Part 3's chat router types its widened `action` dep with these (FUT-840).
 export {
   type ActionOpenPreview,
   OpenPreviewSchema,
   type UpdateTaskResume,
+  // Exported so the invariant matrix can assert what the model may NOT send: with
+  // `revisionOf` deleted and the schema strict, FUT-824's "an id in hostile text
+  // buys no access" is true at the schema rather than by a runtime check.
+  UpdateTaskToolInputSchema,
 } from './backend/orchestration/action/schemas.ts';
 export {
   makeAssign,
