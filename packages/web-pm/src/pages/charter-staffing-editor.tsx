@@ -95,7 +95,7 @@ export function CharterStaffingEditor({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
-  const workerSource = useWorkerSource();
+  const workerSource = useWorkerSource({ excludeAlumni: true });
   const toast = useToast();
 
   const allocations = useQuery({

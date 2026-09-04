@@ -9,7 +9,7 @@ import { createGroup, createPlan, createTask } from '../../../../../src/index.ts
 import { seedTenant } from '../../../../helpers.ts';
 
 describe('linkToExisting', () => {
-  it('adds a task_reference on the new task pointing to the existing task', async () => {
+  it('writes a relates link row on the new task pointing to the existing task', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -40,19 +40,25 @@ describe('linkToExisting', () => {
             session,
           });
 
+          // The output contract is UNCHANGED, so workflow.ts and its tests need
+          // no reshaping — this is the mandatory regression.
           expect(out.kind).toBe('linked');
           if (out.kind !== 'linked') throw new Error('unreachable');
           expect(out.taskId).toBe(newTask.id);
           expect(out.linkedTo).toEqual([existing.id]);
 
-          const refs = await plannerDb()
+          // ONE typed task_references row, and its url is the PLAN-FREE
+          // canonical path: the identity of a domain relationship is no longer a
+          // plan-scoped route that rots when the target moves plan (design §0.2).
+          const links = await plannerDb()
             .select()
             .from(taskReferences)
             .where(eq(taskReferences.task_id, newTask.id));
-          expect(refs).toHaveLength(1);
-          expect(refs[0]?.url).toBe(`/planner/plans/${plan.id}/tasks/${existing.id}`);
-          expect(refs[0]?.type).toBe('link');
-          expect(refs[0]?.alias).toContain('Related');
+          expect(links).toHaveLength(1);
+          expect(links[0]).toMatchObject({
+            url: `/planner/tasks/${existing.id}`,
+            type: 'relates',
+          });
         } finally {
           resetCoreDb();
           await closePools();

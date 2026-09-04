@@ -45,6 +45,18 @@ export const PREVIEW_TYPES = [
   'reference',
 ] as const;
 
+/** The three task↔task relationship kinds. Spread into TASK_REFERENCE_TYPES
+ *  below, so the vocabulary has ONE definition and the discriminator is
+ *  `TASK_LINK_KINDS.includes(type)` everywhere instead of a hand-copied list. */
+export const TASK_LINK_KINDS = ['relates', 'duplicates', 'blocks'] as const;
+
+/** The column vocabulary: ten BOOKMARK kinds plus the three link kinds. `type`
+ *  is simultaneously the kind and the discriminator — a row is a task link IFF
+ *  its type is in TASK_LINK_KINDS (design §3.1).
+ *
+ *  `'link'` is a BOOKMARK kind and deliberately NOT a link kind: that is what
+ *  leaves the dedup workflow's historical "Related: <title>" rows in the URL
+ *  group with no backfill (§3.4). */
 export const TASK_REFERENCE_TYPES = [
   'word',
   'excel',
@@ -56,6 +68,7 @@ export const TASK_REFERENCE_TYPES = [
   'sharePoint',
   'web',
   'link',
+  ...TASK_LINK_KINDS,
 ] as const;
 
 export const groups = plannerSchema.table(
@@ -380,8 +393,30 @@ export const taskReferences = plannerSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
+    // Kind-AGNOSTIC, and that is load-bearing: it sees (task_id, url) and not
+    // `type`, so one pair-direction holds ONE kind at a time (design D8).
     uniqueIndex('task_references_uniq_task_url').on(t.tenant_id, t.task_id, t.url),
     index('task_references_by_task').on(t.task_id),
+    // One canonical `duplicates` TARGET per task. Partial but not an
+    // expression, so drizzle-kit round-trips it.
+    uniqueIndex('task_references_dup_source_uniq')
+      .on(t.tenant_id, t.task_id)
+      .where(sql`type = 'duplicates'`),
+    // The INCOMING direction: url = '/planner/tasks/<me>'. NOT optional —
+    // task_references_uniq_task_url cannot serve a url-leading equality, so
+    // without this every task-detail page seq-scans the tenant's bookmarks.
+    index('task_references_link_by_url')
+      .on(t.tenant_id, t.url)
+      .where(sql`type IN ('relates', 'duplicates', 'blocks')`),
+    // A link row's url is ALWAYS parseable, which is what makes get-task's
+    // ::uuid cast total and lets the read skip a malformed-data branch.
+    check(
+      'task_references_link_url_canonical',
+      sql`type NOT IN ('relates', 'duplicates', 'blocks') OR url ~ '^/planner/tasks/[0-9a-fA-F-]{36}$'`,
+    ),
+    // No self-link, in the storage as well as in the domain. Bookmarks too: a
+    // task referencing its own route is equally meaningless.
+    check('task_references_no_self', sql`url <> '/planner/tasks/' || task_id::text`),
     textEnumCheck('task_references', 'type', TASK_REFERENCE_TYPES),
   ],
 );

@@ -71,6 +71,9 @@ export const projectCreatedPayload = z.object({
   account_id: z.string().uuid(),
   charter_id: z.string().uuid(),
   name: z.string(),
+  // FUT-984: projected into hiring's local project_projection so a Requisition can be
+  // blocked for an ended project without a cross-schema join.
+  date_to: z.string().nullable(),
 });
 export type ProjectCreatedPayload = z.infer<typeof projectCreatedPayload>;
 
@@ -79,6 +82,7 @@ export const projectUpdatedPayload = z.object({
   tenant_id: z.string().uuid(),
   name: z.string(),
   account_id: z.string().uuid(),
+  date_to: z.string().nullable(),
   fields: z.array(z.string()),
 });
 export type ProjectUpdatedPayload = z.infer<typeof projectUpdatedPayload>;

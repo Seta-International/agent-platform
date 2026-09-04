@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, notInArray, sql } from 'drizzle-orm';
 import {
   emitPlannerChecklistItemAdded,
   emitPlannerLabelApplied,
@@ -36,6 +36,7 @@ import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 import { isM365SystemActor } from './_actor.ts';
 import { taskRowToDto } from './_task-dto.ts';
+import { TASK_LINK_KIND_LIST } from './_task-link-row.ts';
 import { fetchAssigneesAndLabels } from './list-tasks.ts';
 import { hintBetween, type PlanExternalSource } from './order-hint.ts';
 
@@ -271,7 +272,15 @@ export async function duplicateTask(
         const sourceRefs = await tx
           .select()
           .from(taskReferences)
-          .where(eq(taskReferences.task_id, source.id))
+          .where(
+            and(
+              eq(taskReferences.task_id, source.id),
+              // A copy of "Duplicate of Beta" is not itself a duplicate of Beta,
+              // and a copied `blocks` row would silently duplicate a dependency.
+              // Relationships are not attachments (design §3.1).
+              notInArray(taskReferences.type, TASK_LINK_KIND_LIST),
+            ),
+          )
           .orderBy(asc(taskReferences.created_at));
 
         for (const r of sourceRefs) {
@@ -324,7 +333,12 @@ async function stitchTaskWithAssignees(
     db
       .select()
       .from(taskReferences)
-      .where(eq(taskReferences.task_id, row.id))
+      .where(
+        and(
+          eq(taskReferences.task_id, row.id),
+          notInArray(taskReferences.type, TASK_LINK_KIND_LIST),
+        ),
+      )
       .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
   ]);
 

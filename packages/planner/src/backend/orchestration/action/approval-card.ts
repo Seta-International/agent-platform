@@ -62,6 +62,25 @@ function display(field: (typeof FIELD_ORDER)[number], value: unknown): string {
   return text.length > 140 ? `${text.slice(0, 137)}…` : text;
 }
 
+/** A title is a card row's KEY; a 200-character one makes the table unreadable.
+ *  The full title is untouched in the data — only this label is clipped. */
+function clipTitle(title: string): string {
+  return title.length > 60 ? `${title.slice(0, 59)}…` : title;
+}
+
+/** The value half of a bulk row. One changed field reads as a sentence on its own
+ *  ("Not started → Completed"); two or more need their labels, or the row is a
+ *  string of arrows with no subject. */
+function changeSummary(task: ActionTaskSnapshot, patch: UpdateTaskActionPatch): string {
+  const changed = FIELD_ORDER.filter((f) => patch[f] !== undefined);
+  return changed
+    .map((f) => {
+      const arrow = `${display(f, task[f])} → ${display(f, patch[f])}`;
+      return changed.length === 1 ? arrow : `${FIELD_LABELS[f]}: ${arrow}`;
+    })
+    .join('; ');
+}
+
 export interface BuildUpdateApprovalCardOpts {
   task: ActionTaskSnapshot;
   patch: UpdateTaskActionPatch;
@@ -107,9 +126,10 @@ export function buildUpdateApprovalCard(opts: BuildUpdateApprovalCardOpts): Appr
       label: 'Apply the change',
       argsPatch: {
         action: 'update',
-        taskId: task.taskId,
+        // One shape for one target and for twenty — the resume pass never
+        // branches on cardinality.
+        targets: [{ taskId: task.taskId, expectedVersion: task.version }],
         patch,
-        expectedVersion: task.version,
         idempotencyKey,
       },
     },
@@ -119,10 +139,64 @@ export function buildUpdateApprovalCard(opts: BuildUpdateApprovalCardOpts): Appr
       label: 'Cancel',
       argsPatch: {
         action: 'decline',
-        taskId: task.taskId,
-        expectedVersion: task.version,
+        targets: [{ taskId: task.taskId, expectedVersion: task.version }],
         idempotencyKey,
       },
+    },
+    meta: {
+      tenantId,
+      userId,
+      agentPath: ['action', 'orchestrator'],
+      toolId: 'planner_updateTask',
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
+export interface BuildBulkApprovalCardOpts {
+  /** In the order the card must render them — the same order as `targets`. */
+  tasks: ActionTaskSnapshot[];
+  patch: UpdateTaskActionPatch;
+  tenantId: string;
+  userId: string;
+  idempotencyKey: string;
+}
+
+/**
+ * The preview for a batch: one row per task rather than one row per field.
+ * Same `kvTable` block, different grouping — the `diff` block is deliberately
+ * not used, because its renderer prints two walls of pretty-printed JSON
+ * (design D7, §0.6) and a card never shows raw ids or encoded numbers.
+ */
+export function buildBulkApprovalCard(opts: BuildBulkApprovalCardOpts): ApprovalCard {
+  const { tasks, patch, tenantId, userId, idempotencyKey } = opts;
+  if (tasks.length === 0) {
+    throw new Error('buildBulkApprovalCard: no targets');
+  }
+  if (FIELD_ORDER.every((f) => patch[f] === undefined)) {
+    throw new Error('buildBulkApprovalCard: patch contains no changes');
+  }
+
+  const rows = tasks.map((t) => ({ k: clipTitle(t.title), v: changeSummary(t, patch) }));
+  const targets = tasks.map((t) => ({ taskId: t.taskId, expectedVersion: t.version }));
+
+  return {
+    // Keyed on the idempotency key rather than the targets: twenty joined UUIDs
+    // is not an identifier, and nothing parses this field — the resume route
+    // reads the tool call id off the Mastra event, not off the card.
+    toolCallId: `planner.action:${idempotencyKey}`,
+    intent: `Update ${tasks.length} tasks`,
+    riskBadge: 'write',
+    summary: `${tasks.length} tasks will change.`,
+    details: [{ kind: 'kvTable', rows }],
+    primary: {
+      label: 'Apply the change',
+      argsPatch: { action: 'update', targets, patch, idempotencyKey },
+    },
+    alternates: [],
+    decline: {
+      label: 'Cancel',
+      argsPatch: { action: 'decline', targets, idempotencyKey },
     },
     meta: {
       tenantId,

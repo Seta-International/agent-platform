@@ -69,7 +69,7 @@ describe('hireApplication', () => {
     });
   });
 
-  it('assigns candidate seniority to worker job_title instead of requisition title (FUT-884)', async () => {
+  it('hires an active candidate without creating an employee record in People (FUT-928 AC1, AC2, AC3)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
@@ -77,36 +77,70 @@ describe('hireApplication', () => {
       try {
         const t = await seedTenant(pool);
         const { requisition_id } = await openRequisition({
-          title: 'leader manual tester',
-          role_title: 'Manual Tester Lead',
+          title: 'Senior Frontend Engineer',
+          role_title: 'Frontend Lead',
           kind: 'new',
           headcount: 1,
           session: t.adminSession,
         });
-        const { application_id } = await addCandidate({
+        const { application_id, candidate_id } = await addCandidate({
           requisition_id,
           name: 'Nguyen Huynh Son',
           seniority: 'senior',
           session: t.adminSession,
         });
 
-        await hireApplication({
+        const r = await hireApplication({
           application_id,
           expected_version: 1,
           session: t.adminSession,
         });
+        expect(r.version).toBe(2);
 
-        const appRes = await pool.query(`SELECT person_id FROM hiring.application WHERE id = $1`, [
-          application_id,
-        ]);
-        const workerId = appRes.rows[0]?.person_id;
-        expect(workerId).toBeTruthy();
+        // AC1: candidate status is updated to hired, no person_id is linked to external candidate
+        const appRes = await pool.query(
+          `SELECT status, stage, person_id, closed_at FROM hiring.application WHERE id = $1`,
+          [application_id],
+        );
+        expect(appRes.rows[0]?.status).toBe('hired');
+        expect(appRes.rows[0]?.stage).toBe('offer');
+        expect(appRes.rows[0]?.person_id).toBeNull();
+        expect(appRes.rows[0]?.closed_at).not.toBeNull();
+
+        // AC1: No Employee record is created in People (people.person and people.employment_period)
+        const peopleRes = await pool.query(
+          `SELECT count(*)::int as count FROM people.person WHERE tenant_id = $1`,
+          [t.tenant_id],
+        );
+        expect(peopleRes.rows[0]?.count).toBe(0);
 
         const periodRes = await pool.query(
-          `SELECT job_title FROM people.employment_period WHERE person_id = $1 AND end_date IS NULL`,
-          [workerId],
+          `SELECT count(*)::int as count FROM people.employment_period WHERE tenant_id = $1`,
+          [t.tenant_id],
         );
-        expect(periodRes.rows[0]?.job_title).toBe('senior');
+        expect(periodRes.rows[0]?.count).toBe(0);
+
+        // AC2: Candidate event and domain event emitted for IT Portal processing
+        expect(await countEvents(pool, t.tenant_id, 'hiring.application.hired')).toBe(1);
+
+        const ev = await pool.query(
+          `SELECT kind, detail FROM hiring.candidate_event WHERE candidate_id = $1 AND kind = 'hired'`,
+          [candidate_id],
+        );
+        expect(ev.rows).toHaveLength(1);
+
+        // AC3: Opening is filled and Requisition headcount fulfillment logic remains functional
+        const openingRes = await pool.query(
+          `SELECT status, hired_application_id FROM hiring.opening WHERE requisition_id = $1`,
+          [requisition_id],
+        );
+        expect(openingRes.rows[0]?.status).toBe('filled');
+        expect(openingRes.rows[0]?.hired_application_id).toBe(application_id);
+
+        const reqRes = await pool.query(`SELECT status FROM hiring.requisition WHERE id = $1`, [
+          requisition_id,
+        ]);
+        expect(reqRes.rows[0]?.status).toBe('filled');
       } finally {
         resetHiringDb();
         resetCoreDb();

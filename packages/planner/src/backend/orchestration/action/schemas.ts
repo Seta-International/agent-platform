@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { UpdateTaskPatchSchema } from '../../inputs.ts';
 
 /** The six fields people actually say out loud (design D4). `bucket_id` is
- *  excluded: it is a UUID needing a name→id resolution step, which is a new way
- *  to pick the wrong thing. It arrives with FUT-805 AC1. */
+ *  excluded: it needs a bucket name→id resolution *per each task's own plan*,
+ *  plus answers for "this plan has no bucket with that name" and "two buckets
+ *  share a name". FUT-805 D4 moved it to its own story — it does NOT arrive
+ *  with FUT-805 AC1, whatever FUT-804 §7 says. */
 export const UpdateTaskActionPatchSchema = UpdateTaskPatchSchema.pick({
   title: true,
   description: true,
@@ -81,29 +83,61 @@ export const ToolPatchSchema = z
   .strict();
 export type ToolPatch = z.infer<typeof ToolPatchSchema>;
 
+/**
+ * The hard ceiling on ONE tool call. Deliberately NOT a `.max()` on the schema
+ * below: a Zod error is something the model reads and "helpfully" works around
+ * by splitting the request into two batches — precisely what the AC forbids
+ * ("refused with an explanation, and no task is updated"). Three layers, because
+ * the first two are not enough alone: this constant, the tool's own refusal, and
+ * a prompt sentence telling the model not to split.
+ *
+ * What that binds: one invocation never mutates more than 20 tasks. What it does
+ * NOT bind: a whole agent run — nothing stops a model refused at 21 from calling
+ * again with 10 then 11. Enforcing that needs per-run state surviving
+ * suspend/resume, which is out of scope (design §7).
+ */
+export const BULK_TARGET_CAP = 20;
+
 export const UpdateTaskToolInputSchema = z.object({
-  taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+  taskRefs: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .describe(
+      `The tasks to change — one entry each, all receiving the SAME patch. At most ` +
+        `${BULK_TARGET_CAP} per call; a larger request is refused, never split. ` +
+        `Each entry: ${TASK_REF_DESCRIPTION}`,
+    ),
   patch: ToolPatchSchema,
 });
 
 export const UpdateTaskToolOutputSchema = z.object({
   updated: z.boolean(),
-  taskId: z.string().nullable(),
+  taskIds: z.array(z.string()),
   /** Set when the write was refused for a reason the agent should explain. */
   refusal: z.string().nullable().optional(),
 });
 
 export const UpdateTaskSuspendSchema = z.object({ card: z.unknown() });
 
-/** The resume payload. It is READ OFF THE PERSISTED CARD, never off the confirm
- *  request — that is FUT-804 AC5 and the reason no field here is client-supplied. */
-export const UpdateTaskResumeSchema = z.object({
-  action: z.enum(['update', 'decline']),
+/** One target of a batch. `expectedVersion` is per task, so a batch of ten in
+ *  which one task moved since the preview conflicts as a whole (design §5). */
+export const UpdateTaskTargetSchema = z.object({
   taskId: z.string(),
-  patch: UpdateTaskActionPatchSchema.optional(),
-  expectedVersion: z.number().int().nonnegative().optional(),
-  idempotencyKey: z.string().optional(),
+  expectedVersion: z.number().int().nonnegative(),
 });
+export type UpdateTaskTarget = z.infer<typeof UpdateTaskTargetSchema>;
+
+/** The resume payload. It is READ OFF THE PERSISTED CARD, never off the confirm
+ *  request — that is FUT-804 AC5 and the reason no field here is client-supplied.
+ *  One shape for one target and for twenty. */
+export const UpdateTaskResumeSchema = z
+  .object({
+    action: z.enum(['update', 'decline']),
+    targets: z.array(UpdateTaskTargetSchema).min(1),
+    patch: UpdateTaskActionPatchSchema.optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
 export type UpdateTaskResume = z.infer<typeof UpdateTaskResumeSchema>;
 
 /** Everything the card needs about the task as it stands before the change. */

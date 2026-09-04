@@ -1,16 +1,20 @@
 import type { SessionScope } from '@seta/core';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { can } from '@seta/shared-rbac';
+import { and, asc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { checklistItems, plans, taskReferences, tasks } from '../db/schema.ts';
 import type {
   ChecklistItemRow,
   TaskDetailRow,
+  TaskLinkKind,
+  TaskLinkRow,
   TaskReferenceRow,
   TaskReferenceType,
 } from '../dto.ts';
-import { PlannerError, requirePermission } from '../rbac.ts';
-import { groupFilterFor } from '../read-helpers.ts';
+import { isTenantWide, PlannerError, requirePermission } from '../rbac.ts';
+import { groupFilterFor, listMemberGroupIds } from '../read-helpers.ts';
 import { taskRowToDto } from './_task-dto.ts';
+import { TASK_LINK_KIND_LIST, taskLinkUrl } from './_task-link-row.ts';
 import { fetchAssigneesAndLabels } from './list-tasks.ts';
 
 export async function getTask(input: {
@@ -52,19 +56,80 @@ export async function getTask(input: {
     });
   }
 
-  const [{ assigneesByTaskId, labelsByTaskId }, checklistRows, referenceRows] = await Promise.all([
-    fetchAssigneesAndLabels(db, [row.id]),
-    db
-      .select()
-      .from(checklistItems)
-      .where(eq(checklistItems.task_id, row.id))
-      .orderBy(sql`order_hint NULLS LAST`),
-    db
-      .select()
-      .from(taskReferences)
-      .where(eq(taskReferences.task_id, row.id))
-      .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
-  ]);
+  const [{ assigneesByTaskId, labelsByTaskId }, checklistRows, referenceRows, outgoing, incoming] =
+    await Promise.all([
+      fetchAssigneesAndLabels(db, [row.id]),
+      db
+        .select()
+        .from(checklistItems)
+        .where(eq(checklistItems.task_id, row.id))
+        .orderBy(sql`order_hint NULLS LAST`),
+      db
+        .select()
+        .from(taskReferences)
+        .where(
+          and(
+            eq(taskReferences.task_id, row.id),
+            // A link row's url is /planner/tasks/<uuid>; rendering it beside real
+            // bookmarks in the URL group is the regression test 17 exists to
+            // prevent (design §3.3).
+            notInArray(taskReferences.type, TASK_LINK_KIND_LIST),
+          ),
+        )
+        .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
+      // OUTGOING: this task is the link's source. Reads task_references_by_task;
+      // the ::uuid cast is total because of the
+      // task_references_link_url_canonical CHECK, so there is no malformed-data
+      // branch to write.
+      db
+        .select({
+          id: taskReferences.id,
+          type: taskReferences.type,
+          created_at: taskReferences.created_at,
+          other_id: tasks.id,
+          other_title: tasks.title,
+          other_plan_id: tasks.plan_id,
+          other_deleted_at: tasks.deleted_at,
+          other_group_id: plans.group_id,
+        })
+        .from(taskReferences)
+        .innerJoin(
+          tasks,
+          sql`${tasks.id} = substring(${taskReferences.url} from '^/planner/tasks/(.+)$')::uuid`,
+        )
+        .innerJoin(plans, eq(plans.id, tasks.plan_id))
+        .where(
+          and(
+            eq(taskReferences.tenant_id, row.tenant_id),
+            eq(taskReferences.task_id, row.id),
+            inArray(taskReferences.type, TASK_LINK_KIND_LIST),
+          ),
+        ),
+      // INCOMING: url = '/planner/tasks/<me>'. Reads the new partial
+      // (tenant_id, url) index — without it this seq-scans the tenant's whole
+      // bookmark list on every detail page.
+      db
+        .select({
+          id: taskReferences.id,
+          type: taskReferences.type,
+          created_at: taskReferences.created_at,
+          other_id: tasks.id,
+          other_title: tasks.title,
+          other_plan_id: tasks.plan_id,
+          other_deleted_at: tasks.deleted_at,
+          other_group_id: plans.group_id,
+        })
+        .from(taskReferences)
+        .innerJoin(tasks, eq(tasks.id, taskReferences.task_id))
+        .innerJoin(plans, eq(plans.id, tasks.plan_id))
+        .where(
+          and(
+            eq(taskReferences.tenant_id, row.tenant_id),
+            eq(taskReferences.url, taskLinkUrl(row.id)),
+            inArray(taskReferences.type, TASK_LINK_KIND_LIST),
+          ),
+        ),
+    ]);
 
   const checklist: ChecklistItemRow[] = checklistRows.map((r) => ({
     id: r.id,
@@ -95,6 +160,46 @@ export async function getTask(input: {
     created_at: r.created_at.toISOString(),
     updated_at: r.updated_at.toISOString(),
   }));
+
+  // `can_unlink` predicts `requirePermission(session, 'planner.task.update',
+  // otherGroup)`, which is `can(...)` AND (isTenantWide OR isGroupMember).
+  // The obvious implementation — calling requirePermission per link — puts a DB
+  // read per row on a detail-page read, so compute it from data already in hand.
+  //
+  // `groupFilter` IS `listMemberGroupIds(...)` unless the session is
+  // tenant-adminish or `cross_tenant_read`, where it is null. Do NOT reuse
+  // `groupFilter === null` as "tenant-wide": that is the READ-side predicate,
+  // while the write gate uses isTenantWide. A cross_tenant_read persona would
+  // otherwise get an enabled Remove button and a 403.
+  const tenantWide = isTenantWide(input.session);
+  const memberGroupIds =
+    groupFilter ??
+    (tenantWide ? [] : await listMemberGroupIds(input.session.user_id, input.session.tenant_id));
+  const canUpdateTasks = can(input.session, 'planner.task.update');
+
+  type LinkQueryRow = (typeof outgoing)[number];
+
+  const visible = (r: LinkQueryRow): boolean =>
+    groupFilter === null || groupFilter.includes(r.other_group_id);
+
+  const toLinkRow = (r: LinkQueryRow, direction: 'outgoing' | 'incoming'): TaskLinkRow => ({
+    id: r.id,
+    kind: r.type as TaskLinkKind,
+    direction,
+    other_task_id: r.other_id,
+    other_task_title: r.other_title,
+    other_task_plan_id: r.other_plan_id,
+    // A trashed endpoint is LISTED, not filtered — otherwise the keep task shows
+    // nothing the moment a merge lands, i.e. the feature would be invisible.
+    other_task_deleted_at: r.other_deleted_at?.toISOString() ?? null,
+    can_unlink: canUpdateTasks && (tenantWide || memberGroupIds.includes(r.other_group_id)),
+    created_at: r.created_at.toISOString(),
+  });
+
+  const links: TaskLinkRow[] = [
+    ...outgoing.filter(visible).map((r) => toLinkRow(r, 'outgoing')),
+    ...incoming.filter(visible).map((r) => toLinkRow(r, 'incoming')),
+  ].sort((a, b) => compareString(a.created_at, b.created_at) || compareString(a.id, b.id));
 
   // Detail rows widen the list DTO; derive the previews from the already-
   // ordered full arrays so callers don't need a second fetch and the kanban
@@ -127,6 +232,7 @@ export async function getTask(input: {
     reference_preview,
     checklist,
     references,
+    links,
   };
 }
 
