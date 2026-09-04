@@ -15,6 +15,13 @@
       "when": 1783353029020,
       "tag": "0002_drop_assignee_projection_skills",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786327383427,
+      "tag": "0003_giant_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

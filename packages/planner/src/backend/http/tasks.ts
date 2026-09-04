@@ -32,6 +32,7 @@ import {
   suggestTaskAssignees,
   unapplyLabel,
   unassignTask,
+  unlinkTasks,
   updateChecklistItem,
   updateComment,
   updateTask,
@@ -410,6 +411,16 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
       url: parsed.data.url,
       session,
     });
+    return c.body(null, 204);
+  });
+
+  // A standalone child, addressed by its own id — the same convention as
+  // DELETE /comments/:id and /checklist-items/:id. It cannot be
+  // /tasks/:taskId/links/:id, because an INCOMING link's row belongs to the
+  // other task (design §3.2).
+  app.delete('/api/planner/v1/task-references/:referenceId', async (c) => {
+    const session = c.get('user');
+    await unlinkTasks({ reference_id: c.req.param('referenceId'), session });
     return c.body(null, 204);
   });
 

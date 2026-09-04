@@ -8,6 +8,17 @@ export type GroupSyncStatus = 'idle' | 'pulling' | 'pushing' | 'error' | 'confli
 export type TaskExternalSource = 'native' | 'm365';
 export type TaskPriorityNumber = 1 | 3 | 5 | 9;
 export type TaskPreviewType = 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
+export type TaskLinkKind = 'relates' | 'duplicates' | 'blocks';
+/**
+ * The BOOKMARK vocabulary, and deliberately not the column vocabulary: the
+ * `task_references.type` column also accepts the three TASK_LINK_KINDS
+ * (design §3.1), but a link row never reaches a TaskReferenceRow because
+ * `get-task` filters them out of `references[]` (§3.3).
+ *
+ * Two things fall out of keeping this union narrow. `AddTaskReferenceInput.type`
+ * cannot name a link kind at compile time — §3.11's first guard, for free — and
+ * `shared-ui`'s ReferenceRowData.type, which is its own union, keeps matching.
+ */
 export type TaskReferenceType =
   | 'word'
   | 'excel'
@@ -277,6 +288,32 @@ export interface CalendarTasksResult {
 export interface TaskDetailRow extends TaskWithAssigneesRow {
   checklist: ChecklistItemRow[];
   references: TaskReferenceRow[];
+  links: TaskLinkRow[];
+}
+
+/**
+ * One entry of `TaskDetailRow.links`, already resolved to the OTHER end — the
+ * caller never has to work out which side of the row it is on.
+ *
+ * `can_unlink` is a NEW idiom: `dto.ts` carries no `can_*` field today. It is
+ * introduced deliberately, because a link's second endpoint routinely lives in
+ * another group and `usePermission` reads a FLAT permission list, so the client
+ * is structurally unable to evaluate "update on BOTH groups". Bounded on purpose:
+ * one field, one row type, computed from primitives get-task already calls.
+ */
+export interface TaskLinkRow {
+  id: string;
+  kind: TaskLinkKind;
+  /** 'outgoing' = this task is the link's source. Picks the phrasing. */
+  direction: 'outgoing' | 'incoming';
+  other_task_id: string;
+  other_task_title: string;
+  other_task_plan_id: string;
+  /** Set when the other task is in trash. Merge leaves its duplicate there, so
+   *  the row is rendered muted rather than filtered out. */
+  other_task_deleted_at: string | null;
+  can_unlink: boolean;
+  created_at: string;
 }
 
 export interface TaskReferenceRow {
