@@ -247,10 +247,12 @@ describe('read requisitions', () => {
         expect(accounts).toEqual([{ account_id, name: 'Vinfast' }]);
 
         const projects = await listProjects(t.adminSession, account_id);
-        expect(projects).toEqual([{ project_id, account_id, name: 'Connected Vehicle App' }]);
+        expect(projects).toEqual([
+          { project_id, account_id, name: 'Connected Vehicle App', date_to: null },
+        ]);
         // Unfiltered listProjects still returns it (no account_id passed).
         expect(await listProjects(t.adminSession)).toEqual([
-          { project_id, account_id, name: 'Connected Vehicle App' },
+          { project_id, account_id, name: 'Connected Vehicle App', date_to: null },
         ]);
       } finally {
         resetHiringDb();
