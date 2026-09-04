@@ -1,6 +1,6 @@
 {
-  "id": "36fbafaf-a59e-4967-b9a9-fca894a42972",
-  "prevId": "b3a6c2a7-3989-43f7-aec0-ca15eb8df4b5",
+  "id": "cfa69703-4308-4f42-be34-370b80126c15",
+  "prevId": "fe5a0210-ad1e-4514-bd60-9b6abf2f0082",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -260,6 +260,30 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_name_snapshot": {
+          "name": "project_name_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sender_capacity": {
+          "name": "sender_capacity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -274,6 +298,33 @@
             },
             {
               "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "morale_note_by_project": {
+          "name": "morale_note_by_project",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -310,8 +361,76 @@
         "morale_note_rating_range": {
           "name": "morale_note_rating_range",
           "value": "rating >= 1 AND rating <= 5"
+        },
+        "morale_note_sender_capacity_check": {
+          "name": "morale_note_sender_capacity_check",
+          "value": "sender_capacity IN ('member', 'tl')"
         }
       },
+      "isRLSEnabled": false
+    },
+    "people.morale_note_read": {
+      "name": "morale_note_read",
+      "schema": "people",
+      "columns": {
+        "note_id": {
+          "name": "note_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reader_person_id": {
+          "name": "reader_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "morale_note_read_by_reader": {
+          "name": "morale_note_read_by_reader",
+          "columns": [
+            {
+              "expression": "reader_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "morale_note_read_note_id_morale_note_id_fk": {
+          "name": "morale_note_read_note_id_morale_note_id_fk",
+          "tableFrom": "morale_note_read",
+          "tableTo": "morale_note",
+          "schemaTo": "people",
+          "columnsFrom": ["note_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "morale_note_read_note_id_reader_person_id_pk": {
+          "name": "morale_note_read_note_id_reader_person_id_pk",
+          "columns": ["note_id", "reader_person_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "people.morale_note_recipient": {
@@ -439,6 +558,18 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -474,6 +605,60 @@
             },
             {
               "expression": "org_unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "period",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "morale_rating_by_project": {
+          "name": "morale_rating_by_project",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "period",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "morale_rating_by_account": {
+          "name": "morale_rating_by_account",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1133,6 +1318,294 @@
       },
       "isRLSEnabled": false
     },
+    "people.performance_evaluation": {
+      "name": "performance_evaluation",
+      "schema": "people",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "review_month": {
+          "name": "review_month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_person_id": {
+          "name": "subject_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluator_person_id": {
+          "name": "evaluator_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluator_capacity": {
+          "name": "evaluator_capacity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "overall": {
+          "name": "overall",
+          "type": "numeric(3, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "strengths": {
+          "name": "strengths",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "improve": {
+          "name": "improve",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "top_action": {
+          "name": "top_action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "perf_eval_uniq_manager_review": {
+          "name": "perf_eval_uniq_manager_review",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "review_month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "subject_person_id <> evaluator_person_id",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "perf_eval_uniq_self_assessment": {
+          "name": "perf_eval_uniq_self_assessment",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "review_month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "subject_person_id = evaluator_person_id",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "perf_eval_by_account_month": {
+          "name": "perf_eval_by_account_month",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "review_month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "perf_eval_by_evaluator": {
+          "name": "perf_eval_by_evaluator",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "evaluator_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "review_month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "performance_evaluation_revision_id_performance_config_revision_id_fk": {
+          "name": "performance_evaluation_revision_id_performance_config_revision_id_fk",
+          "tableFrom": "performance_evaluation",
+          "tableTo": "performance_config_revision",
+          "schemaTo": "people",
+          "columnsFrom": ["revision_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "performance_evaluation_status_check": {
+          "name": "performance_evaluation_status_check",
+          "value": "status IN ('draft', 'submitted')"
+        },
+        "performance_evaluation_evaluator_capacity_check": {
+          "name": "performance_evaluation_evaluator_capacity_check",
+          "value": "evaluator_capacity IN ('tl', 'am', 'self')"
+        },
+        "perf_eval_ym": {
+          "name": "perf_eval_ym",
+          "value": "review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'"
+        },
+        "perf_eval_self_capacity": {
+          "name": "perf_eval_self_capacity",
+          "value": "(evaluator_capacity = 'self') = (subject_person_id = evaluator_person_id)"
+        },
+        "perf_eval_overall_on_submit": {
+          "name": "perf_eval_overall_on_submit",
+          "value": "(status = 'submitted') = (overall IS NOT NULL AND submitted_at IS NOT NULL)"
+        },
+        "perf_eval_overall_range": {
+          "name": "perf_eval_overall_range",
+          "value": "overall IS NULL OR (overall >= 1 AND overall <= 5)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "people.performance_evaluation_group": {
       "name": "performance_evaluation_group",
       "schema": "people",
@@ -1205,6 +1678,92 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "people.performance_evaluation_score": {
+      "name": "performance_evaluation_score",
+      "schema": "people",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluation_id": {
+          "name": "evaluation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criterion_id": {
+          "name": "criterion_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "score": {
+          "name": "score",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "performance_evaluation_score_evaluation_id_performance_evaluation_id_fk": {
+          "name": "performance_evaluation_score_evaluation_id_performance_evaluation_id_fk",
+          "tableFrom": "performance_evaluation_score",
+          "tableTo": "performance_evaluation",
+          "schemaTo": "people",
+          "columnsFrom": ["evaluation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "performance_evaluation_score_criterion_id_performance_config_criterion_id_fk": {
+          "name": "performance_evaluation_score_criterion_id_performance_config_criterion_id_fk",
+          "tableFrom": "performance_evaluation_score",
+          "tableTo": "performance_config_criterion",
+          "schemaTo": "people",
+          "columnsFrom": ["criterion_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "performance_evaluation_score_evaluation_id_criterion_id_pk": {
+          "name": "performance_evaluation_score_evaluation_id_criterion_id_pk",
+          "columns": ["evaluation_id", "criterion_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "perf_eval_score_range": {
+          "name": "perf_eval_score_range",
+          "value": "score >= 1 AND score <= 5"
+        },
+        "perf_eval_score_step": {
+          "name": "perf_eval_score_step",
+          "value": "(score * 2) = trunc(score * 2)"
+        }
+      },
       "isRLSEnabled": false
     },
     "people.person": {
