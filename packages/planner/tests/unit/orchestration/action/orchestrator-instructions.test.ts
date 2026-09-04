@@ -29,3 +29,19 @@ describe('A2 instructions', () => {
     expect(text).toMatch(/merge tasks/i);
   });
 });
+
+describe('A2 instructions — linking', () => {
+  it('no longer claims it cannot link tasks', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*link tasks/i);
+  });
+
+  it('explains the direction of duplicates and blocks', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/duplicates/i);
+    expect(text).toMatch(/blocks/i);
+  });
+
+  it('still refuses to merge — that arrives separately', () => {
+    expect(instructionsText()).toMatch(/merge tasks/i);
+  });
+});

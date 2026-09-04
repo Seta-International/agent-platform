@@ -2,7 +2,7 @@ import type { MastraModelConfig } from '@mastra/core/llm';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
-import { makeActionTaskRead, makeActionTaskUpdate } from './adapters.ts';
+import { makeActionTaskLink, makeActionTaskRead, makeActionTaskUpdate } from './adapters.ts';
 import {
   type ActionResumeCtx,
   makeActionAgent,
@@ -11,14 +11,14 @@ import {
 } from './orchestrator.ts';
 import { actionOrchestratorSpec } from './orchestrator-spec.ts';
 import type { ActionPorts } from './ports.ts';
-import type { UpdateTaskResume } from './schemas.ts';
+import type { ActionResume } from './schemas.ts';
 
 export interface PlannerActionRuntime {
   runStream: (
     runInput: { userText: string; taskId: string | null },
     ctx: RunCtx,
   ) => Promise<ChatStreamRun>;
-  runResume: (resume: UpdateTaskResume, ctx: ActionResumeCtx) => Promise<ChatStreamRun>;
+  runResume: (resume: ActionResume, ctx: ActionResumeCtx) => Promise<ChatStreamRun>;
 }
 
 export interface PlannerActionRuntimeDeps {
@@ -34,6 +34,7 @@ export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): Plann
   const ports: ActionPorts = deps.ports ?? {
     taskRead: makeActionTaskRead(),
     taskUpdate: makeActionTaskUpdate(),
+    taskLink: makeActionTaskLink(),
   };
   const agentDeps = {
     ports,

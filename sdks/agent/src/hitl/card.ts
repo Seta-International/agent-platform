@@ -64,6 +64,12 @@ export const ApprovalCardSchema = z.object({
     agentPath: z.array(z.string()),
     toolId: z.string(),
     ts: z.string(),
+    // Logical id of the runtime that must resume this card. /chat/resume picks
+    // the resume body SCHEMA off the persisted row's workflow_id, so the card
+    // has to name its own runtime: the agent tier may not import feature
+    // modules and therefore cannot map tool ids to runtimes itself. Optional so
+    // a card that declares nothing keeps the legacy assignment behaviour.
+    workflowId: z.string().optional(),
   }),
 });
 

@@ -1,4 +1,9 @@
-import type { ActionTaskSnapshot, UpdateTaskActionPatch, UpdateTaskTarget } from './schemas.ts';
+import type {
+  ActionTaskSnapshot,
+  ToolTaskLinkKind,
+  UpdateTaskActionPatch,
+  UpdateTaskTarget,
+} from './schemas.ts';
 
 export interface ActorRef {
   tenantId: string;
@@ -44,7 +49,46 @@ export interface TaskUpdatePort {
   ): Promise<{ taskIds: string[]; replayed: boolean }>;
 }
 
+export interface TaskLinkPort {
+  /**
+   * Reads an endpoint for a LINK preview. `FORBIDDEN`, `NOT_FOUND` and
+   * `CROSS_TENANT` all collapse into ONE `null`, so "you don't have access to
+   * that task" can never be distinguished from "no such task" — FUT-805 AC3.
+   *
+   * Normalised HERE and not in `getTask`: doing it at the source would flip the
+   * HTTP layer from 403 to 404 for web-planner and every existing assertion.
+   */
+  readEndpoint(args: ActorRef & { taskId: string }): Promise<ActionTaskSnapshot | null>;
+
+  /** `planner.task.update` on every group given, once per distinct group. */
+  assertCanLink(args: ActorRef & { groupIds: string[] }): Promise<void>;
+
+  /**
+   * What relationship this PAIR already carries, in either direction, or null.
+   *
+   * Not a boolean: a pair-direction holds one kind at a time (design D8), so the
+   * tool has to be able to NAME what is there — "already marked as duplicates,
+   * remove that first" is a different sentence from "already linked that way".
+   * Checked before the card is built, so an existing relationship is an answer
+   * rather than a card that fails at Confirm.
+   */
+  readPairLink(
+    args: ActorRef & { sourceTaskId: string; targetTaskId: string },
+  ): Promise<{ kind: ToolTaskLinkKind; direction: 'outgoing' | 'incoming' } | null>;
+
+  /** The governed write: `withGatedMutation('link')` around `linkTasks`. */
+  link(
+    args: ActorRef & {
+      sourceTaskId: string;
+      targetTaskId: string;
+      kind: ToolTaskLinkKind;
+      idempotencyKey: string;
+    },
+  ): Promise<{ linkId: string; replayed: boolean }>;
+}
+
 export interface ActionPorts {
   taskRead: TaskReadPort;
   taskUpdate: TaskUpdatePort;
+  taskLink: TaskLinkPort;
 }
