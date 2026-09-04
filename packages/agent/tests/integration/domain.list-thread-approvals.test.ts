@@ -46,12 +46,12 @@ function card(taskId: string, tenantId: string, userId: string): ApprovalCard {
 
 async function seedApproval(
   pool: Pool,
-  args: { tenantId: string; userId: string; threadId: string | null },
+  args: { tenantId: string; userId: string; threadId: string | null; toolCallId?: string },
 ): Promise<{ approvalId: string }> {
   const ids = await writeChatApprovalRow({
     card: card(randomUUID(), args.tenantId, args.userId),
     mastraRunId: randomUUID(),
-    toolCallId: randomUUID(),
+    toolCallId: args.toolCallId ?? randomUUID(),
     tenantId: args.tenantId,
     userId: args.userId,
     threadId: args.threadId,
@@ -116,6 +116,34 @@ describe('listThreadApprovals', () => {
 
       expect(byId.get(agentic.approvalId)!.agentic).toBe(true);
       expect(byId.get(evented.approvalId)!.agentic).toBe(false);
+    });
+  });
+
+  it('exposes toolCallId, the anchor that ties a card to the turn that raised it', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const me = sessionFor(userId, tenantId);
+
+      const anchored = await seedApproval(pool, {
+        tenantId,
+        userId,
+        threadId: 'thread-1',
+        toolCallId: 'tc-anchor',
+      });
+      const legacy = await seedApproval(pool, { tenantId, userId, threadId: 'thread-1' });
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET tool_call_id = NULL WHERE approval_id = $1`,
+        [legacy.approvalId],
+      );
+
+      const rows = await listThreadApprovals({ session: me, threadId: 'thread-1' });
+      const byId = new Map(rows.map((r) => [r.approvalId, r] as const));
+
+      expect(byId.get(anchored.approvalId)!.toolCallId).toBe('tc-anchor');
+      // A row raised outside a chat tool call has no anchor and must stay
+      // renderable — the client falls back to the transcript's tail for these.
+      expect(byId.get(legacy.approvalId)!.toolCallId).toBeNull();
     });
   });
 

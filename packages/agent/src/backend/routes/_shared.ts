@@ -177,6 +177,12 @@ export type DataToolAgentPart = {
 // persists, so they survive a thread reload.
 export type DataResultPart = { type: 'data-result'; id: 'result'; data: unknown };
 export type DataTrustPart = { type: 'data-trust'; id: 'trust'; data: unknown };
+/** In-turn anchor for a HITL approval card; `id` is the toolCallId. */
+export type DataApprovalPart = {
+  type: 'data-approval';
+  id: string;
+  data: { toolCallId: string };
+};
 export type UIMessagePart =
   | TextUIPart
   | ReasoningUIPart
@@ -184,7 +190,8 @@ export type UIMessagePart =
   | DataPageContextPart
   | DataToolAgentPart
   | DataResultPart
-  | DataTrustPart;
+  | DataTrustPart
+  | DataApprovalPart;
 export type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
 
 // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`;
@@ -365,6 +372,15 @@ export function mastraPartToUIPart(raw: unknown): UIMessagePart | UIMessagePart[
       id,
       data: { kind: d.kind, id: d.id, label: d.label, ...(summary ? { summary } : {}) },
     };
+  }
+  if (type === 'data-approval') {
+    // The in-turn anchor for a HITL approval card. Carries only the toolCallId;
+    // the card body is read from the approval row, so a decided or expired
+    // approval renders its outcome in the same spot without a reload.
+    const r = raw as { data?: unknown };
+    const d = r.data as { toolCallId?: unknown } | undefined;
+    if (!d || typeof d.toolCallId !== 'string') return null;
+    return { type: 'data-approval', id: d.toolCallId, data: { toolCallId: d.toolCallId } };
   }
   if (type === 'data-result' || type === 'data-trust') {
     const r = raw as { data?: unknown };

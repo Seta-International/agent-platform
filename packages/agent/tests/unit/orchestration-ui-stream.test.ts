@@ -236,4 +236,56 @@ describe('pumpOrchestrationStream', () => {
     expect(assistantParts.some((p) => p.type === 'data-result')).toBe(false);
     expect(assistantParts).toContainEqual({ type: 'text', text: 'Let me assign that.' });
   });
+
+  it('persists and streams a data-approval anchor part carrying the toolCallId', async () => {
+    const w = new FakeWriter();
+    const card = {
+      toolCallId: 'tc-9',
+      intent: 'Assign',
+      riskBadge: 'write' as const,
+      summary: 's',
+      details: [],
+      primary: { label: 'Assign', argsPatch: {} },
+      alternates: [],
+      decline: { label: 'No' },
+      meta: {
+        tenantId: 'ten',
+        userId: 'usr',
+        agentPath: ['assignment'],
+        toolId: 'assign_proposeAssignment',
+        ts: new Date().toISOString(),
+      },
+    };
+    const { assistantParts } = await pumpOrchestrationStream(
+      w,
+      parts(
+        { type: 'text-start', id: 't' },
+        { type: 'text-delta', id: 't', delta: 'Assigning.' },
+        { type: 'text-end', id: 't' },
+        {
+          type: 'data-tool-call-suspended',
+          data: { runId: 'run-9', toolCallId: 'tc-9', suspendPayload: { card } },
+        },
+      ),
+      { finalize: async () => ({ result: {}, trust: TRUST }), onApproval: async () => {} },
+    );
+    // The anchor is what pins the approval card to this turn on reload: without
+    // a persisted part the card has nothing to attach to and falls to the bottom.
+    const anchor = { type: 'data-approval', id: 'tc-9', data: { toolCallId: 'tc-9' } };
+    expect(assistantParts).toContainEqual(anchor);
+    expect(w.chunks).toContainEqual(anchor);
+    // The anchor must trail the prose so the card renders below the turn's text.
+    expect(assistantParts.at(-1)).toEqual(anchor);
+  });
+
+  it('emits no approval anchor on a turn that never suspends', async () => {
+    const w = new FakeWriter();
+    const { assistantParts } = await pumpOrchestrationStream(
+      w,
+      parts({ type: 'text-start', id: 't' }, { type: 'text-delta', id: 't', delta: 'hi' }),
+      { finalize: async () => ({ result: {}, trust: TRUST }), onApproval: async () => {} },
+    );
+    expect(assistantParts.some((p) => p.type === 'data-approval')).toBe(false);
+    expect(w.chunks.some((c) => c.type === 'data-approval')).toBe(false);
+  });
 });
