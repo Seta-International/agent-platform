@@ -53,7 +53,12 @@ async function applyProjectUpdate(
         .update(project)
         .set(set)
         .where(and(eq(project.id, project_id), eq(project.version, current.version)))
-        .returning({ id: project.id, name: project.name, account_id: project.account_id });
+        .returning({
+          id: project.id,
+          name: project.name,
+          account_id: project.account_id,
+          date_to: project.date_to,
+        });
       if (updated.length === 0) throw new PmError('CONFLICT', 'project was modified concurrently');
       // updated.length === 0 throws above; index 0 always exists here
       // biome-ignore lint/style/noNonNullAssertion: guarded by length check above
@@ -69,6 +74,7 @@ async function applyProjectUpdate(
           tenant_id: session.tenant_id,
           name: updatedRow.name,
           account_id: updatedRow.account_id,
+          date_to: updatedRow.date_to,
           fields: changes.map(([f]) => f),
         },
       });

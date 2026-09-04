@@ -996,6 +996,9 @@ export interface WeeklyReportCard {
   /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
   staffed: number;
   team_size: number | null;
+  project_date_to: string | null;
+  /** True once the project's End Date fell before this reporting week started (FUT-984 AC2). */
+  project_ended: boolean;
   /** Delivery pulse (util · predictability · CSS) for the week; unmeasured metrics omitted. */
   headline_metrics: WeeklyHeadlineMetric[];
   latest_summary: string | null;
@@ -1068,6 +1071,8 @@ export interface WeeklyReportDetail {
   pmo_person_id: string | null;
   staffed: number;
   team_size: number | null;
+  project_date_to: string | null;
+  project_ended: boolean;
   headline_metrics: {
     label: string;
     name: string;
