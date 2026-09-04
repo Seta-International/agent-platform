@@ -71,7 +71,15 @@ export const applicationTransferredPayload = z.object({
 export const applicationHiredPayload = z.object({
   application_id: uuid,
   tenant_id: uuid,
-  from_stage: z.string(),
+  requisition_id: uuid,
+  candidate_id: uuid,
+  full_name: z.string(),
+  // FUT-928: identity fields for the future IT Portal account request (was createWorker input).
+  personal_email: z.string().email().nullable(),
+  phone: z.string().nullable(),
+  dob: z.string().date().nullable(),
+  gender: z.string().nullable(),
+  job_title: z.string(),
 });
 export const applicationCancelledPayload = z.object({
   application_id: uuid,

@@ -239,6 +239,9 @@ export const personProjection = pmSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     full_name: text('full_name').notNull(),
     job_title: text('job_title'),
+    // FUT-953: mirrors people's employment_period.lifecycle_stage === 'alumni', kept in sync
+    // via people.worker.terminated/reinstated — see subscribers/worker-projection.ts.
+    is_alumni: boolean('is_alumni').notNull().default(false),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index('person_projection_by_name').on(t.tenant_id, t.full_name)],
