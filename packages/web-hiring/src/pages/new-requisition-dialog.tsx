@@ -34,7 +34,7 @@ import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { GroupLabel } from './form-group-label.tsx';
-import { isRichTextEmpty } from './requisition-format.ts';
+import { formatDate, isRichTextEmpty } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
 const MAX_JOB_TITLE_LENGTH = 100;
@@ -315,17 +315,27 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                         setProjectId('');
                       }}
                       placeholder="No account"
+                      hasSearch
+                      searchPlaceholder="Search accounts…"
                     />
                     <Selector
                       label="Project"
-                      options={(projects ?? []).map((p) => ({
-                        value: p.project_id,
-                        label: p.name,
-                      }))}
+                      options={(projects ?? []).map((p) => {
+                        const ended = !!p.date_to && p.date_to < today;
+                        return {
+                          value: p.project_id,
+                          label: ended
+                            ? `${p.name} (Ended ${formatDate(p.date_to as string)})`
+                            : p.name,
+                          disabled: ended,
+                        };
+                      })}
                       value={projectId}
                       onChange={setProjectId}
                       isDisabled={!accountId}
                       placeholder={accountId ? 'No project' : 'Pick an account first'}
+                      hasSearch
+                      searchPlaceholder="Search projects…"
                     />
                   </Grid>
                 </VStack>

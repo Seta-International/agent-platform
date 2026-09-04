@@ -3,6 +3,7 @@ import type {
   GroupWithCountsRow,
   PlanRow,
   PlanWithRollupsRow,
+  TaskDetailRow,
   TaskWithAssigneesRow,
 } from '@seta/planner';
 
@@ -114,6 +115,18 @@ export function makeTaskWithAssignees(
     checklist_summary: { total: 0, checked: 0 },
     checklist_preview: [],
     reference_preview: [],
+    ...over,
+  };
+}
+
+/** The detail DTO, built on the list DTO exactly as `TaskDetailRow` extends
+ *  `TaskWithAssigneesRow`. One place to widen when the DTO grows a field. */
+export function makeTaskDetail(over: Partial<TaskDetailRow> = {}): TaskDetailRow {
+  return {
+    ...makeTaskWithAssignees({ id: 't1' }),
+    checklist: [],
+    references: [],
+    links: [],
     ...over,
   };
 }

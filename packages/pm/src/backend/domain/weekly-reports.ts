@@ -29,6 +29,10 @@ import {
   reportRevision,
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+import {
+  assertProjectActiveForWeek,
+  isProjectEndedForWeek,
+} from './assert-project-active-for-week.ts';
 import { assertProjectReportable } from './assert-project-reportable.ts';
 import { isoWeekRange, isWeekEditable } from './iso-week.ts';
 import { baselineKey, ensureBaselineDefs } from './kpi-baseline.ts';
@@ -396,6 +400,10 @@ export interface WeeklyReportCard {
   /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
   staffed: number;
   team_size: number | null;
+  project_date_to: string | null;
+  /** True once the project's End Date fell before this reporting week started (FUT-984 AC2) —
+   * a project ending mid-week is not "ended" for that final week. */
+  project_ended: boolean;
   /** Delivery pulse (util · predictability · CSS) — the week's measured values of three norm
    * metrics; a metric not measured this week is omitted. */
   headline_metrics: HeadlineMetric[];
@@ -435,6 +443,7 @@ export async function listWeeklyReports(input: {
       pm_person_id: project.pm_person_id,
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
+      date_to: project.date_to,
       can_manage: buildProjectManageFlag(session),
       can_report: buildProjectReporterFlag(session),
       live_readable: buildProjectReadFlag(session),
@@ -608,6 +617,8 @@ export async function listWeeklyReports(input: {
       stats: computation.stats,
       staffed: staffedByProject.get(p.project_id) ?? 0,
       team_size: p.team_size,
+      project_date_to: p.date_to,
+      project_ended: isProjectEndedForWeek(p.date_to, iso_year, iso_week),
       headline_metrics: computeHeadlineMetrics(defs, entries),
       latest_summary: projectReports.find((r) => r.executive_summary)?.executive_summary ?? null,
       reporters: projectReports.map((r) => ({
@@ -664,6 +675,9 @@ export interface WeeklyReportDetail {
    * drives the mock's "Staffed X/Y" line and the "Raise backfill (N seat)" action. */
   staffed: number;
   team_size: number | null;
+  project_date_to: string | null;
+  /** True once the project's End Date fell before this reporting week started (FUT-984 AC2). */
+  project_ended: boolean;
   /** The mock's headline stats (util 102% · predictability 40% · CSS 3.60) — the week's
    * measured values of three named norm metrics; a metric that wasn't measured is omitted. */
   headline_metrics: {
@@ -719,6 +733,7 @@ export async function getWeeklyReportDetail(input: {
       pm_person_id: project.pm_person_id,
       pmo_person_id: project.pmo_person_id,
       team_size: project.team_size,
+      date_to: project.date_to,
       can_manage: buildProjectManageFlag(session),
       can_report: buildProjectReporterFlag(session),
     })
@@ -916,6 +931,8 @@ export async function getWeeklyReportDetail(input: {
     pmo_person_id: proj.pmo_person_id,
     staffed: staffedRow?.staffed ?? 0,
     team_size: proj.team_size,
+    project_date_to: proj.date_to,
+    project_ended: isProjectEndedForWeek(proj.date_to, iso_year, iso_week),
     headline_metrics,
     metrics,
     pm_name: proj.pm_person_id ? (names.get(proj.pm_person_id) ?? null) : null,
@@ -990,6 +1007,12 @@ export async function ensureWeeklyReport(
   const { project_id, iso_year, iso_week, session } = input;
   await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
+  const [projectRow] = await pmDb()
+    .select({ date_to: project.date_to })
+    .from(project)
+    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .limit(1);
+  assertProjectActiveForWeek(projectRow?.date_to ?? null, iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
     throw new PmError('VALIDATION', 'your account is not linked to a worker profile');
@@ -1102,6 +1125,12 @@ export async function upsertWeeklyReport(
   const save_mode = input.save_mode ?? 'submit';
   await assertProjectReportable(project_id, session);
   assertWeekEditable(iso_year, iso_week);
+  const [projectRow] = await pmDb()
+    .select({ date_to: project.date_to })
+    .from(project)
+    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .limit(1);
+  assertProjectActiveForWeek(projectRow?.date_to ?? null, iso_year, iso_week);
   const reporter_id = session.person_id;
   if (!reporter_id) {
     throw new PmError('VALIDATION', 'your account is not linked to a worker profile');

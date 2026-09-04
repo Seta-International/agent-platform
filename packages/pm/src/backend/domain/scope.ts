@@ -123,6 +123,31 @@ function projectManagePlan(session: SessionScope): ScopePlan {
 }
 
 /**
+ * Narrow manage check for reassigning a project's EM/PMO (`pm_person_id`/`pmo_person_id`).
+ * SECURITY-CRITICAL: unlike `buildProjectManageScope`, this deliberately excludes the
+ * self/relationship-arm widening — an incumbent EM/PMO (or Project Access owner) holding only
+ * a self-scoped `pm.manager`/`pm.pmo` grant can manage their own project generally, but must
+ * not be able to unilaterally reassign themselves or their counterpart off it. Only a
+ * tenant-wide or org-unit-matching grant qualifies.
+ */
+export function canAssignProjectLeadership(
+  session: SessionScope,
+  org_unit_id: string | null,
+): boolean {
+  const scope = resolveScope(
+    getDefaultRegistry(),
+    session.assignments,
+    IMPLICIT_PERMISSIONS,
+    'pm.project.manage',
+  );
+  if (scope.kind === 'tenant') return true;
+  if (scope.kind === 'subset') {
+    return org_unit_id !== null && scope.org_unit_ids.includes(org_unit_id);
+  }
+  return false;
+}
+
+/**
  * Row-scope predicate for `pm.account` reads. SECURITY-CRITICAL.
  *
  * Returns `null` for tenant-wide `pm.account.read` scope; otherwise a predicate matching an

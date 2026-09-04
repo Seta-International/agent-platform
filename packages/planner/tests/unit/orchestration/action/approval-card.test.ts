@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildUpdateApprovalCard } from '../../../../src/backend/orchestration/action/approval-card.ts';
+import {
+  buildBulkApprovalCard,
+  buildUpdateApprovalCard,
+} from '../../../../src/backend/orchestration/action/approval-card.ts';
 import type { ActionTaskSnapshot } from '../../../../src/backend/orchestration/action/schemas.ts';
 
 const TASK_ID = '66be2be2-394d-4184-b106-c412289fd1e1';
@@ -62,15 +65,13 @@ describe('buildUpdateApprovalCard', () => {
     const card = build({ due_at: '2026-08-15T16:59:00.000Z' });
     expect(card.primary.argsPatch).toEqual({
       action: 'update',
-      taskId: TASK_ID,
+      targets: [{ taskId: TASK_ID, expectedVersion: 4 }],
       patch: { due_at: '2026-08-15T16:59:00.000Z' },
-      expectedVersion: 4,
       idempotencyKey: 'key-1',
     });
     expect(card.decline.argsPatch).toEqual({
       action: 'decline',
-      taskId: TASK_ID,
-      expectedVersion: 4,
+      targets: [{ taskId: TASK_ID, expectedVersion: 4 }],
       idempotencyKey: 'key-1',
     });
   });
@@ -88,5 +89,126 @@ describe('buildUpdateApprovalCard', () => {
 
   it('throws on an empty patch — an empty preview must never reach the user', () => {
     expect(() => build({})).toThrow(/no changes/i);
+  });
+});
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+function snap(over: Partial<ActionTaskSnapshot> = {}): ActionTaskSnapshot {
+  return {
+    taskId: '66be2be2-394d-4184-b106-c412289fd1e1',
+    title: 'Alpha',
+    description: null,
+    due_at: null,
+    start_at: null,
+    priority_number: 5,
+    percent_complete: 0,
+    version: 4,
+    groupId: 'aa11bb22-cc33-4d44-8e55-ff6677889900',
+    ...over,
+  };
+}
+
+describe('buildBulkApprovalCard', () => {
+  const base = { tenantId: 't1', userId: 'u1', idempotencyKey: 'key-1' };
+
+  it('renders one row per task, labelled by title, with the count in the summary', () => {
+    const card = buildBulkApprovalCard({
+      ...base,
+      tasks: [
+        snap({ taskId: 'id-a', title: 'Alpha', percent_complete: 0 }),
+        snap({ taskId: 'id-b', title: 'Beta', percent_complete: 50 }),
+        snap({ taskId: 'id-c', title: 'Gamma', percent_complete: 0 }),
+      ],
+      patch: { percent_complete: 100 },
+    });
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    expect(block.rows).toEqual([
+      { k: 'Alpha', v: 'Not started → Completed' },
+      { k: 'Beta', v: 'In progress → Completed' },
+      { k: 'Gamma', v: 'Not started → Completed' },
+    ]);
+    expect(card.summary).toBe('3 tasks will change.');
+    expect(card.riskBadge).toBe('write');
+  });
+
+  it('labels each field when more than one changes', () => {
+    const card = buildBulkApprovalCard({
+      ...base,
+      tasks: [snap({ title: 'Alpha', priority_number: 5, percent_complete: 0 })],
+      patch: { priority_number: 1, percent_complete: 100 },
+    });
+    const block = card.details[0] as { rows: Array<{ k: string; v: string }> };
+    expect(block.rows[0]!.v).toBe('Priority: Medium → Urgent; Progress: Not started → Completed');
+  });
+
+  it('never shows a stored number or a UUID', () => {
+    const card = buildBulkApprovalCard({
+      ...base,
+      tasks: [snap({ taskId: 'id-a', title: 'Alpha' }), snap({ taskId: 'id-b', title: 'Beta' })],
+      patch: { priority_number: 1 },
+    });
+    const rendered = JSON.stringify(card.details);
+    expect(rendered).not.toMatch(UUID_RE);
+    expect(rendered).toContain('Urgent');
+    expect(rendered).not.toContain('"1"');
+  });
+
+  it('clips a long title so the card stays readable', () => {
+    const card = buildBulkApprovalCard({
+      ...base,
+      tasks: [snap({ title: 'x'.repeat(200) }), snap({ taskId: 'id-b', title: 'Beta' })],
+      patch: { percent_complete: 100 },
+    });
+    const block = card.details[0] as { rows: Array<{ k: string }> };
+    expect(block.rows[0]!.k).toHaveLength(60);
+    expect(block.rows[0]!.k.endsWith('…')).toBe(true);
+  });
+
+  it('carries targets AND the idempotency key on BOTH primary and decline', () => {
+    const card = buildBulkApprovalCard({
+      ...base,
+      tasks: [snap({ taskId: 'id-a', version: 4 }), snap({ taskId: 'id-b', version: 9 })],
+      patch: { percent_complete: 100 },
+    });
+    const targets = [
+      { taskId: 'id-a', expectedVersion: 4 },
+      { taskId: 'id-b', expectedVersion: 9 },
+    ];
+    expect(card.primary.argsPatch).toEqual({
+      action: 'update',
+      targets,
+      patch: { percent_complete: 100 },
+      idempotencyKey: 'key-1',
+    });
+    expect(card.decline.argsPatch).toEqual({
+      action: 'decline',
+      targets,
+      idempotencyKey: 'key-1',
+    });
+  });
+});
+
+describe('buildUpdateApprovalCard — one target, batch argsPatch', () => {
+  it('uses the same targets[] shape as a batch', () => {
+    const card = buildUpdateApprovalCard({
+      task: snap({ taskId: 'id-a', version: 4 }),
+      patch: { percent_complete: 100 },
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'key-1',
+    });
+    expect(card.primary.argsPatch).toEqual({
+      action: 'update',
+      targets: [{ taskId: 'id-a', expectedVersion: 4 }],
+      patch: { percent_complete: 100 },
+      idempotencyKey: 'key-1',
+    });
+    expect(card.decline.argsPatch).toEqual({
+      action: 'decline',
+      targets: [{ taskId: 'id-a', expectedVersion: 4 }],
+      idempotencyKey: 'key-1',
+    });
   });
 });

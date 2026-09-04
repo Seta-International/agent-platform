@@ -128,7 +128,7 @@ export function KpiExplorerTable<T>({
         // biome-ignore lint/a11y/noNoninteractiveTabindex: WCAG 2.1.1 — the metric columns past the right edge are only reachable if the scroll region itself takes focus.
         tabIndex={0}
         aria-label={regionLabel}
-        className="min-h-0 overflow-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+        className="min-h-0 overflow-auto [scrollbar-gutter:stable] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
       >
         <div ref={contentRef} className="w-max min-w-full">
           <table className="w-full caption-bottom border-collapse">

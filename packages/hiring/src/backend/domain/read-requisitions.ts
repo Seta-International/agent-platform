@@ -272,6 +272,7 @@ export interface ProjectOption {
   project_id: string;
   account_id: string;
   name: string;
+  date_to: string | null;
 }
 
 // Backing the New Requisition account/project pickers — same local read-models the board and
@@ -295,6 +296,7 @@ export async function listProjects(
       project_id: projectProjection.project_id,
       account_id: projectProjection.account_id,
       name: projectProjection.name,
+      date_to: projectProjection.date_to,
     })
     .from(projectProjection)
     .where(
