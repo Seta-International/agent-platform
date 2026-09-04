@@ -4,8 +4,6 @@ import {
   BULK_TARGET_CAP,
   LinkTasksResumeSchema,
   LinkTasksToolInputSchema,
-  MergeTasksResumeSchema,
-  MergeTasksToolInputSchema,
   UpdateTaskResumeSchema,
   UpdateTaskToolInputSchema,
 } from '../../../../src/backend/orchestration/action/schemas.ts';
@@ -144,65 +142,5 @@ describe('the ActionResume union', () => {
         targets: [{ taskId: TASK_A, expectedVersion: 1 }],
       }),
     ).toThrow();
-  });
-});
-
-describe('MergeTasksToolInputSchema', () => {
-  // The two arguments are NOT interchangeable — one of them gets trashed — so the
-  // names carry the semantics and there is no positional pair to transpose.
-  it('names which task dies and which survives', () => {
-    const parsed = MergeTasksToolInputSchema.parse({
-      duplicateTaskRef: 'Alpha',
-      keepTaskRef: 'Beta',
-    });
-    expect(parsed).toEqual({ duplicateTaskRef: 'Alpha', keepTaskRef: 'Beta' });
-  });
-
-  it('rejects an unnamed pair', () => {
-    expect(() => MergeTasksToolInputSchema.parse({ taskRefs: ['Alpha', 'Beta'] })).toThrow();
-  });
-
-  it('rejects a blank ref rather than resolving it later', () => {
-    expect(() =>
-      MergeTasksToolInputSchema.parse({ duplicateTaskRef: '  ', keepTaskRef: 'Beta' }),
-    ).toThrow();
-  });
-});
-
-describe('MergeTasksResumeSchema', () => {
-  it('binds only the duplicate’s version — the keeper is not modified', () => {
-    const parsed = MergeTasksResumeSchema.parse({
-      action: 'merge',
-      duplicateTaskId: TASK_A,
-      duplicateExpectedVersion: 3,
-      keepTaskId: TASK_B,
-      idempotencyKey: 'k',
-    });
-    expect(parsed.duplicateExpectedVersion).toBe(3);
-    expect(parsed).not.toHaveProperty('keepExpectedVersion');
-  });
-
-  it('rejects a keeper version, so nobody adds one back by accident', () => {
-    expect(() =>
-      MergeTasksResumeSchema.parse({
-        action: 'merge',
-        duplicateTaskId: TASK_A,
-        duplicateExpectedVersion: 3,
-        keepTaskId: TASK_B,
-        keepExpectedVersion: 1,
-        idempotencyKey: 'k',
-      }),
-    ).toThrow();
-  });
-
-  it('joins the ActionResume union', () => {
-    const parsed = ActionResumeSchema.parse({
-      action: 'merge',
-      duplicateTaskId: TASK_A,
-      duplicateExpectedVersion: 3,
-      keepTaskId: TASK_B,
-      idempotencyKey: 'k',
-    });
-    expect(parsed.action).toBe('merge');
   });
 });
