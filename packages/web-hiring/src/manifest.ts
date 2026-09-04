@@ -41,7 +41,6 @@ export const hiringAppManifest: AppManifest = {
           label: 'Interviews',
           to: '/hiring/interviews',
           requires: ['hiring.candidate.read'],
-          badge: 'Soon',
         },
         {
           id: 'hiring.knowledge',

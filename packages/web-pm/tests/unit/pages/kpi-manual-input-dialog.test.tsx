@@ -151,9 +151,6 @@ function speaksLocale(tag: string) {
   Object.defineProperty(navigator, 'language', { value: tag, configurable: true });
 }
 
-const greyBlock = (n: number) =>
-  `${n} ${n === 1 ? 'metric is' : 'metrics are'} still Grey — every metric needs its figures to save`;
-
 async function fillEveryMetric(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByRole('textbox', { name: 'Production defects' }), '1');
   await user.type(box('Total defects'), '20');
@@ -518,7 +515,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(days).toHaveValue('');
   });
 
-  it('refuses to save once an emptied metric turns the record Grey', async () => {
+  it('saves the record with the metric the reporter emptied carrying no figure', async () => {
     fetchKpiRecordMock.mockResolvedValue({
       ...record,
       record_id: 'rec-1',
@@ -539,10 +536,12 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.tab();
     await user.click(saveButton());
 
-    expect(upsertKpiRecordMock).not.toHaveBeenCalled();
-    expect(
-      screen.getByText('1 metric is still Grey — every metric needs its figures to save'),
-    ).toBeInTheDocument();
+    expect(upsertKpiRecordMock).toHaveBeenCalledOnce();
+    expect(upsertKpiRecordMock.mock.calls[0]?.[0].entries).toContainEqual({
+      metric_id: 'm-risk-lead',
+      component_1_value: null,
+      component_2_value: null,
+    });
   });
 
   it('confirms the save to the reporter', async () => {
@@ -871,19 +870,22 @@ describe('KpiManualInputDialog — entry validation', () => {
     expect(box('Total defects')).toHaveFocus();
   });
 
-  it('names how many metrics are still Grey rather than a Save that does nothing', async () => {
+  it('saves a record on which the reporter filled nothing in at all', async () => {
     const user = userEvent.setup();
     renderDialog();
 
     await screen.findByRole('textbox', { name: 'Production defects' });
     await user.click(saveButton());
 
-    expect(upsertKpiRecordMock).not.toHaveBeenCalled();
-    expect(screen.getByText(greyBlock(3))).toBeInTheDocument();
-    expect(box('Production defects')).toHaveFocus();
+    expect(upsertKpiRecordMock).toHaveBeenCalledOnce();
+    expect(upsertKpiRecordMock.mock.calls[0]?.[0].entries).toEqual([
+      { metric_id: 'm-leakage', component_1_value: null, component_2_value: null },
+      { metric_id: 'm-util', component_1_value: null, component_2_value: null },
+      { metric_id: 'm-risk-lead', component_1_value: null, component_2_value: null },
+    ]);
   });
 
-  it('marks every box a Grey metric still needs, and only those', async () => {
+  it('saves the metrics that were filled beside the ones left blank', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -892,22 +894,23 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.type(box('Total defects'), '20');
     await user.click(saveButton());
 
-    expect(numerator).not.toHaveAttribute('aria-invalid');
-    expect(box('Total defects')).not.toHaveAttribute('aria-invalid');
-    expect(box('Worked hours')).toHaveAttribute('aria-invalid', 'true');
-    expect(box('Available hours')).toHaveAttribute('aria-invalid', 'true');
-    expect(box('Days occurrence → register entry')).toHaveAttribute('aria-invalid', 'true');
+    expect(upsertKpiRecordMock.mock.calls[0]?.[0].entries).toEqual([
+      { metric_id: 'm-leakage', component_1_value: 1, component_2_value: 20 },
+      { metric_id: 'm-util', component_1_value: null, component_2_value: null },
+      { metric_id: 'm-risk-lead', component_1_value: null, component_2_value: null },
+    ]);
   });
 
-  it('says nothing under a box that is merely empty, so only the footer explains', async () => {
+  it('neither marks nor complains about a box left merely empty', async () => {
     const user = userEvent.setup();
     renderDialog();
 
     const hours = await screen.findByRole('textbox', { name: 'Worked hours' });
     await user.click(saveButton());
 
-    expect(hours).toHaveAttribute('aria-invalid', 'true');
+    expect(hours).not.toHaveAttribute('aria-invalid');
     expect(messageUnder(hours)).toBeNull();
+    expect(screen.queryByText(/needs? fixing/)).not.toBeInTheDocument();
   });
 
   it('marks a half-typed figure that no other box can complain about', async () => {
@@ -923,7 +926,7 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.click(saveButton());
 
     expect(upsertKpiRecordMock).not.toHaveBeenCalled();
-    expect(screen.getByText(greyBlock(1))).toBeInTheDocument();
+    expect(screen.getByText('1 figure needs fixing')).toBeInTheDocument();
     expect(days).toHaveAttribute('aria-invalid', 'true');
     expect(messageUnder(days)).toBe('Enter a number');
   });
@@ -941,85 +944,89 @@ describe('KpiManualInputDialog — entry validation', () => {
     await user.click(saveButton());
 
     expect(upsertKpiRecordMock).not.toHaveBeenCalled();
-    expect(screen.getByText(greyBlock(1))).toBeInTheDocument();
+    expect(screen.getByText('2 figures need fixing')).toBeInTheDocument();
     expect(numerator).toHaveAttribute('aria-invalid', 'true');
     expect(messageUnder(numerator)).toBe('Enter a number');
     expect(box('Total defects')).toHaveAttribute('aria-invalid', 'true');
     expect(messageUnder(box('Total defects'))).toBe('Enter a number');
   });
 
-  it('clears the mark on a box as soon as its figure lands', async () => {
+  it('clears the mark on a half-typed box as soon as a real figure lands', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const hours = await screen.findByRole('textbox', { name: 'Worked hours' });
-    await user.click(saveButton());
-    expect(hours).toHaveAttribute('aria-invalid', 'true');
-
-    await user.type(hours, '8');
+    const worked = await screen.findByRole('textbox', { name: 'Worked hours' });
+    await user.type(worked, '8.');
     await user.type(box('Available hours'), '10');
+    await user.click(saveButton());
+    expect(worked).toHaveAttribute('aria-invalid', 'true');
 
-    expect(hours).not.toHaveAttribute('aria-invalid');
-    expect(box('Available hours')).not.toHaveAttribute('aria-invalid');
+    await user.type(worked, '5');
+
+    expect(worked).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText(/needs? fixing/)).not.toBeInTheDocument();
   });
 
-  it('leaves the boxes unmarked until the reporter has actually tried to save', async () => {
-    renderDialog();
-    const hours = await screen.findByRole('textbox', { name: 'Worked hours' });
-
-    expect(hours).not.toHaveAttribute('aria-invalid');
-  });
-
-  it('counts down the Grey metrics as the reporter fills them in', async () => {
+  it('leaves a half-typed box unmarked until the reporter has actually tried to save', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    const numerator = await screen.findByRole('textbox', { name: 'Production defects' });
+    const days = await screen.findByRole('textbox', {
+      name: 'Days occurrence → register entry',
+    });
+    await user.type(days, '7.');
+
+    expect(days).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('counts down the figures needing a fix as the reporter corrects them', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const worked = await screen.findByRole('textbox', { name: 'Worked hours' });
+    await user.type(worked, '8.');
+    await user.type(box('Available hours'), '10.');
     await user.click(saveButton());
-    expect(screen.getByText(greyBlock(3))).toBeInTheDocument();
+    expect(screen.getByText('2 figures need fixing')).toBeInTheDocument();
 
-    await user.type(numerator, '1');
-    await user.type(box('Total defects'), '20');
-    expect(screen.getByText(greyBlock(2))).toBeInTheDocument();
+    await user.type(box('Available hours'), '5');
+    expect(screen.getByText('1 figure needs fixing')).toBeInTheDocument();
 
-    await user.type(box('Worked hours'), '8');
-    await user.type(box('Available hours'), '10');
-    await user.type(box('Days occurrence → register entry'), '-1');
+    await user.type(worked, '5');
 
     expect(screen.queryByText(/needs? fixing/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/still Grey/)).not.toBeInTheDocument();
   });
 
   it('drops the blocking message when the reporter moves to another project', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(await screen.findByRole('textbox', { name: 'Production defects' }), '7.');
     await user.click(saveButton());
-    expect(screen.getByText(greyBlock(3))).toBeInTheDocument();
+    expect(screen.getByText('1 figure needs fixing')).toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: /^Project/ }));
     await user.click(await screen.findByRole('option', { name: 'Acme Billing Revamp' }));
     await waitFor(() => expect(box('Production defects')).toHaveValue(''));
 
-    expect(screen.queryByText(/still Grey/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/needs? fixing/)).not.toBeInTheDocument();
   });
 
   it('brings the blocking message back on the project it was raised for', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await screen.findByRole('textbox', { name: 'Production defects' });
+    await user.type(await screen.findByRole('textbox', { name: 'Production defects' }), '7.');
     await user.click(saveButton());
 
     await user.click(screen.getByRole('combobox', { name: /^Project/ }));
     await user.click(await screen.findByRole('option', { name: 'Acme Billing Revamp' }));
-    await waitFor(() => expect(screen.queryByText(/still Grey/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/needs? fixing/)).not.toBeInTheDocument());
 
     await user.click(screen.getByRole('combobox', { name: /^Project/ }));
     await user.click(await screen.findByRole('option', { name: 'Acme Analytics Hub' }));
 
-    expect(await screen.findByText(greyBlock(3))).toBeInTheDocument();
+    expect(await screen.findByText('1 figure needs fixing')).toBeInTheDocument();
   });
 
   it('holds Save shut until the record reloaded after a conflict has landed', async () => {

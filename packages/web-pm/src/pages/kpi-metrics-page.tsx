@@ -113,20 +113,15 @@ export function KpiMetricsPage() {
     () => (projectsQuery.data ?? []).filter((p) => p.can_manage),
     [projectsQuery.data],
   );
-  const configureScopeAccounts = useMemo(() => {
-    if (accountIds.length > 0) return new Set(accountIds);
-    const fromProject = search.project
-      ? (projectsQuery.data ?? []).find((p) => p.project_id === search.project)?.account_id
-      : undefined;
-    return new Set(fromProject ? [fromProject] : []);
-  }, [accountIds, search.project, projectsQuery.data]);
-  const configurableProjects = useMemo(
-    () =>
-      configureScopeAccounts.size === 0
-        ? manageableProjects
-        : manageableProjects.filter((p) => configureScopeAccounts.has(p.account_id)),
-    [manageableProjects, configureScopeAccounts],
-  );
+  const configurableProjects = useMemo(() => {
+    if (accountIds.length > 0) {
+      const scope = new Set(accountIds);
+      return manageableProjects.filter((p) => scope.has(p.account_id));
+    }
+    if (search.project) return manageableProjects.filter((p) => p.project_id === search.project);
+    return manageableProjects;
+  }, [manageableProjects, accountIds, search.project]);
+  const scopedToOneProject = accountIds.length === 0 && search.project !== undefined;
   const managesNothing = manageableProjects.length === 0;
   const nothingToConfigure = configurableProjects.length === 0;
   const viewingCurrentWeek = weeks[0]?.iso_year === iso_year && weeks[0]?.iso_week === iso_week;
@@ -355,7 +350,9 @@ export function KpiMetricsPage() {
                     managesNothing
                       ? 'You do not manage any project — configuring applied metrics needs manage rights.'
                       : nothingToConfigure
-                        ? 'You do not manage any project in the accounts you filtered to. Clear the Account filter to configure the ones you do.'
+                        ? scopedToOneProject
+                          ? 'You do not manage the project you filtered to. Clear the Project filter to configure the ones you do.'
+                          : 'You do not manage any project in the accounts you filtered to. Clear the Account filter to configure the ones you do.'
                         : !weekReady
                           ? 'Still loading which week it is. Configuring needs the current week to warn you about figures already entered.'
                           : !viewingCurrentWeek

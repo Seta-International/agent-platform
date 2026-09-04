@@ -286,7 +286,7 @@ describe('upsertKpiRecord and unapplied metrics', () => {
     });
   });
 
-  it('refuses to blank out a still-applied metric, so its stored figure survives', async () => {
+  it('drops the stored figure of a still-applied metric the reporter blanked out', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -316,25 +316,23 @@ describe('upsertKpiRecord and unapplied metrics', () => {
           session: t.adminSession,
         });
 
-        await expect(
-          upsertKpiRecord({
-            project_id: projectId,
-            iso_year: 2026,
-            iso_week: 29,
-            expected_version: first.version,
-            entries: [
-              { metric_id: metricA, component_1_value: 3, component_2_value: null },
-              { metric_id: metricB, component_1_value: null, component_2_value: null },
-            ],
-            session: t.adminSession,
-          }),
-        ).rejects.toThrow(/still missing/);
+        await upsertKpiRecord({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          expected_version: first.version,
+          entries: [
+            { metric_id: metricA, component_1_value: 3, component_2_value: null },
+            { metric_id: metricB, component_1_value: null, component_2_value: null },
+          ],
+          session: t.adminSession,
+        });
 
         const remaining = await pool.query(
           `SELECT metric_id FROM pm.kpi_record_entry WHERE tenant_id = $1 AND record_id = $2`,
           [t.tenant_id, first.record_id],
         );
-        expect(remaining.rows.map((r) => r.metric_id).sort()).toEqual([metricA, metricB].sort());
+        expect(remaining.rows.map((r) => r.metric_id)).toEqual([metricA]);
       } finally {
         resetPmDb();
         resetCoreDb();

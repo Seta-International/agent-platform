@@ -466,6 +466,119 @@ export const performanceConfigMonthPin = peopleSchema.table(
   ],
 );
 
+export const EVALUATION_STATUSES = ['draft', 'submitted'] as const;
+/**
+ * Who is doing the scoring: a TL scores project members, an AM scores TLs, and a member
+ * scores themselves (FUT-779). Only members self-assess — a lead's own review is the
+ * AM's to write.
+ */
+export const EVALUATOR_CAPACITIES = ['tl', 'am', 'self'] as const;
+/** Criterion scores run this scale in half points — 1, 1.5, … 5 (FUT-784 AC2). */
+export const SCORE_MIN = 1;
+export const SCORE_MAX = 5;
+
+/**
+ * One evaluation of one person, on one project, for one review month — at most one from
+ * their manager and at most one from themselves (the unique indexes are the guarantee,
+ * not a convention). Both are scored against the same criteria so the two views compare;
+ * only the manager's feeds the official roll-ups (FUT-779 AC3).
+ *
+ * `revision_id` freezes the account config the evaluation was scored against, so a
+ * closed month always renders the criteria and weights that were in force at the time
+ * (AC7) even after the AM reconfigures. `overall` is written by the server on submit
+ * and is NULL while the evaluation is a draft — the UI shows "—", never 0 (AC5).
+ * `version` is the optimistic lock behind the two-tab guard (AC8).
+ */
+export const performanceEvaluation = peopleSchema.table(
+  'performance_evaluation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    review_month: text('review_month').notNull(),
+    subject_person_id: uuid('subject_person_id').notNull(),
+    project_id: uuid('project_id').notNull(),
+    /** Denormalized from the project so account/company roll-ups need no join. */
+    account_id: uuid('account_id').notNull(),
+    evaluator_person_id: uuid('evaluator_person_id').notNull(),
+    evaluator_capacity: textEnum('evaluator_capacity', EVALUATOR_CAPACITIES).notNull(),
+    revision_id: uuid('revision_id')
+      .notNull()
+      .references(() => performanceConfigRevision.id),
+    status: textEnum('status', EVALUATION_STATUSES).notNull().default('draft'),
+    overall: numeric('overall', { precision: 3, scale: 2 }),
+    strengths: text('strengths').notNull().default(''),
+    improve: text('improve').notNull().default(''),
+    top_action: text('top_action').notNull().default(''),
+    submitted_at: timestamp('submitted_at', { withTimezone: true }),
+    version: integer('version').notNull().default(1),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Two rows may exist per (subject, project, month) and no more: the manager's review
+    // and the subject's own. Split as partial indexes rather than adding capacity to one
+    // key, so a lead change mid-cycle can flip a review from `tl` to `am` without ever
+    // opening room for a second manager row.
+    uniqueIndex('perf_eval_uniq_manager_review')
+      .on(t.tenant_id, t.review_month, t.subject_person_id, t.project_id)
+      .where(sql`subject_person_id <> evaluator_person_id`),
+    uniqueIndex('perf_eval_uniq_self_assessment')
+      .on(t.tenant_id, t.review_month, t.subject_person_id, t.project_id)
+      .where(sql`subject_person_id = evaluator_person_id`),
+    index('perf_eval_by_account_month').on(t.tenant_id, t.account_id, t.review_month),
+    index('perf_eval_by_evaluator').on(t.tenant_id, t.evaluator_person_id, t.review_month),
+    textEnumCheck('performance_evaluation', 'status', EVALUATION_STATUSES),
+    textEnumCheck('performance_evaluation', 'evaluator_capacity', EVALUATOR_CAPACITIES),
+    check('perf_eval_ym', sql`review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    // `self` is exactly the capacity in which someone writes about themselves — a manager
+    // review can never be self-addressed (FUT-784 AC8), and a self-assessment can never be
+    // filed under a manager capacity where the roll-ups would count it (FUT-779 AC3).
+    check(
+      'perf_eval_self_capacity',
+      sql`(evaluator_capacity = 'self') = (subject_person_id = evaluator_person_id)`,
+    ),
+    // The official score exists exactly when the evaluation has been submitted (AC5).
+    check(
+      'perf_eval_overall_on_submit',
+      sql`(status = 'submitted') = (overall IS NOT NULL AND submitted_at IS NOT NULL)`,
+    ),
+    check('perf_eval_overall_range', sql`overall IS NULL OR (overall >= 1 AND overall <= 5)`),
+  ],
+);
+
+/**
+ * One score per criterion of the evaluation's frozen revision. A criterion with no row
+ * is simply unscored, which is how a draft in progress looks.
+ *
+ * `evidence` is no longer collected by the form; the column stays so notes written before
+ * that survive, and so a write never has to blank them.
+ */
+export const performanceEvaluationScore = peopleSchema.table(
+  'performance_evaluation_score',
+  {
+    tenant_id: uuid('tenant_id').notNull(),
+    evaluation_id: uuid('evaluation_id')
+      .notNull()
+      .references(() => performanceEvaluation.id, { onDelete: 'cascade' }),
+    criterion_id: uuid('criterion_id')
+      .notNull()
+      .references(() => performanceConfigCriterion.id),
+    // numeric, not integer: the scale steps by a half point.
+    score: numeric('score', { precision: 2, scale: 1 }).notNull(),
+    evidence: text('evidence').notNull().default(''),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.evaluation_id, t.criterion_id] }),
+    check(
+      'perf_eval_score_range',
+      sql`score >= ${sql.raw(String(SCORE_MIN))} AND score <= ${sql.raw(String(SCORE_MAX))}`,
+    ),
+    // Half points only — 3.5 is a score, 3.4 is a typo.
+    check('perf_eval_score_step', sql`(score * 2) = trunc(score * 2)`),
+  ],
+);
+
 export const UNLOCK_ACTIONS = ['unlock', 'relock'] as const;
 
 /** A manual unlock may reopen an account's cycle for at most this many days (FUT-781). */

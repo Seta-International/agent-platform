@@ -11,39 +11,32 @@ import {
   Text,
   VStack,
 } from '@seta/shared-ui';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import {
-  type AmDashboardData,
-  amDashboardFixture,
-  type MemberRow,
-  type ProjectDrill,
-  type ReviewStatus,
-} from '../mock/performance-am-fixture.ts';
-import type { PerformanceGroupAxis } from '../mock/performance-scores.ts';
-import { formatPerformanceMonth } from '../nav/performance-dashboard.ts';
+import type { PerformanceRollup, RollupLeaf, RollupRow } from '../api/people-client.ts';
+import { performanceRollupOptions } from '../api/performance-query.ts';
+import { useEvaluateTarget } from '../hooks/use-evaluate-target.ts';
+import { formatScore } from '../lib/performance-scores.ts';
+import { EvaluateDialog } from './evaluate-dialog.tsx';
 import { type HeatColumn, PillarHeatmap } from './performance-pillar-heatmap.tsx';
+import { CycleEmptyNote, RollupBoundary } from './performance-rollup-boundary.tsx';
 import { BandLegend, KpiTile } from './performance-score-bits.tsx';
 import { groupScoreColumns, PersonCell, totalColumn } from './performance-score-table.tsx';
 
-const REVIEW_STATUS: Record<
-  ReviewStatus,
-  { label: string; variant: 'success' | 'warning' | 'neutral' }
-> = {
-  reviewed: { label: 'Reviewed', variant: 'success' },
-  pending: { label: 'Pending', variant: 'warning' },
-  locked: { label: 'Locked', variant: 'neutral' },
-};
+type MemberRow = RollupLeaf & Record<string, unknown>;
 
 // ---- Project drill: members + team lead to evaluate ---------------------
 
 function ProjectDrillPanel({
-  groups,
+  rollup,
   project,
+  onEvaluate,
 }: {
-  groups: readonly PerformanceGroupAxis[];
-  project: ProjectDrill;
+  rollup: PerformanceRollup;
+  project: RollupRow;
+  onEvaluate: (personId: string) => void;
 }) {
-  const columns = useMemo<TableColumn<MemberRow & Record<string, unknown>>[]>(
+  const columns = useMemo<TableColumn<MemberRow>[]>(
     () => [
       {
         key: 'name',
@@ -52,13 +45,13 @@ function ProjectDrillPanel({
         renderCell: (m) => (
           <PersonCell
             name={m.name}
-            role={m.role}
-            badge={m.is_team_lead ? <Badge variant="blue" label="Team Lead" /> : undefined}
+            role={m.subtitle}
+            badge={m.is_lead ? <Badge variant="blue" label="Team Lead" /> : undefined}
           />
         ),
       },
-      ...groupScoreColumns<MemberRow & Record<string, unknown>>(groups, (m) => m.scores),
-      totalColumn<MemberRow & Record<string, unknown>>((m) => m.total),
+      ...groupScoreColumns<MemberRow>(rollup.groups, (m) => m.scores),
+      totalColumn<MemberRow>((m) => m.overall),
       {
         key: 'review',
         header: 'Review',
@@ -66,38 +59,43 @@ function ProjectDrillPanel({
         width: pixel(132),
         renderCell: (m) => {
           // The Team Lead is the person the AM evaluates — action lives on their row.
-          if (m.is_team_lead) {
+          if (m.is_lead) {
+            const done = m.scored > 0;
             return (
               <div className="flex justify-end">
                 <Button
                   size="sm"
-                  variant={m.eval_status === 'evaluated' ? 'ghost' : 'primary'}
-                  label={m.eval_status === 'evaluated' ? 'Edit review' : 'Evaluate'}
+                  variant={done ? 'ghost' : 'primary'}
+                  label={done ? 'Edit review' : 'Evaluate'}
+                  onClick={() => onEvaluate(m.id)}
                 />
               </div>
             );
           }
-          const s = REVIEW_STATUS[m.review_status];
           return (
             <div className="flex justify-end">
-              <Badge variant={s.variant} label={s.label} />
+              {m.scored > 0 ? (
+                <Badge variant="success" label="Reviewed" />
+              ) : (
+                <Badge variant="warning" label="Pending" />
+              )}
             </div>
           );
         },
       },
     ],
-    [groups],
+    [rollup.groups, onEvaluate],
   );
 
   return (
     <VStack gap={2}>
       <Text as="h3" size="base" weight="semibold">
-        {project.project_name} — pillar scores per member
+        {project.name} — pillar scores per member
       </Text>
-      <Table<MemberRow & Record<string, unknown>>
-        data={project.members as (MemberRow & Record<string, unknown>)[]}
+      <Table<MemberRow>
+        data={project.children as MemberRow[]}
         columns={columns}
-        idKey="member_id"
+        idKey="id"
         density="balanced"
         hasHover
         data-testid="members-table"
@@ -108,87 +106,125 @@ function ProjectDrillPanel({
 
 // ---- Dashboard ----------------------------------------------------------
 
+/**
+ * The AM's account view: pillar scores by project, drilling into each project's
+ * people. Every number comes from the roll-up API — the AM's job on this screen is
+ * evaluating each project's Team Lead.
+ */
 export function PerformanceAmDashboard({
-  groups,
+  accountId,
   accountLabel,
   month,
 }: {
-  /** The account's configured evaluation groups (from the config API). */
-  groups: readonly PerformanceGroupAxis[];
+  accountId: string;
   accountLabel: string;
   month: string;
 }) {
-  const cycleLabel = formatPerformanceMonth(month);
-  const data: AmDashboardData = useMemo(
-    () => amDashboardFixture(groups, accountLabel, cycleLabel),
-    [groups, accountLabel, cycleLabel],
+  const query = useQuery(
+    performanceRollupOptions({ month, scope: 'account', account_id: accountId }),
   );
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const active = selectedProject
-    ? (data.projects.find((p) => p.project_id === selectedProject) ?? null)
-    : null;
-
-  const heatColumns: HeatColumn[] = data.projects.map((pr) => ({
-    id: pr.project_id,
-    title: pr.project_name,
-    subtitle: `${pr.member_count} ppl · ${pr.team_lead_name} ▸`,
-    scores: pr.scores,
-    overall: pr.overall,
-  }));
+  const evaluate = useEvaluateTarget();
 
   return (
-    <VStack gap={4} data-testid="performance-home">
-      {/* KPI row */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KpiTile
-          label="Team Leads to review"
-          value={`${data.kpis.team_leads_to_review}`}
-          hint={`of ${data.kpis.team_leads_total} on ${data.account_label}`}
-        />
-        <KpiTile label="Projects" value={`${data.kpis.projects}`} hint="active this cycle" />
-        <KpiTile
-          label="Account average"
-          value={data.kpis.account_avg.toFixed(1)}
-          hint="weighted, 1–5 scale"
-        />
-      </div>
+    <RollupBoundary query={query}>
+      {(rollup) => {
+        const active = selectedProject
+          ? (rollup.rows.find((p) => p.id === selectedProject) ?? null)
+          : null;
+        const leadsToReview = rollup.rows.filter((p) =>
+          p.children.some((c) => c.is_lead && c.scored === 0),
+        ).length;
 
-      {/* One cohesive block: heatmap → legend → project drill */}
-      <Card padding={4}>
-        <VStack gap={3}>
-          <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
-            <Text as="h2" size="lg" weight="semibold">
-              Pillar scores by project
-            </Text>
-            <Text size="sm" color="secondary">
-              {accountLabel} · click a project to see each member
-            </Text>
-          </HStack>
+        const heatColumns: HeatColumn[] = rollup.rows.map((pr) => ({
+          id: pr.id,
+          title: pr.name,
+          subtitle: `${pr.member_count} ppl · ${pr.subtitle || 'no lead'} ▸`,
+          scores: pr.scores,
+          overall: pr.overall,
+        }));
 
-          <PillarHeatmap
-            groups={data.groups}
-            columns={heatColumns}
-            selectedId={selectedProject}
-            onSelect={(id) => setSelectedProject((cur) => (cur === id ? null : id))}
-          />
+        return (
+          <VStack gap={4} data-testid="performance-home">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <KpiTile
+                label="Team Leads to review"
+                value={`${leadsToReview}`}
+                hint={`of ${rollup.rows.length} on ${rollup.label}`}
+              />
+              <KpiTile
+                label="Evaluations"
+                value={`${rollup.scored}/${rollup.total}`}
+                hint="submitted this cycle"
+              />
+              <KpiTile
+                label="Account average"
+                value={formatScore(rollup.overall, 1)}
+                hint="weighted, 1–5 scale"
+              />
+            </div>
 
-          <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
-            <BandLegend />
-            {active ? null : (
-              <Text size="xsm" color="secondary">
-                Select a project column to drill in ▸
-              </Text>
-            )}
-          </HStack>
+            <Card padding={4}>
+              <VStack gap={3}>
+                <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
+                  <Text as="h2" size="lg" weight="semibold">
+                    Pillar scores by project
+                  </Text>
+                  <Text size="sm" color="secondary">
+                    {accountLabel} · click a project to see each member
+                  </Text>
+                </HStack>
 
-          {active ? (
-            <>
-              <Divider />
-              <ProjectDrillPanel groups={data.groups} project={active} />
-            </>
-          ) : null}
-        </VStack>
-      </Card>
-    </VStack>
+                {rollup.rows.length === 0 ? (
+                  <Text color="secondary">No projects are running on this account this cycle.</Text>
+                ) : (
+                  <PillarHeatmap
+                    groups={rollup.groups}
+                    columns={heatColumns}
+                    selectedId={selectedProject}
+                    onSelect={(id) => setSelectedProject((cur) => (cur === id ? null : id))}
+                  />
+                )}
+
+                <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
+                  <BandLegend />
+                  {active ? null : (
+                    <Text size="xsm" color="secondary">
+                      Select a project column to drill in ▸
+                    </Text>
+                  )}
+                </HStack>
+                <CycleEmptyNote scored={rollup.scored} total={rollup.total} />
+
+                {active ? (
+                  <>
+                    <Divider />
+                    <ProjectDrillPanel
+                      rollup={rollup}
+                      project={active}
+                      onEvaluate={(personId) => evaluate.open(personId, active.id)}
+                    />
+                  </>
+                ) : null}
+              </VStack>
+            </Card>
+
+            {evaluate.target ? (
+              <EvaluateDialog
+                month={month}
+                subjectPersonId={evaluate.target.subjectPersonId}
+                projectId={evaluate.target.projectId}
+                subjectName={
+                  rollup.rows
+                    .flatMap((p) => p.children)
+                    .find((c) => c.id === evaluate.target?.subjectPersonId)?.name
+                }
+                onClose={evaluate.close}
+              />
+            ) : null}
+          </VStack>
+        );
+      }}
+    </RollupBoundary>
   );
 }

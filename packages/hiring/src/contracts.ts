@@ -248,3 +248,46 @@ export const rejectionReasonInput = z.object({
   category: z.enum(['rejected_by_us', 'withdrew', 'other']),
 });
 export type RejectionReasonInput = z.infer<typeof rejectionReasonInput>;
+
+// ---- Interviews (FUT-487) ----
+export const interviewEventMode = z.enum(['online', 'onsite']);
+export const interviewResult = z.enum(['pass', 'hold', 'fail']);
+
+export const interviewPanelistInput = z.object({
+  user_id: z.string().uuid(),
+  display_name: z.string().trim().min(1),
+});
+export type InterviewPanelistInput = z.infer<typeof interviewPanelistInput>;
+
+const interviewScheduleFields = {
+  scheduled_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
+    message: 'scheduled_at must be a valid date',
+  }),
+  duration_minutes: z.number().int().min(15).max(240),
+  mode: interviewEventMode,
+  meeting_link: z.string().trim().max(2000).optional(),
+  note: z.string().optional(),
+  panel: z.array(interviewPanelistInput).default([]),
+};
+
+export const scheduleInterviewInput = z.object({
+  application_id: z.string().uuid(),
+  ...interviewScheduleFields,
+});
+export type ScheduleInterviewInput = z.infer<typeof scheduleInterviewInput>;
+
+export const rescheduleInterviewInput = z.object(interviewScheduleFields);
+export type RescheduleInterviewInput = z.infer<typeof rescheduleInterviewInput>;
+
+export const completeInterviewInput = z.object({
+  result: interviewResult,
+  feedback_note: z.string().optional(),
+});
+export type CompleteInterviewInput = z.infer<typeof completeInterviewInput>;
+
+// Shared by cancel/no-show — the frontend's reason field is optional for both (a recruiter may
+// not always have (or need) a reason to give).
+export const interviewOutcomeReasonInput = z.object({
+  outcome_reason: z.string().trim().optional(),
+});
+export type InterviewOutcomeReasonInput = z.infer<typeof interviewOutcomeReasonInput>;

@@ -5,7 +5,6 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   computeRecordCategoryColour,
   computeRecordOverallColour,
-  incompleteRecordMetrics,
   type KpiRecordColour,
   type UpsertKpiRecordInput as UpsertKpiRecordInputContract,
   validateKpiEntry,
@@ -110,27 +109,6 @@ function categoryColours(
     delivery: computeRecordCategoryColour(byCategory.delivery),
     process: computeRecordCategoryColour(byCategory.process),
   };
-}
-
-const INCOMPLETE_NAMES_SHOWN = 5;
-
-function assertNoUnassessedMetric(
-  defs: readonly { metric_id: string; name: string }[],
-  statusOf: (metric_id: string) => RagStatus | null,
-): void {
-  if (defs.length === 0) {
-    throw new PmError('VALIDATION', 'No KPI metric is applied to this project yet');
-  }
-  const missing = incompleteRecordMetrics(defs, (d) => statusOf(d.metric_id));
-  if (missing.length === 0) return;
-  const shown = missing.slice(0, INCOMPLETE_NAMES_SHOWN).join(', ');
-  const rest = missing.length - INCOMPLETE_NAMES_SHOWN;
-  throw new PmError(
-    'VALIDATION',
-    `Every applied metric needs its figures before saving — still missing: ${shown}${
-      rest > 0 ? ` (+${rest} more)` : ''
-    }`,
-  );
 }
 
 export interface KpiExplorerMetricCell {
@@ -455,6 +433,9 @@ export async function upsertKpiRecord(
     (await ensureBaselineDefs(session, [project_id], [{ iso_year, iso_week }])).get(
       baselineKey(project_id, { iso_year, iso_week }),
     ) ?? [];
+  if (defs.length === 0) {
+    throw new PmError('VALIDATION', 'No KPI metric is applied to this project yet');
+  }
   const defsById = new Map(defs.map((d) => [d.metric_id, d]));
 
   for (const e of entries) {
@@ -486,8 +467,6 @@ export async function upsertKpiRecord(
       status: statusOf(def, computed_value),
     };
   });
-  const statusByMetric = new Map(computed.map((e) => [e.metric_id, e.status]));
-  assertNoUnassessedMetric(defs, (id) => statusByMetric.get(id) ?? null);
 
   let result!: { record_id: string; version: number; overall_health: RagStatus | null };
   await withEmit(

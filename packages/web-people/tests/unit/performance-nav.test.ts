@@ -29,16 +29,19 @@ describe('performanceTopTabs', () => {
     expect(performanceTopTabs({ capacity: null, canUnlock: false })).toEqual([]);
   });
 
-  it('unlock permission adds a Cycle unlock tab, even with no delivery capacity', () => {
+  it('Cycle unlock belongs to the organization view, not a delivery capacity', () => {
     expect(ids(performanceTopTabs({ capacity: null, canUnlock: true }))).toEqual([
       'reviews',
       'cycle',
     ]);
+    // An org admin acting as an AM/TL/member is on their own delivery surface — a
+    // company-wide PMO control has no business sitting next to their scorecard.
     expect(ids(performanceTopTabs({ capacity: am, canUnlock: true }))).toEqual([
       'reviews',
       'configuration',
-      'cycle',
     ]);
+    expect(performanceTopTabs({ capacity: member, canUnlock: true })).toEqual([]);
+    expect(performanceTopTabs({ capacity: tl, canUnlock: true })).toEqual([]);
   });
 });
 
@@ -56,15 +59,20 @@ describe('isPerformancePathAllowed', () => {
     expect(allowed('/people/performance/configuration', [], tl)).toBe(false);
   });
 
-  it('scoring is TL/AM; self-assessment is member', () => {
-    expect(allowed('/people/performance/scoring', [], tl)).toBe(true);
-    expect(allowed('/people/performance/scoring', [], member)).toBe(false);
-    expect(allowed('/people/performance/self-assessment', [], member)).toBe(true);
+  it('scoring anyone, yourself included, has no path of its own', () => {
+    // Every evaluation opens as a dialog over the dashboard, so neither the old /scoring
+    // page nor the self-assessment stub survives — a stale deep link falls back to
+    // Reviews rather than to an empty screen.
+    expect(allowed('/people/performance/scoring', [], tl)).toBe(false);
+    expect(allowed('/people/performance/self-assessment', [], member)).toBe(false);
     expect(allowed('/people/performance/self-assessment', [], tl)).toBe(false);
   });
 
-  it('cycle unlock follows the permission, not the role list', () => {
+  it('cycle unlock needs the permission AND the organization view', () => {
     expect(allowed('/people/performance/cycle', [], null, true)).toBe(true);
+    // Switching into a delivery capacity leaves the org surface — the shell falls
+    // back to Reviews rather than keeping a PMO control on a member's page.
+    expect(allowed('/people/performance/cycle', [], member, true)).toBe(false);
     // A strategic role without people.performance.unlock still can't reach it.
     expect(allowed('/people/performance/cycle', ['people.manager'], tl, false)).toBe(false);
   });

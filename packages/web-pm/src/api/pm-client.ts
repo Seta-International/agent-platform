@@ -817,16 +817,22 @@ export async function fetchAppliedMetrics(
   return (await handleResponse<{ coverage: AppliedMetricCoverage[] }>(res)).coverage;
 }
 
-export async function setAppliedMetric(
-  metricId: string,
-  applied: boolean,
+export interface AppliedMetricChange {
+  metric_id: string;
+  applied: boolean;
+}
+
+/** Configure metrics saves every staged tick in one request — the server applies them in a
+ * single transaction, so a refused change leaves the whole panel untouched. */
+export async function setAppliedMetrics(
+  changes: AppliedMetricChange[],
   projectIds: string[],
-): Promise<{ metric_id: string; applied: boolean; project_ids: string[] }> {
-  const res = await fetch(`/api/pm/v1/kpi-applied-metrics/${metricId}`, {
+): Promise<{ changes: AppliedMetricChange[]; project_ids: string[] }> {
+  const res = await fetch('/api/pm/v1/kpi-applied-metrics', {
     method: 'PUT',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ applied, project_ids: projectIds }),
+    body: JSON.stringify({ changes, project_ids: projectIds }),
   });
   return handleResponse(res);
 }

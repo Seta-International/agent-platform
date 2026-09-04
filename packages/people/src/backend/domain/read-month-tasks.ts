@@ -9,7 +9,12 @@ import type {
   PerformanceCapacity,
 } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { moraleNote, person, workerAllocationProjection } from '../db/schema.ts';
+import {
+  moraleNote,
+  performanceEvaluation,
+  person,
+  workerAllocationProjection,
+} from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { unlockedAccountIds } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
@@ -102,10 +107,42 @@ async function hasMoraleForMonth(
   return rows.length > 0;
 }
 
+/**
+ * The projects on which the caller has already filed their own self-assessment this
+ * month. One query for every capacity, since a member sits on few enough projects that
+ * the alternative is a round trip per card.
+ */
+async function projectsSelfAssessed(
+  tenantId: string,
+  personId: string,
+  month: string,
+): Promise<Set<string>> {
+  const rows = await peopleDb()
+    .select({ project_id: performanceEvaluation.project_id })
+    .from(performanceEvaluation)
+    .where(
+      and(
+        eq(performanceEvaluation.tenant_id, tenantId),
+        eq(performanceEvaluation.review_month, month),
+        eq(performanceEvaluation.subject_person_id, personId),
+        // Redundant by the `perf_eval_self_capacity` CHECK, and there to put an index
+        // within reach: `perf_eval_by_evaluator` is exactly (tenant, evaluator, month).
+        // Without it the best available index is (tenant, account, month), which reads
+        // every evaluation in the tenant for the month and filters the rest away — fine
+        // at demo size, proportional to the whole company once a cycle is real.
+        eq(performanceEvaluation.evaluator_person_id, personId),
+        eq(performanceEvaluation.evaluator_capacity, 'self'),
+        eq(performanceEvaluation.status, 'submitted'),
+      ),
+    );
+  return new Set(rows.map((r) => r.project_id));
+}
+
 async function buildCardsForCapacity(input: {
   capacity: PerformanceCapacity;
   cycleStatus: CycleStatus;
   totalToScore: number;
+  selfAssessed: ReadonlySet<string>;
   personId: string;
   tenantId: string;
   month: string;
@@ -127,12 +164,19 @@ async function buildCardsForCapacity(input: {
     });
   }
 
+  // Members only (FUT-779): a lead's own review is the AM's to write, so offering them
+  // a self-assessment would point at a form the server refuses to open.
+  if (capacity.kind === 'member') {
+    cards.push({
+      kind: 'self_assessment',
+      submitted: input.selfAssessed.has(capacity.project_id),
+      interactive: true,
+    });
+  }
+
   if (capacity.kind === 'member' || capacity.kind === 'tl') {
     const moraleSubmitted = await hasMoraleForMonth(input.personId, input.tenantId, input.month);
-    cards.push(
-      { kind: 'self_assessment', submitted: false, interactive: true },
-      { kind: 'morale', submitted: moraleSubmitted, interactive: true },
-    );
+    cards.push({ kind: 'morale', submitted: moraleSubmitted, interactive: true });
   }
 
   return cards;
@@ -192,6 +236,7 @@ export async function readMonthTasks(
     at,
     overrideActive: openAccounts.size > 0,
   });
+  const selfAssessed = await projectsSelfAssessed(session.tenant_id, me, input.month);
   const groups: MonthTaskGroup[] = [];
 
   for (const capacity of capacities) {
@@ -219,6 +264,7 @@ export async function readMonthTasks(
         capacity,
         cycleStatus: statusFor(capacity.account_id),
         totalToScore,
+        selfAssessed,
         personId: me,
         tenantId: session.tenant_id,
         month: input.month,

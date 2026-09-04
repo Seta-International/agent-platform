@@ -37,7 +37,7 @@ describe('hiring events (HIR-2)', () => {
     ] as const) {
       expect(HIRING_EVENTS[t]).toBeDefined();
     }
-    expect(Object.keys(HIRING_EVENTS)).toHaveLength(14);
+    expect(Object.keys(HIRING_EVENTS)).toHaveLength(17);
   });
   it('opening.opened payload validates', () => {
     const ok = HIRING_EVENTS[HIRING_OPENING_OPENED].safeParse({
@@ -62,7 +62,7 @@ describe('hiring events (HIR-6/7 candidates + applications)', () => {
     ]) {
       expect(HIRING_EVENTS[key as keyof typeof HIRING_EVENTS], `missing key: ${key}`).toBeDefined();
     }
-    expect(Object.keys(HIRING_EVENTS)).toHaveLength(14);
+    expect(Object.keys(HIRING_EVENTS)).toHaveLength(17);
   });
 
   it('candidate.added payload validates', () => {

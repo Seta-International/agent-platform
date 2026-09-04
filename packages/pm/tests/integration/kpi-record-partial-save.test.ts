@@ -122,35 +122,67 @@ async function apply(f: Fixture, metric_ids: string[]): Promise<void> {
   }
 }
 
-describe('AC7 — a Grey metric is never valid for saving the record', () => {
+describe('a metric left blank is saved as unassessed, not refused', () => {
   beforeEach(() => setWeeklyReportClock(() => new Date('2026-07-15T03:00:00Z')));
   afterAll(() => setWeeklyReportClock());
 
-  it('refuses the save while an applied metric is left blank, and names it', async () => {
+  it('saves the figures that were filled and leaves the blank metric unassessed', async () => {
     await withProject(async (f) => {
       await apply(f, [f.quality_a, f.quality_b]);
-      await expect(
-        upsertKpiRecord({
-          project_id: f.project_id,
-          ...WEEK,
-          entries: [{ metric_id: f.quality_a, component_1_value: 50, component_2_value: null }],
-          session: f.session,
-        }),
-      ).rejects.toThrow(/still missing: Reopened Defect Rate/);
+      const saved = await upsertKpiRecord({
+        project_id: f.project_id,
+        ...WEEK,
+        entries: [
+          { metric_id: f.quality_a, component_1_value: 50, component_2_value: null },
+          { metric_id: f.quality_b, component_1_value: null, component_2_value: null },
+        ],
+        session: f.session,
+      });
+      expect(saved.overall_health).toBe('green');
+
+      const detail = await getKpiRecord({ project_id: f.project_id, ...WEEK, session: f.session });
+      const blank = detail.metrics.find((m) => m.metric_id === f.quality_b);
+      expect(blank?.component_1_value).toBeNull();
+      expect(blank?.status).toBeNull();
+      expect(detail.category_health.quality).toBe('gray');
     });
   });
 
-  it('refuses the save when a whole pillar is left blank', async () => {
+  it('saves a record with a whole pillar left blank', async () => {
     await withProject(async (f) => {
       await apply(f, [f.quality_a, f.delivery]);
-      await expect(
-        upsertKpiRecord({
-          project_id: f.project_id,
-          ...WEEK,
-          entries: [{ metric_id: f.quality_a, component_1_value: 50, component_2_value: null }],
-          session: f.session,
-        }),
-      ).rejects.toThrow(/still missing: On-time Delivery/);
+      await upsertKpiRecord({
+        project_id: f.project_id,
+        ...WEEK,
+        entries: [{ metric_id: f.quality_a, component_1_value: 50, component_2_value: null }],
+        session: f.session,
+      });
+
+      const detail = await getKpiRecord({ project_id: f.project_id, ...WEEK, session: f.session });
+      expect(detail.category_health.quality).toBe('green');
+      expect(detail.category_health.delivery).toBe('gray');
+    });
+  });
+
+  it('saves a record on which nothing at all was filled in', async () => {
+    await withProject(async (f) => {
+      await apply(f, [f.quality_a, f.quality_b, f.delivery]);
+      const saved = await upsertKpiRecord({
+        project_id: f.project_id,
+        ...WEEK,
+        entries: [
+          { metric_id: f.quality_a, component_1_value: null, component_2_value: null },
+          { metric_id: f.quality_b, component_1_value: null, component_2_value: null },
+          { metric_id: f.delivery, component_1_value: null, component_2_value: null },
+        ],
+        session: f.session,
+      });
+      expect(saved.overall_health).toBeNull();
+
+      const detail = await getKpiRecord({ project_id: f.project_id, ...WEEK, session: f.session });
+      expect(detail.record_id).toBe(saved.record_id);
+      expect(detail.metrics.every((m) => m.status === null)).toBe(true);
+      expect(detail.overall_health).toBe('gray');
     });
   });
 

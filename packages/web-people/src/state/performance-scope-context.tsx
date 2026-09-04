@@ -6,6 +6,8 @@ import type {
 } from '../state/performance-scope.ts';
 
 export type PerformanceScopeContextValue = {
+  /** The signed-in person — the subject of their own self-assessment (FUT-779). */
+  person_id: string;
   role_slugs: readonly string[];
   capacities: readonly PerformanceCapacity[];
   /** Session holds people.performance.read_org — gates the org (strategic/PMO) view. */

@@ -18,12 +18,14 @@ const TOUCH_TABLES = [
   'candidate_skill',
   'reason',
   'application',
+  'interview',
 ];
 
 // Every hiring table is tenant-scoped and gets the RLS backstop policy (constitution: none
 // allowlisted). Includes candidate_event (append-only, no updated_at, still tenant-scoped).
 // account_projection/project_projection (FUT-326) are local read-models fed by other modules'
-// events — still tenant-scoped, no updated_at column.
+// events — still tenant-scoped, no updated_at column. interview_panelist (FUT-487) is the
+// same append/replace-wholesale shape as candidate_skill's junction rows.
 const RLS_TABLES = [
   'requisition',
   'opening',
@@ -38,6 +40,8 @@ const RLS_TABLES = [
   'application',
   'account_projection',
   'project_projection',
+  'interview',
+  'interview_panelist',
 ];
 
 const lines: string[] = [];

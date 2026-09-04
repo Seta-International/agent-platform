@@ -1,6 +1,6 @@
 import { Card, HStack, Text, VStack } from '@seta/shared-ui';
 import type { CSSProperties } from 'react';
-import { SCORE_BAND_LEGEND, type ScoreBand, scoreBand } from '../mock/performance-scores.ts';
+import { SCORE_BAND_LEGEND, type ScoreBand, scoreBand } from '../lib/performance-scores.ts';
 
 /** KPI stat tile shared across the capacity dashboards. */
 export function KpiTile({
@@ -55,20 +55,18 @@ export function bandLabel(band: ScoreBand): string {
 }
 
 /**
- * Band → fill + text, from theme tokens (no raw hex). `muted` renders the
- * strong band as neutral instead of green — used in dense score tables so a
- * column of high scores doesn't wash out to solid green.
+ * Band → fill + text, from theme tokens (no raw hex). One mapping for every surface:
+ * the legend names three bands, so a score painted any other way reads as a fourth one
+ * nobody explained.
  */
-export function chipStyle(band: ScoreBand, muted: boolean): CSSProperties {
+export function chipStyle(band: ScoreBand): CSSProperties {
   if (band === 'below') {
     return { background: 'var(--color-background-red)', color: 'var(--color-text-red)' };
   }
   if (band === 'meets') {
     return { background: 'var(--color-background-yellow)', color: 'var(--color-text-yellow)' };
   }
-  return muted
-    ? { background: 'var(--color-background-muted)', color: 'var(--color-text-primary)' }
-    : { background: 'var(--color-background-green)', color: 'var(--color-text-green)' };
+  return { background: 'var(--color-background-green)', color: 'var(--color-text-green)' };
 }
 
 /** Wide soft pill used in the AM heatmap cells (two-decimal, vivid bands). */
@@ -77,7 +75,7 @@ export function HeatCell({ value }: { value: number | null }) {
   return (
     <span
       className="block w-full rounded-lg px-4 py-2 text-center font-semibold text-sm tabular-nums"
-      style={chipStyle(scoreBand(value), false)}
+      style={chipStyle(scoreBand(value))}
     >
       {value.toFixed(2)}
     </span>
@@ -90,7 +88,7 @@ export function ScoreChip({ value }: { value: number | null }) {
   return (
     <span
       className="inline-block min-w-12 rounded-md px-2 py-1 text-center font-semibold text-sm tabular-nums"
-      style={chipStyle(scoreBand(value), true)}
+      style={chipStyle(scoreBand(value))}
     >
       {value.toFixed(1)}
     </span>
@@ -102,7 +100,7 @@ export function BandLegend() {
     <HStack gap={3} vAlign="center" wrap="wrap">
       {SCORE_BAND_LEGEND.map((b) => (
         <HStack key={b.band} gap={1.5} vAlign="center">
-          <span className="h-3 w-3 rounded-sm" style={chipStyle(b.band, false)} />
+          <span className="h-3 w-3 rounded-sm" style={chipStyle(b.band)} />
           <Text size="xsm" color="secondary">
             {b.label} <span className="tabular-nums">({b.range})</span>
           </Text>

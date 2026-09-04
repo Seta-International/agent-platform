@@ -23,8 +23,15 @@ export {
   isWeekEditable,
   setWeeklyReportClock,
 } from './backend/domain/iso-week.ts';
-export type { AppliedMetricCoverage } from './backend/domain/kpi-applied-metrics.ts';
-export { listAppliedMetrics, setAppliedMetric } from './backend/domain/kpi-applied-metrics.ts';
+export type {
+  AppliedMetricChange,
+  AppliedMetricCoverage,
+} from './backend/domain/kpi-applied-metrics.ts';
+export {
+  listAppliedMetrics,
+  setAppliedMetric,
+  setAppliedMetrics,
+} from './backend/domain/kpi-applied-metrics.ts';
 export type { KpiNormDoc, KpiNormMetricRow } from './backend/domain/kpi-norm.ts';
 export { getKpiNorm } from './backend/domain/kpi-norm.ts';
 export type { BandCondition, KpiNormMetricSeed } from './backend/domain/kpi-norm-data.ts';

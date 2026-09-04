@@ -301,7 +301,6 @@ export {
   computeRecordOverallColour,
   computeScoredValue,
   hasKpiEntryIssue,
-  incompleteRecordMetrics,
   kpiComponentIssue,
   validateKpiEntry,
 } from '@seta/pm/contracts';
@@ -319,22 +318,6 @@ export function isoWeekOf(date: Date): { iso_year: number; iso_week: number } {
   return isoWeekOfUtc(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())));
 }
 
-export function isoWeekOfDateString(date: string): { iso_year: number; iso_week: number } {
-  const [y, m, d] = date.split('-').map(Number);
-  return isoWeekOfUtc(new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1)));
-}
-
-export function isoWeekBaseOfDateString(date: string): string {
-  const { iso_year, iso_week } = isoWeekOfDateString(date);
-  return isoWeekBase(iso_year, iso_week);
-}
-
-export function lastIsoWeekOf(iso_year: number): number {
-  const jan1 = new Date(Date.UTC(iso_year, 0, 1)).getUTCDay();
-  const leap = (iso_year % 4 === 0 && iso_year % 100 !== 0) || iso_year % 400 === 0;
-  return jan1 === 4 || (leap && jan1 === 3) ? 53 : 52;
-}
-
 export function isoWeekEndDate(iso_year: number, iso_week: number): string {
   const jan4 = new Date(Date.UTC(iso_year, 0, 4));
   const offset = jan4.getUTCDay() || 7;
@@ -342,25 +325,29 @@ export function isoWeekEndDate(iso_year: number, iso_week: number): string {
   return new Date(monday + 6 * 86_400_000).toISOString().slice(0, 10);
 }
 
-const DUE_WEEK_HORIZON = 52;
+export function dueDateFloor(reported: { iso_year: number; iso_week: number }): string {
+  const sunday = new Date(`${isoWeekEndDate(reported.iso_year, reported.iso_week)}T00:00:00Z`);
+  return new Date(sunday.getTime() + 86_400_000).toISOString().slice(0, 10);
+}
 
-/** A rolling year of weeks after the one being reported on — the horizon crosses the year
- * boundary, so a report filed in December can still point a Road-to-Green at January. */
-export function dueWeekOptions(after: {
-  iso_year: number;
-  iso_week: number;
-}): { value: string; label: string }[] {
-  const out: { value: string; label: string }[] = [];
-  let { iso_year, iso_week } = after;
-  for (let i = 0; i < DUE_WEEK_HORIZON; i++) {
-    if (iso_week < lastIsoWeekOf(iso_year)) iso_week += 1;
-    else {
-      iso_year += 1;
-      iso_week = 1;
-    }
-    out.push({ value: isoWeekEndDate(iso_year, iso_week), label: isoWeekBase(iso_year, iso_week) });
-  }
-  return out;
+function dayMonthYear(value: Date, timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone,
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('day')} ${part('month')} ${part('year')}`;
+}
+
+export function formatDueDate(date: string): string {
+  return dayMonthYear(new Date(`${date}T00:00:00Z`), 'UTC');
+}
+
+export function formatReportedOn(timestamp: string): string {
+  return dayMonthYear(new Date(timestamp));
 }
 
 export function isoWeekBase(iso_year: number, iso_week: number): string {

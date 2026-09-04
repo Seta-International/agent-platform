@@ -1,6 +1,6 @@
 import { HStack, Text, VStack } from '@seta/shared-ui';
 import type { CSSProperties, ReactNode } from 'react';
-import type { PerformanceGroupAxis } from '../mock/performance-scores.ts';
+import type { GroupAxis } from '../lib/performance-scores.ts';
 import { HeatCell, pillarColor } from './performance-score-bits.tsx';
 
 export type HeatColumn = {
@@ -8,9 +8,9 @@ export type HeatColumn = {
   title: string;
   /** Second header line, e.g. "4 ppl · Pham Quoc Bao ▸". */
   subtitle?: ReactNode;
-  /** group_id → score. */
+  /** group_id → score. A group with nothing submitted is absent, and renders as "—". */
   scores: Record<string, number>;
-  overall: number;
+  overall: number | null;
 };
 
 /**
@@ -28,7 +28,7 @@ export function PillarHeatmap({
   selectedId,
   onSelect,
 }: {
-  groups: readonly PerformanceGroupAxis[];
+  groups: readonly GroupAxis[];
   columns: readonly HeatColumn[];
   selectedId: string | null;
   onSelect?: (id: string) => void;
@@ -38,103 +38,125 @@ export function PillarHeatmap({
   };
   const tint = (id: string): CSSProperties | undefined =>
     selectedId === id ? { background: 'var(--color-accent-muted)' } : undefined;
+  /**
+   * The pillar names ride along as the columns scroll — a score is meaningless once its
+   * row label has slid off the left edge. Needs an opaque fill so cells pass underneath.
+   */
+  const stickyLabel: CSSProperties = {
+    position: 'sticky',
+    insetInlineStart: 0,
+    zIndex: 1,
+    background: 'var(--color-background-card)',
+    // Stretch over the full row and past the grid gap, or chip edges peek out from
+    // behind the label as the columns pass under it.
+    alignSelf: 'stretch',
+    paddingInlineEnd: 'var(--spacing-2)',
+    marginInlineEnd: 'calc(-1 * var(--spacing-2))',
+  };
 
   return (
-    <div>
-      {/* Header row */}
-      <div
-        className="grid items-end gap-x-2 border-b px-2 pb-3"
-        style={{ ...gridCols, borderColor: 'var(--color-border)' }}
-      >
-        <Text size="2xs" color="secondary" className="uppercase tracking-wide">
-          Pillar / weight
-        </Text>
-        {columns.map((col) => {
-          const isSelected = selectedId === col.id;
-          const inner = (
-            <>
-              <Text
-                size="sm"
-                weight="semibold"
-                className="truncate"
-                color={isSelected ? 'accent' : 'primary'}
-              >
-                {col.title}
-              </Text>
-              {col.subtitle != null ? (
-                <Text size="2xs" color="secondary" className="truncate">
-                  {col.subtitle}
-                </Text>
-              ) : null}
-            </>
-          );
-          return onSelect ? (
-            <button
-              key={col.id}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onSelect(col.id)}
-              className="flex cursor-pointer flex-col items-center gap-0.5 rounded-t-lg px-2 py-2 text-center"
-              style={tint(col.id)}
-            >
-              {inner}
-            </button>
-          ) : (
-            <div
-              key={col.id}
-              className="flex flex-col items-center gap-0.5 rounded-t-lg px-2 py-2 text-center"
-              style={tint(col.id)}
-            >
-              {inner}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Pillar rows */}
-      {groups.map((g, i) => (
+    // An account per column: ten of them outrun any card, so the matrix scrolls sideways
+    // rather than spilling out of it. `max-content` keeps every column at its own width
+    // while `min-width: 100%` still lets a single-column view fill the card.
+    <div className="overflow-x-auto">
+      <div style={{ width: 'max-content', minWidth: '100%' }}>
+        {/* Header row */}
         <div
-          key={g.group_id}
-          className="grid items-center gap-x-2 border-b px-2 py-2"
-          style={{ ...gridCols, borderColor: 'var(--color-border-subtle, var(--color-border))' }}
+          className="grid items-end gap-x-2 border-b px-2 pb-3"
+          style={{ ...gridCols, borderColor: 'var(--color-border)' }}
         >
-          <HStack gap={2} vAlign="center">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-sm"
-              style={{ background: pillarColor(i) }}
-            />
-            <VStack gap={0}>
-              <Text size="sm" weight="semibold" className="leading-tight">
-                {g.name}
-              </Text>
-              <Text size="2xs" color="secondary">
-                weight {g.weight}%
-              </Text>
-            </VStack>
+          <div style={stickyLabel}>
+            <Text size="2xs" color="secondary" className="uppercase tracking-wide">
+              Pillar / weight
+            </Text>
+          </div>
+          {columns.map((col) => {
+            const isSelected = selectedId === col.id;
+            const inner = (
+              <>
+                <Text
+                  size="sm"
+                  weight="semibold"
+                  className="truncate"
+                  color={isSelected ? 'accent' : 'primary'}
+                >
+                  {col.title}
+                </Text>
+                {col.subtitle != null ? (
+                  <Text size="2xs" color="secondary" className="truncate">
+                    {col.subtitle}
+                  </Text>
+                ) : null}
+              </>
+            );
+            return onSelect ? (
+              <button
+                key={col.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onSelect(col.id)}
+                className="flex cursor-pointer flex-col items-center gap-0.5 rounded-t-lg px-2 py-2 text-center"
+                style={tint(col.id)}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div
+                key={col.id}
+                className="flex flex-col items-center gap-0.5 rounded-t-lg px-2 py-2 text-center"
+                style={tint(col.id)}
+              >
+                {inner}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pillar rows */}
+        {groups.map((g, i) => (
+          <div
+            key={g.group_id}
+            className="grid items-center gap-x-2 border-b px-2 py-2"
+            style={{ ...gridCols, borderColor: 'var(--color-border-subtle, var(--color-border))' }}
+          >
+            <HStack gap={2} vAlign="center" style={stickyLabel}>
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                style={{ background: pillarColor(i) }}
+              />
+              <VStack gap={0}>
+                <Text size="sm" weight="semibold" className="leading-tight">
+                  {g.name}
+                </Text>
+                <Text size="2xs" color="secondary">
+                  weight {g.weight}%
+                </Text>
+              </VStack>
+            </HStack>
+            {columns.map((col) => (
+              <div key={col.id} className="px-1" style={tint(col.id)}>
+                <HeatCell value={col.scores[g.group_id] ?? null} />
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* Overall row */}
+        <div className="grid items-center gap-x-2 px-2 py-2" style={gridCols}>
+          <HStack gap={1.5} vAlign="center" style={stickyLabel}>
+            <Text size="sm" weight="semibold">
+              Overall
+            </Text>
+            <Text size="2xs" color="secondary">
+              weighted
+            </Text>
           </HStack>
           {columns.map((col) => (
             <div key={col.id} className="px-1" style={tint(col.id)}>
-              <HeatCell value={col.scores[g.group_id] ?? null} />
+              <HeatCell value={col.overall} />
             </div>
           ))}
         </div>
-      ))}
-
-      {/* Overall row */}
-      <div className="grid items-center gap-x-2 px-2 py-2" style={gridCols}>
-        <HStack gap={1.5} vAlign="center">
-          <Text size="sm" weight="semibold">
-            Overall
-          </Text>
-          <Text size="2xs" color="secondary">
-            weighted
-          </Text>
-        </HStack>
-        {columns.map((col) => (
-          <div key={col.id} className="px-1" style={tint(col.id)}>
-            <HeatCell value={col.overall} />
-          </div>
-        ))}
       </div>
     </div>
   );

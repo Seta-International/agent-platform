@@ -21,6 +21,7 @@ import {
   Card,
   ChatComposer,
   ChatComposerInput,
+  DateInput,
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
@@ -40,11 +41,12 @@ import {
   COLOUR_VARIANT,
   colourBadge,
   colourKey,
-  dueWeekOptions,
+  dueDateFloor,
   formatBand,
+  formatDueDate,
   formatMetricValue,
+  formatReportedOn,
   isoWeekBase,
-  isoWeekBaseOfDateString,
   KPI_CATEGORIES,
   KPI_CATEGORY_LABELS,
   markStyle,
@@ -102,9 +104,13 @@ function StatsLine({ detail }: { detail: WeeklyReportDetail }) {
   const { worst, measured_count, applied_count, red_count, yellow_count } = detail.stats;
 
   const spread: string[] = [];
-  if (measured_count === 0) spread.push('No figures entered this week');
-  else if (red_count + yellow_count === 0) spread.push(`All ${measured_count} on norm`);
-  else spread.push(`${red_count} red and ${yellow_count} amber`);
+  if (measured_count === 0) spread.push('KPI Metrics: No figures entered this week');
+  else if (red_count + yellow_count === 0)
+    spread.push(`KPI Metrics: All ${measured_count} on norm`);
+  else
+    spread.push(
+      `KPI Metrics: ${red_count} red, ${yellow_count} amber and ${measured_count - red_count - yellow_count} green`,
+    );
   if (measured_count > 0 && measured_count < applied_count) {
     spread.push(`${applied_count - measured_count} still blank`);
   }
@@ -153,9 +159,7 @@ function ReportCard({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-sm text-secondary">
-            {new Date(entry.updated_at).toLocaleDateString()}
-          </span>
+          <span className="text-sm text-secondary">{formatReportedOn(entry.updated_at)}</span>
           {colourBadge(entry.overall_colour)}
         </div>
       </div>
@@ -191,7 +195,7 @@ function ReportCard({
           ) : null}
           {entry.road_to_green_due ? (
             <span className="whitespace-nowrap">
-              {` · due ${isoWeekBaseOfDateString(entry.road_to_green_due)}`}
+              {` · due ${formatDueDate(entry.road_to_green_due)}`}
             </span>
           ) : null}
         </div>
@@ -397,6 +401,7 @@ export function WeeklyReportDetailDialog({
   const summaryMissing = summary.trim() === '';
   const riskIssueMissing = hasActiveRisk && riskIssue.trim() === '';
   const roadToGreenMissing = hasActiveRisk && roadToGreen.trim() === '';
+  const dueFloor = dueDateFloor({ iso_year, iso_week });
   const dueMissing = hasActiveRisk && roadToGreenDue === '';
   const summaryError =
     submitAttempted && summaryMissing ? 'Add an executive summary before submitting.' : undefined;
@@ -407,7 +412,7 @@ export function WeeklyReportDetailDialog({
       ? 'A Road-to-Green action is required while a risk is active.'
       : undefined;
   const dueError =
-    riskAttempted && dueMissing ? 'Pick the week the Road-to-Green action is due.' : undefined;
+    riskAttempted && dueMissing ? 'Pick the date the Road-to-Green action is due.' : undefined;
 
   const toggleActiveRisk = (v: boolean) => {
     setHasActiveRisk(v);
@@ -434,7 +439,7 @@ export function WeeklyReportDetailDialog({
                 : null;
     if (target) {
       target.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      if (target === dueRef) dueRef.current?.querySelector('button')?.focus();
+      if (target === dueRef) dueRef.current?.querySelector('input')?.focus();
       else if (target !== pillarsRef) target.current?.focus();
       return;
     }
@@ -907,6 +912,17 @@ export function WeeklyReportDetailDialog({
                         </div>
                       </div>
 
+                      <Textarea
+                        ref={summaryRef}
+                        label="Executive summary"
+                        isRequired
+                        value={summary}
+                        onChange={setSummary}
+                        placeholder="What happened this week, and why this status?"
+                        rows={3}
+                        status={summaryError ? { type: 'error', message: summaryError } : undefined}
+                      />
+
                       <div
                         className={hasActiveRisk ? undefined : 'rounded-lg border p-3'}
                         style={
@@ -961,20 +977,8 @@ export function WeeklyReportDetailDialog({
                         </>
                       )}
 
-                      <div className={hasActiveRisk ? 'grid gap-4 md:grid-cols-2' : undefined}>
-                        <Textarea
-                          ref={summaryRef}
-                          label="Executive summary"
-                          isRequired
-                          value={summary}
-                          onChange={setSummary}
-                          placeholder="What happened this week, and why this status?"
-                          rows={3}
-                          status={
-                            summaryError ? { type: 'error', message: summaryError } : undefined
-                          }
-                        />
-                        {hasActiveRisk ? (
+                      {hasActiveRisk ? (
+                        <>
                           <Textarea
                             ref={riskIssueRef}
                             label="Risk / Issue"
@@ -989,40 +993,39 @@ export function WeeklyReportDetailDialog({
                                 : undefined
                             }
                           />
-                        ) : null}
-                      </div>
 
-                      {hasActiveRisk ? (
-                        <div className="grid gap-4 md:grid-cols-3">
-                          <div className="md:col-span-2">
-                            <Textarea
-                              ref={roadToGreenRef}
-                              label="Road-to-Green action"
-                              isRequired
-                              value={roadToGreen}
-                              onChange={setRoadToGreen}
-                              placeholder="What brings it back to Green?"
-                              rows={2}
-                              status={
-                                roadToGreenError
-                                  ? { type: 'error', message: roadToGreenError }
-                                  : undefined
-                              }
-                            />
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div className="md:col-span-2">
+                              <Textarea
+                                ref={roadToGreenRef}
+                                label="Road-to-Green action"
+                                isRequired
+                                value={roadToGreen}
+                                onChange={setRoadToGreen}
+                                placeholder="What brings it back to Green?"
+                                rows={2}
+                                status={
+                                  roadToGreenError
+                                    ? { type: 'error', message: roadToGreenError }
+                                    : undefined
+                                }
+                              />
+                            </div>
+                            <div ref={dueRef}>
+                              <DateInput
+                                label="Due"
+                                isRequired
+                                width="100%"
+                                min={dueFloor}
+                                format={formatDueDate}
+                                value={roadToGreenDue || undefined}
+                                onChange={(v) => setRoadToGreenDue(v ?? '')}
+                                placeholder="Select a date…"
+                                status={dueError ? { type: 'error', message: dueError } : undefined}
+                              />
+                            </div>
                           </div>
-                          <div ref={dueRef}>
-                            <Selector
-                              label="Due"
-                              isRequired
-                              width="100%"
-                              options={dueWeekOptions({ iso_year, iso_week })}
-                              value={roadToGreenDue || undefined}
-                              onChange={(v) => setRoadToGreenDue(v ?? '')}
-                              placeholder="Select a week…"
-                              status={dueError ? { type: 'error', message: dueError } : undefined}
-                            />
-                          </div>
-                        </div>
+                        </>
                       ) : null}
                     </section>
                   ) : null}

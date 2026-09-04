@@ -14,6 +14,16 @@ export {
 } from './backend/domain/close-reasons.ts';
 export { editRequisition } from './backend/domain/edit-requisition.ts';
 export {
+  cancelInterview,
+  completeInterview,
+  type InterviewListRow,
+  type InterviewPanelistRow,
+  listInterviews,
+  markInterviewNoShow,
+  rescheduleInterview,
+  scheduleInterview,
+} from './backend/domain/interviews.ts';
+export {
   createJdTemplate,
   deleteJdTemplate,
   listJdTemplates,
@@ -69,13 +79,18 @@ export type {
   CandidateSkillInput,
   CloseOpeningInput,
   CloseReasonInput,
+  CompleteInterviewInput,
   EditCandidatePatch,
   EditRequisitionPatch,
+  InterviewOutcomeReasonInput,
+  InterviewPanelistInput,
   JdSectionInput,
   JdTemplateInput,
   OpenRequisitionInput,
   RejectApplicationInput,
   RejectionReasonInput,
+  RescheduleInterviewInput,
+  ScheduleInterviewInput,
   SkillInput,
   TransferApplicationInput,
 } from './contracts.ts';

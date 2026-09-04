@@ -217,6 +217,14 @@ export const setAppliedMetricInput = z.object({
 });
 export type SetAppliedMetricInput = z.infer<typeof setAppliedMetricInput>;
 
+/** Configure metrics saves the whole panel in one request (FUT-963): every tick is staged in
+ * the dialog and sent together, so a refused change can never leave half of it applied. */
+export const setAppliedMetricsInput = z.object({
+  changes: z.array(z.object({ metric_id: z.string().uuid(), applied: z.boolean() })).min(1),
+  project_ids: z.array(z.string().uuid()).min(1),
+});
+export type SetAppliedMetricsInput = z.infer<typeof setAppliedMetricsInput>;
+
 const commaSeparatedUuids = z.preprocess(
   emptyToUndefined,
   z
@@ -648,12 +656,6 @@ export function computeRecordOverallColour(
   return worstStatus(known as readonly RagStatus[]);
 }
 
-export function incompleteRecordMetrics<T extends { name: string }>(
-  defs: readonly T[],
-  statusOf: (def: T) => RagStatus | null,
-): string[] {
-  return defs.filter((d) => statusOf(d) === null).map((d) => d.name);
-}
 export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
 
 export const weeklyReportsQuery = z.object({

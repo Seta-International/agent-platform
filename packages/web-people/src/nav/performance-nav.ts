@@ -22,7 +22,11 @@ const CONFIGURATION_TAB: PerformanceTopTab = {
   label: 'Configuration',
   to: '/people/performance/configuration',
 };
-/** PMO manual unlock — its own workspace, never mixed into a dashboard. */
+/**
+ * PMO manual unlock — its own workspace, and only in the organization view. It is a
+ * company-wide control, so it has no place beside the personal scorecard someone sees
+ * while acting as an AM, TL or member, even when they hold the permission.
+ */
 const CYCLE_TAB: PerformanceTopTab = {
   id: 'cycle',
   label: 'Cycle unlock',
@@ -42,15 +46,16 @@ export function performanceTopTabs({
 }): readonly PerformanceTopTab[] {
   const tabs: PerformanceTopTab[] = [REVIEWS_TAB];
   if (capacity?.kind === 'am') tabs.push(CONFIGURATION_TAB);
-  if (canUnlock) tabs.push(CYCLE_TAB);
+  if (canUnlock && capacity === null) tabs.push(CYCLE_TAB);
   return tabs.length > 1 ? tabs : [];
 }
 
 /**
  * Whether the current path is allowed for this capacity / role set.
- * Deep links to legacy stubs (scoring, self-assessment, …) stay reachable only when they match the role.
+ * Deep links to legacy stubs (history, audit, …) stay reachable only when they match the role.
  * Cycle unlock is gated on the permission rather than a role list, since the server
- * checks `people.performance.unlock` and nothing else on every unlock call.
+ * checks `people.performance.unlock` and nothing else on every unlock call — plus the
+ * organization view, so switching into a delivery capacity falls back to Reviews.
  */
 export function isPerformancePathAllowed({
   pathname,
@@ -71,10 +76,11 @@ export function isPerformancePathAllowed({
 
   if (path === '/people/performance') return true;
   if (path === '/people/performance/configuration') return kind === 'am';
-  if (path === '/people/performance/scoring') return kind === 'tl' || kind === 'am';
-  if (path === '/people/performance/self-assessment') return kind === 'member';
+  // Evaluating someone is a dialog over the dashboard (`?subject=…`), not a path — and a
+  // member scoring themselves is the same dialog, opened from their own dashboard. Morale
+  // left Performance altogether: it has its own workspace under /people/morale.
   if (path === '/people/performance/history') return true;
-  if (path === '/people/performance/cycle') return canUnlock;
+  if (path === '/people/performance/cycle') return canUnlock && capacity === null;
   if (path === '/people/performance/audit') return strategic;
   return false;
 }

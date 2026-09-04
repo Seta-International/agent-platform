@@ -10,15 +10,14 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import {
-  type AppliedMetricCoverage,
   fetchAppliedMetrics,
   fetchKpiNorm,
   type KpiCategory,
   type ProjectListRow,
-  setAppliedMetric,
+  setAppliedMetrics,
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import { Badge, Button, Checkbox, Input, ScrollArea, Skeleton, toast } from './_ui-compat.tsx';
+import { Badge, Button, Checkbox, Input, ScrollArea, Skeleton, useToast } from './_ui-compat.tsx';
 import {
   formatBandTriple,
   KPI_CATEGORIES,
@@ -28,6 +27,16 @@ import {
 
 const flagLabel = (category: KpiCategory): string =>
   KPI_CATEGORY_LABELS[category].replace(/^.*— /, '');
+
+const joinNames = (names: string[]): string =>
+  names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+const blockedScope = (projectCount: number | null): string =>
+  projectCount === null
+    ? ' to the selected projects'
+    : projectCount > 1
+      ? ` to ${projectCount} of the selected projects`
+      : ' to this project';
 
 export function KpiConfigureDialog({
   open,
@@ -48,6 +57,7 @@ export function KpiConfigureDialog({
   currentWeek?: { iso_year: number; iso_week: number };
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const accountNameOf = (accountId: string) => accountNames?.get(accountId) ?? 'Unknown account';
   const sortedProjects = [...projects].sort(
     (a, b) =>
@@ -64,16 +74,19 @@ export function KpiConfigureDialog({
   );
   const [filter, setFilter] = useState('');
   const [metricFilter, setMetricFilter] = useState('');
+  /** Ticks made since the last save — metric id → applied to every selected project. Nothing
+   * reaches the server until Done, so Cancel can drop the lot (FUT-963). */
+  const [draft, setDraft] = useState<Map<string, boolean>>(new Map());
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmOff, setConfirmOff] = useState<{
-    metricId: string;
-    name: string;
-    category: KpiCategory;
-    enteredCount: number;
+    metrics: { metricId: string; name: string; category: KpiCategory; enteredCount: number }[];
+    intent: 'stage' | 'save';
   } | null>(null);
+  const [confirmedOff, setConfirmedOff] = useState<Map<string, ReadonlySet<string>>>(new Map());
   const [categoryBlocked, setCategoryBlocked] = useState<{
-    metricName: string;
+    metricNames: string[];
     category: KpiCategory;
-    projectCount: number;
+    projectCount: number | null;
   } | null>(null);
   const selectedIds = [...selected];
 
@@ -88,58 +101,150 @@ export function KpiConfigureDialog({
     enabled: selectedIds.length > 0,
   });
 
-  const toggle = useMutation({
-    mutationFn: ({ metricId, applied }: { metricId: string; applied: boolean }) =>
-      setAppliedMetric(metricId, applied, selectedIds),
-    onMutate: async ({ metricId, applied }) => {
-      const key = pmKeys.kpiAppliedMetrics(selectedIds, week);
-      await queryClient.cancelQueries({ queryKey: key });
-      const prev = queryClient.getQueryData<AppliedMetricCoverage[]>(key);
-      queryClient.setQueryData<AppliedMetricCoverage[]>(key, (old) => {
-        const list = old ?? [];
-        const nextCount = applied ? selectedIds.length : 0;
-        const idx = list.findIndex((c) => c.metric_id === metricId);
-        if (idx === -1)
-          return [
-            ...list,
-            {
-              metric_id: metricId,
-              applied_count: nextCount,
-              entered_count: 0,
-              would_empty_count: 0,
-            },
-          ];
-        return list.map((c) => (c.metric_id === metricId ? { ...c, applied_count: nextCount } : c));
-      });
-      return { key, prev };
-    },
-    onError: (err: Error & { details?: Record<string, unknown> }, vars, ctx) => {
-      if (ctx) queryClient.setQueryData(ctx.key, ctx.prev);
-      const emptyProjectIds = err.details?.empty_project_ids;
-      if (Array.isArray(emptyProjectIds) && emptyProjectIds.length > 0) {
-        const m = metrics.find((mm) => mm.metric_id === vars.metricId);
-        setCategoryBlocked({
-          metricName: m?.name ?? '',
-          category: (err.details?.category as KpiCategory | undefined) ?? m?.category ?? 'quality',
-          projectCount: emptyProjectIds.length,
-        });
-        return;
-      }
-      toast.error(err.message || 'Could not update metric');
-    },
-    onSuccess: () => {
-      queryClient.removeQueries({ queryKey: pmKeys.kpiRecords() });
-      queryClient.invalidateQueries({ queryKey: pmKeys.all });
-    },
-  });
-
-  const coverage = new Map((appliedQuery.data ?? []).map((c) => [c.metric_id, c.applied_count]));
+  const metrics = normQuery.data?.metrics ?? [];
+  const saved = new Map((appliedQuery.data ?? []).map((c) => [c.metric_id, c.applied_count]));
   const entered = new Map((appliedQuery.data ?? []).map((c) => [c.metric_id, c.entered_count]));
   const wouldEmpty = new Map(
     (appliedQuery.data ?? []).map((c) => [c.metric_id, c.would_empty_count]),
   );
-  const coverageIsStale = toggle.isPending || appliedQuery.isFetching;
-  const metrics = normQuery.data?.metrics ?? [];
+  /** What Done would leave behind: the draft wins over the saved coverage, and a staged tick
+   * always means "all of the selected projects" or "none of them". */
+  const appliedCount = (metricId: string): number => {
+    const staged = draft.get(metricId);
+    if (staged === undefined) return saved.get(metricId) ?? 0;
+    return staged ? selectedIds.length : 0;
+  };
+
+  const save = useMutation({
+    mutationFn: (changes: { metric_id: string; applied: boolean }[]) =>
+      setAppliedMetrics(changes, selectedIds),
+    onError: (err: Error & { details?: Record<string, unknown> }) => {
+      const emptyProjectIds = err.details?.empty_project_ids;
+      const blockedIds = err.details?.metric_ids;
+      if (Array.isArray(emptyProjectIds) && emptyProjectIds.length > 0) {
+        const names = (Array.isArray(blockedIds) ? blockedIds : [])
+          .map((id) => metrics.find((m) => m.metric_id === id)?.name)
+          .filter((name): name is string => name !== undefined);
+        setCategoryBlocked({
+          metricNames: names,
+          category: (err.details?.category as KpiCategory | undefined) ?? 'quality',
+          projectCount: emptyProjectIds.length,
+        });
+        return;
+      }
+      toast({ body: err.message || 'Could not save the metric changes', type: 'error' });
+    },
+    onSuccess: () => {
+      const projectLabel =
+        selectedIds.length === 1
+          ? (projects.find((p) => p.project_id === selectedIds[0])?.name ?? '1 project')
+          : `${selectedIds.length} projects`;
+      setDraft(new Map());
+      setConfirmedOff(new Map());
+      queryClient.removeQueries({ queryKey: pmKeys.kpiRecords() });
+      queryClient.invalidateQueries({ queryKey: pmKeys.all });
+      toast({ body: `Metrics updated for ${projectLabel}` });
+      onOpenChange(false);
+    },
+  });
+
+  const dirty = draft.size > 0;
+  const listLocked = appliedQuery.isFetching || save.isPending;
+
+  const areaEmptiedByDraft = (metric: (typeof metrics)[number]) => {
+    const others = metrics.filter(
+      (other) => other.category === metric.category && other.metric_id !== metric.metric_id,
+    );
+    return (
+      others.some((other) => draft.get(other.metric_id) === false) &&
+      others.every((other) => appliedCount(other.metric_id) === 0)
+    );
+  };
+  const namesEmptying = (metric: (typeof metrics)[number]) =>
+    metrics
+      .filter(
+        (other) =>
+          other.category === metric.category &&
+          (other.metric_id === metric.metric_id || draft.get(other.metric_id) === false) &&
+          (saved.get(other.metric_id) ?? 0) > 0,
+      )
+      .map((other) => other.name);
+
+  const stage = (metricId: string, applied: boolean) =>
+    setDraft((prev) => {
+      const next = new Map(prev);
+      const savedCount = saved.get(metricId) ?? 0;
+      const savedState =
+        savedCount === selectedIds.length ? true : savedCount === 0 ? false : 'mixed';
+      if (savedState === applied) next.delete(metricId);
+      else next.set(metricId, applied);
+      return next;
+    });
+
+  const requestClose = () => {
+    if (save.isPending) return;
+    if (dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
+    onOpenChange(false);
+  };
+  const handleOpenChange = (next: boolean) => {
+    if (next) onOpenChange(true);
+    else requestClose();
+  };
+  const submit = () =>
+    save.mutate([...draft].map(([metric_id, applied]) => ({ metric_id, applied })));
+  const deletionWarning = (
+    list: { name: string; category: KpiCategory; enteredCount: number }[],
+  ): string => {
+    const flags = [...new Set(list.map((m) => flagLabel(m.category)))];
+    const flagClause = `stop counting towards the ${joinNames(flags)} ${
+      flags.length > 1 ? 'flags' : 'flag'
+    }, so ${flags.length > 1 ? 'those colours' : 'that colour'} can drop`;
+    const only = list.length === 1 ? list[0] : undefined;
+    if (only)
+      return `${
+        selectedIds.length === 1
+          ? `Its ${weekLabel} figures`
+          : `${weekLabel} figures in ${only.enteredCount} of ${selectedIds.length} selected projects`
+      } are deleted when you save, and ${flagClause}. Turning it back on starts from a blank cell. Closed weeks keep their figures.`;
+    return `${joinNames(list.map((m) => m.name))} still hold ${weekLabel} figures${
+      selectedIds.length === 1 ? '' : ' in some of the selected projects'
+    }. They are deleted when you save, and ${flagClause}. Turning them back on starts from a blank cell. Closed weeks keep their figures.`;
+  };
+  const unwarnedDeletions = () =>
+    [...draft]
+      .filter(([metricId, applied]) => {
+        if (applied || (entered.get(metricId) ?? 0) === 0) return false;
+        const covered = confirmedOff.get(metricId);
+        return covered === undefined || !selectedIds.every((id) => covered.has(id));
+      })
+      .flatMap(([metricId]) => {
+        const metric = metrics.find((m) => m.metric_id === metricId);
+        return metric
+          ? [
+              {
+                metricId,
+                name: metric.name,
+                category: metric.category,
+                enteredCount: entered.get(metricId) ?? 0,
+              },
+            ]
+          : [];
+      });
+  const done = () => {
+    if (!dirty) {
+      onOpenChange(false);
+      return;
+    }
+    const unwarned = unwarnedDeletions();
+    if (unwarned.length > 0) {
+      setConfirmOff({ metrics: unwarned, intent: 'save' });
+      return;
+    }
+    submit();
+  };
 
   const metricQuery = metricFilter.trim().toLowerCase();
   const matchesMetricQuery = (m: (typeof metrics)[number]) =>
@@ -149,7 +254,7 @@ export function KpiConfigureDialog({
   const hasMetricMatches = metrics.some(matchesMetricQuery);
   const appliedSummary =
     appliedQuery.data && metrics.length > 0
-      ? `${metrics.filter((m) => (coverage.get(m.metric_id) ?? 0) === selectedIds.length).length}/${metrics.length}`
+      ? `${metrics.filter((m) => appliedCount(m.metric_id) === selectedIds.length).length}/${metrics.length}`
       : null;
   const appliedLabel = selectedIds.length > 1 ? 'applied to all' : 'applied';
 
@@ -201,9 +306,15 @@ export function KpiConfigureDialog({
   }, [initialProjectId]);
 
   return (
-    <Dialog isOpen={open} onOpenChange={onOpenChange} width={880} maxHeight="85vh" purpose="info">
+    <Dialog
+      isOpen={open}
+      onOpenChange={handleOpenChange}
+      width={880}
+      maxHeight="85vh"
+      purpose="info"
+    >
       <Layout
-        header={<DialogHeader title="Configure KPI metrics" onOpenChange={onOpenChange} />}
+        header={<DialogHeader title="Configure KPI metrics" onOpenChange={handleOpenChange} />}
         content={
           <LayoutContent isScrollable={false}>
             <div className="grid h-[58vh] grid-cols-5 gap-4">
@@ -286,8 +397,7 @@ export function KpiConfigureDialog({
                     <div className="text-xs uppercase tracking-wide text-secondary">Metrics</div>
                     {selectedIds.length > 0 ? (
                       <p className="text-sm text-secondary">
-                        {selectedIds.length} {selectedIds.length === 1 ? 'project' : 'projects'} ·
-                        saves automatically
+                        {selectedIds.length} {selectedIds.length === 1 ? 'project' : 'projects'}
                       </p>
                     ) : null}
                   </div>
@@ -329,8 +439,8 @@ export function KpiConfigureDialog({
                         const catMetrics = metrics.filter((m) => m.category === cat);
                         const visibleMetrics = catMetrics.filter(matchesMetricQuery);
                         if (visibleMetrics.length === 0) return null;
-                        const appliedCount = catMetrics.filter(
-                          (m) => (coverage.get(m.metric_id) ?? 0) === selectedIds.length,
+                        const catApplied = catMetrics.filter(
+                          (m) => appliedCount(m.metric_id) === selectedIds.length,
                         ).length;
                         return (
                           <section key={cat} className="space-y-2">
@@ -340,13 +450,13 @@ export function KpiConfigureDialog({
                                 {metricQuery
                                   ? `${visibleMetrics.length} of ${catMetrics.length} shown`
                                   : appliedSummary
-                                    ? `${appliedCount}/${catMetrics.length} ${appliedLabel} · ${appliedSummary} overall`
-                                    : `${appliedCount}/${catMetrics.length} ${appliedLabel}`}
+                                    ? `${catApplied}/${catMetrics.length} ${appliedLabel} · ${appliedSummary} overall`
+                                    : `${catApplied}/${catMetrics.length} ${appliedLabel}`}
                               </span>
                             </div>
                             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
                               {visibleMetrics.map((m) => {
-                                const count = coverage.get(m.metric_id) ?? 0;
+                                const count = appliedCount(m.metric_id);
                                 const checked: boolean | 'indeterminate' =
                                   count === 0
                                     ? false
@@ -375,13 +485,29 @@ export function KpiConfigureDialog({
                                       id={checkboxId}
                                       className="mt-1"
                                       checked={checked}
-                                      disabled={coverageIsStale}
+                                      disabled={listLocked}
                                       onCheckedChange={(next) => {
                                         if (next === false) {
-                                          const emptyCount = wouldEmpty.get(m.metric_id) ?? 0;
-                                          if (emptyCount > 0) {
+                                          if (areaEmptiedByDraft(m)) {
                                             setCategoryBlocked({
-                                              metricName: m.name,
+                                              metricNames: namesEmptying(m),
+                                              category: m.category,
+                                              projectCount: selectedIds.length === 1 ? 1 : null,
+                                            });
+                                            return;
+                                          }
+                                          // A metric staged on in the same area keeps that area
+                                          // populated, so the server's count no longer blocks.
+                                          const rescued = metrics.some(
+                                            (other) =>
+                                              other.category === m.category &&
+                                              other.metric_id !== m.metric_id &&
+                                              draft.get(other.metric_id) === true,
+                                          );
+                                          const emptyCount = wouldEmpty.get(m.metric_id) ?? 0;
+                                          if (emptyCount > 0 && !rescued) {
+                                            setCategoryBlocked({
+                                              metricNames: [m.name],
                                               category: m.category,
                                               projectCount: emptyCount,
                                             });
@@ -390,20 +516,22 @@ export function KpiConfigureDialog({
                                           const enteredCount = entered.get(m.metric_id) ?? 0;
                                           if (enteredCount > 0) {
                                             setConfirmOff({
-                                              metricId: m.metric_id,
-                                              name: m.name,
-                                              category: m.category,
-                                              enteredCount,
+                                              metrics: [
+                                                {
+                                                  metricId: m.metric_id,
+                                                  name: m.name,
+                                                  category: m.category,
+                                                  enteredCount,
+                                                },
+                                              ],
+                                              intent: 'stage',
                                             });
                                             return;
                                           }
-                                          toggle.mutate({
-                                            metricId: m.metric_id,
-                                            applied: false,
-                                          });
+                                          stage(m.metric_id, false);
                                           return;
                                         }
-                                        toggle.mutate({ metricId: m.metric_id, applied: true });
+                                        stage(m.metric_id, true);
                                       }}
                                     />
                                     <label
@@ -421,6 +549,11 @@ export function KpiConfigureDialog({
                                         >
                                           {m.tier === 'core' ? 'Core' : 'Extended'}
                                         </Badge>
+                                        {draft.has(m.metric_id) ? (
+                                          <Badge variant="outline" className="font-normal">
+                                            Not saved
+                                          </Badge>
+                                        ) : null}
                                         {checked === 'indeterminate' ? (
                                           <Badge variant="outline" className="font-normal">
                                             {count}/{selectedIds.length} projects
@@ -456,6 +589,39 @@ export function KpiConfigureDialog({
             </div>
           </LayoutContent>
         }
+        footer={
+          <DialogFooter>
+            <Button variant="secondary" onClick={requestClose} disabled={save.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={done}
+              disabled={listLocked || (dirty && selectedIds.length === 0)}
+            >
+              {save.isPending ? 'Saving…' : 'Done'}
+            </Button>
+          </DialogFooter>
+        }
+      />
+
+      <AlertDialog
+        isOpen={confirmDiscard}
+        onOpenChange={(o) => {
+          if (!o) setConfirmDiscard(false);
+        }}
+        title="Discard changes?"
+        description={`${draft.size} metric ${
+          draft.size === 1 ? 'change is' : 'changes are'
+        } not saved yet. Discarding closes Configure KPI metrics and leaves every selected project exactly as it is.`}
+        cancelLabel="Keep editing"
+        actionLabel="Discard changes"
+        actionVariant="destructive"
+        onAction={() => {
+          setDraft(new Map());
+          setConfirmDiscard(false);
+          onOpenChange(false);
+        }}
       />
 
       <AlertDialog
@@ -463,23 +629,33 @@ export function KpiConfigureDialog({
         onOpenChange={(o) => {
           if (!o) setConfirmOff(null);
         }}
-        title={`Turn off ${confirmOff?.name ?? ''}?`}
-        description={
-          confirmOff
-            ? `${
-                selectedIds.length === 1
-                  ? `Its ${weekLabel} figures`
-                  : `${weekLabel} figures in ${confirmOff.enteredCount} of ${selectedIds.length} selected projects`
-              } are deleted and stop counting towards the ${flagLabel(
-                confirmOff.category,
-              )} flag, so that colour can drop. Turning it back on starts from a blank cell. Closed weeks keep their figures.`
-            : ''
+        title={
+          confirmOff === null
+            ? ''
+            : confirmOff.metrics.length === 1
+              ? `Turn off ${confirmOff.metrics[0]?.name}?`
+              : `Turn off ${confirmOff.metrics.length} metrics?`
         }
-        cancelLabel="Keep it on"
-        actionLabel="Turn off and delete"
+        description={confirmOff ? deletionWarning(confirmOff.metrics) : ''}
+        cancelLabel={confirmOff?.intent === 'save' ? 'Keep editing' : 'Keep it on'}
+        actionLabel={
+          confirmOff?.intent === 'save'
+            ? confirmOff.metrics.length === 1
+              ? 'Turn it off and save'
+              : 'Turn them off and save'
+            : 'Turn it off'
+        }
         actionVariant="destructive"
         onAction={() => {
-          if (confirmOff) toggle.mutate({ metricId: confirmOff.metricId, applied: false });
+          if (!confirmOff) return;
+          const covered: ReadonlySet<string> = new Set(selectedIds);
+          setConfirmedOff((prev) => {
+            const next = new Map(prev);
+            for (const m of confirmOff.metrics) next.set(m.metricId, covered);
+            return next;
+          });
+          if (confirmOff.intent === 'save') submit();
+          else for (const m of confirmOff.metrics) stage(m.metricId, false);
           setConfirmOff(null);
         }}
       />
@@ -504,14 +680,16 @@ export function KpiConfigureDialog({
           content={
             <LayoutContent>
               <p className="text-sm text-secondary">
-                <span className="font-medium text-primary">{categoryBlocked?.metricName}</span> is
-                the last {categoryBlocked ? flagLabel(categoryBlocked.category) : ''} metric applied
-                {categoryBlocked && categoryBlocked.projectCount > 1
-                  ? ` to ${categoryBlocked.projectCount} of the selected projects`
-                  : ' to this project'}
-                . Every area (Quality, Cost & Capacity, Delivery, Process) needs at least one
-                applied metric so its health can be measured — apply another one first if you want
-                to turn this one off.
+                <span className="font-medium text-primary">
+                  {joinNames(categoryBlocked?.metricNames ?? [])}
+                </span>{' '}
+                {categoryBlocked && categoryBlocked.metricNames.length > 1 ? 'are' : 'is'} the last{' '}
+                {categoryBlocked ? flagLabel(categoryBlocked.category) : ''} metric
+                {categoryBlocked && categoryBlocked.metricNames.length > 1 ? 's' : ''} applied
+                {categoryBlocked ? blockedScope(categoryBlocked.projectCount) : ''}. Every area
+                (Quality, Cost & Capacity, Delivery, Process) needs at least one applied metric so
+                its health can be measured — apply another one first if you want to turn this one
+                off.
               </p>
             </LayoutContent>
           }
