@@ -2,12 +2,7 @@ import type { MastraModelConfig } from '@mastra/core/llm';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
-import {
-  makeActionTaskLink,
-  makeActionTaskMerge,
-  makeActionTaskRead,
-  makeActionTaskUpdate,
-} from './adapters.ts';
+import { makeActionTaskLink, makeActionTaskRead, makeActionTaskUpdate } from './adapters.ts';
 import {
   type ActionResumeCtx,
   makeActionAgent,
@@ -40,7 +35,6 @@ export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): Plann
     taskRead: makeActionTaskRead(),
     taskUpdate: makeActionTaskUpdate(),
     taskLink: makeActionTaskLink(),
-    taskMerge: makeActionTaskMerge(),
   };
   const agentDeps = {
     ports,

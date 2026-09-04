@@ -87,29 +87,8 @@ export interface TaskLinkPort {
   ): Promise<{ linkId: string; replayed: boolean }>;
 }
 
-export interface TaskMergePort {
-  /**
-   * Three checks, not two: `planner.task.update` on BOTH groups (a link touches
-   * both) plus `planner.task.delete` on the duplicate's group. An actor who may
-   * link but not delete is refused before the card, never at Confirm.
-   */
-  assertCanMerge(args: ActorRef & { duplicateGroupId: string; keepGroupId: string }): Promise<void>;
-
-  /** Link + soft-delete in ONE gated transaction. Partial success here would
-   *  leave a task in the trash with nothing pointing at where its content went. */
-  merge(
-    args: ActorRef & {
-      duplicateTaskId: string;
-      duplicateExpectedVersion: number;
-      keepTaskId: string;
-      idempotencyKey: string;
-    },
-  ): Promise<{ replayed: boolean }>;
-}
-
 export interface ActionPorts {
   taskRead: TaskReadPort;
   taskUpdate: TaskUpdatePort;
   taskLink: TaskLinkPort;
-  taskMerge: TaskMergePort;
 }
