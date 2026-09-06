@@ -396,6 +396,17 @@ async function writeEvaluation(
   mode: 'draft' | 'submitted',
 ): Promise<EvaluationView> {
   const target = await resolveTarget(session, input);
+  // A self-assessment is scores and a Top Action. Strengths and What to improve are the
+  // manager's read on the person; taking them from the subject as well puts two authors'
+  // words in one column with nothing to tell them apart. Refuse rather than drop them
+  // quietly, so a client sending them learns the field is not theirs to write.
+  if (target.capacity === 'self' && (input.strengths !== '' || input.improve !== '')) {
+    throw new PeopleError(
+      'VALIDATION',
+      'Strengths and What to improve belong to the manager’s evaluation, not a self-assessment.',
+      { field: input.strengths !== '' ? 'strengths' : 'improve' },
+    );
+  }
   const at = monthClockNow();
   const overrideActive = await resolveOverrideActive(session, {
     month: input.month,

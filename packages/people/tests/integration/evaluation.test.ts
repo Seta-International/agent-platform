@@ -493,13 +493,13 @@ describe('self-assessment (FUT-779)', () => {
         ...target,
         base_version: mineForm.version,
         scores: scoreAll(mineForm, 5),
-        strengths: 'my own read',
+        strengths: '',
         improve: '',
         top_action: '',
       });
 
       const tlForm = await readEvaluation(f.sessionFor(f.tl), target);
-      // AC3 — the TL's form is untouched by what the member wrote about themselves.
+      // AC3 — the TL's form is untouched by what the member scored themselves.
       expect(tlForm.version).toBe(0);
       expect(tlForm.strengths).toBe('');
       const tlSaved = await submitEvaluation(f.sessionFor(f.tl), {
@@ -514,7 +514,45 @@ describe('self-assessment (FUT-779)', () => {
       expect(tlSaved.overall).toBe(3);
       const mineAfter = await readEvaluation(f.sessionFor(f.member), target);
       expect(mineAfter.overall).toBe(5);
-      expect(mineAfter.strengths).toBe('my own read');
+      // The lead's words stay on the lead's row; the member's own carries scores only.
+      expect(mineAfter.strengths).toBe('');
+    });
+  });
+
+  it('refuses the manager’s written fields from the subject’s own seat (FUT-973)', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+      const target = { month, subject_person_id: f.member.person_id, project_id: f.project_id };
+      const mineForm = await readEvaluation(f.sessionFor(f.member), target);
+
+      // Strengths and What to improve are the manager's read on the person. Accepting
+      // them from the subject too would leave two authors' words in one column.
+      for (const written of [{ strengths: 'my own read' }, { improve: 'my own plan' }]) {
+        await expect(
+          submitEvaluation(f.sessionFor(f.member), {
+            ...target,
+            base_version: mineForm.version,
+            scores: scoreAll(mineForm, 5),
+            strengths: '',
+            improve: '',
+            top_action: '',
+            ...written,
+          }),
+        ).rejects.toThrow(/self-assessment/i);
+      }
+
+      // The same words from the lead's seat are exactly what that form is for.
+      const tlForm = await readEvaluation(f.sessionFor(f.tl), target);
+      const tlSaved = await submitEvaluation(f.sessionFor(f.tl), {
+        ...target,
+        base_version: tlForm.version,
+        scores: scoreAll(tlForm, 5),
+        strengths: "the lead's read",
+        improve: 'more pairing',
+        top_action: '',
+      });
+      expect(tlSaved.strengths).toBe("the lead's read");
     });
   });
 

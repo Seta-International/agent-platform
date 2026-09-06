@@ -335,6 +335,62 @@ describe('EvaluateDialog', () => {
     expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
   });
 
+  it('leaves the manager’s written fields off a self-assessment (FUT-973)', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view({ evaluator_capacity: 'self' }));
+    vi.mocked(saveEvaluationDraft).mockResolvedValue(view({ evaluator_capacity: 'self' }));
+    renderDialog();
+
+    expect(await screen.findByText(/My self-assessment/)).toBeInTheDocument();
+    // Strengths and What to improve are the lead's read on the person; the subject
+    // writing them too leaves two authors' words in one column.
+    expect(screen.queryByLabelText('Strengths')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('What to improve')).not.toBeInTheDocument();
+    // The Top Action is still theirs — it is the plan they commit to.
+    expect(screen.getByLabelText(/^Top action/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+
+    await waitFor(() => expect(saveEvaluationDraft).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveEvaluationDraft).mock.calls[0]?.[0]).toMatchObject({
+      strengths: '',
+      improve: '',
+    });
+  });
+
+  it('a row written before that rule is never sent back from the subject’s seat', async () => {
+    // The server refuses these from a self seat, so a form seeded with legacy text must
+    // not hand it straight back on the next save.
+    vi.mocked(fetchEvaluation).mockResolvedValue(
+      view({
+        evaluator_capacity: 'self',
+        strengths: 'written before the rule',
+        improve: 'and this',
+      }),
+    );
+    vi.mocked(saveEvaluationDraft).mockResolvedValue(view({ evaluator_capacity: 'self' }));
+    renderDialog();
+
+    expect(await screen.findByText(/My self-assessment/)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('written before the rule')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+
+    await waitFor(() => expect(saveEvaluationDraft).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveEvaluationDraft).mock.calls[0]?.[0]).toMatchObject({
+      strengths: '',
+      improve: '',
+    });
+  });
+
+  it('keeps both written fields on a manager’s evaluation', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    expect(screen.getByLabelText('Strengths')).toBeInTheDocument();
+    expect(screen.getByLabelText('What to improve')).toBeInTheDocument();
+  });
+
   it('a closed cycle is read-only — no way to save or submit', async () => {
     vi.mocked(fetchEvaluation).mockResolvedValue(view({ editable: false, cycle_status: 'locked' }));
     renderDialog();

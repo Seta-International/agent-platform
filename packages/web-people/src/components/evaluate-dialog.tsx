@@ -239,6 +239,10 @@ export function EvaluateDialog({
     setSeededVersion(view.version);
   }, [view, seededVersion]);
 
+  // Scoring yourself is the same form, but naming the subject would have it address the
+  // reader in the third person — and "as SELF" is not a seat anyone holds (FUT-779).
+  const isSelf = view ? view.evaluator_capacity === 'self' : isSelfAssessment;
+
   const body = (): EvaluationWriteBody => ({
     month,
     subject_person_id: subjectPersonId,
@@ -249,8 +253,10 @@ export function EvaluateDialog({
       score: s.score,
       evidence: s.evidence,
     })),
-    strengths,
-    improve,
+    // Never the subject's to write, and the server refuses them from this seat. A row
+    // written before that rule still loads its text; this stops it being sent back.
+    strengths: isSelf ? '' : strengths,
+    improve: isSelf ? '' : improve,
     top_action: topAction,
   });
 
@@ -290,11 +296,11 @@ export function EvaluateDialog({
   // The field below already says so in place, so the disabled button has its reason on
   // screen beside it — a draft, by contrast, is allowed to be this incomplete.
   const topActionMissing = anyBelowBar && topAction.trim().length === 0;
+  // The manager's read on the person. A closed self-assessment written before the rule
+  // may still carry the text, but it is not the subject's and is not shown back to them.
+  const managerNotesShown = !isSelf && (strengths.length > 0 || improve.length > 0);
 
   const name = view?.subject.full_name ?? subjectName ?? '';
-  // Scoring yourself is the same form, but naming the subject would have it address the
-  // reader in the third person — and "as SELF" is not a seat anyone holds (FUT-779).
-  const isSelf = view ? view.evaluator_capacity === 'self' : isSelfAssessment;
   const title = !isSelf
     ? name
       ? `Evaluate · ${name}`
@@ -416,7 +422,7 @@ export function EvaluateDialog({
                   </VStack>
                 ))}
 
-                {readOnly && !strengths && !improve && !topAction ? null : (
+                {readOnly && !managerNotesShown && !topAction ? null : (
                   <VStack gap={2}>
                     <Text as="h3" size="base" weight="semibold" className="uppercase tracking-wide">
                       Written review
@@ -424,24 +430,34 @@ export function EvaluateDialog({
                     <Divider />
                     {readOnly ? (
                       <>
-                        <WrittenNote label="Strengths" text={strengths} />
-                        <WrittenNote label="What to improve" text={improve} />
+                        {managerNotesShown ? (
+                          <>
+                            <WrittenNote label="Strengths" text={strengths} />
+                            <WrittenNote label="What to improve" text={improve} />
+                          </>
+                        ) : null}
                         <WrittenNote label="Top action" text={topAction} />
                       </>
                     ) : (
                       <>
-                        <Textarea
-                          label="Strengths"
-                          value={strengths}
-                          isDisabled={busy}
-                          onChange={(value: string) => setStrengths(value)}
-                        />
-                        <Textarea
-                          label="What to improve"
-                          value={improve}
-                          isDisabled={busy}
-                          onChange={(value: string) => setImprove(value)}
-                        />
+                        {/* The manager's read on the person, not the person's own — a
+                            self-assessment is scores and a Top Action (FUT-973). */}
+                        {isSelf ? null : (
+                          <>
+                            <Textarea
+                              label="Strengths"
+                              value={strengths}
+                              isDisabled={busy}
+                              onChange={(value: string) => setStrengths(value)}
+                            />
+                            <Textarea
+                              label="What to improve"
+                              value={improve}
+                              isDisabled={busy}
+                              onChange={(value: string) => setImprove(value)}
+                            />
+                          </>
+                        )}
                         <Textarea
                           label={
                             anyBelowBar
