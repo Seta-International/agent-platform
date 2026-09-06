@@ -391,6 +391,53 @@ describe('EvaluateDialog', () => {
     expect(screen.getByLabelText('What to improve')).toBeInTheDocument();
   });
 
+  it('seals a self-assessment once submitted, and says so in its own words (FUT-973)', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(
+      view({ evaluator_capacity: 'self', status: 'submitted', editable: false }),
+    );
+    renderDialog();
+
+    // Left open, the subject could restate their scores after seeing the manager's.
+    expect(await screen.findByTestId('evaluate-readonly-note')).toHaveTextContent(
+      /you submitted this self-assessment/i,
+    );
+    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Re-submit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Score for On-time delivery')).not.toBeInTheDocument();
+  });
+
+  it('a self-assessment still in draft stays a form', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view({ evaluator_capacity: 'self' }));
+    renderDialog();
+
+    expect(await screen.findByText(/My self-assessment/)).toBeInTheDocument();
+    expect(screen.queryByTestId('evaluate-readonly-note')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Score for On-time delivery')).toBeInTheDocument();
+  });
+
+  it('a manager may still re-submit their own review inside the window', async () => {
+    // Only the subject's own form is sealed on submit — nobody is grading the grader.
+    vi.mocked(fetchEvaluation).mockResolvedValue(view({ status: 'submitted' }));
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-submit' })).toBeInTheDocument();
+  });
+
+  it('an unlock reopens a submitted self-assessment', async () => {
+    // The PMO's cycle unlock (FUT-781) is the authorised way back in; the server hands
+    // the form back with editable true and the cycle in override.
+    vi.mocked(fetchEvaluation).mockResolvedValue(
+      view({ evaluator_capacity: 'self', status: 'submitted', cycle_status: 'override' }),
+    );
+    renderDialog();
+
+    expect(await screen.findByText(/My self-assessment/)).toBeInTheDocument();
+    expect(screen.queryByTestId('evaluate-readonly-note')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-submit' })).toBeInTheDocument();
+  });
+
   it('a closed cycle is read-only — no way to save or submit', async () => {
     vi.mocked(fetchEvaluation).mockResolvedValue(view({ editable: false, cycle_status: 'locked' }));
     renderDialog();

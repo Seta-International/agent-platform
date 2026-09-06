@@ -5,6 +5,7 @@ import { and, eq, isNull, not, or, sql } from 'drizzle-orm';
 import type {
   EvaluationCriterionView,
   EvaluationScoreInput,
+  EvaluationStatus,
   EvaluationTargetQuery,
   EvaluationView,
   EvaluationWriteInput,
@@ -32,6 +33,23 @@ type ScoreRow = { criterion_id: string; score: number; evidence: string };
 /** The windows in which an evaluation may still be written. */
 function windowOpen(status: CycleStatus): boolean {
   return status === 'open' || status === 'makeup' || status === 'override';
+}
+
+/**
+ * A submitted self-assessment is a statement of record, not a draft the subject may keep
+ * revising: left open, it lets them restate their own scores once they have seen where
+ * their manager landed (FUT-973). Only an unlock on the cycle — the PMO's, under
+ * `people.performance.unlock` (FUT-781) — puts it back in play.
+ *
+ * A manager's review is deliberately not covered: re-submitting theirs inside the window
+ * is the affordance the form offers them, and nobody is grading the grader.
+ */
+function selfSubmissionLocked(
+  capacity: EvaluatorCapacity,
+  status: EvaluationStatus,
+  cycleStatus: CycleStatus,
+): boolean {
+  return capacity === 'self' && status === 'submitted' && cycleStatus !== 'override';
 }
 
 /**
@@ -284,7 +302,9 @@ function buildView(args: {
   return {
     month: input.month,
     cycle_status: cycleStatus,
-    editable: windowOpen(cycleStatus),
+    editable:
+      windowOpen(cycleStatus) &&
+      !selfSubmissionLocked(target.capacity, row?.status ?? 'draft', cycleStatus),
     subject: {
       person_id: input.subject_person_id,
       full_name: target.subject_name,
@@ -454,6 +474,16 @@ async function writeEvaluation(
           ),
         )
         .limit(1);
+
+      // The form is already read-only for this, but the rule has to hold against a
+      // request that never went through it — a submitted self-assessment is closed.
+      if (selfSubmissionLocked(target.capacity, existing?.status ?? 'draft', cycleStatus)) {
+        throw new PeopleError(
+          'VALIDATION',
+          'This self-assessment is submitted. Need to change it? Request an unlock.',
+          { month: input.month, cycle_status: cycleStatus },
+        );
+      }
 
       const currentVersion = existing?.version ?? 0;
       if (input.base_version !== currentVersion) {

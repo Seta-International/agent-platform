@@ -556,6 +556,55 @@ describe('self-assessment (FUT-779)', () => {
     });
   });
 
+  it('seals the self-assessment on submit, and an unlock reopens it (FUT-973)', async () => {
+    await withFixture(async (f) => {
+      const { month, at } = openWindowNow();
+      setMonthClock(() => at);
+      const target = { month, subject_person_id: f.member.person_id, project_id: f.project_id };
+      const mine = f.sessionFor(f.member);
+
+      const form = await readEvaluation(mine, target);
+      const submitted = await submitEvaluation(mine, {
+        ...target,
+        base_version: form.version,
+        scores: scoreAll(form, 4),
+        strengths: '',
+        improve: '',
+        top_action: '',
+      });
+      expect(submitted.status).toBe('submitted');
+
+      // Reopening it would let the subject restate their scores once they had seen
+      // where their manager landed.
+      const reopened = await readEvaluation(mine, target);
+      expect(reopened.editable).toBe(false);
+      const rewrite = {
+        ...target,
+        base_version: reopened.version,
+        scores: scoreAll(reopened, 5),
+        strengths: '',
+        improve: '',
+        top_action: '',
+      };
+      await expect(submitEvaluation(mine, rewrite)).rejects.toThrow(/submitted/i);
+      // A draft save is no way around it either.
+      await expect(saveEvaluationDraft(mine, rewrite)).rejects.toThrow(/submitted/i);
+
+      // The PMO's unlock on the cycle is the authorised way back in (FUT-781).
+      const pmo = buildSession({
+        tenant_id: f.t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['pm.pmo'],
+        assignments: [{ role_slug: 'pm.pmo', scope_kind: 'tenant', scope_id: null }],
+        person_id: f.am.person_id,
+      });
+      await unlockCycle(pmo, { month, account_id: f.account_id, days: 1 });
+
+      const afterUnlock = await readEvaluation(mine, target);
+      expect(afterUnlock.editable).toBe(true);
+    });
+  });
+
   it('a lead has no self-assessment on the project they lead', async () => {
     await withFixture(async (f) => {
       const { month, at } = openWindowNow();

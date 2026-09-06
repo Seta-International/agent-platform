@@ -299,6 +299,9 @@ export function EvaluateDialog({
   // The manager's read on the person. A closed self-assessment written before the rule
   // may still carry the text, but it is not the subject's and is not shown back to them.
   const managerNotesShown = !isSelf && (strengths.length > 0 || improve.length > 0);
+  // Read-only has two causes now, and "the cycle is closed" is the wrong thing to tell
+  // someone whose own submission is what closed the form (FUT-973).
+  const sealedBySubmission = isSelf && view?.status === 'submitted';
 
   const name = view?.subject.full_name ?? subjectName ?? '';
   const title = !isSelf
@@ -374,8 +377,9 @@ export function EvaluateDialog({
               <VStack gap={4}>
                 {readOnly ? (
                   <Text size="sm" color="secondary" data-testid="evaluate-readonly-note">
-                    This cycle is closed, so the evaluation is read-only. Need to change it? Request
-                    an unlock.
+                    {sealedBySubmission
+                      ? 'You submitted this self-assessment, so it is a record now rather than a form. Need to change it? Request an unlock.'
+                      : 'This cycle is closed, so the evaluation is read-only. Need to change it? Request an unlock.'}
                   </Text>
                 ) : null}
 
