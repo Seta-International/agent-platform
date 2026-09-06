@@ -102,7 +102,7 @@ jobs:
         uses: docker/setup-buildx-action@v4.2.0
 
       - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2.1.6
+        uses: aws-actions/amazon-ecr-login@v2.1.7
 
       - name: Build + push server by digest
         id: build
@@ -150,7 +150,7 @@ jobs:
         uses: docker/setup-buildx-action@v4.2.0
 
       - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2.1.6
+        uses: aws-actions/amazon-ecr-login@v2.1.7
 
       - name: Download digests
         uses: actions/download-artifact@v8
@@ -198,7 +198,7 @@ jobs:
         uses: docker/setup-buildx-action@v4.2.0
 
       - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2.1.6
+        uses: aws-actions/amazon-ecr-login@v2.1.7
 
       - name: Build + push web
         uses: docker/build-push-action@v7.3.0
