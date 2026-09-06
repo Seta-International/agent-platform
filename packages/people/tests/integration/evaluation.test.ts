@@ -556,10 +556,10 @@ describe('self-assessment (FUT-779)', () => {
     });
   });
 
-  it('seals the self-assessment on submit, and an unlock reopens it (FUT-973)', async () => {
+  it('seals the self-assessment on submit, even with the window still open (FUT-973)', async () => {
     await withFixture(async (f) => {
-      const { month, at } = openWindowNow();
-      setMonthClock(() => at);
+      const month = '2026-06';
+      setMonthClock(() => vn(2026, 6, 26, 10));
       const target = { month, subject_person_id: f.member.person_id, project_id: f.project_id };
       const mine = f.sessionFor(f.member);
 
@@ -575,8 +575,10 @@ describe('self-assessment (FUT-779)', () => {
       expect(submitted.status).toBe('submitted');
 
       // Reopening it would let the subject restate their scores once they had seen
-      // where their manager landed.
+      // where their manager landed. The window is still open; the submission is what
+      // closes this form.
       const reopened = await readEvaluation(mine, target);
+      expect(reopened.cycle_status).toBe('open');
       expect(reopened.editable).toBe(false);
       const rewrite = {
         ...target,
@@ -589,8 +591,29 @@ describe('self-assessment (FUT-779)', () => {
       await expect(submitEvaluation(mine, rewrite)).rejects.toThrow(/submitted/i);
       // A draft save is no way around it either.
       await expect(saveEvaluationDraft(mine, rewrite)).rejects.toThrow(/submitted/i);
+    });
+  });
 
-      // The PMO's unlock on the cycle is the authorised way back in (FUT-781).
+  it('a PMO unlock reopens the sealed self-assessment once the cycle has closed', async () => {
+    await withFixture(async (f) => {
+      const month = '2026-06';
+      setMonthClock(() => vn(2026, 6, 26, 10));
+      const target = { month, subject_person_id: f.member.person_id, project_id: f.project_id };
+      const mine = f.sessionFor(f.member);
+
+      const form = await readEvaluation(mine, target);
+      await submitEvaluation(mine, {
+        ...target,
+        base_version: form.version,
+        scores: scoreAll(form, 4),
+        strengths: '',
+        improve: '',
+        top_action: '',
+      });
+
+      // Unlock only ever applies to the latest closed cycle (FUT-781), so the way back
+      // in opens once the month has ended — day 10 of M+1, past open and makeup both.
+      setMonthClock(() => vn(2026, 7, 10));
       const pmo = buildSession({
         tenant_id: f.t.tenant_id,
         user_id: crypto.randomUUID(),
@@ -598,10 +621,20 @@ describe('self-assessment (FUT-779)', () => {
         assignments: [{ role_slug: 'pm.pmo', scope_kind: 'tenant', scope_id: null }],
         person_id: f.am.person_id,
       });
-      await unlockCycle(pmo, { month, account_id: f.account_id, days: 1 });
+      await unlockCycle(pmo, { month, account_id: f.account_id, days: 3 });
 
       const afterUnlock = await readEvaluation(mine, target);
+      expect(afterUnlock.cycle_status).toBe('override');
       expect(afterUnlock.editable).toBe(true);
+      const saved = await saveEvaluationDraft(mine, {
+        ...target,
+        base_version: afterUnlock.version,
+        scores: scoreAll(afterUnlock, 5),
+        strengths: '',
+        improve: '',
+        top_action: '',
+      });
+      expect(saved.status).toBe('draft');
     });
   });
 

@@ -362,7 +362,8 @@ describe('readMonthTasks (FUT-695 / TC-19..21)', () => {
           scores: form.groups.flatMap((g) =>
             g.criteria.map((c) => ({ criterion_id: c.criterion_id, score: 4, evidence: '' })),
           ),
-          strengths: 'a fair month',
+          // Strengths belongs to the manager's review, not to this seat.
+          strengths: '',
           improve: '',
           top_action: '',
         });

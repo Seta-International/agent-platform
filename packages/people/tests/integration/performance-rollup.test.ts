@@ -123,7 +123,11 @@ async function submitFlat(
     scores: view.groups.flatMap((g) =>
       g.criteria.map((c) => ({ criterion_id: c.criterion_id, score, evidence: 'evidence' })),
     ),
-    strengths: `Strengths for ${subject.person_id.slice(0, 4)}`,
+    // Strengths is the manager's field; the subject's own seat may not write it.
+    strengths:
+      evaluator.person_id === subject.person_id
+        ? ''
+        : `Strengths for ${subject.person_id.slice(0, 4)}`,
     improve: '',
     top_action: score < 4 ? 'Pair on the release checklist' : '',
   });
