@@ -247,7 +247,13 @@ export type PerformanceContext =
       can_unlock: boolean;
     };
 
-const weightPct = z.number().finite().min(0).max(100);
+/**
+ * A share of the scorecard: a whole percentage above zero. Zero is not a weight but a
+ * criterion nobody scores, and a fraction of a percent is noise the config screen cannot
+ * even show without trailing-zero games. The rule lives here rather than in the one
+ * screen that edits it, so a second client cannot write what the first refuses to offer.
+ */
+const weightPct = z.number().int().positive().max(100);
 
 export const performanceConfigCriterionInput = z.object({
   name: z.string().min(1).max(200),

@@ -3,6 +3,7 @@ import {
   Banner,
   Button,
   Card,
+  Center,
   Divider,
   HStack,
   IconButton,
@@ -15,11 +16,15 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useState } from 'react';
 import type { PerformanceConfigGroup } from '../api/people-client.ts';
 import { savePerformanceConfig } from '../api/people-client.ts';
 import { performanceConfigOptions } from '../api/performance-query.ts';
-import { validateConfigDraft, weightCents } from '../nav/performance-config-validation.ts';
+import {
+  validateConfigDraft,
+  weightCents,
+  weightProblem,
+} from '../nav/performance-config-validation.ts';
 import { performanceKeys } from '../state/performance-query-keys.ts';
 import { usePerformanceScopeContext } from '../state/performance-scope-context.tsx';
 
@@ -66,6 +71,49 @@ function fmtPct(cents: number): string {
 
 function critCentsOf(g: DraftGroup): number {
   return g.criteria.reduce((s, c) => s + weightCents(c.weight), 0);
+}
+
+/** The design system's medium control height — what a weight box itself stands at. */
+const CONTROL_HEIGHT = 'var(--size-element-md)';
+
+/**
+ * A weight is never signed and never in exponent form, but `type="number"` counts these
+ * as numeric syntax and takes them. A lone "e" or "-" is not a number, so the browser
+ * reports the value as empty and the box is wiped mid-keystroke — the very disappearing
+ * act this screen was reported for. Refuse them and the number already there stays put.
+ *
+ * A negative that arrives whole — pasted, or already in the config — still lands and is
+ * still told it must be above zero; there is just no way to type one a character at a
+ * time and watch the field empty itself.
+ */
+const NON_WEIGHT_KEYS = new Set(['e', 'E', '+', '-']);
+
+function blockNonWeightKeys(event: KeyboardEvent<HTMLInputElement>): void {
+  // Modifiers are shortcuts, not typing — only a bare keypress inserts text.
+  const isTyping = !event.ctrlKey && !event.metaKey && !event.altKey;
+  if (isTyping && NON_WEIGHT_KEYS.has(event.key)) event.preventDefault();
+}
+
+/** The status a weight box wears — undefined when the number is fine. */
+function weightStatus(weight: number): { type: 'error'; message: string } | undefined {
+  const problem = weightProblem(weight);
+  return problem ? { type: 'error', message: problem } : undefined;
+}
+
+/**
+ * Holds a control level with the boxes in a row of labelled fields rather than with the
+ * labels above them. The spacer is the label's own type and the stack its own gap, so it
+ * stays in step with the fields beside it.
+ */
+function BesideTheBoxes({ children }: { children: ReactNode }) {
+  return (
+    <VStack gap={1}>
+      <Text type="label" aria-hidden>
+        {'\u00A0'}
+      </Text>
+      <Center height={CONTROL_HEIGHT}>{children}</Center>
+    </VStack>
+  );
 }
 
 export function PerformanceConfigurationPage() {
@@ -151,15 +199,23 @@ export function PerformanceConfigurationPage() {
   const groupTotalCents = draft.reduce((s, g) => s + weightCents(g.weight), 0);
   const groupOk = groupTotalCents === 10_000;
   const invalidGroups = draft.filter((g) => critCentsOf(g) !== weightCents(g.weight));
-  const allValid = groupOk && invalidGroups.length === 0;
+  // Every weight well-formed before any of them are worth totalling: a decimal or a zero
+  // makes the sums below meaningless, and the server refuses the write outright.
+  const weightsWellFormed = draft.every(
+    (g) =>
+      weightProblem(g.weight) === null && g.criteria.every((c) => weightProblem(c.weight) === null),
+  );
+  const allValid = weightsWellFormed && groupOk && invalidGroups.length === 0;
 
   const summaryDescription = allValid
     ? 'Configuration is valid and applies to every project in this account.'
-    : !groupOk
-      ? 'Group weights must add up to 100% before you can publish this configuration.'
-      : `Each group's criteria must total its group weight before you can publish (${invalidGroups
-          .map((g) => g.name)
-          .join(', ')}).`;
+    : !weightsWellFormed
+      ? 'Every weight must be a whole number greater than 0% before you can publish this configuration.'
+      : !groupOk
+        ? 'Group weights must add up to 100% before you can publish this configuration.'
+        : `Each group's criteria must total its group weight before you can publish (${invalidGroups
+            .map((g) => g.name)
+            .join(', ')}).`;
 
   const resetDraft = () => {
     if (!q.data) return;
@@ -280,11 +336,15 @@ export function PerformanceConfigurationPage() {
                     }}
                     data-testid={`performance-config-group-${g.code}`}
                   >
-                    <HStack hAlign="between" vAlign="center" gap={2}>
+                    {/* Both sides hang from the top at the height of the weight box, so
+                        the message that opens below it never drags the name out of line. */}
+                    <HStack hAlign="between" vAlign="start" gap={2}>
                       <VStack gap={1} hAlign="start" className="min-w-0">
-                        <Text weight={isSelected ? 'semibold' : 'medium'} className="truncate">
-                          {g.name}
-                        </Text>
+                        <Center height={CONTROL_HEIGHT}>
+                          <Text weight={isSelected ? 'semibold' : 'medium'} className="truncate">
+                            {g.name}
+                          </Text>
+                        </Center>
                         {gOk ? null : (
                           <Badge
                             variant="warning"
@@ -292,16 +352,19 @@ export function PerformanceConfigurationPage() {
                           />
                         )}
                       </VStack>
+                      {/* No min/max: the field swallows anything outside them, dropping the
+                          entry on blur and leaving a box with nothing said. Take the number
+                          as typed and name the problem instead. */}
                       <NumberInput
                         label={`${g.name} group weight`}
                         isLabelHidden
                         units="%"
-                        width={96}
+                        width={148}
                         value={g.weight}
-                        min={0}
-                        max={100}
-                        step={0.5}
+                        step={1}
+                        status={weightStatus(g.weight)}
                         onChange={(value) => patchGroup(gi, { weight: asNumber(value) })}
+                        onKeyDown={blockNonWeightKeys}
                       />
                     </HStack>
                   </Card>
@@ -347,7 +410,9 @@ export function PerformanceConfigurationPage() {
               <VStack gap={2}>
                 {active.criteria.map((c, ci) => (
                   <Card key={`${active.group_id}:${c.key}`} padding={3} className="row-fade-in">
-                    <HStack hAlign="between" vAlign="end" gap={3} wrap="wrap">
+                    {/* Top-aligned so the two labels line up and the message opening under
+                        the weight box leaves the name field and the bin where they are. */}
+                    <HStack hAlign="between" vAlign="start" gap={3} wrap="wrap">
                       <div className="min-w-56 flex-1">
                         <Input
                           label="Criterion"
@@ -359,28 +424,31 @@ export function PerformanceConfigurationPage() {
                           }}
                         />
                       </div>
+                      {/* No min/max, for the reason given on the group weight above. */}
                       <NumberInput
                         label="Weight"
                         units="%"
-                        width={120}
+                        width={148}
                         value={c.weight}
-                        min={0}
-                        max={100}
-                        step={0.5}
+                        step={1}
+                        status={weightStatus(c.weight)}
                         onChange={(value) => {
                           const criteria = [...active.criteria];
                           criteria[ci] = { ...c, weight: asNumber(value) };
                           patchActiveCriteria(criteria);
                         }}
+                        onKeyDown={blockNonWeightKeys}
                       />
-                      <IconButton
-                        label={`Remove ${c.name || 'criterion'}`}
-                        icon={<Trash2 size={16} />}
-                        variant="ghost"
-                        onClick={() =>
-                          patchActiveCriteria(active.criteria.filter((_, i) => i !== ci))
-                        }
-                      />
+                      <BesideTheBoxes>
+                        <IconButton
+                          label={`Remove ${c.name || 'criterion'}`}
+                          icon={<Trash2 size={16} />}
+                          variant="ghost"
+                          onClick={() =>
+                            patchActiveCriteria(active.criteria.filter((_, i) => i !== ci))
+                          }
+                        />
+                      </BesideTheBoxes>
                     </HStack>
                   </Card>
                 ))}

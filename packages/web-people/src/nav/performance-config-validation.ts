@@ -3,6 +3,16 @@ export function weightCents(n: number): number {
   return Math.round(n * 100);
 }
 
+/**
+ * What is wrong with one weight, in the editor's words — null when nothing is. Mirrors
+ * `weightPct` in the people contract, so the field says what the server would reject.
+ */
+export function weightProblem(weight: number): string | null {
+  if (!Number.isFinite(weight) || !Number.isInteger(weight)) return 'Whole numbers only.';
+  if (weight <= 0) return 'Weight must be greater than 0%.';
+  return null;
+}
+
 export function validateConfigDraft(
   groups: { weight: number; criteria: { weight: number }[] }[],
 ): string | null {
@@ -14,8 +24,16 @@ export function validateConfigDraft(
     if (g.criteria.length === 0) {
       return 'Every group needs at least one criterion.';
     }
+    // Well-formed before it is balanced: a decimal or a zero makes the sums below
+    // meaningless, and the server refuses the write outright.
+    const gProblem = weightProblem(g.weight);
+    if (gProblem) return `Group weights: ${gProblem}`;
     let critSum = 0;
-    for (const c of g.criteria) critSum += weightCents(c.weight);
+    for (const c of g.criteria) {
+      const cProblem = weightProblem(c.weight);
+      if (cProblem) return `Criterion weights: ${cProblem}`;
+      critSum += weightCents(c.weight);
+    }
     if (critSum !== weightCents(g.weight)) {
       return 'Criteria weights in each group must equal that group’s weight.';
     }
