@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -215,6 +215,124 @@ describe('EvaluateDialog', () => {
     // the member's own name in a header written for their manager.
     expect(await screen.findByText('My self-assessment')).toBeInTheDocument();
     expect(screen.queryByText('Evaluate · Mia Member')).not.toBeInTheDocument();
+  });
+
+  it('keeps an out-of-range score on screen and says what is wrong (FUT-973)', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    const field = screen.getByLabelText('Score for On-time delivery');
+    await userEvent.type(field, '6');
+    await userEvent.tab();
+
+    // This used to drop the entry on blur and leave an empty box behind, so the evaluator
+    // never learned why their number had vanished. The message is tied to the field it is
+    // about, so a screen reader reaches it from the box rather than hunting the page.
+    expect(field).toHaveValue(6);
+    expect(field).toHaveAccessibleDescription('Enter a score 1 to 5.');
+    expect(field).toBeInvalid();
+  });
+
+  it('says the same below the scale, rather than blanking the field (FUT-973)', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    const field = screen.getByLabelText('Score for On-time delivery');
+    await userEvent.type(field, '0.5');
+    await userEvent.tab();
+
+    expect(field).toHaveValue(0.5);
+    expect(field).toHaveAccessibleDescription('Enter a score 1 to 5.');
+  });
+
+  it('names the half-point rule instead of silently rounding to it (FUT-973)', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    const field = screen.getByLabelText('Score for On-time delivery');
+    await userEvent.type(field, '3.27');
+    await userEvent.tab();
+
+    expect(field).toHaveValue(3.27);
+    // No example figure in the message: it sits beside the entry, where a stray number
+    // reads as the value the field holds.
+    expect(field).toHaveAccessibleDescription('Half points only.');
+  });
+
+  it('refuses the keys that would leave the box holding a non-number (FUT-973)', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    const field = screen.getByLabelText('Score for On-time delivery');
+
+    // `type="number"` treats these as numeric syntax and takes them, then reports the
+    // value as empty — the box shows "e" or "--111" while the form sees no score at all.
+    for (const key of ['e', 'E', '+', '-']) {
+      expect(fireEvent.keyDown(field, { key })).toBe(false);
+    }
+    // Everything a score is actually made of still goes in.
+    for (const key of ['3', '.', '5', 'Backspace']) {
+      expect(fireEvent.keyDown(field, { key })).toBe(true);
+    }
+    // A modifier means a shortcut, not typing — leave it to the browser.
+    expect(fireEvent.keyDown(field, { key: 'e', ctrlKey: true })).toBe(true);
+  });
+
+  it('holds back a write the server would only reject, until the score is on the scale', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    const field = screen.getByLabelText('Score for On-time delivery');
+    await userEvent.type(field, '6');
+
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+
+    await userEvent.clear(field);
+    await userEvent.type(field, '4');
+
+    expect(field).not.toHaveAccessibleDescription();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+  });
+
+  it('the steppers pull an off-scale score back onto the scale', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    const field = screen.getByLabelText('Score for On-time delivery');
+    await userEvent.type(field, '6');
+    await userEvent.click(screen.getByRole('button', { name: 'Lower score for On-time delivery' }));
+
+    expect(field).toHaveValue(5);
+    expect(field).not.toHaveAccessibleDescription();
+  });
+
+  it('will not submit without the Top Action a low score demands, but still saves a draft', async () => {
+    vi.mocked(fetchEvaluation).mockResolvedValue(view());
+    vi.mocked(saveEvaluationDraft).mockResolvedValue(view({ version: 3 }));
+    renderDialog();
+
+    expect(await screen.findByText('Evaluate · Mia Member')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Score for On-time delivery'), '2');
+
+    // The server refuses this outright (assertSubmittable), and the field says why —
+    // tied to the field, so the disabled button has its reason on screen beside it.
+    const topAction = screen.getByLabelText(/^Top action/);
+    expect(topAction).toHaveAccessibleDescription('Required — a criterion scored below 4.');
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    // A draft is allowed to be half-written — only the submit is held back.
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+
+    await userEvent.type(topAction, 'Pair on estimates before the next sprint.');
+
+    expect(topAction).not.toHaveAccessibleDescription();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
   });
 
   it('a closed cycle is read-only — no way to save or submit', async () => {

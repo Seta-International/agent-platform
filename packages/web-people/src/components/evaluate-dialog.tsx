@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  Center,
   Dialog,
   DialogFooter,
   DialogHeader,
@@ -40,6 +41,15 @@ const SCORE_MAX = 5;
 const SCORE_STEP = 0.5;
 /** Below this a Top Action is mandatory — mirrors the server's rule (AC4). */
 const TOP_ACTION_REQUIRED_BELOW = 4;
+/** The design system's medium control height — what the score box itself stands at. */
+const CONTROL_HEIGHT = 'var(--size-element-md)';
+/**
+ * A score is never signed and never in exponent form, but `type="number"` counts these as
+ * numeric syntax and takes them. What they leave behind is a box showing "e" or "--111"
+ * while the browser reports the value as empty — so the form reads it as unscored, says
+ * nothing, and offers a Submit that drops the entry (FUT-973). Refuse them at the key.
+ */
+const NON_SCORE_KEYS = new Set(['e', 'E', '+', '-']);
 
 function draftFrom(view: EvaluationView): ScoreDraft {
   const out: ScoreDraft = {};
@@ -50,12 +60,30 @@ function draftFrom(view: EvaluationView): ScoreDraft {
 }
 
 /**
- * The box takes typing, so it can yield 3.27 or a number off the scale. Scores run 1 to 5
- * in half points — the server rejects anything else — so snap here rather than let a
- * submit fail on it.
+ * What is wrong with a typed score, in the evaluator's words — null when nothing is.
+ * The box takes typing, so it can yield 3.27 or a number off the scale; the server
+ * rejects both, and the evaluator is owed the reason before they hit save (FUT-973).
  */
-function normalizeScore(value: number | null): number | null {
-  if (value === null || !Number.isFinite(value)) return null;
+function scoreProblem(score: number | null): string | null {
+  if (score === null) return null;
+  if (!Number.isFinite(score) || score < SCORE_MIN || score > SCORE_MAX) {
+    return `Enter a score ${SCORE_MIN} to ${SCORE_MAX}.`;
+  }
+  // Inside the range but between two rungs of it. Typing "3.5" carries no float noise, so
+  // measure the distance to the nearest half point rather than test for equality. The
+  // message names no example number: it sits beside the entry it is about, and a stray
+  // figure there reads as the value the field holds.
+  if (Math.abs(score / SCORE_STEP - Math.round(score / SCORE_STEP)) > 1e-9) {
+    return 'Half points only.';
+  }
+  return null;
+}
+
+/**
+ * A stepper only ever lands on the scale: it snaps to the nearest half point and stops at
+ * the ends, which also makes it the one-click way back from a score typed outside them.
+ */
+function stepped(value: number): number {
   const snapped = Math.round(value / SCORE_STEP) * SCORE_STEP;
   return Math.min(SCORE_MAX, Math.max(SCORE_MIN, snapped));
 }
@@ -77,53 +105,68 @@ function CriterionRow({
   onChange: (score: number | null) => void;
 }) {
   /** Stepping an unscored criterion starts it at the bottom of the scale. */
-  const step = (delta: number) =>
-    onChange(normalizeScore(score === null ? SCORE_MIN : score + delta));
+  const step = (delta: number) => onChange(stepped(score === null ? SCORE_MIN : score + delta));
+  const problem = scoreProblem(score);
 
   return (
-    <HStack hAlign="between" vAlign="center" wrap="wrap" gap={3}>
-      <HStack gap={2} vAlign="center">
-        <Text size="sm" weight="medium">
-          {criterion.name}
-        </Text>
-        <Text size="2xs" color="secondary" className="tabular-nums">
-          {formatWeight(criterion.weight)}
-        </Text>
-      </HStack>
+    // Both sides of the row hang from the top and stand at the height of the score box, so
+    // the message that opens below the box never drags the criterion out of line with it.
+    <HStack hAlign="between" vAlign="start" wrap="wrap" gap={3}>
+      <Center height={readOnly ? undefined : CONTROL_HEIGHT}>
+        <HStack gap={2} vAlign="center">
+          <Text size="sm" weight="medium">
+            {criterion.name}
+          </Text>
+          <Text size="2xs" color="secondary" className="tabular-nums">
+            {formatWeight(criterion.weight)}
+          </Text>
+        </HStack>
+      </Center>
       {readOnly ? (
         <Text size="sm" weight="semibold" className="tabular-nums">
           {score === null ? '—' : formatScore(score, 1)}
         </Text>
       ) : (
-        <HStack gap={1} vAlign="center">
-          <IconButton
-            size="sm"
-            variant="ghost"
-            label={`Lower score for ${criterion.name}`}
-            icon={<Minus size={14} aria-hidden />}
-            isDisabled={isDisabled || score === SCORE_MIN}
-            onClick={() => step(-SCORE_STEP)}
-          />
+        <HStack gap={1} vAlign="start">
+          <Center height={CONTROL_HEIGHT}>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              label={`Lower score for ${criterion.name}`}
+              icon={<Minus size={14} aria-hidden />}
+              isDisabled={isDisabled || score === SCORE_MIN}
+              onClick={() => step(-SCORE_STEP)}
+            />
+          </Center>
+          {/* No min/max here on purpose: the field swallows anything outside them, so an
+              out-of-range entry was dropped on blur and left an empty box with nothing
+              said (FUT-973). Take the number as typed and name the problem instead. */}
           <NumberInput
             label={`Score for ${criterion.name}`}
             isLabelHidden
             value={score}
-            min={SCORE_MIN}
-            max={SCORE_MAX}
             step={SCORE_STEP}
             hasClear
-            width={88}
+            width={132}
             isDisabled={isDisabled}
-            onChange={(next) => onChange(normalizeScore(next))}
+            status={problem ? { type: 'error', message: problem } : undefined}
+            onChange={onChange}
+            onKeyDown={(event) => {
+              // Modifiers are shortcuts, not typing — only a bare keypress inserts text.
+              const isTyping = !event.ctrlKey && !event.metaKey && !event.altKey;
+              if (isTyping && NON_SCORE_KEYS.has(event.key)) event.preventDefault();
+            }}
           />
-          <IconButton
-            size="sm"
-            variant="ghost"
-            label={`Raise score for ${criterion.name}`}
-            icon={<Plus size={14} aria-hidden />}
-            isDisabled={isDisabled || score === SCORE_MAX}
-            onClick={() => step(SCORE_STEP)}
-          />
+          <Center height={CONTROL_HEIGHT}>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              label={`Raise score for ${criterion.name}`}
+              icon={<Plus size={14} aria-hidden />}
+              isDisabled={isDisabled || score === SCORE_MAX}
+              onClick={() => step(SCORE_STEP)}
+            />
+          </Center>
         </HStack>
       )}
     </HStack>
@@ -241,6 +284,12 @@ export function EvaluateDialog({
   const anyBelowBar = Object.values(draft).some(
     (s) => s.score !== null && s.score < TOP_ACTION_REQUIRED_BELOW,
   );
+  // A score off the scale is a guaranteed 400 — hold the write until the field is fixed.
+  const anyOffScale = Object.values(draft).some((s) => scoreProblem(s.score) !== null);
+  // So is submitting without the Top Action the low score demands (AC4, assertSubmittable).
+  // The field below already says so in place, so the disabled button has its reason on
+  // screen beside it — a draft, by contrast, is allowed to be this incomplete.
+  const topActionMissing = anyBelowBar && topAction.trim().length === 0;
 
   const name = view?.subject.full_name ?? subjectName ?? '';
   // Scoring yourself is the same form, but naming the subject would have it address the
@@ -432,13 +481,13 @@ export function EvaluateDialog({
                 <Button
                   variant="secondary"
                   label="Save draft"
-                  isDisabled={busy}
+                  isDisabled={busy || anyOffScale}
                   onClick={() => save.mutate()}
                 />
                 <Button
                   variant="primary"
                   label={view.status === 'submitted' ? 'Re-submit' : 'Submit'}
-                  isDisabled={busy}
+                  isDisabled={busy || anyOffScale || topActionMissing}
                   onClick={() => submit.mutate()}
                 />
               </>
