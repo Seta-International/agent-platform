@@ -60,6 +60,7 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
       search: c.req.query('search') || undefined,
       ids: list('ids'),
       status: list('status'),
+      excludeStatus: list('exclude_status'),
       account_id: list('account_id'),
       project_id: list('project_id'),
       skill_id: list('skill_id'),

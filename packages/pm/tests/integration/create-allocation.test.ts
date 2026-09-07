@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { allocation } from '../../src/backend/db/schema.ts';
+import { allocation, personProjection } from '../../src/backend/db/schema.ts';
 import { createAccount, createAllocation, submitCharter } from '../../src/index.ts';
 import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
 
@@ -101,6 +101,66 @@ describe('createAllocation', () => {
             session: t.adminSession,
           }),
         ).rejects.toThrow();
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-953: rejects a worker whose projection is flagged alumni', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await seedProject(t.adminSession);
+        const workerId = crypto.randomUUID();
+        await pmDb().insert(personProjection).values({
+          person_id: workerId,
+          tenant_id: t.tenant_id,
+          full_name: 'Former Employee',
+          is_alumni: true,
+        });
+
+        await expect(
+          createAllocation({
+            project_id: projectId,
+            worker_id: workerId,
+            date_from: '2026-05-01',
+            date_to: '2026-05-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-953: a placeholder allocation (no worker_id) is unaffected by alumni data', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await seedProject(t.adminSession);
+
+        const { allocation_id } = await createAllocation({
+          project_id: projectId,
+          status: 'placeholder',
+          bucket: 'billable',
+          session: t.adminSession,
+        });
+        expect(allocation_id).toBeTruthy();
       } finally {
         resetPmDb();
         resetCoreDb();

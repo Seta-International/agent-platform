@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { listGroupMembers } from '../domain/list-group-members.ts';
 import { listPlans } from '../domain/list-plans.ts';
 import { PlannerError } from '../rbac.ts';
-import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
+import { archivedGroupError, resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetGroupOverviewTool = defineAgentTool({
   id: 'planner_getGroupOverview',
@@ -72,6 +72,9 @@ export const plannerGetGroupOverviewTool = defineAgentTool({
     });
     if ('notFound' in resolved) {
       return { error: 'No accessible group found matching that criteria.' };
+    }
+    if ('archived' in resolved) {
+      return { error: archivedGroupError(resolved.name) };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');
