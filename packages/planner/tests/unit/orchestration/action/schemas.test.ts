@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   ActionResumeSchema,
+  AssignTaskResumeSchema,
+  AssignTaskToolInputSchema,
   BULK_TARGET_CAP,
   LinkTasksResumeSchema,
   LinkTasksToolInputSchema,
@@ -204,5 +206,62 @@ describe('MergeTasksResumeSchema', () => {
       idempotencyKey: 'k',
     });
     expect(parsed.action).toBe('merge');
+  });
+});
+
+describe('AssignTaskToolInputSchema', () => {
+  it('takes a task ref and one or more people', () => {
+    const parsed = AssignTaskToolInputSchema.parse({
+      taskRef: 'Deploy hiring screen',
+      assigneeRefs: ['Tuấn', 'Alice'],
+    });
+    expect(parsed.assigneeRefs).toEqual(['Tuấn', 'Alice']);
+  });
+
+  it('refuses an empty assignee list — unassigning everyone is not this tool', () => {
+    expect(() => AssignTaskToolInputSchema.parse({ taskRef: TASK_A, assigneeRefs: [] })).toThrow();
+  });
+
+  it('refuses more than ten people in one call', () => {
+    expect(() =>
+      AssignTaskToolInputSchema.parse({
+        taskRef: TASK_A,
+        assigneeRefs: Array.from({ length: 11 }, (_, i) => `p${i}`),
+      }),
+    ).toThrow();
+  });
+});
+
+describe('AssignTaskResumeSchema', () => {
+  it('parses the card\u2019s assign payload', () => {
+    const parsed = AssignTaskResumeSchema.parse({
+      action: 'assign',
+      taskId: TASK_A,
+      assigneeUserIds: ['u1'],
+      idempotencyKey: 'k',
+    });
+    expect(parsed.action).toBe('assign');
+  });
+
+  // .strict() is what stops a client-supplied field creeping back in.
+  it('refuses an unknown field', () => {
+    expect(() =>
+      AssignTaskResumeSchema.parse({
+        action: 'assign',
+        taskId: TASK_A,
+        assigneeUserIds: ['u1'],
+        idempotencyKey: 'k',
+        overrideUserIds: ['u2'],
+      }),
+    ).toThrow();
+  });
+
+  it('does not let an update payload parse as an assign', () => {
+    expect(() =>
+      AssignTaskResumeSchema.parse({
+        action: 'update',
+        targets: [{ taskId: TASK_A, expectedVersion: 1 }],
+      }),
+    ).toThrow();
   });
 });

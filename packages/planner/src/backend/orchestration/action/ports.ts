@@ -107,9 +107,53 @@ export interface TaskMergePort {
   ): Promise<{ replayed: boolean }>;
 }
 
+export interface TaskAssignPort {
+  /**
+   * The card's "before" half: the task's title, its group, and the CURRENT
+   * assignee set with display names. Null when the task is absent or the actor
+   * cannot read it — the same collapse `TaskLinkPort.readEndpoint` makes, for
+   * the same reason.
+   */
+  readForAssign(args: ActorRef & { taskId: string }): Promise<{
+    title: string;
+    groupId: string;
+    assignees: Array<{ userId: string; name: string }>;
+  } | null>;
+
+  /** `planner.task.assign` on the task's group. The load-bearing first-pass
+   *  gate: `defineAgentTool({ rbac })` is declarative metadata whose only
+   *  readers are tests, so without this a viewer would build a card and write a
+   *  pending approval row before anything refused them. */
+  assertCanAssign(args: ActorRef & { groupId: string }): Promise<void>;
+
+  /**
+   * People matching a name fragment, with whether they are in the task's group.
+   * Returns ALL matches: deciding between two people called "Tuan" is the tool's
+   * job (it refuses and lists them), not this port's.
+   */
+  resolveMembers(
+    args: ActorRef & { query: string; groupId: string },
+  ): Promise<Array<{ userId: string; name: string; inGroup: boolean }>>;
+
+  /**
+   * The governed write: `withGatedMutation('assign')` around `setAssignees`,
+   * which REPLACES the set.
+   *
+   * Deliberately NOT the assignment runtime's `AssignPort`: that one loops
+   * `assignTask`, which inserts ON CONFLICT DO NOTHING and therefore only ever
+   * ADDS. The recommend flow wants adding (its candidates exclude whoever is
+   * already assigned); this tool wants the set the user named to be the set that
+   * is true, which is design D5.
+   */
+  assign(
+    args: ActorRef & { taskId: string; assigneeUserIds: string[]; idempotencyKey: string },
+  ): Promise<{ replayed: boolean }>;
+}
+
 export interface ActionPorts {
   taskRead: TaskReadPort;
   taskUpdate: TaskUpdatePort;
   taskLink: TaskLinkPort;
   taskMerge: TaskMergePort;
+  taskAssign: TaskAssignPort;
 }

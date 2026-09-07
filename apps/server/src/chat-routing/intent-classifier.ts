@@ -23,42 +23,52 @@ export interface IntentClassifierDeps {
 const WEEKLY_RE =
   /\b(plan\s+(my|this|the|next)\s+week|weekly\s+plan|(organi[sz]e|schedule|prioriti[sz]e)\s+my\s+(week|tasks?))\b|lập kế hoạch tuần|sắp xếp công việc/i;
 
-// Assignment SEMANTICS guard → assignment. Checked BEFORE MUTATE_RE, because a
-// change verb plus an assignment noun ("đổi người phụ trách sang Tuấn", "change
-// the assignee to Tuấn") satisfies MUTATE_RE while ACTION_RE never sees it —
-// which would send a working flow to an agent that has no assign tool, turning a
-// card into a refusal. Reordering ACTION_RE first is NOT an alternative: it
-// already matches `list tasks?` and `tasks? (with|tagged|labeled|in|for)`, so
-// "đóng các task tagged infra" would be swallowed by assignment instead. The two
-// patterns overlap in both directions; only this guard separates them. Assign
-// moves onto A2 in FUT-806, and this guard goes with it.
+// The seam FUT-806 draws is WHO CHOOSES THE PERSON (design D1). The agent must
+// choose → the assignment runtime's recommend pipeline. The user already named
+// them → A2's planner_assignTask, which is a `mutate`. Both readings share almost
+// every verb, so the order below is the whole mechanism: RECOMMEND_RE first,
+// ASSIGN_RE second, MUTATE_RE third.
 //
-// The second half is the VIETNAMESE recommend intent. It belongs here, ahead of
-// MUTATE_RE, and not in ACTION_RE below — "tìm người phù hợp và thêm vào task"
-// is a request for a PERSON that happens to contain a change verb, and ACTION_RE
-// runs too late to save it. Its English twin ("find someone for this task", "who
-// should do this") has always been caught by ACTION_RE; the Vietnamese side
-// carried exactly one alternative, `tìm task`, so asking for a person in
-// Vietnamese fell through to the LLM fallback — non-deterministic, and defaulting
-// to planner_qna, whose read-only agent answers by refusing.
+// RECOMMEND_RE — the agent must choose. Checked BEFORE ASSIGN_RE because
+// recommend-shaped phrasings ("who should I assign this to") satisfy both and the
+// recommend reading is the one the user meant.
+//
+// `assign (someone|anyone|…)` lives here on purpose (design D10): it is the
+// highest-traffic phrasing that names nobody, and sending it to A2 would turn a
+// working recommend flow into a refusal.
+//
+// The Vietnamese half is load-bearing and was a bug fix, not decoration: before
+// it, the only Vietnamese alternative anywhere was `tìm task`, so asking for a
+// PERSON in Vietnamese fell through to the LLM fallback — non-deterministic and
+// defaulting to planner_qna, whose read-only agent answers by refusing. Do not
+// collapse it back into a bare `gợi ý`/`tìm`: those verbs also introduce ordinary
+// mutate requests ("gợi ý due date"), and scoping them to a person noun is what
+// keeps the two tiers apart.
 //
 // No trailing \b after a diacritic alternative ("có thể", "làm được"): JS \b is
 // ASCII-only, so 'ể' followed by a space is not a boundary and the branch would
 // never match.
-const ASSIGNEE_TARGET_RE =
-  /\b(assignee|owner)\b|người phụ trách|người được giao|giao lại|phụ trách|\b(remove|unassign)\b[^.?!]*\bfrom (this |the )?task\b|tìm (người|ai|nhân sự|ứng viên)|\bai (nên|phù hợp|thích hợp|có thể|làm được)|(người|nhân sự|ứng viên) (nào )?(phù hợp|thích hợp)|(gợi ý|đề xuất|đề cử) (giúp )?(người|ai|nhân sự|ứng viên)|giao [^.?!]{0,30}cho ai\b/i;
+const RECOMMEND_RE =
+  /\b(who should|recommend|suggest|delegate|staff this|find (people|someone|users|a person)\b|(assign|reassign|unassign)\s+(someone|anyone|somebody|a person)\b)|tìm (người|ai|nhân sự|ứng viên)|\bai (nên|phù hợp|thích hợp|có thể|làm được)|(người|nhân sự|ứng viên) (nào )?(phù hợp|thích hợp)|(gợi ý|đề xuất|đề cử) (giúp )?(người|ai|nhân sự|ứng viên)|giao [^.?!]{0,30}cho ai\b/i;
 
-// Change-request intent → mutate (the A2 Action agent). Every change verb EXCEPT
-// assign: assign stays on the assignment runtime until FUT-806 gives A2 an
-// assign tool (design decision D3).
+// ASSIGN_RE — the user NAMED the person, so this is A2's planner_assignTask.
+// Checked BEFORE MUTATE_RE: "đổi người phụ trách sang Tuấn" and "change the
+// assignee to Tuấn" satisfy both, and routing them on the generic change verb
+// would land them in the same place anyway — but "thay B bằng A" matches no
+// MUTATE_RE verb at all, so without this pattern it reaches the LLM fallback.
+const ASSIGN_RE =
+  /\b(assign|reassign|re-assign|unassign)\b|\b(assignee|owner)\b|người phụ trách|người được giao|giao lại|giao thêm|phụ trách|\bgiao\b|thay [^.?!]{0,30}bằng/i;
+
+// Change-request intent → mutate (the A2 Action agent). Unchanged by FUT-806.
 const MUTATE_RE =
   /\b(create|add|update|change|set|move|rename|reschedule|postpone|close|reopen|complete|finish|link|merge|delete|remove)\b|\bmark\b[^.?!]*\b(as|done|complete)\b|tạo|thêm|sửa|đổi|dời|đóng|mở lại|gộp|liên kết|xoá|xóa|hoàn thành/i;
 
-// Action/recommend intent → assignment. Checked first; assignment verbs win.
-// Also catches find-tasks-by-label/criteria queries (task analyzer find_tasks intent).
-// Deliberately narrow: "my open tasks" stays planner_qna; only label/criteria searches go assignment.
+// What is LEFT of the old ACTION_RE once the assignment verbs move out: task
+// search by label/criteria, which still lives behind the assignment intent. That
+// is a pre-existing oddity — splitting it belongs to A1's story, not this one.
+// Deliberately narrow: "my open tasks" stays planner_qna.
 const ACTION_RE =
-  /\b(assign|reassign|re-assign|recommend|delegate|staff this|who should|find (people|someone|users|a person|tasks?)\b|list tasks?\b|(find|list|show)\s+open\s+tasks?\b|tasks?\s+(with|tagged|labeled|in|for)\b|tìm task)\b/i;
+  /\b(find tasks?\b|list tasks?\b|(find|list|show)\s+open\s+tasks?\b|tasks?\s+(with|tagged|labeled|in|for)\b)|tìm task/i;
 
 // Read-only question intent → planner_qna. Only reached when ACTION_RE did not match.
 const QUESTION_RE =
@@ -83,7 +93,8 @@ function inferIntentFromHistory(history?: ClassifierHistory): ChatIntent | undef
     if (m?.role !== 'user') continue;
     const text = typeof m.content === 'string' ? m.content : '';
     if (WEEKLY_RE.test(text)) return 'weekly_planner';
-    if (ASSIGNEE_TARGET_RE.test(text)) return 'assignment';
+    if (RECOMMEND_RE.test(text)) return 'assignment';
+    if (ASSIGN_RE.test(text)) return 'mutate';
     if (MUTATE_RE.test(text)) return 'mutate';
     if (ACTION_RE.test(text)) return 'assignment';
     if (QUESTION_RE.test(text)) return 'planner_qna';
@@ -104,7 +115,8 @@ async function llmFallback(
       'Classify the user message as exactly one word: "assignment", "weekly_planner", "mutate", or "planner_qna".\n' +
         '\n' +
         '"assignment" — use when the user wants to:\n' +
-        '  • assign, reassign, recommend, or delegate work to someone\n' +
+        '  • recommend or suggest WHO should do a task, when the user names nobody\n' +
+        '    ("who should do this", "assign someone to this")\n' +
         '  • find or list tasks by skill, label, area, or status (e.g. open/overdue tasks in a domain)\n' +
         '  • search for tasks matching a criteria (infrastructure, frontend, devops, etc.)\n' +
         '  • find people with a certain skill for a task\n' +
@@ -116,9 +128,9 @@ async function llmFallback(
         '  • rebalance or regenerate an existing weekly plan\n' +
         '\n' +
         '"mutate" — use when the user wants to CHANGE something: edit a task\'s title,\n' +
-        'description, deadline, start date, priority or status; create, close, reopen,\n' +
-        'merge, link or delete a task. Changing WHO a task is assigned to is "assignment",\n' +
-        'not "mutate".\n' +
+        'description, deadline, start date, priority or status; close, reopen, merge, link\n' +
+        'or delete a task; or set WHO a task is assigned to when the user NAMES the person\n' +
+        '("assign this to Tuan", "thay Binh bang Tuan").\n' +
         '\n' +
         '"planner_qna" — use when the user wants to:\n' +
         '  • read details about a specific task (deadline, description, assignee)\n' +
@@ -148,8 +160,11 @@ export function makeIntentClassifier(deps: IntentClassifierDeps) {
     history?: ClassifierHistory,
   ): Promise<ChatIntent> {
     if (WEEKLY_RE.test(userText)) return 'weekly_planner';
-    // The guard runs before MUTATE_RE — see the comment on ASSIGNEE_TARGET_RE.
-    if (ASSIGNEE_TARGET_RE.test(userText)) return 'assignment';
+    // Recommend beats assign: "who should I assign this to" satisfies both.
+    if (RECOMMEND_RE.test(userText)) return 'assignment';
+    // Assign beats mutate: "change the assignee to Tuấn" satisfies both, and
+    // only one of them has an assign tool.
+    if (ASSIGN_RE.test(userText)) return 'mutate';
     if (MUTATE_RE.test(userText)) return 'mutate';
     if (ACTION_RE.test(userText)) return 'assignment';
     if (QUESTION_RE.test(userText)) return 'planner_qna';
