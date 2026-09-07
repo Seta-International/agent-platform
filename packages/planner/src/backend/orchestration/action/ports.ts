@@ -1,5 +1,6 @@
 import type {
   ActionTaskSnapshot,
+  CreateTaskDraft,
   ToolTaskLinkKind,
   UpdateTaskActionPatch,
   UpdateTaskTarget,
@@ -150,10 +151,76 @@ export interface TaskAssignPort {
   ): Promise<{ replayed: boolean }>;
 }
 
+export type ResolvedPlan =
+  | { planId: string; groupId: string; planName: string }
+  | { ambiguous: Array<{ planId: string; planName: string }> };
+
+export interface TaskCreatePort {
+  /**
+   * A plan UUID or an exact plan name → the plan and its group. Three outcomes,
+   * all of which the tool turns into prose rather than a schema error:
+   *   - the plan            → create against it
+   *   - `{ ambiguous }`     → ask which one; NEVER pick
+   *   - null                → no such plan, or not this actor's tenant
+   */
+  resolvePlan(args: ActorRef & { planRef: string }): Promise<ResolvedPlan | null>;
+
+  /** `planner.task.create` on the plan's group, called BEFORE the card exists. */
+  assertCanCreate(args: ActorRef & { groupId: string }): Promise<void>;
+
+  /**
+   * The bucket a new task lands in: the plan's FIRST column by `order_hint`.
+   *
+   * Load-bearing, not cosmetic. `tasks.bucket_id` is nullable, but both plan
+   * views build their rows FROM the buckets — the board renders `buckets.map()`
+   * so a null key has no column at all, and the grid drops the row outright —
+   * which means a bucketless task exists and is invisible. The server picks the
+   * column rather than letting a field the LLM never sees decide whether the
+   * user can see their own task.
+   *
+   * Null when the plan has no live bucket, which the tool turns into prose.
+   */
+  resolveDefaultBucket(
+    args: ActorRef & { planId: string },
+  ): Promise<{ bucketId: string; bucketName: string } | null>;
+
+  /**
+   * One `withGatedMutation('create')` transaction around `createTask` AND
+   * `applyLabelsByName`, joined by reentrant `withEmit` — a task that exists
+   * with none of its labels is not a state the user previewed.
+   *
+   * `bucketId` is required, not optional: "no bucket" is not a neutral default
+   * but a state the board cannot render, so it must not be reachable by
+   * forgetting an argument.
+   */
+  create(
+    args: ActorRef & {
+      planId: string;
+      bucketId: string;
+      draft: CreateTaskDraft;
+      idempotencyKey: string;
+    },
+  ): Promise<{ taskId: string; replayed: boolean }>;
+}
+
+export interface SimilarTaskPort {
+  /**
+   * Plan-scoped and LLM-free — a thin wrapper over `retrieval/search-tasks.ts`,
+   * the same engine the dedup workflow uses. Plan-scoped on purpose: a
+   * same-titled task in a plan this actor cannot create in is neither a
+   * duplicate of this work nor something to reveal.
+   */
+  search(
+    args: ActorRef & { planId: string; queryText: string; limit?: number },
+  ): Promise<Array<{ taskId: string; title: string; score: number }>>;
+}
+
 export interface ActionPorts {
   taskRead: TaskReadPort;
   taskUpdate: TaskUpdatePort;
   taskLink: TaskLinkPort;
   taskMerge: TaskMergePort;
   taskAssign: TaskAssignPort;
+  taskCreate: TaskCreatePort;
+  similarTasks: SimilarTaskPort;
 }

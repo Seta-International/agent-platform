@@ -6,7 +6,6 @@ import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { assignBySkillWorkflowSpec } from '../workflows/assign-by-skill/spec.ts';
 import { dedupOnCreateWorkflowSpec } from '../workflows/dedup-on-create/spec.ts';
 import { plannerAssignTaskTool } from './assign-task.ts';
-import { plannerCreateTaskTool } from './create-task.ts';
 import { plannerFindSimilarTasksTool } from './find-similar-tasks.ts';
 import { plannerGetOpenTaskCountSpec, plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 import { plannerGetTaskTool } from './get-task.ts';
@@ -32,13 +31,6 @@ function readDatabaseUrl(): string {
   if (!url) throw new Error('DATABASE_URL required for planner runtime tools');
   return url;
 }
-
-const plannerCreateTask = plannerCreateTaskTool({
-  provider: lazyProvider,
-  get databaseUrl(): string {
-    return readDatabaseUrl();
-  },
-});
 
 const plannerFindSimilarTasks = plannerFindSimilarTasksTool({
   provider: lazyProvider,
@@ -183,14 +175,14 @@ and merge results. Normalize skill names as the user wrote them.
 ## Creating tasks
 
 Before creating, call planner_findSimilarTasks on the proposed title. If a
-likely duplicate exists, surface it and let the user decide. If no duplicate,
-call planner_createTask — it shows a confirm card.
+likely duplicate exists, surface it and let the user decide. You cannot create
+the task yourself — say so and name the duplicate you found.
 
 ## Tool reference
 Read: identity_whoAmI, planner_getTask, planner_queryTasks, planner_findSimilarTasks,
       planner_listComments, planner_searchGroupMembersBySkills, planner_getOpenTaskCountForUser,
       people_getTimezoneForUser, people_getAvailabilityForUser
-Write (HITL via chat card): planner_createTask, planner_proposeAssignment, planner_postComment
+Write (HITL via chat card): planner_proposeAssignment, planner_postComment
 Write (canvas/workflow only — do NOT call in chat): planner_setAssignees, planner_assignTask
 
 Surface your reasoning as you go so the user can follow along.`,
@@ -198,7 +190,6 @@ Surface your reasoning as you go so the user can follow along.`,
     identity_whoAmI: whoAmITool,
     planner_assignTask: plannerAssignTaskTool,
     planner_setAssignees: plannerSetAssigneesTool,
-    planner_createTask: plannerCreateTask,
     planner_getTask: plannerGetTaskTool,
     planner_findSimilarTasks: plannerFindSimilarTasks,
     planner_queryTasks: plannerQueryTasksTool,

@@ -1,18 +1,34 @@
 import { withGatedMutation } from '@seta/core/events';
 import { buildActorSession } from '@seta/identity';
+import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import { resolveReranker } from '@seta/shared-retrieval';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
-import { assigneeProjection, taskAssignments, taskReferences, tasks } from '../../db/schema.ts';
+import {
+  assigneeProjection,
+  plans,
+  taskAssignments,
+  taskReferences,
+  tasks,
+} from '../../db/schema.ts';
+import { priorityToNumber } from '../../db/task-enums.ts';
 import { TASK_LINK_KIND_LIST, taskLinkUrl } from '../../domain/_task-link-row.ts';
+import { applyLabelsByName } from '../../domain/apply-labels-by-name.ts';
+import { createTask } from '../../domain/create-task.ts';
 import { deleteTask } from '../../domain/delete-task.ts';
 import { getTask } from '../../domain/get-task.ts';
 import { linkTasks, markAsDuplicate } from '../../domain/link-tasks.ts';
+import { listBuckets } from '../../domain/list-buckets.ts';
 import { setAssignees } from '../../domain/set-assignees.ts';
 import { updateTask } from '../../domain/update-task.ts';
+import { getPlannerVectorStore } from '../../embeddings/vector-store.ts';
 import { PlannerError, requirePermission } from '../../rbac.ts';
 import { getTaskGroupId, listActiveGroupMemberProfiles } from '../../read-helpers.ts';
+import { searchSimilar } from '../../workflows/dedup-on-create/steps/search-similar.ts';
 import type {
+  SimilarTaskPort,
   TaskAssignPort,
+  TaskCreatePort,
   TaskLinkPort,
   TaskMergePort,
   TaskReadPort,
@@ -279,6 +295,121 @@ export function makeActionTaskMerge(): TaskMergePort {
         },
       );
       return { replayed };
+    },
+  };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Both deps are read LAZILY, inside search(): the action runtime is composed at
+ * module load, before any request has a live embedding provider, so a getter
+ * that throws must stay harmless until a create is actually previewed. Same
+ * reason `databaseUrl` is optional and only fails when it is genuinely needed —
+ * `plannerFindSimilarTasksTool` does exactly this.
+ */
+export function makeActionSimilarTasks(deps: {
+  provider: EmbeddingProvider;
+  databaseUrl?: string;
+}): SimilarTaskPort {
+  return {
+    async search({ tenantId, planId, queryText, limit }) {
+      if (!deps.databaseUrl) {
+        throw new Error('makeActionSimilarTasks: databaseUrl must be supplied');
+      }
+      const { candidates } = await searchSimilar(
+        { tenantId, queryText, planIds: [planId], topK: limit ?? 5 },
+        {
+          provider: deps.provider,
+          pgVector: getPlannerVectorStore(deps.databaseUrl),
+          reranker: resolveReranker(),
+        },
+      );
+      return candidates.map((c) => ({ taskId: c.taskId, title: c.title, score: c.score }));
+    },
+  };
+}
+
+export function makeActionTaskCreate(): TaskCreatePort {
+  return {
+    async resolvePlan({ tenantId, planRef }) {
+      const ref = planRef.trim();
+      const matches = await plannerDb()
+        .select({ planId: plans.id, groupId: plans.group_id, planName: plans.name })
+        .from(plans)
+        .where(
+          and(
+            eq(plans.tenant_id, tenantId),
+            isNull(plans.deleted_at),
+            UUID_RE.test(ref) ? eq(plans.id, ref) : eq(plans.name, ref),
+          ),
+        );
+      if (matches.length === 0) return null;
+      if (matches.length > 1) {
+        return { ambiguous: matches.map((m) => ({ planId: m.planId, planName: m.planName })) };
+      }
+      return matches[0]!;
+    },
+
+    async assertCanCreate({ actorUserId, groupId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      await requirePermission(session, 'planner.task.create', groupId);
+    },
+
+    async resolveDefaultBucket({ actorUserId, planId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      // listBuckets rather than fresh SQL: it already carries the
+      // `planner.bucket.read` check, the cross-tenant refusal, and
+      // `ORDER BY order_hint NULLS LAST` — the very order the board paints its
+      // columns in, which is the whole point of picking the first one.
+      const rows = await listBuckets({ plan_id: planId, session });
+      const first = rows[0];
+      return first ? { bucketId: first.id, bucketName: first.name } : null;
+    },
+
+    async create({ actorUserId, planId, bucketId, draft, idempotencyKey }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      const { result, replayed } = await withGatedMutation(
+        session,
+        {
+          idempotencyKey,
+          onBehalfOf: actorUserId,
+          actorKind: 'agent',
+          mutationKind: 'create',
+          // Nothing exists yet, so there is nothing to snapshot. The gateway
+          // persists `result`, and that is what carries the created id back on a
+          // replay — the body never runs a second time.
+          snapshot: async () => ({}),
+        },
+        // ONE body, both writes, joined through the reentrant withEmit: a task
+        // that exists with none of its labels is not a state the user previewed.
+        async () => {
+          const task = await createTask({
+            session,
+            plan_id: planId,
+            // Without this the task is invisible on the board, AND its
+            // order_hint is computed against the `bucket_id IS NULL` group
+            // (create-task.ts), so its position would be meaningless too.
+            bucket_id: bucketId,
+            title: draft.title,
+            description: draft.description,
+            due_at: draft.dueAt,
+            start_at: draft.startAt,
+            // The card carries the priority WORD; the table stores 1/3/5/9.
+            ...(draft.priority ? { priority_number: priorityToNumber(draft.priority) } : {}),
+          });
+          if (draft.labels?.length) {
+            await applyLabelsByName({
+              plan_id: planId,
+              task_id: task.id,
+              names: draft.labels,
+              session,
+            });
+          }
+          return { taskId: task.id };
+        },
+      );
+      return { taskId: result.taskId, replayed };
     },
   };
 }

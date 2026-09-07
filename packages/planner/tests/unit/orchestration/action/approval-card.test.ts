@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAssignTaskApprovalCard,
   buildBulkApprovalCard,
+  buildCreateTaskApprovalCard,
   buildLinkApprovalCard,
   buildMergeApprovalCard,
   buildUpdateApprovalCard,
@@ -424,5 +425,101 @@ describe('buildAssignTaskApprovalCard', () => {
 
   it('is a write, not a destructive change', () => {
     expect(buildAssignTaskApprovalCard(base).riskBadge).toBe('write');
+  });
+});
+
+describe('buildCreateTaskApprovalCard', () => {
+  const base = {
+    planId: 'plan-1',
+    planName: 'Sprint 32',
+    bucketId: 'bucket-1',
+    bucketName: 'To do',
+    draft: {
+      title: 'Deploy hiring screen',
+      description: 'behind the flag',
+      dueAt: '2026-08-14T17:00:00+07:00',
+      priority: 'urgent' as const,
+      labels: ['infra'],
+    },
+    similar: [] as Array<{ taskId: string; title: string; score: number }>,
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  it('previews every field the user gave, and omits the ones they did not', () => {
+    const card = buildCreateTaskApprovalCard(base);
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    const keys = block.rows.map((r) => r.k);
+    expect(keys).toContain('Title');
+    expect(keys).toContain('Plan');
+    // Shown even though the user never asked for it: it is the one field on
+    // this card they did not choose, and it decides where the task appears.
+    expect(keys).toContain('Bucket');
+    expect(keys).toContain('Due');
+    expect(keys).toContain('Priority');
+    expect(keys).toContain('Labels');
+    // No startAt was given, so no empty row for it.
+    expect(keys).not.toContain('Start');
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  it('carries the whole draft on the primary patch, so resume converts nothing', () => {
+    const card = buildCreateTaskApprovalCard(base);
+    expect(card.primary.argsPatch).toEqual({
+      action: 'create',
+      planId: 'plan-1',
+      // Sibling of planId, not part of the draft: both are ids the SERVER
+      // resolved, not fields the user typed. Resume may run in another process,
+      // so the only way it reaches the write is on the card.
+      bucketId: 'bucket-1',
+      draft: base.draft,
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  it('has no alternates when nothing similar was found', () => {
+    expect(buildCreateTaskApprovalCard(base).alternates).toEqual([]);
+  });
+
+  it('offers each similar task as a use_existing branch, at most three', () => {
+    const card = buildCreateTaskApprovalCard({
+      ...base,
+      similar: [
+        { taskId: 't-1', title: 'Deploy hiring screen v2', score: 0.9 },
+        { taskId: 't-2', title: 'Hiring screen deploy', score: 0.8 },
+        { taskId: 't-3', title: 'Screen deploy', score: 0.7 },
+        { taskId: 't-4', title: 'Deploy something', score: 0.6 },
+      ],
+    });
+    expect(card.alternates).toHaveLength(3);
+    expect(card.alternates[0]).toEqual({
+      label: 'Use "Deploy hiring screen v2"',
+      argsPatch: { action: 'use_existing', existingTaskId: 't-1', idempotencyKey: 'key-1' },
+    });
+  });
+
+  it('says how many similar tasks it found', () => {
+    const card = buildCreateTaskApprovalCard({
+      ...base,
+      similar: [{ taskId: 't-1', title: 'Deploy hiring screen v2', score: 0.9 }],
+    });
+    expect(JSON.stringify(card.details)).toMatch(/similar/i);
+  });
+
+  // D12: alternates render as secondary buttons only when there is no
+  // entityList. A candidate list here would make this a pick-one-of-N card.
+  it('renders no entityList', () => {
+    expect(
+      buildCreateTaskApprovalCard({
+        ...base,
+        similar: [{ taskId: 't-1', title: 'x', score: 0.9 }],
+      }).details.some((b) => b.kind === 'entityList'),
+    ).toBe(false);
+  });
+
+  it('is a write, not a destructive change', () => {
+    expect(buildCreateTaskApprovalCard(base).riskBadge).toBe('write');
   });
 });
