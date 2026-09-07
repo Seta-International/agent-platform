@@ -45,6 +45,29 @@ html.theme-light { color-scheme: light; }
   color: var(--color-error);
 }
 
+/* Collapsible laid out as a section header, opted into by <Collapsible hasHeaderTrigger>.
+   Astryx renders the trigger as a flex row of [content span][chevron span]; the content
+   span is a plain flex item that stops at its own width, and the chevron is fixed after
+   it. StyleX has no child selectors, so neither the trigger's content nor the
+   Collapsible's own xstyle can reach either span — this block is the only place the three
+   changes below can be declared. Astryx sets none of these properties itself, so plain
+   class specificity wins with no specificity-matching chain. */
+.seta-collapsible-header-trigger .astryx-collapsible-trigger {
+  padding: var(--spacing-4);
+  gap: var(--spacing-3);
+}
+/* Content fills the row, so anything aligned to its end reaches the far edge. */
+.seta-collapsible-header-trigger .astryx-collapsible-trigger > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+/* Chevron leads instead of trails: it is the control, and on a header row the control
+   reads before the thing it opens. `order` rather than DOM order, since the span is
+   Astryx's own and the component decides what goes in it. */
+.seta-collapsible-header-trigger .astryx-collapsible-trigger > span:last-child {
+  order: -1;
+}
+
 /* Rich text content — editor and display both carry this class */
 /* Headings need explicit sizes: the Tailwind preflight resets h1–h6 to inherit, which
    would leave the toolbar's H1/H2 toggle visually inert. */

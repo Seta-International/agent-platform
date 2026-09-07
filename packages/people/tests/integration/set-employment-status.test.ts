@@ -18,7 +18,7 @@ const ctx = {
 };
 
 describe('employment status transitions', () => {
-  it('terminate closes the open period and emits people.worker.terminated', async () => {
+  it('terminate closes the open period, stamps alumni, and emits people.worker.terminated', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -39,6 +39,15 @@ describe('employment status transitions', () => {
           .from(employmentPeriod)
           .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)));
         expect(open).toBeUndefined(); // open period closed
+
+        // The close and the stage stamp land in one UPDATE, so assert both: the admin screen's
+        // "End employment" button routes here, and `alumni` is the status it leaves behind.
+        const [closed] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(eq(employmentPeriod.person_id, person_id));
+        expect(closed?.lifecycle_stage).toBe('alumni');
+        expect(closed?.end_date).toBe(new Date().toISOString().slice(0, 10));
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.terminated');
         expect(events).toHaveLength(1);
