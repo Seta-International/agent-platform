@@ -30,6 +30,12 @@ export {
 export type { DirectoryRow } from './backend/domain/list-directory.ts';
 export { listDirectory } from './backend/domain/list-directory.ts';
 export {
+  listMoraleInbox,
+  NO_PROJECT_FILTER,
+  NO_PROJECT_LABEL,
+} from './backend/domain/list-morale-inbox.ts';
+export { listMoraleNotes } from './backend/domain/list-morale-notes.ts';
+export {
   type MatchUsersToTopicDeps,
   type MatchUsersToTopicInput,
   matchUsersToTopic,
@@ -42,6 +48,14 @@ export {
   setMonthClock,
   vnYearMonth,
 } from './backend/domain/month-clock.ts';
+export { listMoraleInboxFilters } from './backend/domain/morale-inbox-filters.ts';
+export { resolveSenderProjectContext } from './backend/domain/morale-project-context.ts';
+export {
+  type MoraleReviewerScope,
+  type MoraleTrendScope,
+  resolveMoraleReviewerScope,
+} from './backend/domain/morale-reviewer-scope.ts';
+export { getMoraleTrend, MIN_TREND_RESPONSES } from './backend/domain/morale-trend.ts';
 export type {
   CompanyNode,
   CompanyNodeKind,
@@ -70,17 +84,20 @@ export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { readCycleStatus } from './backend/domain/read-cycle-status.ts';
 export { readMonthTasks } from './backend/domain/read-month-tasks.ts';
+export { getMoraleNote, markMoraleNoteRead } from './backend/domain/read-morale-note.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { readPerformanceConfig } from './backend/domain/read-performance-config.ts';
 export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
 export { readPerformanceRollup } from './backend/domain/read-performance-rollup.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
+export { resolveMoraleRecipients } from './backend/domain/resolve-morale-recipients.ts';
 export { savePerformanceConfig } from './backend/domain/save-performance-config.ts';
 export { seedDemoEvaluations } from './backend/domain/seed-demo-evaluations.ts';
 export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
+export { submitMoraleNote } from './backend/domain/submit-morale-note.ts';
 export {
   type DirectoryPerson,
   type DirectorySyncOutcome,
@@ -127,6 +144,29 @@ export type {
   MonthTaskGroup,
   MonthTasksQuery,
   MonthTasksResponse,
+  MoraleHistoryQuery,
+  MoraleHistoryResponse,
+  MoraleInboxFiltersResponse,
+  MoraleInboxNote,
+  MoraleInboxProjectGroup,
+  MoraleInboxProjectOption,
+  MoraleInboxQuery,
+  MoraleInboxResponse,
+  MoraleInboxSenderOption,
+  MoraleNoteView,
+  MoraleProjectOption,
+  MoraleRecipientCandidate,
+  MoraleRecipientGroup,
+  MoraleRecipientsForm,
+  MoraleRecipientsQuery,
+  MoraleRecipientsResponse,
+  MoraleRecipientTag,
+  MoraleRecipientView,
+  MoraleSelectableTag,
+  MoraleSenderCapacity,
+  MoraleTrendPoint,
+  MoraleTrendQuery,
+  MoraleTrendResponse,
   PerformanceCapacity,
   PerformanceConfigCriterionView,
   PerformanceConfigGroupView,
@@ -136,6 +176,7 @@ export type {
   ProvisionWorkerInput,
   SavePerformanceConfigInput,
   SavePerformanceConfigResponse,
+  SubmitMoraleInput,
 } from './contracts.ts';
 export {
   cycleRelockInput,
@@ -151,7 +192,28 @@ export {
   monthTaskCard,
   monthTasksQuery,
   monthTasksResponse,
+  moraleHistoryQuery,
+  moraleHistoryResponse,
+  moraleInboxFiltersResponse,
+  moraleInboxNote,
+  moraleInboxProjectGroup,
+  moraleInboxQuery,
+  moraleInboxResponse,
+  moraleNoteView,
+  moraleProjectOption,
+  moraleRecipientCandidate,
+  moraleRecipientGroup,
+  moraleRecipientsForm,
+  moraleRecipientsQuery,
+  moraleRecipientsResponse,
+  moraleRecipientTag,
+  moraleSelectableTag,
+  moraleSenderCapacity,
+  moraleTrendPoint,
+  moraleTrendQuery,
+  moraleTrendResponse,
   performanceConfigResponse,
   savePerformanceConfigInput,
   savePerformanceConfigResponse,
+  submitMoraleInput,
 } from './contracts.ts';

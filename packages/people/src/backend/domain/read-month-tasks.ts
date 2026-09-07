@@ -9,7 +9,12 @@ import type {
   PerformanceCapacity,
 } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { performanceEvaluation, person, workerAllocationProjection } from '../db/schema.ts';
+import {
+  moraleNote,
+  performanceEvaluation,
+  person,
+  workerAllocationProjection,
+} from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { unlockedAccountIds } from './cycle-unlock.ts';
 import { classifyCycleStatus, monthClockNow } from './month-clock.ts';
@@ -81,6 +86,27 @@ async function countAccountLeadsToScore(
   return rows.length;
 }
 
+async function hasMoraleForMonth(
+  personId: string,
+  tenantId: string,
+  month: string,
+): Promise<boolean> {
+  const monthStart = `${month}-01`;
+  const rows = await peopleDb()
+    .select({ id: moraleNote.id })
+    .from(moraleNote)
+    .where(
+      and(
+        eq(moraleNote.person_id, personId),
+        eq(moraleNote.tenant_id, tenantId),
+        sql`${moraleNote.submitted_at} >= ${monthStart}::date`,
+        sql`${moraleNote.submitted_at} < (${monthStart}::date + interval '1 month')`,
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 /**
  * The projects on which the caller has already filed their own self-assessment this
  * month. One query for every capacity, since a member sits on few enough projects that
@@ -112,12 +138,15 @@ async function projectsSelfAssessed(
   return new Set(rows.map((r) => r.project_id));
 }
 
-function buildCardsForCapacity(input: {
+async function buildCardsForCapacity(input: {
   capacity: PerformanceCapacity;
   cycleStatus: CycleStatus;
   totalToScore: number;
   selfAssessed: ReadonlySet<string>;
-}): MonthTaskCard[] {
+  personId: string;
+  tenantId: string;
+  month: string;
+}): Promise<MonthTaskCard[]> {
   const interactive = input.cycleStatus !== 'locked';
   if (!interactive) {
     return [{ kind: 'cycle_locked' }];
@@ -127,7 +156,6 @@ function buildCardsForCapacity(input: {
   const { capacity, totalToScore } = input;
 
   if (capacity.kind === 'tl' || capacity.kind === 'am') {
-    // No score rows yet (E2) — everyone in scope is still unscored.
     cards.push({
       kind: 'unscored',
       unscored: totalToScore,
@@ -147,8 +175,8 @@ function buildCardsForCapacity(input: {
   }
 
   if (capacity.kind === 'member' || capacity.kind === 'tl') {
-    // Morale check-ins land in a later story — honest not-submitted.
-    cards.push({ kind: 'morale', submitted: false, interactive: true });
+    const moraleSubmitted = await hasMoraleForMonth(input.personId, input.tenantId, input.month);
+    cards.push({ kind: 'morale', submitted: moraleSubmitted, interactive: true });
   }
 
   return cards;
@@ -232,11 +260,14 @@ export async function readMonthTasks(
     groups.push({
       capacity,
       label: capacityGroupLabel(capacity),
-      cards: buildCardsForCapacity({
+      cards: await buildCardsForCapacity({
         capacity,
         cycleStatus: statusFor(capacity.account_id),
         totalToScore,
         selfAssessed,
+        personId: me,
+        tenantId: session.tenant_id,
+        month: input.month,
       }),
     });
   }

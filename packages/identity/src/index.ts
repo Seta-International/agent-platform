@@ -68,6 +68,7 @@ export {
   listRoleAssignments,
   listRolesForUsers,
   listUserGroupIds,
+  listUserIdsByRoleSlugs,
 } from './backend/domain/list-role-assignments.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
 export { listTenantRoleOverlays } from './backend/domain/list-tenant-role-overlays.ts';

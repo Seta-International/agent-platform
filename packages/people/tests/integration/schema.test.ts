@@ -15,6 +15,10 @@ describe('people schema migration', () => {
       expect(r.rows.map((x) => x.table_name)).toEqual([
         'account_projection',
         'employment_period',
+        'morale_note',
+        'morale_note_read',
+        'morale_note_recipient',
+        'morale_rating_aggregate',
         'org_unit',
         'performance_config_criterion',
         'performance_config_group_weight',
