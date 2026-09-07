@@ -79,11 +79,14 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
       userId,
       agentPath: ['assignment', 'orchestrator'],
       toolId: 'planner_proposeAssignment',
-      // The one-proposal-per-task mutex, declared rather than inferred from the
-      // workflow id (design D7). An A2 assign card declares the SAME string, so
-      // the two block and supersede each other across two runtimes that neither
-      // know nor import one another.
-      dedupKey: `assign:${taskId}`,
+      // Plural since FUT-840. The one-proposal-per-task mutex, declared rather
+      // than inferred from the workflow id (design D7). An A2 assign card
+      // declares the SAME string, so the two block and supersede each other
+      // across two runtimes that neither know nor import one another.
+      //
+      // No `task:` key and no `supersedes`: the recommend flow is out of the
+      // revision loop's scope (design D2).
+      dedupKeys: [`assign:${taskId}`],
       ts: new Date().toISOString(),
     },
   };

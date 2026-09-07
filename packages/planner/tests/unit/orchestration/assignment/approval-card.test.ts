@@ -141,8 +141,10 @@ describe('buildAssignApprovalCard — the one-proposal-per-task declaration', ()
   // D7: the mutex is a string two modules agree on, not a workflow id the agent
   // tier hardcodes. This assertion IS the contract — if the format changes here
   // it must change in write-chat-approval-row.ts and the subscriber too.
-  it('declares dedupKey = assign:<taskId>', () => {
-    expect(buildAssignApprovalCard(base).meta.dedupKey).toBe('assign:task-1');
+  it('the recommend card declares the assign key in the plural shape (FUT-840)', () => {
+    const card = buildAssignApprovalCard(base);
+    expect(card.meta.dedupKeys).toEqual(['assign:task-1']);
+    expect(card.meta.dedupKey).toBeUndefined();
   });
 
   // The decline branch becomes a resume payload in plan 02, and that payload has

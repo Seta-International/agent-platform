@@ -43,3 +43,54 @@ describe('ApprovalCardSchema', () => {
     ).toThrow();
   });
 });
+
+describe('ApprovalCardSchema — meta mutex fields (FUT-840)', () => {
+  function metaOnly(meta: Record<string, unknown>) {
+    return {
+      toolCallId: 'tc-1',
+      intent: 'Update "Deploy API"',
+      riskBadge: 'write' as const,
+      summary: 'Due will change.',
+      details: [],
+      primary: { label: 'Apply', argsPatch: {} },
+      alternates: [],
+      decline: { label: 'Cancel' },
+      meta: {
+        tenantId: 't1',
+        userId: 'u1',
+        agentPath: ['action'],
+        toolId: 'planner_updateTask',
+        ts: '2026-08-13T00:00:00.000Z',
+        ...meta,
+      },
+    };
+  }
+
+  it('accepts a plural dedupKeys array — a bulk card needs one key per task', () => {
+    const parsed = ApprovalCardSchema.parse(
+      metaOnly({ dedupKeys: ['task:a', 'task:b', 'task:c'] }),
+    );
+    expect(parsed.meta.dedupKeys).toEqual(['task:a', 'task:b', 'task:c']);
+  });
+
+  it('accepts supersedes as a uuid — the only channel to the writer (design D10)', () => {
+    const id = '7f3a1c2e-1111-4222-8333-444455556666';
+    expect(ApprovalCardSchema.parse(metaOnly({ supersedes: id })).meta.supersedes).toBe(id);
+  });
+
+  it('rejects a supersedes that is not a uuid, so a model-invented string cannot reach the writer', () => {
+    expect(() => ApprovalCardSchema.parse(metaOnly({ supersedes: 'the-open-one' }))).toThrow();
+  });
+
+  it('still accepts the legacy singular dedupKey — one release of tolerant reads', () => {
+    expect(ApprovalCardSchema.parse(metaOnly({ dedupKey: 'assign:a' })).meta.dedupKey).toBe(
+      'assign:a',
+    );
+  });
+
+  it('accepts a card that declares no mutex at all — create has no task yet', () => {
+    const parsed = ApprovalCardSchema.parse(metaOnly({}));
+    expect(parsed.meta.dedupKeys).toBeUndefined();
+    expect(parsed.meta.dedupKey).toBeUndefined();
+  });
+});

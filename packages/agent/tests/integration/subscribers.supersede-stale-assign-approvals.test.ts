@@ -112,7 +112,14 @@ describe('supersedeStaleAssignApprovals', () => {
  *  this change is that it stops mattering. */
 async function seedChatAssignCard(
   pool: Pool,
-  args: { taskId: string; tenantId: string; workflowId: string },
+  args: {
+    taskId: string;
+    tenantId: string;
+    workflowId: string;
+    /** Overrides the card's `meta`. Defaults to the legacy singular shape, which
+     *  is what every row written before FUT-840 carries. */
+    meta?: Record<string, unknown>;
+  },
 ): Promise<string> {
   const runId = randomUUID();
   const approvalId = randomUUID();
@@ -133,7 +140,7 @@ async function seedChatAssignCard(
       args.tenantId,
       JSON.stringify({
         primary: { argsPatch: { action: 'assign', taskId: args.taskId } },
-        meta: { dedupKey: `assign:${args.taskId}` },
+        meta: args.meta ?? { dedupKey: `assign:${args.taskId}` },
       }),
       randomUUID(),
     ],
@@ -212,6 +219,53 @@ describe('supersedeStaleAssignApprovals — keyed by meta.dedupKey', () => {
       });
       await supersede(pool, taskId, randomUUID());
       expect(await statusOf(pool, theirApproval)).toBe('pending');
+    });
+  });
+});
+
+describe('supersedeStaleAssignApprovals — both dedup key shapes (FUT-840 spec §3.2)', () => {
+  async function supersede(pool: Pool, taskId: string, tenantId: string) {
+    const tx = drizzle(pool);
+    await supersedeStaleAssignApprovals(makeAssignedEvent({ taskId, tenantId }), {
+      tx: tx as unknown as Parameters<typeof supersedeStaleAssignApprovals>[1]['tx'],
+    });
+  }
+
+  async function statusOf(pool: Pool, approvalId: string): Promise<string> {
+    const row = await pool.query<{ status: string }>(
+      'SELECT status FROM agent.workflow_approvals WHERE approval_id = $1',
+      [approvalId],
+    );
+    return row.rows[0]!.status;
+  }
+
+  it('voids a pending card that declares the assign key in the PLURAL shape', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const taskId = randomUUID();
+      const approvalId = await seedChatAssignCard(pool, {
+        taskId,
+        tenantId,
+        workflowId: 'planner.action',
+        meta: { dedupKeys: [`assign:${taskId}`, `task:${taskId}`] },
+      });
+      await supersede(pool, taskId, tenantId);
+      expect(await statusOf(pool, approvalId)).toBe('superseded');
+    });
+  });
+
+  it('voids a pending card carrying only the LEGACY singular dedupKey (spec §3.2)', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const taskId = randomUUID();
+      const approvalId = await seedChatAssignCard(pool, {
+        taskId,
+        tenantId,
+        workflowId: 'planner.action',
+        meta: { dedupKey: `assign:${taskId}` },
+      });
+      await supersede(pool, taskId, tenantId);
+      expect(await statusOf(pool, approvalId)).toBe('superseded');
     });
   });
 });

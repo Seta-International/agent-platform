@@ -55,5 +55,13 @@ export function testComposeDeps(): ComposeDeps {
     // same reason — the gate never touches run-state persistence.
     assignmentRepo: {} as never,
     mastraStorage: new InMemoryStore(),
+    actionPreviewPort: {
+      loadPreview: async () => {
+        throw new Error('testComposeDeps: loadPreview should never be called by the gate');
+      },
+      takenDedupKeys: async () => {
+        throw new Error('testComposeDeps: takenDedupKeys should never be called by the gate');
+      },
+    },
   };
 }

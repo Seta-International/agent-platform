@@ -24,11 +24,17 @@ export interface GetPendingAssignRunIdForTaskOpts {
  *     stores the taskId in both `input_summary` and the approval's
  *     `proposed_payload`. We match via the approval JOIN so the row is only a
  *     mutex hit once its approval card is readable.
- *   • Any chat card that DECLARED the assign mutex in `meta.dedupKey`, whichever
+ *   • Any chat card that DECLARED the assign mutex in `meta.dedupKeys`, whichever
  *     runtime built it (design D7). An A2-authored assign card carries
  *     'planner.action', so the workflow-id branches above would miss it and two
  *     people could be proposed for one task at once. Keyed on the card's own
  *     declaration; the branch above stays for cards written before FUT-822.
+ *
+ *     The legacy `meta.dedupKey` disjunct is a ONE-RELEASE tolerant read
+ *     (FUT-840 spec §3.2): a card persisted before the plural rename would
+ *     otherwise fall out of this lookup, making a second assignment proposal for
+ *     that task possible. Delete it once no pending row can carry the singular
+ *     field — bounded by the 72-hour approval TTL.
  */
 export async function getPendingAssignRunIdForTask(
   opts: GetPendingAssignRunIdForTaskOpts,
@@ -58,7 +64,10 @@ export async function getPendingAssignRunIdForTask(
        WHERE r.status IN ('running', 'paused')
          AND r.tenant_id = ${opts.tenantId}
          AND a.status = 'pending'
-         AND a.proposed_payload @> jsonb_build_object('meta', jsonb_build_object('dedupKey', ${`assign:${opts.taskId}`}::text))
+         AND (
+           jsonb_exists(a.proposed_payload -> 'meta' -> 'dedupKeys', ${`assign:${opts.taskId}`})
+           OR a.proposed_payload @> jsonb_build_object('meta', jsonb_build_object('dedupKey', ${`assign:${opts.taskId}`}::text))
+         )
     ) candidates
     ORDER BY started_at DESC
     LIMIT 1

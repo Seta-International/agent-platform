@@ -2,6 +2,13 @@ import { defineAgentTool, resolveTaskRef, type SpecializedAgentRunCtx } from '@s
 import { buildAssignTaskApprovalCard } from './approval-card.ts';
 import type { ActionPorts } from './ports.ts';
 import {
+  INCOMPLETE_PREVIEW,
+  refuseIfPreviewOpen,
+  resolveRevision,
+  taskIdsFromArgsPatch,
+} from './revision.ts';
+import type { ActionOpenPreview } from './schemas.ts';
+import {
   AssignTaskResumeSchema,
   AssignTaskSuspendSchema,
   AssignTaskToolInputSchema,
@@ -11,6 +18,10 @@ import {
 export interface AssignTaskToolDeps {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /** One sentence for both "no such task" and "not yours" — a tool that
@@ -39,7 +50,7 @@ function sameSet(a: string[], b: string[]): boolean {
  * whatever set arrives is shown before/after and is exactly what gets written.
  */
 export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
-  const { ports, ctx } = deps;
+  const { ports, ctx, openPreview } = deps;
   const actor = { tenantId: ctx.tenantId, actorUserId: ctx.actorUserId };
 
   return defineAgentTool({
@@ -67,7 +78,7 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
     resumeSchema: AssignTaskResumeSchema,
     // Declarative metadata only; the first pass gates for itself.
     rbac: 'planner.task.assign',
-    execute: async ({ taskRef, assigneeRefs }, toolCtx) => {
+    execute: async ({ taskRef, assigneeRefs, revisionOf }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -97,9 +108,34 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
-      // A TaskRefResolveError propagates untouched — it is an AgentToolError, so
-      // wrapExecute keeps its text and the model self-corrects.
-      const taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+      const revision = await resolveRevision({
+        preview: ports.preview,
+        actor,
+        revisionOf,
+        openPreview,
+        toolId: 'planner_assignTask',
+      });
+      if (revision.kind === 'refused') {
+        return { assigned: false, assigneeUserIds: [], refusal: revision.refusal };
+      }
+
+      let taskId: string;
+      if (revision.kind === 'revision') {
+        // The task comes FROM THE CARD (AC5.1). What IS adjustable is the whole
+        // assignee set: this tool replaces the set rather than adding to it
+        // (FUT-806 design D5), so "thêm Tuấn nữa" is unioned by the MODEL against
+        // the PROPOSED set — which the OPEN PREVIEW block renders with names for
+        // exactly that reason — and arrives here already absolute.
+        const [fromCard] = taskIdsFromArgsPatch(revision.previousArgsPatch);
+        if (!fromCard) {
+          return { assigned: false, assigneeUserIds: [], refusal: INCOMPLETE_PREVIEW };
+        }
+        taskId = fromCard;
+      } else {
+        // A TaskRefResolveError propagates untouched — it is an AgentToolError, so
+        // wrapExecute keeps its text and the model self-corrects.
+        taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+      }
       const snapshot = await ports.taskAssign.readForAssign({ ...actor, taskId });
       if (!snapshot) {
         return { assigned: false, assigneeUserIds: [], refusal: UNRESOLVABLE_TASK(taskRef) };
@@ -108,6 +144,15 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
       // The gate, BEFORE the card. Without it a viewer would build a preview and
       // write a pending approval row before anything refused them.
       await ports.taskAssign.assertCanAssign({ ...actor, groupId: snapshot.groupId });
+
+      if (revision.kind === 'new') {
+        const clash = await refuseIfPreviewOpen({
+          preview: ports.preview,
+          actor,
+          taskIds: [taskId],
+        });
+        if (clash) return { assigned: false, assigneeUserIds: [], refusal: clash };
+      }
 
       const after: Array<{ userId: string; name: string }> = [];
       for (const ref of assigneeRefs) {
@@ -163,8 +208,10 @@ export function makeAssignTaskTool(deps: AssignTaskToolDeps) {
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
         // Minted HERE and persisted on the card: resume may run in another
-        // process, so the key can only travel via proposed_payload.
+        // process, so the key can only travel via proposed_payload. FRESH on
+        // every revision (AC4).
         idempotencyKey: crypto.randomUUID(),
+        ...(revision.kind === 'revision' ? { supersedes: revision.previousApprovalId } : {}),
       });
 
       if (typeof agent?.suspend !== 'function') {

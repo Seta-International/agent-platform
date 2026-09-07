@@ -1,0 +1,36 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`emits the matrix as a readable table 1`] = `
+"# EV-07 — A2 write permissions (seed roles only; no tenant role overlay)
+
+| operation | role | own group | other group | other tenant |
+| --- | --- | --- | --- | --- |
+| create | planner.admin | allowed | refused | refused |
+| create | planner.member | allowed | refused | refused |
+| create | planner.viewer | refused | refused | refused |
+| create | org.admin | allowed | allowed | refused |
+| update | planner.admin | allowed | refused | refused |
+| update | planner.member | allowed | refused | refused |
+| update | planner.viewer | refused | refused | refused |
+| update | org.admin | allowed | allowed | refused |
+| bulk-update | planner.admin | allowed | refused | refused |
+| bulk-update | planner.member | allowed | refused | refused |
+| bulk-update | planner.viewer | refused | refused | refused |
+| bulk-update | org.admin | allowed | allowed | refused |
+| link | planner.admin | allowed | refused | refused |
+| link | planner.member | allowed | refused | refused |
+| link | planner.viewer | refused | refused | refused |
+| link | org.admin | allowed | allowed | refused |
+| merge | planner.admin | allowed | refused | refused |
+| merge | planner.member | allowed | refused | refused |
+| merge | planner.viewer | refused | refused | refused |
+| merge | org.admin | allowed | allowed | refused |
+| assign | planner.admin | allowed | refused | refused |
+| assign | planner.member | allowed | refused | refused |
+| assign | planner.viewer | refused | refused | refused |
+| assign | org.admin | allowed | allowed | refused |
+| comment | planner.admin | allowed | refused | refused |
+| comment | planner.member | allowed | refused | refused |
+| comment | planner.viewer | allowed | refused | refused |
+| comment | org.admin | allowed | allowed | refused |"
+`;

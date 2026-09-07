@@ -1,6 +1,12 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it, vi } from 'vitest';
 import { makeMergeTasksTool } from '../../../../src/backend/orchestration/action/merge-tasks.tool.ts';
+import {
+  fakePreviewPort,
+  injectedPreview,
+  OPEN_APPROVAL_ID,
+  runFirstPass,
+} from './revision-test-kit.ts';
 
 const TASK_A = '66be2be2-394d-4184-b106-c412289fd1e1';
 const TASK_B = '9f1d3a10-2b44-4c55-8d66-ee7788990011';
@@ -40,11 +46,14 @@ function build(
     assertCanMerge: vi.fn(over.assertCanMerge ?? (async () => {})),
     merge: vi.fn(async () => ({ replayed: false })),
   };
+  // Every first pass now consults the preview port on the NEW-card path
+  // (FUT-840), so the default fake answers "nothing open, nothing taken".
+  const preview = fakePreviewPort({ taken: [] });
   const tool = makeMergeTasksTool({
-    ports: { taskLink, taskMerge } as never,
+    ports: { taskLink, taskMerge, preview } as never,
     ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
   });
-  return { tool, taskLink, taskMerge };
+  return { tool, taskLink, taskMerge, preview };
 }
 
 function rc() {
@@ -194,5 +203,197 @@ describe('planner_mergeTasks — resume pass', () => {
     );
     expect(taskLink.readEndpoint).not.toHaveBeenCalled();
     expect(taskMerge.assertCanMerge).not.toHaveBeenCalled();
+  });
+});
+
+describe('planner_mergeTasks — the revision branch (FUT-840)', () => {
+  const OPEN_ID = OPEN_APPROVAL_ID;
+  const THIRD_TASK = '11112222-3333-4444-8555-666677778888';
+  const DUP_ID = TASK_A;
+  const KEEP_ID = TASK_B;
+  const openArgsPatch = {
+    action: 'merge',
+    duplicateTaskId: DUP_ID,
+    duplicateExpectedVersion: 3,
+    keepTaskId: KEEP_ID,
+    idempotencyKey: 'old-key',
+  };
+
+  function buildRev(
+    over: {
+      loaded?: { approvalId: string; toolId: string; argsPatch: Record<string, unknown> } | null;
+      taken?: string[];
+      openPreview?: ReturnType<typeof injectedPreview> | null;
+      assertCanMerge?: () => Promise<void>;
+      readEndpoint?: (a: { taskId: string }) => Promise<unknown>;
+    } = {},
+  ) {
+    const taskLink = {
+      readEndpoint: vi.fn(
+        over.readEndpoint ??
+          (async ({ taskId }: { taskId: string }) =>
+            snap(
+              taskId,
+              taskId === DUP_ID ? 'Draft doc' : 'Doc',
+              taskId === DUP_ID ? 'g-dup' : 'g-keep',
+            )),
+      ),
+      assertCanLink: vi.fn(async () => {}),
+      readPairLink: vi.fn(async () => null),
+      link: vi.fn(async () => ({ linkId: 'l1', replayed: false })),
+    };
+    const taskMerge = {
+      assertCanMerge: vi.fn(
+        over.assertCanMerge ??
+          (async (_a: { duplicateGroupId: string; keepGroupId: string }) => {}),
+      ),
+      merge: vi.fn(async () => ({ replayed: false })),
+    };
+    const preview = fakePreviewPort({
+      loaded:
+        over.loaded === undefined
+          ? { approvalId: OPEN_ID, toolId: 'planner_mergeTasks', argsPatch: openArgsPatch }
+          : over.loaded,
+      ...(over.taken ? { taken: over.taken } : {}),
+    });
+    const tool = makeMergeTasksTool({
+      ports: { taskLink, taskMerge, preview } as never,
+      ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
+      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+    });
+    return { tool, taskLink, taskMerge, preview };
+  }
+
+  it('swaps which side survives when the refs are the same pair reversed ("à ngược lại")', async () => {
+    // Swapping does not change the SET of tasks — both were already inside the
+    // gated pair — but it does redirect which task goes to the trash, which is
+    // why the re-gate below is load-bearing rather than ceremonial.
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      duplicateTaskRef: KEEP_ID,
+      keepTaskRef: DUP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.duplicateTaskId).toBe(KEEP_ID);
+    expect(card?.primary.argsPatch.keepTaskId).toBe(DUP_ID);
+  });
+
+  it('refuses when the refs name a task outside the card pair (design D5, AC5)', async () => {
+    const { tool } = buildRev();
+    const { out, suspend } = await runFirstPass(tool, {
+      duplicateTaskRef: DUP_ID,
+      keepTaskRef: THIRD_TASK,
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/two other tasks/i);
+  });
+
+  it('refuses when both refs resolve to the SAME task', async () => {
+    const { tool } = buildRev();
+    const { out, suspend } = await runFirstPass(tool, {
+      duplicateTaskRef: DUP_ID,
+      keepTaskRef: DUP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toBeTruthy();
+  });
+
+  it('re-gates assertCanMerge on the SWAPPED roles (AC5.2)', async () => {
+    // assertCanMerge is asymmetric: it needs planner.task.delete on the
+    // DUPLICATE's group. A swap therefore genuinely needs a fresh gate.
+    const { tool, taskMerge } = buildRev();
+    await runFirstPass(tool, {
+      duplicateTaskRef: KEEP_ID,
+      keepTaskRef: DUP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(taskMerge.assertCanMerge.mock.calls[0]![0]).toMatchObject({
+      duplicateGroupId: 'g-keep',
+      keepGroupId: 'g-dup',
+    });
+  });
+
+  it('refuses a swap the actor may not delete, leaving the old card pending', async () => {
+    const { tool } = buildRev({
+      assertCanMerge: async () => {
+        throw Object.assign(new Error('forbidden'), { code: 'FORBIDDEN' });
+      },
+    });
+    const suspend = vi.fn(async () => {});
+    await expect(
+      tool.execute!(
+        { duplicateTaskRef: KEEP_ID, keepTaskRef: DUP_ID, revisionOf: OPEN_ID } as never,
+        firstPassCtx(suspend),
+      ),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+    expect(suspend).not.toHaveBeenCalled();
+  });
+
+  it('carries the CURRENT duplicate version, re-read after the swap', async () => {
+    const { tool } = buildRev({
+      readEndpoint: async ({ taskId }: { taskId: string }) => ({
+        ...snap(taskId, taskId === DUP_ID ? 'Draft doc' : 'Doc'),
+        version: taskId === KEEP_ID ? 7 : 3,
+      }),
+    });
+    const { card } = await runFirstPass(tool, {
+      duplicateTaskRef: KEEP_ID,
+      keepTaskRef: DUP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.duplicateExpectedVersion).toBe(7);
+  });
+
+  it('mints a fresh idempotency key and stamps meta.supersedes', async () => {
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      duplicateTaskRef: DUP_ID,
+      keepTaskRef: KEEP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
+    expect(card?.meta.supersedes).toBe(OPEN_ID);
+  });
+
+  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+    const { tool } = buildRev({
+      loaded: { approvalId: OPEN_ID, toolId: 'planner_linkTasks', argsPatch: openArgsPatch },
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      duplicateTaskRef: DUP_ID,
+      keepTaskRef: KEEP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/different kind of change/i);
+  });
+
+  it('refuses a card missing a side rather than rebuilding from half of it', async () => {
+    const { tool } = buildRev({
+      loaded: {
+        approvalId: OPEN_ID,
+        toolId: 'planner_mergeTasks',
+        argsPatch: { action: 'merge', duplicateTaskId: DUP_ID },
+      },
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      duplicateTaskRef: DUP_ID,
+      keepTaskRef: KEEP_ID,
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/incomplete/i);
+  });
+
+  it('refuses a NEW card when either task already has a pending preview (AC1)', async () => {
+    const { tool } = buildRev({ taken: [`task:${KEEP_ID}`], openPreview: null });
+    const { out, suspend } = await runFirstPass(tool, {
+      duplicateTaskRef: DUP_ID,
+      keepTaskRef: KEEP_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
   });
 });

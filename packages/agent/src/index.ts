@@ -13,6 +13,18 @@ export type {
   DecideApprovalResult,
 } from './backend/domain/decide-approval.ts';
 export { decideApproval } from './backend/domain/decide-approval.ts';
+export type {
+  FindOpenChatPreviewOpts,
+  FindOpenPreviewsForTasksOpts,
+  LoadChatPreviewByIdOpts,
+  OpenChatPreview,
+  PreviewScope,
+} from './backend/domain/find-open-chat-preview.ts';
+export {
+  findOpenChatPreview,
+  findOpenPreviewsForTasks,
+  loadChatPreviewById,
+} from './backend/domain/find-open-chat-preview.ts';
 export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
 export { getWorkflowRun } from './backend/domain/get-workflow-run.ts';
 export type { GetWorkflowRunSnapshotOpts } from './backend/domain/get-workflow-run-snapshot.ts';
@@ -36,6 +48,9 @@ export type {
 export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-step.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
+// The one-preview-per-task refusal, public so a caller above the agent tier can
+// tell it apart from a genuine write failure (FUT-840 design D11).
+export { PendingTaskPreviewExistsError } from './backend/domain/write-chat-approval-row.ts';
 
 export {
   ModelNotFoundError,

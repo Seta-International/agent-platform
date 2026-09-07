@@ -20,6 +20,7 @@ import {
   buildWeeklyPlanRuntime,
   type PlannerActionRuntime,
   type PlannerQueryRuntime,
+  type PreviewPort,
   type WeeklyPlanRuntime,
 } from '@seta/planner/orchestration';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
@@ -49,6 +50,9 @@ export interface ComposeDeps {
    *  the SAME physical store as the agent engine's Mastra in production (see
    *  index.ts) so cross-Mastra-instance native-suspend resume works. */
   mastraStorage: MastraCompositeStore;
+  /** A2's read access to its own open chat previews — `makeActionPreviewPort()`
+   *  from ./action-preview-port.ts in production, a throwing stub in tests. */
+  actionPreviewPort: PreviewPort;
 }
 
 export interface ComposedOrchestrationRuntimes {
@@ -109,6 +113,7 @@ export function composeRegistries(deps: ComposeDeps): ComposedOrchestrationRunti
     // planner_createTask's duplicate check. Both are read lazily, inside the
     // tool, exactly as plannerFindSimilarTasksTool reads them above.
     embeddingProvider: deps.embeddingProvider,
+    previewPort: deps.actionPreviewPort,
     get databaseUrl(): string | undefined {
       return deps.databaseUrl;
     },

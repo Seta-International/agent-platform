@@ -12,7 +12,8 @@ export type MutationKind =
   | 'bulk_update'
   | 'merge_soft_delete'
   | 'link'
-  | 'assign';
+  | 'assign'
+  | 'comment';
 
 /** Structurally satisfied by SessionScope; declared narrowly so events/ keeps no
  *  dependency on the session module. */

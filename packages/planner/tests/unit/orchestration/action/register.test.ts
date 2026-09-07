@@ -21,6 +21,10 @@ describe('buildPlannerActionRuntime', () => {
             return Promise.resolve([]);
           },
         } as never,
+        previewPort: {
+          loadPreview: async () => null,
+          takenDedupKeys: async () => [],
+        },
         get databaseUrl(): string {
           touched = true;
           return '';

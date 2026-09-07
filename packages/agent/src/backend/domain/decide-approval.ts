@@ -204,6 +204,13 @@ export async function recordApprovalDecision(
       // which is why expiry is a persisted state, not a computed one.
       throw Object.assign(new Error('expired'), { code: 'expired' });
     }
+    if (row.status === 'superseded') {
+      // A distinct code beside `expired`, for the same reason: the user never
+      // decided this one, so "already decided" is a misleading thing to tell
+      // them. This row was replaced by a newer proposal the user asked for
+      // (FUT-840 design D13), and the newer card is the one to act on.
+      throw Object.assign(new Error('superseded'), { code: 'superseded' });
+    }
     if (row.status !== 'pending') {
       throw Object.assign(new Error('already_decided'), { code: 'already_decided' });
     }
@@ -261,6 +268,25 @@ export async function recordApprovalDecision(
              decided_at = now()
        WHERE approval_id = ${opts.approvalId}
     `);
+
+    // Close the synthetic run row for a DECLINED chat card (design D13). Scoped
+    // twice over, and both scopes are load-bearing:
+    //  • `mastra_run_id IS NOT NULL` — chat cards only. Evented and canvas rows
+    //    keep their lifecycle, leaving `resumeRetry` and the sweeper alone.
+    //  • 'rejected' only — an APPROVED row must stay `paused`. `replayableDecision`
+    //    (routes/chat-resume.ts) selects on `a.status='approved' AND
+    //    r.status='paused' AND a.mastra_run_id IS NOT NULL`, and `resumeRetry` on
+    //    `r.status='paused'`. Closing the row on approve would silently kill the
+    //    decided-but-unexecuted recovery: a Confirm that committed but whose
+    //    write was interrupted would become a permanent 409.
+    if (decisionStatus === 'rejected' && row.mastra_run_id != null) {
+      await tx.execute(sql`
+        UPDATE agent.workflow_runs
+           SET status = 'canceled', finished_at = now()
+         WHERE run_id = ${row.run_id}
+           AND status IN ('paused', 'running')
+      `);
+    }
 
     const outboxPayload: Record<string, unknown> = {
       approval_id: row.approval_id,

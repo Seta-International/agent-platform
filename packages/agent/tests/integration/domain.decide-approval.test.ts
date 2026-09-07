@@ -517,3 +517,115 @@ describe('recordApprovalDecision — validate hook', () => {
     });
   });
 });
+
+/** An EVENTED approval: no mastra_run_id, so D13's chat-card scoping must skip it. */
+async function seedEventedApproval(
+  pool: import('pg').Pool,
+  args: { tenantId: string; approverUserId: string },
+): Promise<{ approvalId: string; runId: string }> {
+  const runId = randomUUID();
+  await pool.query(
+    `INSERT INTO agent.workflow_runs
+       (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+     VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
+    [runId, args.tenantId, args.approverUserId],
+  );
+  const approvalId = randomUUID();
+  await pool.query(
+    `INSERT INTO agent.workflow_approvals
+       (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
+        surface_canvas, status, expires_at, created_at)
+     VALUES ($1, $2, $3, 'assignBySkill.suggest', '{}'::jsonb, $4, true, 'pending',
+             now() + interval '1 day', now())`,
+    [approvalId, runId, args.tenantId, args.approverUserId],
+  );
+  return { approvalId, runId };
+}
+
+describe('recordApprovalDecision — a replaced card (FUT-840 design D13)', () => {
+  it('reports a SUPERSEDED row with its own code, not "already decided"', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId } = await seedAgenticApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET status = 'superseded' WHERE approval_id = $1`,
+        [approvalId],
+      );
+      // "already decided" is a misleading thing to tell a user who never decided
+      // this one — the same reasoning the `expired` branch beside it carries.
+      await expect(
+        recordApprovalDecision({
+          session: me,
+          approvalId,
+          decision: 'approve',
+          requireMastraRun: true,
+        }),
+      ).rejects.toMatchObject({ code: 'superseded' });
+    });
+  });
+
+  it('closes the synthetic run row when a chat card is REJECTED', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId, runId } = await seedAgenticApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      await recordApprovalDecision({
+        session: me,
+        approvalId,
+        decision: 'reject',
+        requireMastraRun: true,
+      });
+      const run = await pool.query(
+        `SELECT status, finished_at FROM agent.workflow_runs WHERE run_id = $1`,
+        [runId],
+      );
+      expect(run.rows[0].status).toBe('canceled');
+      expect(run.rows[0].finished_at).not.toBeNull();
+    });
+  });
+
+  it('leaves the run row PAUSED when a chat card is APPROVED — replayableDecision keys on it', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId, runId } = await seedAgenticApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      await recordApprovalDecision({
+        session: me,
+        approvalId,
+        decision: 'approve',
+        requireMastraRun: true,
+      });
+      const run = await pool.query(`SELECT status FROM agent.workflow_runs WHERE run_id = $1`, [
+        runId,
+      ]);
+      // Spec §0 finding 7: replayableDecision selects on
+      // `a.status='approved' AND r.status='paused' AND a.mastra_run_id IS NOT NULL`,
+      // and resumeRetry on `r.status='paused'`. Closing this row on approve would
+      // silently kill the decided-but-unexecuted recovery: a user whose Confirm
+      // committed but whose write was interrupted would get a permanent 409.
+      expect(run.rows[0].status).toBe('paused');
+    });
+  });
+
+  it('does not touch an EVENTED run row on reject — D13 is scoped to chat cards', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession();
+      const { approvalId, runId } = await seedEventedApproval(pool, {
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+      });
+      await recordApprovalDecision({ session: me, approvalId, decision: 'reject' });
+      const run = await pool.query(`SELECT status FROM agent.workflow_runs WHERE run_id = $1`, [
+        runId,
+      ]);
+      expect(run.rows[0].status).toBe('paused');
+    });
+  });
+});
