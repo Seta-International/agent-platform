@@ -103,3 +103,25 @@ describe('A2 instructions — assigning', () => {
     expect(instructionsText()).not.toMatch(/ask[^.]*which bucket/i);
   });
 });
+
+describe('A2 instructions — assigning', () => {
+  it('no longer claims it cannot change who a task is assigned to', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*assigned/i);
+  });
+
+  it('states that assigning replaces the whole set', () => {
+    expect(instructionsText()).toMatch(/replaces/i);
+  });
+
+  // The rule that prevents silent data loss on "thay B bằng A".
+  it('tells the model to read the task first for a relative request', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/planner_getTask FIRST/i);
+    expect(text).toMatch(/thay B bằng A|giao thêm/i);
+  });
+
+  // D10 in the prompt, so a misroute degrades to a sentence rather than a guess.
+  it('tells the model to offer a recommendation when nobody is named', () => {
+    expect(instructionsText()).toMatch(/recommendation/i);
+  });
+});
