@@ -40,6 +40,7 @@ import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
+import { makeActionPreviewPort } from './action-preview-port.ts';
 import { initAgentEvalMetrics } from './agent-eval-metrics.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { makeIntentClassifier } from './chat-routing/intent-classifier.ts';
@@ -178,6 +179,7 @@ const {
   },
   assignmentRepo: new AgentRunStateRepository(),
   mastraStorage,
+  actionPreviewPort: makeActionPreviewPort(),
 });
 
 // Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;

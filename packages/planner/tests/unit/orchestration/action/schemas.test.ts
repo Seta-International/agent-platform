@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ActionInputSchema } from '../../../../src/backend/orchestration/action/orchestrator.ts';
 import {
   ActionResumeSchema,
   AssignTaskResumeSchema,
@@ -8,10 +9,13 @@ import {
   CommentTaskToolInputSchema,
   CreateTaskResumeSchema,
   CreateTaskToolInputSchema,
+  DOMAIN_FIELD_BY_TOOL_FIELD,
   LinkTasksResumeSchema,
   LinkTasksToolInputSchema,
   MergeTasksResumeSchema,
   MergeTasksToolInputSchema,
+  OpenPreviewSchema,
+  ToolPatchSchema,
   UpdateTaskResumeSchema,
   UpdateTaskToolInputSchema,
 } from '../../../../src/backend/orchestration/action/schemas.ts';
@@ -390,5 +394,155 @@ describe('CommentTaskResumeSchema', () => {
         authorUserId: 'someone-else',
       }),
     ).toThrow();
+  });
+});
+
+describe('revisionOf on every write tool (FUT-840)', () => {
+  const UUID = '7f3a1c2e-1111-4222-8333-444455556666';
+
+  it('update accepts a uuid revisionOf and a dropFields list', () => {
+    const parsed = UpdateTaskToolInputSchema.parse({
+      taskRefs: [TASK_A],
+      patch: { dueAt: '2026-08-21' },
+      revisionOf: UUID,
+      dropFields: ['priority'],
+    });
+    expect(parsed.revisionOf).toBe(UUID);
+    expect(parsed.dropFields).toEqual(['priority']);
+  });
+
+  it('rejects a revisionOf that is not a uuid, so an invented handle never reaches the port', () => {
+    expect(() =>
+      UpdateTaskToolInputSchema.parse({
+        taskRefs: [TASK_A],
+        patch: { dueAt: '2026-08-21' },
+        revisionOf: 'the-open-one',
+      }),
+    ).toThrow();
+  });
+
+  it('leaves revisionOf undefined when absent — an ordinary new request', () => {
+    const parsed = UpdateTaskToolInputSchema.parse({
+      taskRefs: [TASK_A],
+      patch: { dueAt: '2026-08-21' },
+    });
+    expect(parsed.revisionOf).toBeUndefined();
+    expect(parsed.dropFields).toBeUndefined();
+  });
+
+  it.each([
+    [
+      'assign',
+      () =>
+        AssignTaskToolInputSchema.parse({ taskRef: 't', assigneeRefs: ['a'], revisionOf: UUID }),
+    ],
+    [
+      'create',
+      () => CreateTaskToolInputSchema.parse({ planRef: 'p', title: 'x', revisionOf: UUID }),
+    ],
+    [
+      'link',
+      () =>
+        LinkTasksToolInputSchema.parse({
+          sourceTaskRef: 'a',
+          targetTaskRef: 'b',
+          kind: 'relates',
+          revisionOf: UUID,
+        }),
+    ],
+    [
+      'merge',
+      () =>
+        MergeTasksToolInputSchema.parse({
+          duplicateTaskRef: 'a',
+          keepTaskRef: 'b',
+          revisionOf: UUID,
+        }),
+    ],
+    [
+      'comment',
+      () => CommentTaskToolInputSchema.parse({ taskRef: 't', body: 'hi', revisionOf: UUID }),
+    ],
+  ])('%s accepts revisionOf', (_name, parse) => {
+    expect(parse().revisionOf).toBe(UUID);
+  });
+
+  it.each([
+    [
+      'assign',
+      () =>
+        AssignTaskToolInputSchema.parse({ taskRef: 't', assigneeRefs: ['a'], dropFields: ['x'] }),
+    ],
+    [
+      'link',
+      () =>
+        LinkTasksToolInputSchema.parse({
+          sourceTaskRef: 'a',
+          targetTaskRef: 'b',
+          kind: 'relates',
+          dropFields: ['x'],
+        }),
+    ],
+    [
+      'merge',
+      () =>
+        MergeTasksToolInputSchema.parse({
+          duplicateTaskRef: 'a',
+          keepTaskRef: 'b',
+          dropFields: ['x'],
+        }),
+    ],
+    [
+      'comment',
+      () => CommentTaskToolInputSchema.parse({ taskRef: 't', body: 'hi', dropFields: ['x'] }),
+    ],
+  ])('%s REJECTS dropFields — it has nothing droppable', (_name, parse) => {
+    // These four schemas are .strict(). An inert parameter would invite the model
+    // to pass it and get silence; failing loudly is the FUT-840 reading of D17.
+    expect(parse).toThrow();
+  });
+
+  it('create accepts dropFields, since its draft has optional fields', () => {
+    expect(
+      CreateTaskToolInputSchema.parse({ planRef: 'p', title: 'x', dropFields: ['priority'] })
+        .dropFields,
+    ).toEqual(['priority']);
+  });
+});
+
+describe('DOMAIN_FIELD_BY_TOOL_FIELD (FUT-840 design D17)', () => {
+  it('maps every field the model may name onto the key the persisted patch uses', () => {
+    expect(DOMAIN_FIELD_BY_TOOL_FIELD).toEqual({
+      title: 'title',
+      description: 'description',
+      dueAt: 'due_at',
+      startAt: 'start_at',
+      priority: 'priority_number',
+      status: 'percent_complete',
+    });
+  });
+
+  it('covers exactly the keys ToolPatchSchema accepts, so no field is undroppable', () => {
+    expect(Object.keys(DOMAIN_FIELD_BY_TOOL_FIELD).sort()).toEqual(
+      Object.keys(ToolPatchSchema.shape).sort(),
+    );
+  });
+});
+
+describe('OpenPreviewSchema (FUT-840)', () => {
+  it('carries the approval id, the tool, and the rows the user is looking at', () => {
+    const parsed = OpenPreviewSchema.parse({
+      approvalId: '7f3a1c2e-1111-4222-8333-444455556666',
+      toolId: 'planner_updateTask',
+      intent: 'Update "Deploy API"',
+      proposedRows: [{ k: 'Due', v: '12 Aug 2026 → 21 Aug 2026' }],
+    });
+    expect(parsed.toolId).toBe('planner_updateTask');
+    expect(parsed.proposedRows).toHaveLength(1);
+  });
+
+  it('is nullish on ActionInputSchema — most turns have no preview open', () => {
+    const parsed = ActionInputSchema.parse({ userText: 'hi', taskId: null });
+    expect(parsed.openPreview).toBeUndefined();
   });
 });

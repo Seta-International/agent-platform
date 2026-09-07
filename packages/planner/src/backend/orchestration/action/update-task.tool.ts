@@ -3,7 +3,15 @@ import { buildBulkApprovalCard, buildUpdateApprovalCard } from './approval-card.
 import { normalizeInstant } from './date-normalize.ts';
 import type { ActionPorts } from './ports.ts';
 import {
+  INCOMPLETE_PREVIEW,
+  refuseIfPreviewOpen,
+  resolveRevision,
+  taskIdsFromArgsPatch,
+} from './revision.ts';
+import type { ActionOpenPreview } from './schemas.ts';
+import {
   BULK_TARGET_CAP,
+  DOMAIN_FIELD_BY_TOOL_FIELD,
   PERCENT_COMPLETE_BY_WORD,
   PRIORITY_NUMBER_BY_WORD,
   type ToolPatch,
@@ -19,6 +27,10 @@ export interface UpdateTaskToolDeps {
   ports: ActionPorts;
   /** The orchestrator's run ctx: tenant/actor/abort. */
   ctx: SpecializedAgentRunCtx;
+  /** The preview the SERVER found open for this turn, or null (FUT-840). It
+   *  arrives through the run context and never through tool arguments, which is
+   *  what lets this tool verify the model's `revisionOf` against it (design D15). */
+  openPreview?: ActionOpenPreview | null;
 }
 
 /** Translate the model's vocabulary into the domain's.
@@ -46,6 +58,41 @@ function toDomainPatch(patch: ToolPatch): UpdateTaskActionPatch {
 }
 
 /**
+ * Merge an adjustment onto the proposal already on the card, then remove
+ * whatever the user asked to be left alone (design D3, D17).
+ *
+ * `{ ...previous, ...next }` and NOT a filtered merge. `toDomainPatch` already
+ * distinguishes three cases on the wire: a field absent from the patch is
+ * untouched, and `due_at: null` / `start_at: null` CLEAR the value. Any
+ * implementation that strips null or undefined out of `next` silently drops
+ * "clear this field" — the same class of silent bug as reusing the idempotency
+ * key, with no error anywhere and the wrong values applied.
+ *
+ * Dropping happens AFTER merging, so it can remove a field the earlier preview
+ * set as well as one this sentence set. It can only ever NARROW the change, which
+ * is what makes it AC5-safe by construction.
+ */
+function mergePatches(
+  previous: UpdateTaskActionPatch,
+  next: UpdateTaskActionPatch,
+  dropFields: readonly string[] | undefined,
+): { patch: UpdateTaskActionPatch } | { refusal: string } {
+  const merged: Record<string, unknown> = { ...previous, ...next };
+  for (const field of dropFields ?? []) {
+    const domainField = DOMAIN_FIELD_BY_TOOL_FIELD[field];
+    if (!domainField) {
+      return {
+        refusal:
+          `I don't change a field called "${field}". I can change ` +
+          `${Object.keys(DOMAIN_FIELD_BY_TOOL_FIELD).join(', ')}.`,
+      };
+    }
+    delete merged[domainField];
+  }
+  return { patch: merged as UpdateTaskActionPatch };
+}
+
+/**
  * The A2 Action agent's update tool: preview → confirm → gated write, over 1..20
  * tasks sharing one patch. Bulk is folded in here rather than split into a
  * separate `planner_bulkUpdate`, because two adjacent tools differing only in
@@ -58,7 +105,7 @@ function toDomainPatch(patch: ToolPatch): UpdateTaskActionPatch {
  * never from the confirmation request (FUT-804 AC5).
  */
 export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
-  const { ports, ctx } = deps;
+  const { ports, ctx, openPreview } = deps;
   const actor = { tenantId: ctx.tenantId, actorUserId: ctx.actorUserId };
 
   return defineAgentTool({
@@ -89,7 +136,7 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
     // WeakMap that nothing reads at runtime, which is why the first pass calls
     // assertCanUpdateMany itself.
     rbac: 'planner.task.update',
-    execute: async ({ taskRefs, patch }, toolCtx) => {
+    execute: async ({ taskRefs, patch, revisionOf, dropFields }, toolCtx) => {
       const agent = toolCtx.agent;
       const resume = agent?.resumeData;
 
@@ -121,60 +168,115 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
       }
 
       // ── First pass ─────────────────────────────────────────────────────────
-      // 1. The cap, BEFORE resolution: 100 refs must not become 100 reads, and
-      //    the refusal has to be a sentence rather than a schema error, or the
-      //    model splits the request into batches — which the AC forbids.
-      if (taskRefs.length > BULK_TARGET_CAP) {
-        return {
-          updated: false,
-          taskIds: [],
-          refusal:
-            `I can change at most ${BULK_TARGET_CAP} tasks in one request, and this one lists ` +
-            `${taskRefs.length}. Nothing was changed. Ask the user to narrow the list to ` +
-            `${BULK_TARGET_CAP} or fewer — do not split it into several smaller requests.`,
-        };
+      const revision = await resolveRevision({
+        preview: ports.preview,
+        actor,
+        revisionOf,
+        openPreview,
+        toolId: 'planner_updateTask',
+      });
+      if (revision.kind === 'refused') {
+        // The open preview is untouched: nothing here reached the read-model
+        // writer, so there is still exactly one resolvable card (AC5).
+        return { updated: false, taskIds: [], refusal: revision.refusal };
       }
 
-      // 2. Cheapest check next: no DB, no resolution.
-      const normalized = toDomainPatch(patch);
-      if (Object.keys(normalized).length === 0) {
-        return {
-          updated: false,
-          taskIds: [],
-          refusal: 'Tell me which value to set and I will show you a preview.',
-        };
+      let taskIds: string[];
+      let normalized: UpdateTaskActionPatch;
+
+      if (revision.kind === 'revision') {
+        // Targets come FROM THE CARD; `taskRefs` is ignored. This is what makes
+        // "no adjustment can move the change to another task" structural rather
+        // than a prompt promise (AC5.1).
+        taskIds = taskIdsFromArgsPatch(revision.previousArgsPatch);
+        if (taskIds.length === 0) {
+          return { updated: false, taskIds: [], refusal: INCOMPLETE_PREVIEW };
+        }
+        const previousPatch = (revision.previousArgsPatch.patch ?? {}) as UpdateTaskActionPatch;
+        const merged = mergePatches(previousPatch, toDomainPatch(patch), dropFields);
+        if ('refusal' in merged) {
+          return { updated: false, taskIds: [], refusal: merged.refusal };
+        }
+        normalized = merged.patch;
+        if (Object.keys(normalized).length === 0) {
+          // Dropping every field leaves nothing to preview. The card builders
+          // throw on an empty patch, so this has to be a sentence.
+          return {
+            updated: false,
+            taskIds: [],
+            refusal: 'That would leave nothing to change. Tell me what you do want changed.',
+          };
+        }
+      } else {
+        // 1. The cap, BEFORE resolution: 100 refs must not become 100 reads, and
+        //    the refusal has to be a sentence rather than a schema error, or the
+        //    model splits the request into batches — which the AC forbids.
+        if (taskRefs.length > BULK_TARGET_CAP) {
+          return {
+            updated: false,
+            taskIds: [],
+            refusal:
+              `I can change at most ${BULK_TARGET_CAP} tasks in one request, and this one lists ` +
+              `${taskRefs.length}. Nothing was changed. Ask the user to narrow the list to ` +
+              `${BULK_TARGET_CAP} or fewer — do not split it into several smaller requests.`,
+          };
+        }
+
+        // 2. Cheapest check next: no DB, no resolution.
+        normalized = toDomainPatch(patch);
+        if (Object.keys(normalized).length === 0) {
+          return {
+            updated: false,
+            taskIds: [],
+            refusal: 'Tell me which value to set and I will show you a preview.',
+          };
+        }
+
+        // 3. One unresolvable ref refuses the WHOLE batch. TaskRefResolveError is
+        //    an AgentToolError, so wrapExecute re-throws its text verbatim and the
+        //    model self-corrects against the real titles (the FUT-859 property).
+        taskIds = [];
+        for (const ref of taskRefs) {
+          taskIds.push((await resolveTaskRef(toolCtx as never, ref)).taskId);
+        }
+
+        // 4. Two refs for one task is an unclear intent, and would double-count
+        //    the task in the preview.
+        if (new Set(taskIds).size !== taskIds.length) {
+          return {
+            updated: false,
+            taskIds: [],
+            refusal:
+              'Two of those references point at the same task. Say each task once and tell me ' +
+              'which change you want.',
+          };
+        }
       }
 
-      // 3. One unresolvable ref refuses the WHOLE batch. TaskRefResolveError is
-      //    an AgentToolError, so wrapExecute re-throws its text verbatim and the
-      //    model self-corrects against the real titles (the FUT-859 property).
-      const taskIds: string[] = [];
-      for (const ref of taskRefs) {
-        taskIds.push((await resolveTaskRef(toolCtx as never, ref)).taskId);
-      }
-
-      // 4. Two refs for one task is an unclear intent, and would double-count
-      //    the task in the preview.
-      if (new Set(taskIds).size !== taskIds.length) {
-        return {
-          updated: false,
-          taskIds: [],
-          refusal:
-            'Two of those references point at the same task. Say each task once and tell me ' +
-            'which change you want.',
-        };
-      }
-
-      // 5 + 6. One session for the batch, one gate per distinct group.
+      // 5 + 6. One session for the batch, one gate per distinct group. Re-read on
+      // a revision too: group membership and `version` can both change between two
+      // turns, so the card must carry what is true now.
       const targets = await ports.taskRead.readMany({ ...actor, taskIds });
       await ports.taskUpdate.assertCanUpdateMany({
         ...actor,
         groupIds: targets.map((t) => t.groupId),
       });
 
+      if (revision.kind === 'new') {
+        // The mutex, as a sentence, before the model narrates anything. Skipped on
+        // a revision: that card declares the same `task:` key and the writer voids
+        // it in the same transaction, so checking here would refuse every
+        // adjustment.
+        const clash = await refuseIfPreviewOpen({ preview: ports.preview, actor, taskIds });
+        if (clash) return { updated: false, taskIds: [], refusal: clash };
+      }
+
       // Minted HERE and persisted on the card: resume may run in another process,
-      // so the key can only travel via proposed_payload.
+      // so the key can only travel via proposed_payload. FRESH on every revision —
+      // reuse it and a confirm on a stale card burns the key, so the confirm on
+      // the final card returns the EARLIER result as `replayed`.
       const idempotencyKey = crypto.randomUUID();
+      const supersedes = revision.kind === 'revision' ? revision.previousApprovalId : undefined;
       const first = targets[0];
       const card =
         targets.length === 1 && first
@@ -184,6 +286,7 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
               tenantId: ctx.tenantId,
               userId: ctx.actorUserId,
               idempotencyKey,
+              ...(supersedes ? { supersedes } : {}),
             })
           : buildBulkApprovalCard({
               tasks: targets,
@@ -191,6 +294,7 @@ export function makeUpdateTaskTool(deps: UpdateTaskToolDeps) {
               tenantId: ctx.tenantId,
               userId: ctx.actorUserId,
               idempotencyKey,
+              ...(supersedes ? { supersedes } : {}),
             });
 
       if (typeof agent?.suspend !== 'function') {

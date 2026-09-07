@@ -156,3 +156,66 @@ export async function findOpenPreviewsForTasks(
     (res as unknown as Array<{ key: string }>);
   return rows.map((r) => r.key);
 }
+
+export interface LoadChatPreviewByIdOpts {
+  session: PreviewScope;
+  approvalId: string;
+  workflowIds: readonly string[];
+}
+
+/**
+ * The by-id sibling of `findOpenChatPreview`, for the tool that has been handed
+ * an approval id and needs the card behind it.
+ *
+ * Every predicate here is defence in depth rather than the primary control: the
+ * caller has already asserted that this id EQUALS the one the server injected
+ * for the turn (design D15), so it can only ever name the server's own row. The
+ * predicates still earn their place — they make "a UUID appearing in text buys no
+ * access" true at this layer too (the FUT-824 property), so a future caller that
+ * forgets the D15 assert degrades to "not found" rather than to a cross-user
+ * read.
+ *
+ * Deliberately NOT scoped on `surface_chat_thread_id`: the id was chosen by the
+ * server from this thread's own lookup, so re-checking the thread adds nothing,
+ * while tenant + approver + pending + `mastra_run_id IS NOT NULL` are the real
+ * access predicates.
+ *
+ * `expires_at` is deliberately unfiltered, for the same reason as
+ * `findOpenChatPreview` — see its comment and spec §5.
+ */
+export async function loadChatPreviewById(
+  opts: LoadChatPreviewByIdOpts,
+): Promise<OpenChatPreview | null> {
+  if (opts.workflowIds.length === 0) return null;
+
+  interface Row {
+    approval_id: string;
+    proposed_payload: unknown;
+    created_at: Date | string;
+    expires_at: Date | string;
+  }
+  const ids = sql.join(
+    opts.workflowIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const res = await agentDb().execute(sql`
+    SELECT a.approval_id, a.proposed_payload, a.created_at, a.expires_at
+      FROM agent.workflow_approvals a
+      JOIN agent.workflow_runs r ON r.run_id = a.run_id
+     WHERE a.approval_id       = ${opts.approvalId}
+       AND a.tenant_id         = ${opts.session.tenant_id}
+       AND a.approver_user_id  = ${opts.session.user_id}
+       AND a.status            = 'pending'
+       AND a.mastra_run_id IS NOT NULL
+       AND r.workflow_id IN (${ids})
+  `);
+  const rows = (res as unknown as { rows: Row[] }).rows ?? (res as unknown as Row[]);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    approvalId: row.approval_id,
+    card: row.proposed_payload as ApprovalCard,
+    createdAt: asDate(row.created_at),
+    expiresAt: asDate(row.expires_at),
+  };
+}

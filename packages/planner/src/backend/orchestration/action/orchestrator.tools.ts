@@ -8,6 +8,7 @@ import { makeCreateTaskTool } from './create-task.tool.ts';
 import { makeLinkTasksTool } from './link-tasks.tool.ts';
 import { makeMergeTasksTool } from './merge-tasks.tool.ts';
 import type { ActionPorts } from './ports.ts';
+import type { ActionOpenPreview } from './schemas.ts';
 import { makeUpdateTaskTool } from './update-task.tool.ts';
 
 /**
@@ -20,18 +21,28 @@ import { makeUpdateTaskTool } from './update-task.tool.ts';
 export function makeActionTools(deps: {
   ports: ActionPorts;
   ctx: SpecializedAgentRunCtx;
+  /** The preview the server found open for this turn, or null. Reaches the tools
+   *  through the run context and NEVER through tool arguments, which is what lets
+   *  each tool verify the model's `revisionOf` against the server's choice
+   *  (FUT-840 design D15). */
+  openPreview?: ActionOpenPreview | null;
 }): Record<string, unknown> {
+  const shared = {
+    ports: deps.ports,
+    ctx: deps.ctx,
+    openPreview: deps.openPreview ?? null,
+  };
   return {
     planner_getTask: plannerGetTaskTool,
     planner_queryTasks: plannerQueryTasksTool,
     planner_resolveMember: plannerResolveMemberTool,
-    planner_updateTask: makeUpdateTaskTool({ ports: deps.ports, ctx: deps.ctx }),
-    planner_linkTasks: makeLinkTasksTool({ ports: deps.ports, ctx: deps.ctx }),
-    planner_mergeTasks: makeMergeTasksTool({ ports: deps.ports, ctx: deps.ctx }),
-    planner_assignTask: makeAssignTaskTool({ ports: deps.ports, ctx: deps.ctx }),
-    planner_createTask: makeCreateTaskTool({ ports: deps.ports, ctx: deps.ctx }),
+    planner_updateTask: makeUpdateTaskTool(shared),
+    planner_linkTasks: makeLinkTasksTool(shared),
+    planner_mergeTasks: makeMergeTasksTool(shared),
+    planner_assignTask: makeAssignTaskTool(shared),
+    planner_createTask: makeCreateTaskTool(shared),
     // NOT the legacy planner_postComment, which writes before the card and is
     // not gated. That one stays registered on the old specialist, untouched.
-    planner_commentTask: makeCommentTaskTool({ ports: deps.ports, ctx: deps.ctx }),
+    planner_commentTask: makeCommentTaskTool(shared),
   };
 }
