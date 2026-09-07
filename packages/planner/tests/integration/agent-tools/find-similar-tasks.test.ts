@@ -117,6 +117,57 @@ describe('plannerFindSimilarTasksTool', () => {
       expect(typeof top.score).toBe('number');
     }));
 
+  it('drops hits whose group has been archived', () =>
+    withDb(async ({ pool, pgVector }) => {
+      const provider = new FakeEmbeddingProvider();
+
+      const live = await seedTaskForTest(pool, {
+        title: 'Migrate auth gateway to v1.6',
+        description: 'Move the auth gateway from v1.5 to v1.6',
+        labels: ['auth'],
+      });
+      const archived = await seedTaskForTest(pool, {
+        tenant_id: live.tenant_id,
+        title: 'Migrate auth gateway legacy shim',
+        description: 'Retire the auth gateway shim',
+        labels: ['auth'],
+      });
+      await pool.query(`UPDATE planner.groups SET deleted_at = now() WHERE id = $1`, [
+        archived.group_id,
+      ]);
+
+      for (const [i, t] of [live, archived].entries()) {
+        await embedTask(
+          { tenant_id: t.tenant_id, task_id: t.task_id, event_id: `sim-arch-${i}` },
+          { provider, pgVector },
+        );
+      }
+
+      const tool = plannerFindSimilarTasksTool({
+        provider,
+        pgVector,
+        sessionProvider: makeSessionProvider(live.tenant_id),
+      });
+      const ctx = {
+        requestContext: makeFakeCtx({ type: 'user', user_id: 'tester' }, live.tenant_id),
+      } as unknown as Parameters<
+        NonNullable<ReturnType<typeof plannerFindSimilarTasksTool>['execute']>
+      >[1];
+
+      const result = (await tool.execute!(
+        {
+          text: 'auth gateway migration',
+          completionStatus: 'any',
+          createdWithin: 'any',
+          onlyWithReviewState: false,
+          limit: 10,
+        },
+        ctx,
+      )) as { results: Array<{ taskId: string }> };
+
+      expect(result.results.map((r) => r.taskId)).toEqual([live.task_id]);
+    }));
+
   it('respects scope=recent-week (excludes older tasks)', () =>
     withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();

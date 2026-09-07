@@ -3,12 +3,19 @@ import { kpiCoreMetricsSeedOnProjectCreated } from './kpi-core-metrics-project-c
 import { kpiNormSeedOnTenantCreated } from './kpi-norm-seed.ts';
 import { reporterAssignmentOnAccessChanged } from './reporter-assignment.ts';
 import { staffingPlanLineSkillRenamed } from './skill-renamed.ts';
-import { workerProjectionCreated, workerProjectionUpdated } from './worker-projection.ts';
+import {
+  workerProjectionCreated,
+  workerProjectionReinstated,
+  workerProjectionTerminated,
+  workerProjectionUpdated,
+} from './worker-projection.ts';
 
 export function pmSubscribers(): SubscriberDef[] {
   return [
     workerProjectionCreated,
     workerProjectionUpdated,
+    workerProjectionTerminated,
+    workerProjectionReinstated,
     staffingPlanLineSkillRenamed,
     kpiNormSeedOnTenantCreated,
     kpiCoreMetricsSeedOnProjectCreated,

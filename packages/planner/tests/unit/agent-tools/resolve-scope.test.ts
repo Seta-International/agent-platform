@@ -5,7 +5,8 @@ import {
 } from '../../../src/backend/agent-tools/resolve-scope.ts';
 
 vi.mock('../../../src/backend/read-helpers.ts', () => ({
-  listMemberGroups: vi.fn(),
+  listMemberGroupsWithState: vi.fn(),
+  getGroupState: vi.fn(),
   groupFilterFor: vi.fn(),
 }));
 
@@ -14,11 +15,20 @@ vi.mock('../../../src/backend/domain/list-plans.ts', () => ({
 }));
 
 import { listPlans } from '../../../src/backend/domain/list-plans.ts';
-import { groupFilterFor, listMemberGroups } from '../../../src/backend/read-helpers.ts';
+import {
+  getGroupState,
+  groupFilterFor,
+  listMemberGroupsWithState,
+} from '../../../src/backend/read-helpers.ts';
 
-const mockListMemberGroups = vi.mocked(listMemberGroups);
+const mockListMemberGroups = vi.mocked(listMemberGroupsWithState);
+const mockGetGroupState = vi.mocked(getGroupState);
 const mockGroupFilterFor = vi.mocked(groupFilterFor);
 const mockListPlans = vi.mocked(listPlans);
+
+function live(id: string, name: string) {
+  return { id, name, archived: false };
+}
 
 const fakeSession = { user_id: 'u1', tenant_id: 't1' } as never;
 
@@ -26,25 +36,41 @@ describe('resolveGroupScope', () => {
   it('returns ok when groupId provided and user has access', async () => {
     mockGroupFilterFor.mockResolvedValue(['grp-1', 'grp-2']);
     mockListMemberGroups.mockResolvedValue([
-      { id: 'grp-1', name: 'Engineering' },
-      { id: 'grp-2', name: 'Platform' },
+      live('grp-1', 'Engineering'),
+      live('grp-2', 'Platform'),
     ]);
 
     const res = await resolveGroupScope(fakeSession, { groupId: 'grp-1' });
     expect(res).toEqual({ ok: true, id: 'grp-1', name: 'Engineering' });
   });
 
-  it('returns ok for admin even without group membership', async () => {
+  it('names the group for an admin who is not a member of it', async () => {
     mockGroupFilterFor.mockResolvedValue(null);
-    mockListMemberGroups.mockResolvedValue([]);
+    mockGetGroupState.mockResolvedValue(live('grp-any', 'Operations'));
 
     const res = await resolveGroupScope(fakeSession, { groupId: 'grp-any' });
-    expect(res).toEqual({ ok: true, id: 'grp-any', name: 'grp-any' });
+    expect(res).toEqual({ ok: true, id: 'grp-any', name: 'Operations' });
+  });
+
+  it('returns notFound for an admin when the group id does not exist', async () => {
+    mockGroupFilterFor.mockResolvedValue(null);
+    mockGetGroupState.mockResolvedValue(null);
+
+    const res = await resolveGroupScope(fakeSession, { groupId: 'grp-ghost' });
+    expect(res).toEqual({ notFound: true });
+  });
+
+  it('returns archived when the group id resolves to an archived group', async () => {
+    mockGroupFilterFor.mockResolvedValue(null);
+    mockGetGroupState.mockResolvedValue({ id: 'grp-old', name: 'Helios', archived: true });
+
+    const res = await resolveGroupScope(fakeSession, { groupId: 'grp-old' });
+    expect(res).toEqual({ archived: true, id: 'grp-old', name: 'Helios' });
   });
 
   it('returns notFound when groupId provided but user lacks access', async () => {
     mockGroupFilterFor.mockResolvedValue(['grp-2']);
-    mockListMemberGroups.mockResolvedValue([{ id: 'grp-2', name: 'Platform' }]);
+    mockListMemberGroups.mockResolvedValue([live('grp-2', 'Platform')]);
 
     const res = await resolveGroupScope(fakeSession, { groupId: 'grp-1' });
     expect(res).toEqual({ notFound: true });
@@ -52,8 +78,18 @@ describe('resolveGroupScope', () => {
 
   it('matches by name — single match returns ok', async () => {
     mockListMemberGroups.mockResolvedValue([
-      { id: 'grp-1', name: 'Engineering Team' },
-      { id: 'grp-2', name: 'Platform Team' },
+      live('grp-1', 'Engineering Team'),
+      live('grp-2', 'Platform Team'),
+    ]);
+
+    const res = await resolveGroupScope(fakeSession, { groupName: 'engineering' });
+    expect(res).toEqual({ ok: true, id: 'grp-1', name: 'Engineering Team' });
+  });
+
+  it('matches by name — an active match wins over an archived namesake', async () => {
+    mockListMemberGroups.mockResolvedValue([
+      { id: 'grp-old', name: 'Engineering Team', archived: true },
+      live('grp-1', 'Engineering Team'),
     ]);
 
     const res = await resolveGroupScope(fakeSession, { groupName: 'engineering' });
@@ -62,8 +98,8 @@ describe('resolveGroupScope', () => {
 
   it('matches by name — multiple matches returns ambiguous', async () => {
     mockListMemberGroups.mockResolvedValue([
-      { id: 'grp-1', name: 'Engineering Backend' },
-      { id: 'grp-2', name: 'Engineering Frontend' },
+      live('grp-1', 'Engineering Backend'),
+      live('grp-2', 'Engineering Frontend'),
     ]);
 
     const res = await resolveGroupScope(fakeSession, { groupName: 'engineering' });
@@ -77,14 +113,24 @@ describe('resolveGroupScope', () => {
   });
 
   it('matches by name — no match returns notFound', async () => {
-    mockListMemberGroups.mockResolvedValue([{ id: 'grp-1', name: 'Engineering' }]);
+    mockListMemberGroups.mockResolvedValue([live('grp-1', 'Engineering')]);
 
     const res = await resolveGroupScope(fakeSession, { groupName: 'marketing' });
     expect(res).toEqual({ notFound: true });
   });
 
   it('auto-resolves — single group returns ok', async () => {
-    mockListMemberGroups.mockResolvedValue([{ id: 'grp-1', name: 'Engineering' }]);
+    mockListMemberGroups.mockResolvedValue([live('grp-1', 'Engineering')]);
+
+    const res = await resolveGroupScope(fakeSession, {});
+    expect(res).toEqual({ ok: true, id: 'grp-1', name: 'Engineering' });
+  });
+
+  it('auto-resolves — archived groups do not count towards the caller"s groups', async () => {
+    mockListMemberGroups.mockResolvedValue([
+      live('grp-1', 'Engineering'),
+      { id: 'grp-old', name: 'Helios', archived: true },
+    ]);
 
     const res = await resolveGroupScope(fakeSession, {});
     expect(res).toEqual({ ok: true, id: 'grp-1', name: 'Engineering' });
@@ -92,8 +138,8 @@ describe('resolveGroupScope', () => {
 
   it('auto-resolves — multiple groups returns ambiguous', async () => {
     mockListMemberGroups.mockResolvedValue([
-      { id: 'grp-1', name: 'Engineering' },
-      { id: 'grp-2', name: 'Platform' },
+      live('grp-1', 'Engineering'),
+      live('grp-2', 'Platform'),
     ]);
 
     const res = await resolveGroupScope(fakeSession, {});

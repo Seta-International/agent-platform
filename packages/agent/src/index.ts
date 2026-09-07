@@ -62,6 +62,10 @@ export {
   writeChatApprovalRow,
 } from './backend/domain/write-chat-approval-row.ts';
 
-export { ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
+export {
+  ModelNotFoundError,
+  resolveDefaultModel,
+  resolveModel,
+} from './backend/model-registry.ts';
 export { AgentRunStateRepository } from './backend/orchestration/run-state-repository.ts';
 export { registerAgentContributions } from './register.ts';

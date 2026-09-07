@@ -210,6 +210,137 @@ describe('project run', () => {
     });
   });
 
+  it('assigns and removes EM/PMO independently via pm_worker_id/pmo_worker_id', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const emId = crypto.randomUUID();
+        const pmoId = crypto.randomUUID();
+
+        await editProject({
+          project_id: projectId,
+          patch: { pm_worker_id: emId, pmo_worker_id: pmoId },
+          session: t.adminSession,
+        });
+        let p = await getProject({ project_id: projectId, session: t.adminSession });
+        expect(p.pm_worker_id).toBe(emId);
+        expect(p.pmo_worker_id).toBe(pmoId);
+
+        // Removing PMO leaves EM untouched.
+        await editProject({
+          project_id: projectId,
+          patch: { pmo_worker_id: null },
+          session: t.adminSession,
+        });
+        p = await getProject({ project_id: projectId, session: t.adminSession });
+        expect(p.pm_worker_id).toBe(emId);
+        expect(p.pmo_worker_id).toBeNull();
+
+        // Assigning a new PMO after removal.
+        const pmoId2 = crypto.randomUUID();
+        await editProject({
+          project_id: projectId,
+          patch: { pmo_worker_id: pmoId2 },
+          session: t.adminSession,
+        });
+        p = await getProject({ project_id: projectId, session: t.adminSession });
+        expect(p.pmo_worker_id).toBe(pmoId2);
+
+        const updatedEvents = await readEvents(pool, t.tenant_id, 'pm.project.updated');
+        const emChange = updatedEvents.find((ev) =>
+          (ev.payload.fields as string[]).includes('pm_worker_id'),
+        );
+        expect(emChange).toBeDefined();
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('EM/PMO reassignment requires a tenant-wide or org-unit-matching manage grant, not just self-scope', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const orgUnitId = crypto.randomUUID();
+        await editProject({
+          project_id: projectId,
+          patch: { org_unit_id: orgUnitId },
+          session: t.adminSession,
+        });
+        const emId = crypto.randomUUID();
+        await editProject({
+          project_id: projectId,
+          patch: { pm_worker_id: emId },
+          session: t.adminSession,
+        });
+
+        // The incumbent EM, holding only a self-scoped pm.manager grant, can manage other
+        // fields on their own project (via the pm_person_id relationship arm)...
+        const selfScopedEm = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.manager'],
+          assignments: [{ role_slug: 'pm.manager', scope_kind: 'self', scope_id: null }],
+          worker_id: emId,
+        });
+        await expect(
+          editProject({
+            project_id: projectId,
+            patch: { objective: 'EM can edit their own project' },
+            session: selfScopedEm,
+          }),
+        ).resolves.toBeDefined();
+
+        // ...but cannot reassign EM/PMO on it — that requires real org/tenant reach, not just
+        // being the incumbent.
+        await expect(
+          editProject({
+            project_id: projectId,
+            patch: { pm_worker_id: crypto.randomUUID() },
+            session: selfScopedEm,
+          }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        // An org-unit-scoped pm.manager whose grant covers this project's org unit can.
+        const orgScopedManager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.manager'],
+          assignments: [
+            {
+              role_slug: 'pm.manager',
+              scope_kind: 'org_unit',
+              scope_id: orgUnitId,
+              org_unit_ids: [orgUnitId],
+            },
+          ],
+        });
+        const newEmId = crypto.randomUUID();
+        await editProject({
+          project_id: projectId,
+          patch: { pm_worker_id: newEmId },
+          session: orgScopedManager,
+        });
+        const p = await getProject({ project_id: projectId, session: t.adminSession });
+        expect(p.pm_worker_id).toBe(newEmId);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('reads are tenant-scoped: listProjects and getProject only return own tenant rows', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

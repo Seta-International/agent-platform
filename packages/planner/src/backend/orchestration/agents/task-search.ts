@@ -28,7 +28,7 @@ import {
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
-import { GROUNDING_POLICY } from './grounding.ts';
+import { ARCHIVED_GROUP_POLICY, GROUNDING_POLICY } from './grounding.ts';
 
 export const TASK_SEARCH_TOOL_IDS = [
   'planner_queryTasks',
@@ -83,9 +83,12 @@ the user means ("what have I finished" → completed; "what am I working on" →
 
 Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks;
 task name/title phrasing ("named X", "called X", "the X task") → queryTasks with titleContains.
-Empty result sets are valid answers — say "you have no matching tasks", don't error.
+Empty result sets are valid answers — say "you have no matching tasks", don't error, unless
+the result also carries noActiveGroups: then follow the archived-groups policy below.
 
 ${GROUNDING_POLICY}
+
+${ARCHIVED_GROUP_POLICY}
 Read-only.`;
 }
 

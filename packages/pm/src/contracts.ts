@@ -110,6 +110,8 @@ export const editProjectPatch = z.object({
   status: projectStatusEnum.optional(),
   planner_group_id: z.string().uuid().nullable().optional(),
   org_unit_id: z.string().uuid().nullable().optional(),
+  pm_worker_id: z.string().uuid().nullable().optional(),
+  pmo_worker_id: z.string().uuid().nullable().optional(),
 });
 export const editProjectInput = z.object({
   project_id: z.string().uuid(),

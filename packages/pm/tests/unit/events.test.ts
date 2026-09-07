@@ -129,6 +129,7 @@ describe('pm events', () => {
       account_id: crypto.randomUUID(),
       charter_id: crypto.randomUUID(),
       name: 'Alpha Project',
+      date_to: null,
     });
     expect(valid.success).toBe(true);
     if (valid.success) expect(valid.data.name).toBe('Alpha Project');
@@ -148,6 +149,7 @@ describe('pm events', () => {
       tenant_id: crypto.randomUUID(),
       name: 'Beta Project',
       account_id: crypto.randomUUID(),
+      date_to: null,
       fields: ['name', 'objective'],
     });
     expect(valid.success).toBe(true);
@@ -228,6 +230,7 @@ describe('pm events', () => {
         account_id: crypto.randomUUID(),
         charter_id: crypto.randomUUID(),
         name: 'Test Project',
+        date_to: null,
       }).success,
     ).toBe(true);
   });

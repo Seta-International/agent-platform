@@ -2,7 +2,7 @@ import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getGroupWorkload } from '../domain/get-group-workload.ts';
-import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
+import { archivedGroupError, resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 export const plannerGetWorkloadTool = defineAgentTool({
   id: 'planner_getWorkload',
@@ -40,6 +40,9 @@ export const plannerGetWorkloadTool = defineAgentTool({
     });
     if ('notFound' in resolved) {
       return { error: 'No accessible group found matching that criteria.' };
+    }
+    if ('archived' in resolved) {
+      return { error: archivedGroupError(resolved.name) };
     }
     if ('ambiguous' in resolved) {
       const names = resolved.options.map((o) => o.name).join(', ');

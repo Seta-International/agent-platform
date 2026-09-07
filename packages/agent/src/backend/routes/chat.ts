@@ -11,7 +11,7 @@ import { agentEnv } from '../env.ts';
 import { recordLlmTurn } from '../llm-metrics.ts';
 import { TenantGuardedMastraStore } from '../mastra-store/tenant-guarded-store.ts';
 import { loadSessionHistory } from '../memory.ts';
-import { ModelNotFoundError, resolveModel } from '../model-registry.ts';
+import { ModelNotFoundError, resolveDefaultModel, resolveModel } from '../model-registry.ts';
 import { type ApprovalEvent, pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import { commitActualTokens, RateLimitError, reserveTurn } from '../rate-limit.ts';
 import { getTenantSettings } from '../tenant-settings.ts';
@@ -163,7 +163,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
     // Catalog key used as the `model` metric label. Falls back to the auto-pick
     // key so token throughput is always attributed to a concrete model.
-    let modelKey = resolveModel('auto', { tierHint: 'fast' }).entry.key;
+    let modelKey = resolveDefaultModel({ tierHint: 'fast' }).entry.key;
     if (parsed.data.model && parsed.data.model !== 'auto') {
       try {
         const resolved = resolveModel(parsed.data.model, { tierHint: 'fast' });
@@ -464,7 +464,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
           try {
             const title = await generateThreadTitle({
               userText: cleanUserText || userText,
-              model: modelOverride ?? resolveModel('auto', { tierHint: 'fast' }).model,
+              model: modelOverride ?? resolveDefaultModel({ tierHint: 'fast' }).model,
               fallback: orchThreadTitle,
             });
             await store.updateThread(orchThreadId, { title, metadata: {} });
