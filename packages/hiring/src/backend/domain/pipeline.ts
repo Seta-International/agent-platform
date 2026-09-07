@@ -1,8 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
-import { createWorker, employmentPeriod, getWorkerIdForUser, peopleDb } from '@seta/people';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
 import {
   HIRING_APPLICATION_CREATED,
@@ -495,68 +494,6 @@ export async function hireApplication(input: {
     throw new HiringError('CONFLICT', 'No vacant openings for this requisition');
   }
 
-  let worker_id: string;
-
-  const existingWorkerId =
-    appRow.kind === 'internal'
-      ? (session.person_id ??
-        (session.user_id ? await getWorkerIdForUser(session.user_id, session.tenant_id) : null))
-      : null;
-
-  const resolvedJobTitle = candRow.seniority || reqRow.role_title || reqRow.title;
-
-  if (existingWorkerId) {
-    worker_id = existingWorkerId;
-    const newJobTitle = resolvedJobTitle;
-    const updatedJobTitle = await peopleDb()
-      .update(employmentPeriod)
-      .set({ job_title: newJobTitle, updated_at: new Date() })
-      .where(
-        and(
-          eq(employmentPeriod.person_id, worker_id),
-          isNull(employmentPeriod.end_date),
-          tenantScoped(employmentPeriod.tenant_id, session),
-        ),
-      )
-      .returning({ id: employmentPeriod.id });
-
-    if (updatedJobTitle.length === 0) {
-      await peopleDb().insert(employmentPeriod).values({
-        tenant_id: session.tenant_id,
-        person_id: worker_id,
-        seq: 1,
-        lifecycle_stage: 'active',
-        job_title: newJobTitle,
-      });
-    }
-
-    await emit({
-      tenantId: session.tenant_id,
-      aggregateType: 'people.worker',
-      aggregateId: worker_id,
-      eventType: 'people.worker.updated',
-      eventVersion: 1,
-      payload: {
-        worker_id,
-        tenant_id: session.tenant_id,
-        full_name: candRow.name,
-        job_title: newJobTitle,
-      },
-    });
-  } else {
-    const contact = candRow.contact as { personal_email?: string; phone?: string } | null;
-    const created = await createWorker({
-      full_name: candRow.name,
-      personal_email: contact?.personal_email || undefined,
-      phone: contact?.phone || undefined,
-      dob: candRow.dob || undefined,
-      gender: candRow.gender || undefined,
-      job_title: resolvedJobTitle,
-      session,
-    });
-    worker_id = created.worker_id;
-  }
-
   const nextAppVersion = appRow.version + 1;
   const nextOpeningVersion = openOpening.version + 1;
 
@@ -568,7 +505,6 @@ export async function hireApplication(input: {
         .set({
           status: 'hired',
           stage: 'offer',
-          person_id: worker_id,
           closed_at: new Date(),
           version: nextAppVersion,
           updated_at: new Date(),
@@ -612,7 +548,7 @@ export async function hireApplication(input: {
         application_id,
         kind: 'hired',
         summary: `Hired to position ${reqRow.role_title || reqRow.title}`,
-        detail: { worker_id, opening_id: openOpening.id },
+        detail: { opening_id: openOpening.id },
       });
 
       await emit({
@@ -623,7 +559,18 @@ export async function hireApplication(input: {
         eventVersion: 1,
         payload: {
           application_id,
+          // FUT-928: candidate seniority wins over requisition title (FUT-884 rule kept).
+          job_title: candRow.seniority || reqRow.role_title || reqRow.title,
           tenant_id: session.tenant_id,
+          requisition_id: appRow.requisition_id,
+          candidate_id: candRow.id,
+          full_name: candRow.name,
+          // FUT-928: full identity snapshot so the IT Portal consumer needs no read-back.
+          personal_email:
+            (candRow.contact as { personal_email?: string | null } | null)?.personal_email ?? null,
+          phone: (candRow.contact as { phone?: string | null } | null)?.phone ?? null,
+          dob: candRow.dob,
+          gender: candRow.gender,
           from_stage: appRow.stage,
         },
       });

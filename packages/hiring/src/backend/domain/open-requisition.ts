@@ -1,9 +1,17 @@
 import type { SessionScope } from '@seta/core';
 import { emit, emitBatch, withEmit } from '@seta/core/events';
+import { eq } from 'drizzle-orm';
 import type { OpenRequisitionInput } from '../../contracts.ts';
 import { HIRING_OPENING_OPENED, HIRING_REQUISITION_OPENED } from '../../events.ts';
-import { opening, requisition, requisitionJdSection, requisitionSkill } from '../db/schema.ts';
+import {
+  opening,
+  projectProjection,
+  requisition,
+  requisitionJdSection,
+  requisitionSkill,
+} from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
+import { assertProjectOpenForRequisition } from './assert-project-open-for-requisition.ts';
 
 export async function openRequisition(
   input: OpenRequisitionInput & { session: SessionScope },
@@ -14,6 +22,18 @@ export async function openRequisition(
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
+      if (input.project_id) {
+        const [proj] = await tx
+          .select({ date_to: projectProjection.date_to })
+          .from(projectProjection)
+          .where(eq(projectProjection.project_id, input.project_id))
+          .limit(1);
+        assertProjectOpenForRequisition(
+          proj?.date_to ?? null,
+          new Date().toISOString().slice(0, 10),
+        );
+      }
+
       const [row] = await tx
         .insert(requisition)
         .values({

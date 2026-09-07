@@ -1,6 +1,19 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  notInArray,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, LIFECYCLE_STAGES, person, personHistory } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
@@ -42,6 +55,7 @@ export interface ListWorkersQuery {
   search?: string;
   ids?: string[];
   status?: string[];
+  excludeStatus?: string[];
   account_id?: string[];
   project_id?: string[];
   skill_id?: string[];
@@ -90,6 +104,19 @@ function derivedOrgUnitNameSql(tenantId: string): SQL<string | null> {
   )`;
 }
 
+// A person can accumulate multiple employment_period rows over time (seq 1, 2, ...), only one of
+// which may be open (end_date IS NULL). Joining on isNull(end_date) alone drops alumni/did_not_start
+// workers entirely once their period closes, so we always join the highest-seq row instead — the
+// currently open period if there is one, otherwise the most recently closed one.
+function latestEmploymentPeriodIdSql(tenantId: string): SQL<string | null> {
+  return sql<string | null>`(
+    SELECT ep.id FROM people.employment_period ep
+      WHERE ep.person_id = ${person.id} AND ep.tenant_id = ${tenantId}
+      ORDER BY ep.seq DESC
+      LIMIT 1
+  )`;
+}
+
 export async function listWorkers(
   session: SessionScope,
   query: ListWorkersQuery = {},
@@ -135,6 +162,21 @@ export async function listWorkers(
     );
     if (validStages.length > 0) {
       filters.push(inArray(employmentPeriod.lifecycle_stage, validStages));
+    }
+  }
+
+  if (query.excludeStatus && query.excludeStatus.length > 0) {
+    const validExclude = query.excludeStatus.filter((s): s is (typeof LIFECYCLE_STAGES)[number] =>
+      (LIFECYCLE_STAGES as readonly string[]).includes(s),
+    );
+    if (validExclude.length > 0) {
+      // employmentPeriod is LEFT JOINed — NOT IN's NULL semantics would otherwise also drop
+      // a worker with no period row at all, so keep those explicitly.
+      const clause = or(
+        isNull(employmentPeriod.lifecycle_stage),
+        notInArray(employmentPeriod.lifecycle_stage, validExclude),
+      );
+      if (clause) filters.push(clause);
     }
   }
 
@@ -226,10 +268,7 @@ export async function listWorkers(
   const baseQuery = peopleDb()
     .select(selection)
     .from(person)
-    .leftJoin(
-      employmentPeriod,
-      and(eq(employmentPeriod.person_id, person.id), isNull(employmentPeriod.end_date)),
-    )
+    .leftJoin(employmentPeriod, eq(employmentPeriod.id, latestEmploymentPeriodIdSql(tenantId)))
     .where(where);
 
   // ids resolve path: return every match, unpaginated (picker chip resolution).
@@ -254,10 +293,7 @@ export async function listWorkers(
   const countRows = await peopleDb()
     .select({ value: count() })
     .from(person)
-    .leftJoin(
-      employmentPeriod,
-      and(eq(employmentPeriod.person_id, person.id), isNull(employmentPeriod.end_date)),
-    )
+    .leftJoin(employmentPeriod, eq(employmentPeriod.id, latestEmploymentPeriodIdSql(tenantId)))
     .where(where);
 
   return { rows: rows.map(withPhotoUrl) as WorkerRow[], total: countRows[0]?.value ?? 0 };
@@ -347,10 +383,7 @@ export async function getWorker({
       photo_storage_key: person.photo_storage_key,
     })
     .from(person)
-    .leftJoin(
-      employmentPeriod,
-      and(eq(employmentPeriod.person_id, person.id), isNull(employmentPeriod.end_date)),
-    )
+    .leftJoin(employmentPeriod, eq(employmentPeriod.id, latestEmploymentPeriodIdSql(tenantId)))
     .where(
       and(eq(person.id, worker_id), tenantScoped(person.tenant_id, session), scope ?? undefined),
     )

@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { allocation, project } from '../../src/backend/db/schema.ts';
+import { allocation, personProjection, project } from '../../src/backend/db/schema.ts';
 import {
   createAccount,
   createAllocation,
@@ -114,6 +114,100 @@ describe('reassignAllocation', () => {
         expect(updatedEvents).toHaveLength(1);
         const createdEvents = await readEvents(pool, t.tenant_id, 'pm.allocation.created');
         expect(createdEvents).toHaveLength(3); // original + 2 targets
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-953: shortening the source (no targets) still succeeds for an alumni worker', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const automate = await seedProject(t.adminSession, 'Automate');
+        const worker = crypto.randomUUID();
+
+        const { allocation_id } = await createAllocation({
+          project_id: automate,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        await pmDb()
+          .insert(personProjection)
+          .values({ person_id: worker, tenant_id: t.tenant_id, full_name: 'Ex', is_alumni: true });
+
+        const result = await reassignAllocation({
+          allocation_id,
+          source: { date_to: '2026-06-30' },
+          targets: [],
+          session: t.adminSession,
+        });
+        expect(result.source_updated_version).toBe(2);
+
+        const [row] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, allocation_id));
+        expect(row?.date_to).toBe('2026-06-30');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('FUT-953: adding a new target for an alumni worker is rejected', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const automate = await seedProject(t.adminSession, 'Automate');
+        const xxx = await seedProject(t.adminSession, 'XXX');
+        const worker = crypto.randomUUID();
+
+        const { allocation_id } = await createAllocation({
+          project_id: automate,
+          worker_id: worker,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        await pmDb()
+          .insert(personProjection)
+          .values({ person_id: worker, tenant_id: t.tenant_id, full_name: 'Ex', is_alumni: true });
+
+        await expect(
+          reassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: xxx,
+                date_from: '2026-07-01',
+                planned_pct: 100,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetPmDb();
         resetCoreDb();

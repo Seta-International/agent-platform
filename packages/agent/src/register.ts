@@ -28,7 +28,7 @@ import {
   MASTRA_SPANS_LIFECYCLE_TABLE,
 } from './backend/mastra-store/tenant-guarded-store.ts';
 import { buildEntitiesMemory, buildMemory } from './backend/memory.ts';
-import { type ModelTier, resolveModel } from './backend/model-registry.ts';
+import { type ModelTier, resolveDefaultModel } from './backend/model-registry.ts';
 import { validateModelEnv } from './backend/provider-config.ts';
 import { registerAgentRoutes } from './backend/routes.ts';
 import { buildMastraFull } from './backend/runtime.ts';
@@ -81,7 +81,7 @@ export type AgentHandle = {
 };
 
 export function buildAgentFromSpec(spec: AgentSpec, opts: { model?: unknown } = {}): Agent {
-  const fallback = resolveModel(undefined, {
+  const fallback = resolveDefaultModel({
     tierHint: spec.defaultTier as ModelTier | undefined,
   }).model as unknown;
   const model = opts.model ?? fallback;

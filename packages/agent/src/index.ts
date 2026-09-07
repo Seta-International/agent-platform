@@ -37,6 +37,10 @@ export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-st
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 
-export { ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
+export {
+  ModelNotFoundError,
+  resolveDefaultModel,
+  resolveModel,
+} from './backend/model-registry.ts';
 export { AgentRunStateRepository } from './backend/orchestration/run-state-repository.ts';
 export { registerAgentContributions } from './register.ts';

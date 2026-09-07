@@ -115,7 +115,14 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
       return c.json({ plans: await listGroupPlansWithRollups({ group_id, session }) });
     }
     return c.json({
-      plans: await listPlans({ group_id, include_deleted, include_archived, session }),
+      plans: await listPlans({
+        group_id,
+        include_deleted,
+        include_archived,
+        // The groups screen's Archived filter and the trash screen open these on purpose.
+        include_archived_groups: true,
+        session,
+      }),
     });
   });
 

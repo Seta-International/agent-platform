@@ -94,6 +94,18 @@ async function addEmployment(
     .where(and(eq(employmentPeriod.person_id, personId), isNull(employmentPeriod.end_date)));
 }
 
+// Closes the worker's open period the way terminateWorker() does: end_date and lifecycle_stage
+// are set on the SAME row in the same update, not a new row.
+async function closeEmployment(
+  personId: string,
+  opts: { stage: (typeof LIFECYCLE_STAGES)[number]; end: string },
+): Promise<void> {
+  await peopleDb()
+    .update(employmentPeriod)
+    .set({ lifecycle_stage: opts.stage, end_date: opts.end })
+    .where(and(eq(employmentPeriod.person_id, personId), isNull(employmentPeriod.end_date)));
+}
+
 async function addAllocation(
   t: SeededTenant,
   opts: {
@@ -221,6 +233,40 @@ describe('listWorkers (SQL filter/sort/paginate)', () => {
 
       const both = await listWorkers(admin(t), { status: ['active', 'onboarding'] });
       expect(both.rows.map((r) => r.full_name).sort()).toEqual(['Active A', 'Onboarding B']);
+    });
+  });
+
+  it('a worker whose employment period is closed (alumni) still shows their status and is filterable', async () => {
+    await withDb(async ({ t }) => {
+      const active = await makeWorker(t, { name: 'Still Active' });
+      await addEmployment(t, active, { stage: 'active', start: '2026-01-01' });
+
+      const alumnus = await makeWorker(t, { name: 'Ex Employee' });
+      await addEmployment(t, alumnus, { stage: 'active', start: '2025-01-01' });
+      await closeEmployment(alumnus, { stage: 'alumni', end: '2026-03-01' });
+
+      const { rows } = await listWorkers(admin(t), {});
+      const alumnusRow = rows.find((r) => r.full_name === 'Ex Employee');
+      expect(alumnusRow?.lifecycle_stage).toBe('alumni');
+      expect(alumnusRow?.offboarding_date).toBe('2026-03-01');
+
+      const filtered = await listWorkers(admin(t), { status: ['alumni'] });
+      expect(filtered.rows.map((r) => r.full_name)).toEqual(['Ex Employee']);
+      expect(filtered.total).toBe(1);
+    });
+  });
+
+  it('FUT-953: excludeStatus drops alumni without needing to enumerate every other stage', async () => {
+    await withDb(async ({ t }) => {
+      const active = await makeWorker(t, { name: 'Still Active' });
+      await addEmployment(t, active, { stage: 'active', start: '2026-01-01' });
+
+      const alumnus = await makeWorker(t, { name: 'Ex Employee' });
+      await addEmployment(t, alumnus, { stage: 'active', start: '2025-01-01' });
+      await closeEmployment(alumnus, { stage: 'alumni', end: '2026-03-01' });
+
+      const { rows } = await listWorkers(admin(t), { excludeStatus: ['alumni'] });
+      expect(rows.map((r) => r.full_name).sort()).toEqual(['Still Active']);
     });
   });
 
