@@ -23,24 +23,6 @@ function wrapper({ children }: { children: ReactNode }) {
 describe('useSubmitDecision', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('routes an agentic decision to /chat/resume', async () => {
-    const { result } = renderHook(() => useSubmitDecision(), { wrapper });
-    await act(async () => {
-      await result.current.mutateAsync({
-        approvalId: 'a1',
-        agentic: true,
-        decision: 'approve',
-        overrideUserIds: ['u1'],
-      });
-    });
-    expect(workflowsApi.resumeChat).toHaveBeenCalledWith({
-      approvalId: 'a1',
-      decision: 'approve',
-      overrideUserIds: ['u1'],
-    });
-    expect(workflowsApi.decideApproval).not.toHaveBeenCalled();
-  });
-
   // FUT-816. The body shape is decided by the CARD, not by this hook: the server
   // parses it with the schema belonging to the approval's workflow_id and returns
   // 400 on a mismatch. A payload-free card must therefore arrive verbatim, with
@@ -71,20 +53,21 @@ describe('useSubmitDecision', () => {
     expect(workflowsApi.decideApproval).not.toHaveBeenCalled();
   });
 
-  it('routes an evented decision to /decide', async () => {
+  it('forwards the alternate index the user picked', async () => {
     const { result } = renderHook(() => useSubmitDecision(), { wrapper });
     await act(async () => {
       await result.current.mutateAsync({
-        approvalId: 'a2',
-        agentic: false,
-        decision: 'reject',
-        note: 'no',
+        approvalId: 'a6',
+        agentic: true,
+        chosen: 'alternate',
+        alternateIndex: 1,
       });
     });
-    expect(workflowsApi.decideApproval).toHaveBeenCalledWith('a2', {
-      decision: 'reject',
-      note: 'no',
+    expect(workflowsApi.resumeChat).toHaveBeenCalledWith({
+      approvalId: 'a6',
+      chosen: 'alternate',
+      alternateIndex: 1,
     });
-    expect(workflowsApi.resumeChat).not.toHaveBeenCalled();
+    expect(workflowsApi.decideApproval).not.toHaveBeenCalled();
   });
 });

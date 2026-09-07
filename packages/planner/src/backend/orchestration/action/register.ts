@@ -1,8 +1,12 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
+import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
 import {
+  makeActionSimilarTasks,
+  makeActionTaskAssign,
+  makeActionTaskCreate,
   makeActionTaskLink,
   makeActionTaskMerge,
   makeActionTaskRead,
@@ -29,6 +33,12 @@ export interface PlannerActionRuntime {
 export interface PlannerActionRuntimeDeps {
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
+  /** Used only by planner_createTask's duplicate check, and only inside
+   *  execute() — never read at composition time. */
+  embeddingProvider: EmbeddingProvider;
+  /** Optional to match ComposeDeps, which leaves it unset in the entrypoints that
+   *  never reach a vector search. A missing value fails only a create preview. */
+  databaseUrl?: string;
   /** Overridable for tests; production uses the real domain adapters. */
   ports?: ActionPorts;
 }
@@ -41,6 +51,19 @@ export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): Plann
     taskUpdate: makeActionTaskUpdate(),
     taskLink: makeActionTaskLink(),
     taskMerge: makeActionTaskMerge(),
+    taskAssign: makeActionTaskAssign(),
+    taskCreate: makeActionTaskCreate(),
+    // The adapter closes over getters, so both deps are read lazily inside
+    // search() — a getter that throws stays harmless until a create is actually
+    // previewed.
+    similarTasks: makeActionSimilarTasks({
+      get provider() {
+        return deps.embeddingProvider;
+      },
+      get databaseUrl() {
+        return deps.databaseUrl;
+      },
+    }),
   };
   const agentDeps = {
     ports,

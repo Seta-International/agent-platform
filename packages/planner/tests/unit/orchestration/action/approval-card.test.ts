@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAssignTaskApprovalCard,
   buildBulkApprovalCard,
+  buildCreateTaskApprovalCard,
   buildLinkApprovalCard,
   buildMergeApprovalCard,
   buildUpdateApprovalCard,
@@ -354,5 +356,170 @@ describe('action cards declare their resume runtime', () => {
       ...ids,
     });
     expect(card.meta.workflowId).toBe('planner.action');
+  });
+});
+
+describe('buildAssignTaskApprovalCard', () => {
+  const base = {
+    taskId: 'id-a',
+    title: 'Deploy hiring screen',
+    before: [{ userId: 'u-b', name: 'B\u00ecnh' }],
+    after: [{ userId: 'u-a', name: 'Tu\u1ea5n' }],
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  it('shows who owns it now and who will own it after, by name', () => {
+    const card = buildAssignTaskApprovalCard(base);
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    expect(block.rows).toEqual([
+      { k: 'Task', v: 'Deploy hiring screen' },
+      { k: 'Now', v: 'B\u00ecnh' },
+      { k: 'After', v: 'Tu\u1ea5n' },
+    ]);
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  it('says "Nobody" rather than showing an empty row', () => {
+    const card = buildAssignTaskApprovalCard({ ...base, before: [] });
+    const block = card.details[0] as { rows: Array<{ k: string; v: string }> };
+    expect(block.rows[1]).toEqual({ k: 'Now', v: 'Nobody' });
+  });
+
+  // D11. THE regression test for "a user-named assign never proposes somebody
+  // else": no alternates, and no entityList, which is what makes the D12
+  // renderer show confirm/cancel instead of candidate rows.
+  it('offers no alternatives and no candidate list', () => {
+    const card = buildAssignTaskApprovalCard(base);
+    expect(card.alternates).toEqual([]);
+    expect(card.details.some((b) => b.kind === 'entityList')).toBe(false);
+  });
+
+  it('carries the final set and the key on primary and decline', () => {
+    const card = buildAssignTaskApprovalCard({
+      ...base,
+      after: [
+        { userId: 'u-a', name: 'Tu\u1ea5n' },
+        { userId: 'u-c', name: 'Chi' },
+      ],
+    });
+    expect(card.primary.argsPatch).toEqual({
+      action: 'assign',
+      taskId: 'id-a',
+      assigneeUserIds: ['u-a', 'u-c'],
+      idempotencyKey: 'key-1',
+    });
+    expect(card.decline.argsPatch).toEqual({
+      action: 'decline',
+      taskId: 'id-a',
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  // Plan 01's mechanism: this card and the recommend card must not coexist.
+  it('declares the assign mutex for its task', () => {
+    expect(buildAssignTaskApprovalCard(base).meta.dedupKey).toBe('assign:id-a');
+  });
+
+  it('is a write, not a destructive change', () => {
+    expect(buildAssignTaskApprovalCard(base).riskBadge).toBe('write');
+  });
+});
+
+describe('buildCreateTaskApprovalCard', () => {
+  const base = {
+    planId: 'plan-1',
+    planName: 'Sprint 32',
+    bucketId: 'bucket-1',
+    bucketName: 'To do',
+    draft: {
+      title: 'Deploy hiring screen',
+      description: 'behind the flag',
+      dueAt: '2026-08-14T17:00:00+07:00',
+      priority: 'urgent' as const,
+      labels: ['infra'],
+    },
+    similar: [] as Array<{ taskId: string; title: string; score: number }>,
+    tenantId: 't1',
+    userId: 'u1',
+    idempotencyKey: 'key-1',
+  };
+
+  it('previews every field the user gave, and omits the ones they did not', () => {
+    const card = buildCreateTaskApprovalCard(base);
+    const block = card.details[0] as { kind: string; rows: Array<{ k: string; v: string }> };
+    expect(block.kind).toBe('kvTable');
+    const keys = block.rows.map((r) => r.k);
+    expect(keys).toContain('Title');
+    expect(keys).toContain('Plan');
+    // Shown even though the user never asked for it: it is the one field on
+    // this card they did not choose, and it decides where the task appears.
+    expect(keys).toContain('Bucket');
+    expect(keys).toContain('Due');
+    expect(keys).toContain('Priority');
+    expect(keys).toContain('Labels');
+    // No startAt was given, so no empty row for it.
+    expect(keys).not.toContain('Start');
+    expect(JSON.stringify(card.details)).not.toMatch(UUID_RE);
+  });
+
+  it('carries the whole draft on the primary patch, so resume converts nothing', () => {
+    const card = buildCreateTaskApprovalCard(base);
+    expect(card.primary.argsPatch).toEqual({
+      action: 'create',
+      planId: 'plan-1',
+      // Sibling of planId, not part of the draft: both are ids the SERVER
+      // resolved, not fields the user typed. Resume may run in another process,
+      // so the only way it reaches the write is on the card.
+      bucketId: 'bucket-1',
+      draft: base.draft,
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  it('has no alternates when nothing similar was found', () => {
+    expect(buildCreateTaskApprovalCard(base).alternates).toEqual([]);
+  });
+
+  it('offers each similar task as a use_existing branch, at most three', () => {
+    const card = buildCreateTaskApprovalCard({
+      ...base,
+      similar: [
+        { taskId: 't-1', title: 'Deploy hiring screen v2', score: 0.9 },
+        { taskId: 't-2', title: 'Hiring screen deploy', score: 0.8 },
+        { taskId: 't-3', title: 'Screen deploy', score: 0.7 },
+        { taskId: 't-4', title: 'Deploy something', score: 0.6 },
+      ],
+    });
+    expect(card.alternates).toHaveLength(3);
+    expect(card.alternates[0]).toEqual({
+      label: 'Use "Deploy hiring screen v2"',
+      argsPatch: { action: 'use_existing', existingTaskId: 't-1', idempotencyKey: 'key-1' },
+    });
+  });
+
+  it('says how many similar tasks it found', () => {
+    const card = buildCreateTaskApprovalCard({
+      ...base,
+      similar: [{ taskId: 't-1', title: 'Deploy hiring screen v2', score: 0.9 }],
+    });
+    expect(JSON.stringify(card.details)).toMatch(/similar/i);
+  });
+
+  // D12: alternates render as secondary buttons only when there is no
+  // entityList. A candidate list here would make this a pick-one-of-N card.
+  it('renders no entityList', () => {
+    expect(
+      buildCreateTaskApprovalCard({
+        ...base,
+        similar: [{ taskId: 't-1', title: 'x', score: 0.9 }],
+      }).details.some((b) => b.kind === 'entityList'),
+    ).toBe(false);
+  });
+
+  it('is a write, not a destructive change', () => {
+    expect(buildCreateTaskApprovalCard(base).riskBadge).toBe('write');
   });
 });

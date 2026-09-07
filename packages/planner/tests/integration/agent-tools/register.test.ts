@@ -19,7 +19,6 @@ describe('planner register', () => {
         'people_getTimezoneForUser',
         'identity_whoAmI',
         'planner_assignTask',
-        'planner_createTask',
         'planner_findSimilarTasks',
         'planner_getOpenTaskCountForUser',
         'planner_getTask',

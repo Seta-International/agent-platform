@@ -67,12 +67,23 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
       label: `Assign to ${candidateLabel(r)}`,
       argsPatch: { action: 'assign', assigneeUserIds: [r.userId], taskId, idempotencyKey },
     })),
-    decline: { label: 'Leave unassigned', argsPatch: { action: 'decline', idempotencyKey } },
+    decline: {
+      label: 'Leave unassigned',
+      // taskId rides here too: from FUT-806 onwards every branch of a card IS a
+      // resume payload read verbatim, and a decline that cannot name its task
+      // fails the strict resume schema.
+      argsPatch: { action: 'decline', taskId, idempotencyKey },
+    },
     meta: {
       tenantId,
       userId,
       agentPath: ['assignment', 'orchestrator'],
       toolId: 'planner_proposeAssignment',
+      // The one-proposal-per-task mutex, declared rather than inferred from the
+      // workflow id (design D7). An A2 assign card declares the SAME string, so
+      // the two block and supersede each other across two runtimes that neither
+      // know nor import one another.
+      dedupKey: `assign:${taskId}`,
       ts: new Date().toISOString(),
     },
   };

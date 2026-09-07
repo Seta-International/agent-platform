@@ -41,18 +41,15 @@ export interface DecideApprovalBody {
   note?: string;
 }
 
-/** Two contracts, one endpoint: the server picks the schema from the approval's
- *  own workflow_id and rejects the other one with a 400 (FUT-815). */
-export type ResumeChatBody = { approvalId: string } & (
-  | {
-      decision: 'approve' | 'reject' | 'modify';
-      overrideUserIds?: string[];
-      alternateIndices?: number[];
-      note?: string;
-    }
-  // Payload-free card (FUT-804 onwards): which action, never what.
-  | { chosen: 'primary' | 'decline' }
-);
+/** One contract for every chat card (FUT-822): WHICH server-authored branch the
+ *  user picked, never a value. The server still refuses a body that does not
+ *  match the approval's own workflow_id with a 400. */
+export type ResumeChatBody = {
+  approvalId: string;
+  chosen: 'primary' | 'alternate' | 'decline';
+  alternateIndex?: number;
+  note?: string;
+};
 
 export const workflowsApi = {
   async listRuns(opts: ListRunsOpts) {

@@ -21,10 +21,10 @@ describe('A2 instructions', () => {
     expect(text).toMatch(/last 10|10 tasks/i);
   });
 
-  it('still refuses the things A2 genuinely cannot do in this story', () => {
-    const text = instructionsText();
-    expect(text).toMatch(/create tasks/i);
-    expect(text).toMatch(/who a task is assigned to/i);
+  // "create tasks" was on this list until FUT-821 shipped planner_createTask.
+  // Permanent deletion is the one that stays: A2 has no purge tool at all.
+  it('still refuses the things A2 genuinely cannot do', () => {
+    expect(instructionsText()).toMatch(/permanently delete/i);
   });
 });
 
@@ -50,25 +50,78 @@ describe('A2 instructions — merging', () => {
     expect(instructionsText()).toMatch(/trash/i);
   });
 
-  it('still refuses to create tasks or assign people', () => {
-    const text = instructionsText();
-    expect(text).toMatch(/create tasks/i);
-    expect(text).toMatch(/assign/i);
+  // Both halves of this assertion have now been reversed by later stories —
+  // assigning by FUT-822, creating by FUT-821 — so what is left to pin is that
+  // the merge guidance still names the tool it offers instead of deleting.
+  it('offers merge as the answer to a task the user wants gone', () => {
+    expect(instructionsText()).toMatch(/planner_mergeTasks/);
   });
 });
 
-describe('A2 instructions — linking', () => {
-  it('no longer claims it cannot link tasks', () => {
-    expect(instructionsText()).not.toMatch(/cannot[^.]*link tasks/i);
+describe('A2 instructions — assigning', () => {
+  it('no longer claims it cannot change who a task is assigned to', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*assigned/i);
   });
 
-  it('explains the direction of duplicates and blocks', () => {
+  it('states that assigning replaces the whole set', () => {
+    expect(instructionsText()).toMatch(/replaces/i);
+  });
+
+  // The rule that prevents silent data loss on "thay B bằng A".
+  it('tells the model to read the task first for a relative request', () => {
     const text = instructionsText();
-    expect(text).toMatch(/duplicates/i);
-    expect(text).toMatch(/blocks/i);
+    expect(text).toMatch(/planner_getTask FIRST/i);
+    expect(text).toMatch(/thay B bằng A|giao thêm/i);
   });
 
-  it('still refuses to merge — that arrives separately', () => {
-    expect(instructionsText()).toMatch(/merge tasks/i);
+  // D10 in the prompt, so a misroute degrades to a sentence rather than a guess.
+  it('tells the model to offer a recommendation when nobody is named', () => {
+    expect(instructionsText()).toMatch(/recommendation/i);
+  });
+
+  it('no longer claims it cannot create tasks', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*create/i);
+  });
+
+  it('tells the model to ask for the plan rather than guess one', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/plan/i);
+    expect(text).toMatch(/never guess a plan/i);
+  });
+
+  // Duplicate detection is the tool's job; a model that searches first spends two
+  // calls and still shows one card.
+  it('tells the model not to search for duplicates itself', () => {
+    expect(instructionsText()).toMatch(/do not search for duplicates/i);
+  });
+
+  // The bucket is resolved server-side. Without saying so, a model that knows
+  // plans have columns asks the user which one — a question the tool has already
+  // answered, and whose answer the card shows.
+  it('tells the model the tool picks the column itself', () => {
+    expect(instructionsText()).toMatch(/first column/i);
+    expect(instructionsText()).not.toMatch(/ask[^.]*which bucket/i);
+  });
+});
+
+describe('A2 instructions — assigning', () => {
+  it('no longer claims it cannot change who a task is assigned to', () => {
+    expect(instructionsText()).not.toMatch(/cannot[^.]*assigned/i);
+  });
+
+  it('states that assigning replaces the whole set', () => {
+    expect(instructionsText()).toMatch(/replaces/i);
+  });
+
+  // The rule that prevents silent data loss on "thay B bằng A".
+  it('tells the model to read the task first for a relative request', () => {
+    const text = instructionsText();
+    expect(text).toMatch(/planner_getTask FIRST/i);
+    expect(text).toMatch(/thay B bằng A|giao thêm/i);
+  });
+
+  // D10 in the prompt, so a misroute degrades to a sentence rather than a guess.
+  it('tells the model to offer a recommendation when nobody is named', () => {
+    expect(instructionsText()).toMatch(/recommendation/i);
   });
 });
