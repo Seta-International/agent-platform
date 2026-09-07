@@ -59,6 +59,16 @@ export interface RecordApprovalDecisionOpts {
   decision: 'approve' | 'reject' | 'modify';
   overrideUserIds?: string[];
   note?: string;
+  /**
+   * WHICH branch of the persisted card the user selected. Audit only: the
+   * resume payload is still read off the card by `selectArgsPatch`, never from
+   * these fields. They exist so the decided row in the transcript can name the
+   * person that was actually assigned — `override_user_ids` cannot carry that,
+   * because it means "a value the client supplied" and after FUT-806 no client
+   * supplies one.
+   */
+  chosen?: 'primary' | 'alternate' | 'decline';
+  alternateIndex?: number;
   /** When true (the /chat/resume route), require the row to be an agentic
    *  native-suspend card (mastra_run_id set). Rejected INSIDE the transaction
    *  before any write, so a misrouted evented row never records a decision it
@@ -238,6 +248,8 @@ export async function recordApprovalDecision(
     const decisionPayload = {
       decision: opts.decision,
       ...(opts.overrideUserIds !== undefined ? { override_user_ids: opts.overrideUserIds } : {}),
+      ...(opts.chosen !== undefined ? { chosen: opts.chosen } : {}),
+      ...(opts.alternateIndex !== undefined ? { alternate_index: opts.alternateIndex } : {}),
       ...(opts.note !== undefined ? { note: opts.note } : {}),
       ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
     };

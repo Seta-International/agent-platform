@@ -124,3 +124,43 @@ describe('buildAssignApprovalCard', () => {
     ).toThrow();
   });
 });
+
+describe('buildAssignApprovalCard — the one-proposal-per-task declaration', () => {
+  const base = {
+    taskId: 'task-1',
+    title: 'AWS migration',
+    tenantId: 't1',
+    userId: 'u0',
+    idempotencyKey: 'key-1',
+    recommendations: [
+      REC({ userId: 'u1', name: 'Alice', score: 0.9 }),
+      REC({ userId: 'u2', name: 'Bob', score: 0.7 }),
+    ],
+  };
+
+  // D7: the mutex is a string two modules agree on, not a workflow id the agent
+  // tier hardcodes. This assertion IS the contract — if the format changes here
+  // it must change in write-chat-approval-row.ts and the subscriber too.
+  it('declares dedupKey = assign:<taskId>', () => {
+    expect(buildAssignApprovalCard(base).meta.dedupKey).toBe('assign:task-1');
+  });
+
+  // The decline branch becomes a resume payload in plan 02, and that payload has
+  // to name the task like every other branch does.
+  it('carries taskId on the decline branch as well as on primary', () => {
+    const card = buildAssignApprovalCard(base);
+    expect(card.decline.argsPatch).toEqual({
+      action: 'decline',
+      taskId: 'task-1',
+      idempotencyKey: 'key-1',
+    });
+  });
+
+  // Regression guard for plan 03's D11: this card is the ONE that may offer
+  // people, and it must keep offering them.
+  it('still ships one alternate per remaining candidate', () => {
+    const card = buildAssignApprovalCard(base);
+    expect(card.alternates).toHaveLength(1);
+    expect(card.alternates[0]?.argsPatch).toMatchObject({ assigneeUserIds: ['u2'] });
+  });
+});

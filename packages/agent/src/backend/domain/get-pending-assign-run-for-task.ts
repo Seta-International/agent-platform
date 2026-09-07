@@ -24,6 +24,11 @@ export interface GetPendingAssignRunIdForTaskOpts {
  *     stores the taskId in both `input_summary` and the approval's
  *     `proposed_payload`. We match via the approval JOIN so the row is only a
  *     mutex hit once its approval card is readable.
+ *   • Any chat card that DECLARED the assign mutex in `meta.dedupKey`, whichever
+ *     runtime built it (design D7). An A2-authored assign card carries
+ *     'planner.action', so the workflow-id branches above would miss it and two
+ *     people could be proposed for one task at once. Keyed on the card's own
+ *     declaration; the branch above stays for cards written before FUT-822.
  */
 export async function getPendingAssignRunIdForTask(
   opts: GetPendingAssignRunIdForTaskOpts,
@@ -46,6 +51,14 @@ export async function getPendingAssignRunIdForTask(
          AND r.tenant_id = ${opts.tenantId}
          AND a.status = 'pending'
          AND a.proposed_payload @> jsonb_build_object('primary', jsonb_build_object('argsPatch', jsonb_build_object('taskId', ${opts.taskId}::text)))
+      UNION ALL
+      SELECT r.run_id, r.started_at
+        FROM agent.workflow_runs r
+        JOIN agent.workflow_approvals a ON a.run_id = r.run_id
+       WHERE r.status IN ('running', 'paused')
+         AND r.tenant_id = ${opts.tenantId}
+         AND a.status = 'pending'
+         AND a.proposed_payload @> jsonb_build_object('meta', jsonb_build_object('dedupKey', ${`assign:${opts.taskId}`}::text))
     ) candidates
     ORDER BY started_at DESC
     LIMIT 1

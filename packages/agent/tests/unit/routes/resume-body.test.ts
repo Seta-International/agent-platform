@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   GenericResumeBody,
-  LegacyResumeBody,
   parseResumeBodyForWorkflow,
 } from '../../../src/backend/routes/resume-body.ts';
 
@@ -11,16 +10,6 @@ describe('resume body schemas', () => {
   it('accepts a well-formed generic body', () => {
     expect(
       GenericResumeBody.safeParse({ approvalId: APPROVAL_ID, chosen: 'primary' }).success,
-    ).toBe(true);
-  });
-
-  it('accepts a well-formed legacy body', () => {
-    expect(
-      LegacyResumeBody.safeParse({
-        approvalId: APPROVAL_ID,
-        decision: 'approve',
-        overrideUserIds: ['u1'],
-      }).success,
     ).toBe(true);
   });
 
@@ -61,17 +50,6 @@ describe('resume body schemas', () => {
 });
 
 describe('parseResumeBodyForWorkflow', () => {
-  it("uses the ROW's workflow_id, not the body's shape, to pick the contract", () => {
-    // A generic body against an assignment card is a fault, even though the
-    // generic schema would happily parse it on its own.
-    expect(() =>
-      parseResumeBodyForWorkflow('planner.assignment-orchestrator', {
-        approvalId: APPROVAL_ID,
-        chosen: 'primary',
-      }),
-    ).toThrow(/validation_failed/);
-  });
-
   it('rejects a legacy body against an A2 card', () => {
     expect(() =>
       parseResumeBodyForWorkflow('planner.action', {
@@ -91,6 +69,50 @@ describe('parseResumeBodyForWorkflow', () => {
   it('rejects an unknown workflow id', () => {
     expect(() =>
       parseResumeBodyForWorkflow('something.else', { approvalId: APPROVAL_ID, chosen: 'primary' }),
+    ).toThrow(/not_supported/);
+  });
+});
+
+describe('parseResumeBodyForWorkflow — one contract for both chat runtimes', () => {
+  const ASSIGNMENT = 'planner.assignment-orchestrator';
+
+  it('parses the assignment id with the generic body', () => {
+    const parsed = parseResumeBodyForWorkflow(ASSIGNMENT, {
+      approvalId: APPROVAL_ID,
+      chosen: 'alternate',
+      alternateIndex: 1,
+    });
+    expect(parsed.kind).toBe('generic');
+  });
+
+  // strictObject, not object: a stale client's body must be REFUSED, not
+  // silently stripped and answered 200 (FUT-804 AC5).
+  it('refuses a legacy body against the assignment id', () => {
+    expect(() =>
+      parseResumeBodyForWorkflow(ASSIGNMENT, {
+        approvalId: APPROVAL_ID,
+        decision: 'modify',
+        overrideUserIds: ['u2'],
+      }),
+    ).toThrow(/validation_failed/);
+  });
+
+  it('refuses a smuggled overrideUserIds beside a valid chosen', () => {
+    expect(() =>
+      parseResumeBodyForWorkflow(ASSIGNMENT, {
+        approvalId: APPROVAL_ID,
+        chosen: 'primary',
+        overrideUserIds: ['u2'],
+      }),
+    ).toThrow(/validation_failed/);
+  });
+
+  it('still refuses an unknown workflow id', () => {
+    expect(() =>
+      parseResumeBodyForWorkflow('planner.assignBySkill', {
+        approvalId: APPROVAL_ID,
+        chosen: 'primary',
+      }),
     ).toThrow(/not_supported/);
   });
 });

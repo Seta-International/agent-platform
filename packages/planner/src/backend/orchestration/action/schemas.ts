@@ -152,3 +152,217 @@ export interface ActionTaskSnapshot {
   version: number;
   groupId: string;
 }
+
+/** The three kinds `planner.task_links` stores. Kept as a literal rather than
+ *  imported from `db/schema.ts`, so the model-facing vocabulary and the storage
+ *  enum can diverge without a silent coupling. */
+export const TaskLinkKindSchema = z.enum(['relates', 'duplicates', 'blocks']);
+export type ToolTaskLinkKind = z.infer<typeof TaskLinkKindSchema>;
+
+export const LinkTasksToolInputSchema = z.object({
+  sourceTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+  targetTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+  kind: TaskLinkKindSchema.describe(
+    'relates = the two tasks are connected, symmetric. ' +
+      'duplicates = the SOURCE task is a duplicate of the target. ' +
+      'blocks = the SOURCE task blocks the target. ' +
+      'When the user just says "link" or "related", use relates.',
+  ),
+});
+
+export const LinkTasksToolOutputSchema = z.object({
+  linked: z.boolean(),
+  linkId: z.string().nullable(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const LinkTasksSuspendSchema = z.object({ card: z.unknown() });
+
+/** Read off the persisted card, never off the confirm request. */
+export const LinkTasksResumeSchema = z
+  .object({
+    action: z.enum(['link', 'decline']),
+    sourceTaskId: z.string(),
+    targetTaskId: z.string(),
+    kind: TaskLinkKindSchema,
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type LinkTasksResume = z.infer<typeof LinkTasksResumeSchema>;
+
+/**
+ * Everything `makeActionResumer` may be handed. Mastra routes a resume payload to
+ * the suspended tool by `toolCallId`, and each tool re-parses with its own schema
+ * — so this union only types the resumer's parameter. It is NOT a dispatcher.
+ */
+/**
+ * Two NAMED refs. Not `taskRefs: [a, b]` and not one link tool with a `mode`
+ * (design D6): the two arguments are not interchangeable, because one of them
+ * ends up in the trash. A transposition here is a wrong task deleted, so the
+ * shape makes transposition unrepresentable rather than merely discouraged.
+ */
+export const MergeTasksToolInputSchema = z
+  .object({
+    duplicateTaskRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(`The task that will be SENT TO TRASH. ${TASK_REF_DESCRIPTION}`),
+    keepTaskRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(`The task that SURVIVES. ${TASK_REF_DESCRIPTION}`),
+  })
+  .strict();
+
+export const MergeTasksToolOutputSchema = z.object({
+  merged: z.boolean(),
+  keptTaskId: z.string().nullable(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const MergeTasksSuspendSchema = z.object({ card: z.unknown() });
+
+/**
+ * Only the duplicate carries a version. A merge does not modify the keeper — it
+ * only adds an inbound link row — so binding the keeper's version would fail
+ * merges for a reason the user cannot see on the card. `.strict()` is what keeps
+ * a well-meaning `keepExpectedVersion` from reappearing later.
+ */
+export const MergeTasksResumeSchema = z
+  .object({
+    action: z.enum(['merge', 'decline']),
+    duplicateTaskId: z.string(),
+    duplicateExpectedVersion: z.number().int(),
+    keepTaskId: z.string(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type MergeTasksResume = z.infer<typeof MergeTasksResumeSchema>;
+
+/** One call may not name more than this many people. A card listing thirty
+ *  names is not a preview anybody reads. */
+export const ASSIGNEE_CAP = 10;
+
+export const AssignTaskToolInputSchema = z
+  .object({
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+    assigneeRefs: z
+      .array(z.string().trim().min(1))
+      .min(1)
+      .max(ASSIGNEE_CAP)
+      .describe(
+        'The COMPLETE list of people who should be assigned after this change — display ' +
+          'names, emails or user UUIDs. This REPLACES the current assignees, so to add ' +
+          'somebody alongside the current owners you must list the current owners too. ' +
+          'Call planner_getTask first whenever the request is relative to whoever owns the ' +
+          'task now ("thay B bằng A", "giao thêm cho A", "bỏ B ra").',
+      ),
+  })
+  .strict();
+
+export const AssignTaskToolOutputSchema = z.object({
+  assigned: z.boolean(),
+  assigneeUserIds: z.array(z.string()),
+  refusal: z.string().nullable().optional(),
+});
+
+export const AssignTaskSuspendSchema = z.object({ card: z.unknown() });
+
+/**
+ * Read off the persisted card, never off the confirm request. `assigneeUserIds`
+ * is the FINAL set — the same array `setAssignees` receives — so the resume pass
+ * never has to work out what "add" or "remove" meant.
+ */
+export const AssignTaskResumeSchema = z
+  .object({
+    action: z.enum(['assign', 'decline']),
+    taskId: z.string(),
+    assigneeUserIds: z.array(z.string()).optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type AssignTaskResume = z.infer<typeof AssignTaskResumeSchema>;
+
+/**
+ * The draft as the card persists it: already-normalised instants and the
+ * priority WORD, so the resume pass converts nothing. Whatever the user
+ * previewed is exactly what `createTask` receives.
+ */
+export const CreateTaskDraftSchema = z
+  .object({
+    title: z.string().trim().min(1).max(280),
+    description: z.string().optional(),
+    dueAt: z.string().optional(),
+    startAt: z.string().optional(),
+    priority: PriorityWordSchema.optional(),
+    labels: z.array(z.string()).optional(),
+  })
+  .strict();
+export type CreateTaskDraft = z.infer<typeof CreateTaskDraftSchema>;
+
+export const CreateTaskToolInputSchema = z
+  .object({
+    planRef: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "The plan's UUID, or its exact name. Every task lives in a plan; if the user has " +
+          'not said which one and the conversation does not make it obvious, ASK — do not ' +
+          'guess a plan.',
+      ),
+    title: z.string().trim().min(1).max(280),
+    description: z.string().optional(),
+    dueAt: z
+      .string()
+      .min(10)
+      .optional()
+      .describe('YYYY-MM-DD or a full offset. Resolve relative phrases BEFORE calling.'),
+    startAt: z.string().min(10).optional().describe('YYYY-MM-DD or a full offset.'),
+    priority: PriorityWordSchema.optional(),
+    labels: z.array(z.string()).optional().describe('Label names; they are matched by name.'),
+    // No bucketRef, no assigneeRefs, no status (design D8). A new task is
+    // not_started, and assigning is a separate turn with its own preview.
+  })
+  .strict();
+
+export const CreateTaskToolOutputSchema = z.object({
+  created: z.boolean(),
+  taskId: z.string().nullable(),
+  usedExisting: z.boolean().optional(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const CreateTaskSuspendSchema = z.object({ card: z.unknown() });
+
+export const CreateTaskResumeSchema = z
+  .object({
+    action: z.enum(['create', 'use_existing', 'decline']),
+    planId: z.string().optional(),
+    // Sibling of planId, not part of the draft: both are ids the SERVER
+    // resolved, not fields the user typed. Optional so a card minted before this
+    // shipped still parses and reaches the "incomplete preview" refusal, instead
+    // of throwing a Zod error at the user — .strict() would reject it outright.
+    bucketId: z.string().optional(),
+    draft: CreateTaskDraftSchema.optional(),
+    existingTaskId: z.string().optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type CreateTaskResume = z.infer<typeof CreateTaskResumeSchema>;
+
+export const ActionResumeSchema = z.union([
+  UpdateTaskResumeSchema,
+  LinkTasksResumeSchema,
+  MergeTasksResumeSchema,
+  AssignTaskResumeSchema,
+  CreateTaskResumeSchema,
+]);
+export type ActionResume =
+  | UpdateTaskResume
+  | LinkTasksResume
+  | MergeTasksResume
+  | AssignTaskResume
+  | CreateTaskResume;

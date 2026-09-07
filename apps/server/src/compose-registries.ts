@@ -106,6 +106,12 @@ export function composeRegistries(deps: ComposeDeps): ComposedOrchestrationRunti
   const actionOrchestration = buildPlannerActionRuntime({
     resolveModel: deps.resolveModel,
     mastraStorage: deps.mastraStorage,
+    // planner_createTask's duplicate check. Both are read lazily, inside the
+    // tool, exactly as plannerFindSimilarTasksTool reads them above.
+    embeddingProvider: deps.embeddingProvider,
+    get databaseUrl(): string | undefined {
+      return deps.databaseUrl;
+    },
   });
 
   SpecializedAgentRegistry.freeze();

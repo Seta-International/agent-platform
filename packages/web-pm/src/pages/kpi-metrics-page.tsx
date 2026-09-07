@@ -272,6 +272,7 @@ export function KpiMetricsPage() {
             to="/pm/metrics"
             search={detailSearch(row.original.project_id)}
             onClick={(e) => e.stopPropagation()}
+            title={row.original.project_name}
             className="block truncate font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {row.original.project_name}

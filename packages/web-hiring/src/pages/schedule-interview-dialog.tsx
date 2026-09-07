@@ -1,3 +1,4 @@
+import { NOTE_WORD_LIMIT, wordCount } from '@seta/hiring/contracts';
 import {
   Button,
   createStaticSource,
@@ -163,8 +164,18 @@ export function ScheduleInterviewDialog({
   const requisitionMissing = !requisitionId;
   const candidateMissing = !selectedApplication;
   const dateMissing = !date;
+  const timeIsPast = !!date && !!time && new Date(toIsoDateTime(date, time)) <= new Date();
+  // Same-day scheduling shouldn't offer slots that have already passed — other dates keep the
+  // full list.
+  const availableTimeOptions = useMemo(() => {
+    if (date !== TODAY) return TIME_OPTIONS;
+    const now = new Date();
+    return TIME_OPTIONS.filter((t) => new Date(toIsoDateTime(date, t)) > now);
+  }, [date]);
   const panelMissing = panelIds.length === 0;
-  const canSubmit = !!selectedApplication && !dateMissing && !!time && !panelMissing;
+  const noteTooLong = wordCount(note) > NOTE_WORD_LIMIT;
+  const canSubmit =
+    !!selectedApplication && !dateMissing && !!time && !timeIsPast && !panelMissing && !noteTooLong;
 
   function reset() {
     setRequisitionId(undefined);
@@ -321,9 +332,14 @@ export function ScheduleInterviewDialog({
                   startIcon={<Clock aria-hidden="true" />}
                   hasSearch
                   searchPlaceholder="Search a time…"
-                  options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+                  options={availableTimeOptions.map((t) => ({ value: t, label: t }))}
                   value={time}
                   onChange={setTime}
+                  status={
+                    submitAttempted && timeIsPast
+                      ? { type: 'error', message: 'Pick a time later than now.' }
+                      : undefined
+                  }
                 />
                 <Selector
                   label="Duration"
@@ -389,6 +405,11 @@ export function ScheduleInterviewDialog({
                 value={note}
                 onChange={setNote}
                 placeholder="Focus area, scenario, links…"
+                status={
+                  noteTooLong
+                    ? { type: 'error', message: `Keep it to ${NOTE_WORD_LIMIT} words or fewer.` }
+                    : undefined
+                }
               />
             </VStack>
           </LayoutContent>

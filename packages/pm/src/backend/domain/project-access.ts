@@ -41,20 +41,20 @@ export async function setProjectAccess(
   requirePermission(session, 'pm.project.manage');
   await assertProject(project_id, session);
 
-  // Empty grants = "no change requested" — return immediately without touching DB or emitting.
-  if (grants.length === 0) return { added: 0, removed: 0, changed: 0 };
-
-  // (Δ C) a non-empty desired set must retain at least one owner
-  if (!grants.some((g) => g.level === 'owner')) {
-    throw new PmError('VALIDATION', 'project must retain at least one owner');
-  }
-
   const existing = await pmDb()
     .select({ worker_id: projectAccess.person_id, level: projectAccess.level })
     .from(projectAccess)
     .where(
       and(eq(projectAccess.project_id, project_id), tenantScoped(projectAccess.tenant_id, session)),
     );
+
+  if (grants.length === 0 && existing.length === 0) return { added: 0, removed: 0, changed: 0 };
+
+  // (Δ C) the desired set must retain at least one owner
+  if (!grants.some((g) => g.level === 'owner')) {
+    throw new PmError('VALIDATION', 'project must retain at least one owner');
+  }
+
   const existingMap = new Map(existing.map((e) => [e.worker_id, e.level]));
   const desiredMap = new Map(grants.map((g) => [g.worker_id, g.level]));
 

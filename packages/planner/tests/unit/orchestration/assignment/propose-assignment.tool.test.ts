@@ -146,63 +146,80 @@ describe('proposeAssignment composite tool', () => {
     expect(out).toEqual({ assigned: false, recommendations: [] });
   });
 
-  it('resume approve: assigns the overrideUserIds and returns { assigned:true }, no suspend', async () => {
-    const { tool, assign, suggest } = build();
-    const { ctx, suspend } = resumeCtx({ decision: 'approve', overrideUserIds: [U1] });
-    const out = (await tool.execute!(
-      { taskId: TASK_ID, title: 'AWS migration' } as never,
-      ctx,
-    )) as { assigned: boolean };
-    expect(out).toEqual({ assigned: true });
-    expect(assign.assign).toHaveBeenCalledTimes(1);
-    expect(assign.assign).toHaveBeenCalledWith({
+  it('resume short-circuits: the recommend pipeline is NOT re-run', async () => {
+    const { tool, suggest } = build();
+    const { ctx, suspend } = resumeCtx({
+      action: 'assign',
       taskId: TASK_ID,
       assigneeUserIds: [U1],
-      tenantId: 't1',
-      actorUserId: 'a1',
-      idempotencyKey: expect.any(String),
+      idempotencyKey: 'k1',
     });
+    await tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, ctx);
     expect(suspend).not.toHaveBeenCalled();
-    // Resume short-circuits: the recommend pipeline is NOT re-run.
     expect(suggest).not.toHaveBeenCalled();
   });
+});
 
-  it('resume approve: forwards the card-minted idempotencyKey to the assign port', async () => {
+describe('assign_proposeAssignment — resume reads the card verbatim', () => {
+  it('assigns exactly the ids the chosen branch carried', async () => {
     const { tool, assign } = build();
-    const key = 'key-from-card';
-    const { ctx } = resumeCtx({ decision: 'approve', overrideUserIds: [U1], idempotencyKey: key });
-    await tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, ctx);
-    expect(assign.assign).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: key }));
-  });
-
-  it('resume approve on a legacy approval with no key: mints one so the port contract holds', async () => {
-    const { tool, assign } = build();
-    const { ctx } = resumeCtx({ decision: 'approve', overrideUserIds: [U1] });
-    await tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, ctx);
-    expect(assign.assign).toHaveBeenCalledWith(
-      expect.objectContaining({ idempotencyKey: expect.any(String) }),
-    );
-  });
-
-  it('resume reject: does not assign and returns { assigned:false }', async () => {
-    const { tool, assign } = build();
-    const { ctx } = resumeCtx({ decision: 'reject' });
     const out = (await tool.execute!(
-      { taskId: TASK_ID, title: 'AWS migration' } as never,
-      ctx,
+      { taskId: TASK_ID, title: 'T' } as never,
+      resumeCtx({
+        action: 'assign',
+        taskId: TASK_ID,
+        assigneeUserIds: [U2],
+        idempotencyKey: 'k1',
+      }).ctx,
+    )) as { assigned: boolean };
+    expect(out.assigned).toBe(true);
+    expect(assign.assign).toHaveBeenCalledWith({
+      taskId: TASK_ID,
+      assigneeUserIds: [U2],
+      tenantId: 't1',
+      actorUserId: 'a1',
+      idempotencyKey: 'k1',
+    });
+  });
+
+  it('decline writes nothing', async () => {
+    const { tool, assign } = build();
+    const out = (await tool.execute!(
+      { taskId: TASK_ID, title: 'T' } as never,
+      resumeCtx({ action: 'decline', taskId: TASK_ID, idempotencyKey: 'k1' }).ctx,
     )) as { assigned: boolean };
     expect(out).toEqual({ assigned: false });
     expect(assign.assign).not.toHaveBeenCalled();
   });
 
-  it('resume non-reject with empty overrideUserIds: defensive no-op { assigned:false }', async () => {
+  // The set now always travels on the card, so a payload carrying none is a
+  // malformed card — not a no-op to swallow and report as success.
+  it('refuses an assign payload with no assignees', async () => {
     const { tool, assign } = build();
-    const { ctx } = resumeCtx({ decision: 'approve', overrideUserIds: [] });
+    await expect(
+      tool.execute!(
+        { taskId: TASK_ID, title: 'T' } as never,
+        resumeCtx({
+          action: 'assign',
+          taskId: TASK_ID,
+          assigneeUserIds: [],
+          idempotencyKey: 'k1',
+        }).ctx,
+      ),
+    ).rejects.toThrow();
+    expect(assign.assign).not.toHaveBeenCalled();
+  });
+
+  // The strict resumeSchema refuses it BEFORE execute runs, so defineAgentTool
+  // reports it as a structured error result rather than a rejection. What
+  // matters either way: the writer is never reached.
+  it('refuses a stale clients legacy decision payload', async () => {
+    const { tool, assign } = build();
     const out = (await tool.execute!(
-      { taskId: TASK_ID, title: 'AWS migration' } as never,
-      ctx,
-    )) as { assigned: boolean };
-    expect(out).toEqual({ assigned: false });
+      { taskId: TASK_ID, title: 'T' } as never,
+      resumeCtx({ decision: 'modify', overrideUserIds: [U2] }).ctx,
+    )) as { error?: boolean };
+    expect(out.error).toBe(true);
     expect(assign.assign).not.toHaveBeenCalled();
   });
 });

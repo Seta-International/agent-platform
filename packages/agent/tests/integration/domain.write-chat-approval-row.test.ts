@@ -31,6 +31,7 @@ function card(taskId: string, tenantId: string, userId: string): ApprovalCard {
       userId,
       agentPath: ['assignment', 'orchestrator'],
       toolId: 'planner_proposeAssignment',
+      dedupKey: `assign:${taskId}`,
       ts: new Date().toISOString(),
     },
   };
@@ -266,7 +267,6 @@ describe('writeChatApprovalRow — per-workflow behaviour', () => {
       const { runId } = await writeChatApprovalRow({
         card: actionCard(taskId, tenantId, userId),
         workflowId: 'planner.action',
-        dedupPendingAssignment: false,
         mastraRunId: 'mr-1',
         toolCallId: 'tc-1',
         threadId: 'thread-1',
@@ -300,7 +300,6 @@ describe('writeChatApprovalRow — per-workflow behaviour', () => {
       const { approvalId } = await writeChatApprovalRow({
         card: actionCard(taskId, tenantId, userId),
         workflowId: 'planner.action',
-        dedupPendingAssignment: false,
         mastraRunId: 'mr-2',
         toolCallId: 'tc-2',
         threadId: 'thread-1',
@@ -309,6 +308,165 @@ describe('writeChatApprovalRow — per-workflow behaviour', () => {
         pool,
       });
       expect(approvalId).not.toBe(assignment.approvalId);
+    });
+  });
+});
+
+describe('writeChatApprovalRow — the mutex follows meta.dedupKey', () => {
+  /** An A2-authored assign card: a DIFFERENT workflow id, the SAME dedup key. */
+  function a2AssignCard(taskId: string, tenantId: string, userId: string): ApprovalCard {
+    return {
+      toolCallId: `planner.action:${taskId}`,
+      intent: 'Assign "AWS migration"',
+      riskBadge: 'write',
+      summary: 'Tuấn will be the only assignee.',
+      details: [
+        {
+          kind: 'kvTable',
+          rows: [
+            { k: 'Now', v: 'Alice' },
+            { k: 'After', v: 'Tuấn' },
+          ],
+        },
+      ],
+      primary: {
+        label: 'Assign to Tuấn',
+        argsPatch: { action: 'assign', assigneeUserIds: ['u9'], taskId, idempotencyKey: 'k' },
+      },
+      alternates: [],
+      decline: { label: 'Cancel', argsPatch: { action: 'decline', taskId, idempotencyKey: 'k' } },
+      meta: {
+        tenantId,
+        userId,
+        agentPath: ['action', 'orchestrator'],
+        toolId: 'planner_assignTask',
+        workflowId: 'planner.action',
+        dedupKey: `assign:${taskId}`,
+        ts: new Date().toISOString(),
+      },
+    };
+  }
+
+  // §0.3 regression 1: before this change an A2 assign card lost the mutex and
+  // two people could be proposed for one task at once.
+  it('reuses a pending assignment-runtime card for an A2 assign card on the same task', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+
+      const first = await writeChatApprovalRow({
+        card: card(taskId, tenantId, userId),
+        mastraRunId: 'mr-a',
+        toolCallId: 'tc-a',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      const second = await writeChatApprovalRow({
+        card: a2AssignCard(taskId, tenantId, userId),
+        workflowId: 'planner.action',
+        mastraRunId: 'mr-b',
+        toolCallId: 'tc-b',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+
+      expect(second.approvalId).toBe(first.approvalId);
+      expect(second.runId).toBe(first.runId);
+    });
+  });
+
+  // And the other direction, which a "reuse the assignment row" special case
+  // would have missed.
+  it('reuses a pending A2 assign card for an assignment-runtime card on the same task', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+
+      const first = await writeChatApprovalRow({
+        card: a2AssignCard(taskId, tenantId, userId),
+        workflowId: 'planner.action',
+        mastraRunId: 'mr-a',
+        toolCallId: 'tc-a',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      const second = await writeChatApprovalRow({
+        card: card(taskId, tenantId, userId),
+        mastraRunId: 'mr-b',
+        toolCallId: 'tc-b',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+
+      expect(second.approvalId).toBe(first.approvalId);
+    });
+  });
+
+  it('does not mutex two cards whose dedup keys name different tasks', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const first = await writeChatApprovalRow({
+        card: card(randomUUID(), tenantId, userId),
+        mastraRunId: 'mr-a',
+        toolCallId: 'tc-a',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      const second = await writeChatApprovalRow({
+        card: card(randomUUID(), tenantId, userId),
+        mastraRunId: 'mr-b',
+        toolCallId: 'tc-b',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      expect(second.approvalId).not.toBe(first.approvalId);
+    });
+  });
+
+  // A card that declares nothing gets no mutex — an update/link/merge preview
+  // has no one-at-a-time rule, and inheriting one would swallow a second
+  // legitimate card in silence.
+  it('applies no mutex to a card that declares no dedupKey', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const first = await writeChatApprovalRow({
+        card: actionCard(taskId, tenantId, userId),
+        workflowId: 'planner.action',
+        mastraRunId: 'mr-a',
+        toolCallId: 'tc-a',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      const second = await writeChatApprovalRow({
+        card: actionCard(taskId, tenantId, userId),
+        workflowId: 'planner.action',
+        mastraRunId: 'mr-b',
+        toolCallId: 'tc-b',
+        threadId: 'thread-1',
+        tenantId,
+        userId,
+        pool,
+      });
+      expect(second.approvalId).not.toBe(first.approvalId);
     });
   });
 });

@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { pickModel } from '../assignment/model.ts';
 import { makeActionTools } from './orchestrator.tools.ts';
 import type { ActionPorts } from './ports.ts';
-import type { UpdateTaskResume } from './schemas.ts';
+import type { ActionResume } from './schemas.ts';
 
 export const ActionInputSchema = z.object({
   userText: z.string(),
@@ -77,10 +77,46 @@ export function instructionsText(): string {
     'mean two different days, ask which one — for example "Thứ Sáu 07/08 hay 14/08?".',
     'Pass dates as YYYY-MM-DD; the server applies the time of day.',
     '',
+    'LINKING TWO TASKS — planner_linkTasks records a relationship and deletes nothing.',
+    'Direction matters for two of the three kinds: with `duplicates` the SOURCE task is',
+    'the duplicate, and with `blocks` the SOURCE task is the blocker. When the user just',
+    'says "related" or "link", use relates. If you cannot tell which task the user means',
+    'on either side, ask — never guess a target.',
+    '',
+    'MERGING DUPLICATES — planner_mergeTasks marks one task as a duplicate of the other',
+    'and moves it to the trash. It is the only thing you do that deletes anything, so be',
+    'certain which side is which: duplicateTaskRef is the task that goes to the TRASH and',
+    'keepTaskRef is the task that survives. If the user has not made clear which one they',
+    'want to keep, ask them — never pick for them. Nothing is copied between the two',
+    'tasks, so if the duplicate holds information the keeper lacks, say so before merging.',
+    'If the user only wants the two marked as related, use planner_linkTasks instead.',
+    '',
+    'ASSIGNING PEOPLE — planner_assignTask sets who a task is assigned to, and it REPLACES',
+    'the whole assignee list. List everybody who should end up on the task, not just the',
+    'person the sentence mentions.',
+    'When the request is RELATIVE to whoever owns it now — "thay B bằng A", "giao thêm cho',
+    'A", "bỏ B ra" — call planner_getTask FIRST, read its assignees, and work out the final',
+    'set from that. Sending only the named person would silently un-assign everyone else.',
+    'Use planner_resolveMember when you need to turn a name into a person and the task',
+    'context does not already give you one; if it returns more than one match, ask which',
+    'person they mean — never pick.',
+    'When the user names NOBODY ("assign someone to this", "giao cho ai đó"), do not guess:',
+    'say you can ask for a recommendation instead.',
+    '',
+    'CREATING A TASK — planner_createTask makes ONE new task in ONE plan, and writes nothing',
+    'until the user confirms. Every task belongs to a plan: if the user has not named one and',
+    'the conversation does not make it obvious which they mean, ASK — never guess a plan.',
+    'The tool looks for similar tasks in that plan itself and puts them on the same card, so',
+    'do not search for duplicates first. It sets no assignee; if the user wants the task',
+    'assigned as well, create it first, then offer to assign it in the next turn.',
+    'It also puts the task in the first column of the plan by itself, and the card shows which',
+    'one — never ask the user to pick a bucket. If they want it somewhere else, tell them they',
+    'can drag it across the board once it exists.',
+    '',
     'WHAT YOU CANNOT DO — say so plainly and name what you can do instead. You cannot',
-    'create tasks, delete tasks, merge tasks, link tasks, change who a task is assigned to,',
-    'or answer general questions. Assigning people is handled elsewhere in this product;',
-    'if the user asks you to assign someone, tell them to ask for a recommendation instead.',
+    'permanently delete anything, and you do not answer general questions. If the user wants',
+    'a task gone: when it duplicates another task, offer planner_mergeTasks; otherwise tell',
+    'them they can move it to the trash themselves from the task menu.',
     '',
     'NEVER INVENT A VALUE. If the user names a field but not a value ("change the deadline"),',
     'ask for the value. If you cannot tell which task they mean, ask. One question at a time.',
@@ -211,14 +247,14 @@ export function makeActionStreamer(deps: ActionOrchestratorDeps) {
  *  the persisted native-suspend snapshot reloads by runId. */
 export function makeActionResumer(deps: ActionOrchestratorDeps) {
   return async function resumeChat(
-    resume: UpdateTaskResume,
+    resume: ActionResume,
     ctx: ActionResumeCtx,
   ): Promise<ChatStreamRun> {
     const built = await buildAction(deps, { userText: '', taskId: null }, ctx);
     const output = (await (
       built.agent as unknown as {
         resumeStream: (
-          resumeData: UpdateTaskResume,
+          resumeData: ActionResume,
           opts: { runId: string; toolCallId?: string; requestContext: RequestContext },
         ) => Promise<unknown>;
       }

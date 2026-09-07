@@ -85,8 +85,9 @@ describe('HitlCardHost', () => {
     wrap(<HitlCardHost approval={agenticRow} canAct threadId="thread-1" />);
     await userEvent.click(screen.getByRole('button', { name: /assign to alice/i }));
     await waitFor(() => expect(workflowsApi.resumeChat).toHaveBeenCalled());
+    // One contract now: WHICH branch, never a value (FUT-822).
     expect(workflowsApi.resumeChat).toHaveBeenCalledWith(
-      expect.objectContaining({ approvalId: 'a1', decision: 'approve', overrideUserIds: ['u1'] }),
+      expect.objectContaining({ approvalId: 'a1', chosen: 'primary' }),
     );
     expect(workflowsApi.decideApproval).not.toHaveBeenCalled();
   });

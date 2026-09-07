@@ -31,6 +31,20 @@ import { getPendingAssignRunIdForTask } from './get-pending-assign-run-for-task.
 /** Logical id of the agentic orchestrator run that owns chat-HITL approvals. */
 export const ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID = 'planner.assignment-orchestrator';
 
+/**
+ * The runtime that must resume this card, as the card itself declares it.
+ *
+ * Read off `meta.workflowId` rather than from a tool-id allowlist here: the
+ * agent tier may not import feature modules (`agent-no-feature-imports`), so any
+ * list kept here would need updating by hand for every new action tool — which
+ * is exactly how planner_linkTasks ended up stamped with the assignment contract
+ * and had its Confirm rejected. A card that declares nothing keeps the legacy
+ * assignment behaviour.
+ */
+export function resumeWorkflowIdForCard(card: ApprovalCard): string {
+  return card.meta.workflowId ?? ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID;
+}
+
 export interface WriteChatApprovalRowOpts {
   card: ApprovalCard;
   /** Mastra run id of the suspended agentic run — the resume target (Task 7). */
@@ -46,13 +60,18 @@ export interface WriteChatApprovalRowOpts {
   approvalTtlHours?: number;
   /** Logical workflow id stamped on the synthetic run row. It is the
    *  discriminator /chat/resume dispatches on, so it MUST name the runtime that
-   *  will resume this card. */
+   *  will resume this card. Defaults to whatever the card declares. */
   workflowId?: string;
-  /** One-proposal-per-task mutex. Only assignment has that rule: two people
-   *  cannot be proposed for one task at once. An update preview has no such
-   *  conflict, and reusing an assignment's row for it would resume the wrong
-   *  runtime. Defaults to true so the shipped call site is unchanged. */
-  dedupPendingAssignment?: boolean;
+  /**
+   * One-proposal-per-task mutex, keyed by a string the CARD declares. Defaults to
+   * `card.meta.dedupKey`; pass `null` to force it off.
+   *
+   * Keyed by declaration rather than by workflow id (design D7): the agent tier
+   * may not import feature modules, so a list of "assignment-ish" tools kept here
+   * would need hand-editing for every new action tool — which is how
+   * planner_linkTasks ended up with the assignment resume contract.
+   */
+  dedupKey?: string | null;
 }
 
 export interface WriteChatApprovalRowResult {
@@ -63,6 +82,26 @@ export interface WriteChatApprovalRowResult {
   cardInThread: boolean;
 }
 
+/** The prefix the assign mutex uses. The agent tier knows this ONE format and
+ *  nothing else about the key — not the tool, not the module, not the runtime. */
+const ASSIGN_DEDUP_PREFIX = 'assign:';
+
+/**
+ * The task a dedup key names, or null when the key is absent or is not an assign
+ * key. The mutex needs a taskId because its lookup —
+ * `getPendingAssignRunIdForTask` — spans the evented `planner.assignBySkill` run
+ * as well as the chat card, and that query matches on `input_summary.taskId`.
+ * A future non-assign dedup key therefore falls through to "no mutex" rather
+ * than silently reusing the assign lookup.
+ */
+function assignDedupTaskId(dedupKey: string | null | undefined): string | null {
+  if (!dedupKey?.startsWith(ASSIGN_DEDUP_PREFIX)) return null;
+  const taskId = dedupKey.slice(ASSIGN_DEDUP_PREFIX.length);
+  return taskId.length > 0 ? taskId : null;
+}
+
+/** The task this card is about, for the synthetic run's `input_summary`. Best
+ *  effort: a card with no task (a future non-task preview) records null. */
 function taskIdFromCard(card: ApprovalCard): string | null {
   const taskId = card.primary.argsPatch?.taskId;
   return typeof taskId === 'string' ? taskId : null;
@@ -85,16 +124,17 @@ export async function writeChatApprovalRow(
     threadId,
     pool,
     approvalTtlHours = 72,
-    workflowId = ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
-    dedupPendingAssignment = true,
+    workflowId = resumeWorkflowIdForCard(card),
+    dedupKey = card.meta.dedupKey ?? null,
   } = opts;
 
   // Mutex: if a pending assignment proposal already exists for this task —
   // chat-HITL, native-suspend, or an in-flight evented assignBySkill run —
   // reuse it instead of inserting a competing card.
   const taskId = taskIdFromCard(card);
-  if (dedupPendingAssignment && taskId) {
-    const existingRunId = await getPendingAssignRunIdForTask({ taskId, tenantId });
+  const mutexTaskId = assignDedupTaskId(dedupKey);
+  if (mutexTaskId) {
+    const existingRunId = await getPendingAssignRunIdForTask({ taskId: mutexTaskId, tenantId });
     if (existingRunId) {
       const existing = await pool.query<{
         approval_id: string;
@@ -130,7 +170,7 @@ export async function writeChatApprovalRow(
       // A pending evented run exists but hasn't reached its suspend step, so
       // there is no approval row to reuse. Fail open: skip writing a competing
       // card rather than race the in-flight workflow.
-      throw new PendingAssignmentExistsError(taskId);
+      throw new PendingAssignmentExistsError(mutexTaskId);
     }
   }
 

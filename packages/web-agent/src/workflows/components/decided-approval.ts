@@ -11,6 +11,7 @@ interface CardShape {
   intent?: string;
   details?: Array<{ kind: string; items?: CandidateItem[] }>;
   primary?: { argsPatch?: Record<string, unknown> };
+  alternates?: Array<{ argsPatch?: Record<string, unknown> }>;
   meta?: { toolId?: unknown };
 }
 
@@ -55,17 +56,35 @@ function candidateLabels(payload: unknown): Map<string, string> {
 }
 
 /**
- * The user IDs the decision actually assigned: modify decisions carry the
- * final selection in decision_payload.override_user_ids; a plain approve
- * confirmed the card's primary selection as-is.
+ * The user IDs the decision actually assigned.
+ *
+ * Three sources, in order. `override_user_ids` first — the canvas /decide route
+ * still composes a set there. Then the BRANCH the chat client selected, resolved
+ * off the persisted card exactly the way `selectArgsPatch` resolved it on the
+ * server. Then primary, for rows decided before `chosen` was persisted.
  */
 function assignedUserIds(approval: WorkflowApprovalRow): string[] {
-  const dp = approval.decisionPayload as { override_user_ids?: unknown } | null;
+  const dp = approval.decisionPayload as {
+    override_user_ids?: unknown;
+    chosen?: unknown;
+    alternate_index?: unknown;
+  } | null;
   const overrides = stringArray(dp?.override_user_ids);
   if (overrides.length > 0) return overrides;
-  const patch = asCard(approval.proposedPayload)?.primary?.argsPatch as
-    | { assigneeUserIds?: unknown }
-    | undefined;
+
+  const card = asCard(approval.proposedPayload);
+  if (dp?.chosen === 'alternate' && typeof dp.alternate_index === 'number') {
+    const alt = card?.alternates?.[dp.alternate_index]?.argsPatch as
+      | { assigneeUserIds?: unknown }
+      | undefined;
+    // Out of range is a stale or malformed row, not a reason to crash the
+    // thread — fall through to primary, the same defensive convention the rest
+    // of this file uses.
+    const picked = stringArray(alt?.assigneeUserIds);
+    if (picked.length > 0) return picked;
+  }
+
+  const patch = card?.primary?.argsPatch as { assigneeUserIds?: unknown } | undefined;
   return stringArray(patch?.assigneeUserIds);
 }
 

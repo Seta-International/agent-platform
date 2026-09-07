@@ -136,7 +136,7 @@ describe('project access + staffing plan', () => {
     });
   });
 
-  it('empty grants array is a no-op (allowed; no event emitted)', async () => {
+  it('empty grants array against an existing owner throws VALIDATION (does not silently drop access)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -147,13 +147,53 @@ describe('project access + staffing plan', () => {
         // project creation already seeded the PM as owner and emitted one access.changed event
         const before = (await readEvents(pool, t.tenant_id, 'pm.project.access.changed')).length;
 
-        const r = await setProjectAccess({ project_id, grants: [], session: t.adminSession });
-        expect(r.added).toBe(0);
-        expect(r.removed).toBe(0);
-        expect(r.changed).toBe(0);
+        await expect(
+          setProjectAccess({ project_id, grants: [], session: t.adminSession }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+        const access = await listProjectAccess({ project_id, session: t.adminSession });
+        expect(access).toEqual([{ worker_id: t.adminSession.user_id, level: 'owner' }]);
         expect((await readEvents(pool, t.tenant_id, 'pm.project.access.changed')).length).toBe(
           before,
         );
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('removing the last remaining grant (the owner) via a shrinking set throws VALIDATION', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
+
+        const w = crypto.randomUUID();
+        await setProjectAccess({
+          project_id,
+          grants: [
+            { worker_id: t.adminSession.user_id, level: 'owner' },
+            { worker_id: w, level: 'edit' },
+          ],
+          session: t.adminSession,
+        });
+
+        await expect(
+          setProjectAccess({
+            project_id,
+            grants: [{ worker_id: w, level: 'edit' }],
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+        const access = await listProjectAccess({ project_id, session: t.adminSession });
+        expect(access.find((a) => a.worker_id === t.adminSession.user_id)?.level).toBe('owner');
+        expect(access.find((a) => a.worker_id === w)?.level).toBe('edit');
       } finally {
         resetPmDb();
         resetCoreDb();
