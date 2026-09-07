@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { plannerDb } from './db/index.ts';
 import {
   assigneeProjection,
@@ -9,6 +9,26 @@ import {
   taskAssignments,
   tasks,
 } from './db/schema.ts';
+
+/**
+ * Whether the caller can still reach any live group. Distinguishes "no tasks
+ * matched" from "every group you belong to has been archived" (FUT-832 AC5),
+ * which an empty task list alone cannot express.
+ */
+export async function hasVisibleActiveGroups(session: SessionScope): Promise<boolean> {
+  const filter = await groupFilterFor(session);
+  if (filter !== null && filter.length === 0) return false;
+
+  const conditions = [eq(groups.tenant_id, session.tenant_id), isNull(groups.deleted_at)];
+  if (filter !== null) conditions.push(inArray(groups.id, [...filter]));
+
+  const [row] = await plannerDb()
+    .select({ id: groups.id })
+    .from(groups)
+    .where(and(...conditions))
+    .limit(1);
+  return row !== undefined;
+}
 
 export function isTenantAdminish(session: SessionScope): boolean {
   return session.role_summary.roles.some(
@@ -50,6 +70,40 @@ export async function listMemberGroups(userId: string, tenantId: string): Promis
         isNull(groups.deleted_at),
       ),
     );
+}
+
+export interface MemberGroupWithState extends MemberGroup {
+  archived: boolean;
+}
+
+/**
+ * Same membership set as listMemberGroups, but keeps the archived rows and
+ * labels them. Callers that must tell "archived" apart from "no such group"
+ * (FUT-832 AC3) need the row; callers that only read active work do not.
+ */
+export async function listMemberGroupsWithState(
+  userId: string,
+  tenantId: string,
+): Promise<MemberGroupWithState[]> {
+  const rows = await plannerDb()
+    .select({ id: groups.id, name: groups.name, deleted_at: groups.deleted_at })
+    .from(groupMembers)
+    .innerJoin(groups, eq(groups.id, groupMembers.group_id))
+    .where(and(eq(groupMembers.user_id, userId), eq(groups.tenant_id, tenantId)));
+  return rows.map((r) => ({ id: r.id, name: r.name, archived: r.deleted_at !== null }));
+}
+
+/** Name + archived state of one group in the caller's tenant, or null. */
+export async function getGroupState(
+  tenantId: string,
+  groupId: string,
+): Promise<MemberGroupWithState | null> {
+  const [row] = await plannerDb()
+    .select({ id: groups.id, name: groups.name, deleted_at: groups.deleted_at })
+    .from(groups)
+    .where(and(eq(groups.id, groupId), eq(groups.tenant_id, tenantId)))
+    .limit(1);
+  return row ? { id: row.id, name: row.name, archived: row.deleted_at !== null } : null;
 }
 
 /** user_ids belonging to a group, tenant-bound via the groups join. */

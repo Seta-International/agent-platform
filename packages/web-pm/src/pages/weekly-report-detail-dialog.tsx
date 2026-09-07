@@ -303,8 +303,12 @@ export function WeeklyReportDetailDialog({
   const alreadyReported =
     detail?.reports.some((r) => r.reporter_id === detail.my_reporter_id) ?? false;
   const notReporter = Boolean(detail && !detail.can_report);
+  const projectEnded = Boolean(detail?.project_ended);
+  const projectEndedReason = detail?.project_date_to
+    ? `This project ended ${formatDueDate(detail.project_date_to)}, before this week started.`
+    : 'This project has already ended.';
   const composeOffered = Boolean(detail?.can_manage && detail.week_editable && !alreadyReported);
-  const canCompose = composeOffered && !notReporter;
+  const canCompose = composeOffered && !notReporter && !projectEnded;
 
   const [summary, setSummary] = useState('');
   const [riskIssue, setRiskIssue] = useState('');
@@ -799,15 +803,15 @@ export function WeeklyReportDetailDialog({
                       </p>
                       {composeOffered ? (
                         <DisabledActionTooltip
-                          disabled={notReporter}
-                          reason={NOT_REPORTER_REASON}
+                          disabled={notReporter || projectEnded}
+                          reason={projectEnded ? projectEndedReason : NOT_REPORTER_REASON}
                           className="mt-3"
                         >
                           <Button
                             variant="secondary"
                             size="sm"
-                            className={notReporter ? undefined : 'mt-3'}
-                            isDisabled={notReporter}
+                            className={notReporter || projectEnded ? undefined : 'mt-3'}
+                            isDisabled={notReporter || projectEnded}
                             onClick={() => setFormOpen(true)}
                           >
                             New weekly report

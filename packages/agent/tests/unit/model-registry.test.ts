@@ -53,4 +53,27 @@ describe('model-registry', () => {
     });
     expect(() => resolveModel('openai/nope')).toThrow(ModelNotFoundError);
   });
+
+  it('resolveModel("auto") with a fast hint falls back to the first entry when no fast tier exists', async () => {
+    const { resolveModel } = await freshRegistry({
+      AGENT_MODELS: 'openai/gpt-5.4-mini,mock/echo',
+      AGENT_MODEL_DEFAULT: 'mock/echo',
+    });
+    expect(resolveModel('auto', { tierHint: 'fast' }).entry.key).toBe('openai/gpt-5.4-mini');
+  });
+
+  it('resolveDefaultModel honors AGENT_MODEL_DEFAULT over the tier heuristic', async () => {
+    const { resolveDefaultModel } = await freshRegistry({
+      AGENT_MODELS: 'openai/gpt-5.4-mini,mock/echo',
+      AGENT_MODEL_DEFAULT: 'mock/echo',
+    });
+    expect(resolveDefaultModel({ tierHint: 'fast' }).entry.key).toBe('mock/echo');
+  });
+
+  it('resolveDefaultModel falls back to the tier heuristic when AGENT_MODEL_DEFAULT is unset', async () => {
+    const { resolveDefaultModel } = await freshRegistry({
+      AGENT_MODELS: 'openai/gpt-5.4-mini,openai/o4-mini:fast',
+    });
+    expect(resolveDefaultModel({ tierHint: 'fast' }).entry.key).toBe('openai/o4-mini');
+  });
 });
