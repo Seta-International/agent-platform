@@ -194,7 +194,7 @@ const chatRouter = makeChatRouter({
     // hot path of every chat message, is exactly the work the local model should
     // carry. Passing the hint anyway keeps `AGENT_MODEL_DEFAULT=auto`
     // deployments behaving as they do today.
-    resolveModel: () => resolveModel(undefined, { tierHint: 'fast' }).model,
+    resolveModel: () => resolveDefaultModel({ tierHint: 'fast' }).model,
   }),
   assignment: assignmentOrchestration.runStream,
   plannerQuery: plannerQueryOrchestration.runStream,
