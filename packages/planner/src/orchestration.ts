@@ -1,12 +1,21 @@
 // Public surface for composing the assignment orchestration runtime (specialized
 // agents + assignment DAG, relocated from @seta/staffing) at the app tier.
 
+// The A2 allowlist itself. Exported so apps/server — the only layer that can
+// supply a real PreviewPort — can drive the write tools without a model, which is
+// what makes FUT-840's invariant matrix deterministic.
+export { makeActionTools } from './backend/orchestration/action/orchestrator.tools.ts';
 // Declared by planner, implemented in apps/server: the approval rows live in the
 // `agent` schema, which planner may not read (FUT-840).
-export type { LoadedPreview, PreviewPort } from './backend/orchestration/action/ports.ts';
 // A2 Action runtime (mutate chat intent).
+export type {
+  ActionPorts,
+  LoadedPreview,
+  PreviewPort,
+} from './backend/orchestration/action/ports.ts';
 export {
   buildPlannerActionRuntime,
+  makeActionPorts,
   type PlannerActionRuntime,
   type PlannerActionRuntimeDeps,
 } from './backend/orchestration/action/register.ts';

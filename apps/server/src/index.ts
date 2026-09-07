@@ -40,7 +40,7 @@ import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
-import { makeActionPreviewPort } from './action-preview-port.ts';
+import { makeActionPreviewPort, makeFindOpenPreview } from './action-preview-port.ts';
 import { initAgentEvalMetrics } from './agent-eval-metrics.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { makeIntentClassifier } from './chat-routing/intent-classifier.ts';
@@ -203,6 +203,9 @@ const chatRouter = makeChatRouter({
   weeklyPlanner: weeklyPlanOrchestration.runStream,
   // A2: a change request gets a preview card and writes nothing until confirmed.
   action: actionOrchestration.runStream,
+  // The revision loop's first move: tell A2 which preview is already waiting
+  // (FUT-840). Bound to planner.action, so a recommend card is never adjustable.
+  findOpenPreview: makeFindOpenPreview(),
 });
 
 // Build the agent engine up front so subscriberBuilders contributed by

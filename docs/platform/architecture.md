@@ -458,11 +458,30 @@ Anything the sync cannot decide safely becomes a row in `integrations.m365_direc
 
 ### Chat runtime — intent router + orchestrators
 
-Every chat turn (`POST /api/agent/v1/chat`) is classified by an intent router (`apps/server/src/chat-routing/`) and dispatched to one of three orchestrators — **assignment** (recommend-and-assign; sub-agents taskAnalyzer / skillMatcher / avaiChecker / recommender), **planner Q&A** (read-only task/team questions), or the **weekly planner** (organizes the caller's tasks into a day-by-day plan). Each is an agent-of-agents built in `@seta/planner/orchestration` on the shared orchestration kernel (`@seta/shared-orchestration`). The composition root (`apps/server`) is the only layer that can see all three runtimes: it builds them, wraps them in `makeChatRouter` (classify → dispatch), and injects the result as `chatOrchestration` into `registerAgent`. The former standalone `staffing` orchestrator module was absorbed into `planner`.
+Every chat turn (`POST /api/agent/v1/chat`) is classified by an intent router (`apps/server/src/chat-routing/`) and dispatched to one of four orchestrators — **assignment** (recommend-and-assign; sub-agents taskAnalyzer / skillMatcher / avaiChecker / recommender), **planner Q&A** (read-only task/team questions), the **weekly planner** (organizes the caller's tasks into a day-by-day plan), or **A2 action** (the `mutate` intent: turn a sentence into ONE proposed change and show a preview card, writing nothing until Confirm). Each is an agent-of-agents built in `@seta/planner/orchestration` on the shared orchestration kernel (`@seta/shared-orchestration`). The composition root (`apps/server`) is the only layer that can see all four runtimes: it builds them, wraps them in `makeChatRouter` (classify → dispatch), and injects the result as `chatOrchestration` into `registerAgent`. A2 alone receives a widened run input carrying the open preview (see below). The former standalone `staffing` orchestrator module was absorbed into `planner`.
 
 An explicit pick in the chat model selector resolves through the engine's model registry (`packages/agent/src/backend/model-registry.ts`) and rides `RunCtx.model` into the orchestrator and every sub-agent LLM call for that turn. Auto (or no pick) uses the runtime's boot-time default (`resolveModel('auto', { tierHint: 'fast' })`). The catalog comes from `AGENT_MODELS`, falling back to `AGENT_MODEL`, then a built-in catalog.
 
 Chat HITL uses Mastra-native suspend/resume. The assignment orchestrator's `proposeAssignment` composite calls `ctx.agent.suspend(candidate card)`; the web renders the card inline and, on approval, resumes the suspended turn via `POST /api/agent/v1/chat/resume` (`resumeOrchestration: assignmentOrchestration.runResume`, bound in `apps/server`), which streams the continuation and runs `assignTask`. The separate `POST /workflows/approvals/:id/decide` route only records decisions for workflow-step approvals — it does not resume chat.
+
+#### Revising a preview by chatting (FUT-840)
+
+A user adjusts the proposal already on screen by saying what to change, rather than cancelling and starting over. Five moves, and only the first two are new to the request path:
+
+1. **The router finds it.** `makeChatRouter` calls `findOpenPreview` — `findOpenChatPreview` in `@seta/agent`, bound to `workflowIds: ['planner.action']` — but only on a `mutate` turn inside a thread. It returns the NEWEST pending card for this approver. Classification never reads it: `ADJUST_RE` is pure text, placed after `QUESTION_RE`, so "what should I make it?" stays a question. A read-model failure degrades to "nothing open" rather than failing the turn.
+2. **A2 receives it as data.** `renderOpenPreviewBlock` appends an OPEN PREVIEW block to the turn message — approval id, owning tool, the card's intent line, and the card's own `kvTable` rows. The machine-readable `argsPatch` never reaches the prompt, so no proposed value can be smuggled back in through model text.
+3. **The tool re-derives the proposal.** `resolveRevision` asserts, in order: an absent `revisionOf` is a NEW request and is never refused; `revisionOf` must EQUAL the approval id the SERVER injected (checked *before* the load, so a mismatched id costs no query and reveals nothing); the card's `meta.toolId` must equal the calling tool. Targets then come FROM THE CARD, permissions are re-gated, the patch is merged over the previous one, and a FRESH idempotency key is minted. **Merge's role swap is the single deliberate exception** — it may swap which task survives, never which two tasks are involved.
+4. **The writer swaps atomically.** `writeChatApprovalRow` supersedes the card named by `meta.supersedes` and inserts the new one in ONE transaction, so no committed instant has two pending cards for a task or zero.
+5. **Confirm is untouched.** `/chat/resume` reads `argsPatch` verbatim off the persisted card, so the merged values apply with no code change on that path at all.
+
+Card mutex, on `meta.dedupKeys: string[]`:
+
+- Keys are evaluated **in declaration order and the first hit wins**. An assign card declares `assign:<taskId>` first and `task:<taskId>` second: `assign:` REUSES the open card (FUT-806), `task:` REFUSES. A tool's courtesy pre-check must mirror that precedence — checking `task:` alone would refuse the very case the writer reuses.
+- The guarantee is `pg_advisory_xact_lock` over the sorted keys *inside* the writer's transaction, not the pre-check: two concurrent turns both see a clear table. The pre-check only buys the ordinary case an explanation instead of a dropped card. It names no person, because the `task:` mutex is per TENANT.
+- A create card declares no keys, so a new-task preview may legitimately wait alongside an update preview for a different task.
+- `meta.dedupKey` (singular) is still read as a fallback for cards written before this shipped. Removable once no pending row can carry it — 72 hours after deploy.
+
+Run-row lifecycle: a chat card's synthetic `agent.workflow_runs` row is closed on `superseded` and `rejected` only. **An approved row stays `paused`**, because `replayableDecision` and `resumeRetry` both key on it.
 
 ### Orchestration working memory
 

@@ -119,14 +119,30 @@ export async function refuseIfPreviewOpen(opts: {
   preview: PreviewPort;
   actor: ActorRef;
   taskIds: readonly string[];
+  /**
+   * Keys whose presence means the writer will REUSE the open card rather than
+   * refuse — so this must stay quiet and let it.
+   *
+   * This mirrors the writer's precedence rule instead of restating it: a card's
+   * keys are evaluated in declaration order and the first hit wins. An assign
+   * card declares `assign:` before `task:`, so a pending assign proposal resolves
+   * as FUT-806's reuse. Checking `task:` alone would refuse exactly that case and
+   * silently delete a working behaviour.
+   */
+  reuseKeys?: readonly string[];
 }): Promise<string | null> {
   if (opts.taskIds.length === 0) return null;
+  const taskKeys = opts.taskIds.map((id) => `task:${id}`);
+  const reuseKeys = opts.reuseKeys ?? [];
   const taken = await opts.preview.takenDedupKeys({
     ...opts.actor,
-    dedupKeys: opts.taskIds.map((id) => `task:${id}`),
+    // One round trip, reuse keys first — the same order the writer reads them in.
+    dedupKeys: [...reuseKeys, ...taskKeys],
   });
-  if (taken.length === 0) return null;
-  return taken.length === 1
+  if (reuseKeys.some((key) => taken.includes(key))) return null;
+  const clashing = taken.filter((key) => taskKeys.includes(key));
+  if (clashing.length === 0) return null;
+  return clashing.length === 1
     ? 'There is already a proposal waiting for that task. Confirm or cancel it ' +
         'first, then ask me again.'
     : 'There are already proposals waiting for those tasks. Confirm or cancel ' +
