@@ -122,8 +122,13 @@ describe('ChatEmbeddedHitl', () => {
   });
 
   it("invalidates the deciding tool's module queries after a decision", async () => {
-    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([PENDING_APPROVAL]);
-    vi.spyOn(workflowsApi, 'decideApproval').mockResolvedValue({ runId: 'r1' });
+    // Agentic, because after FUT-822 a chat card is ALWAYS resumed through
+    // /chat/resume — `useSubmitDecision` refuses to post a payload-free confirm
+    // to /decide, which only the canvas and the dedup card still use.
+    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([
+      { ...PENDING_APPROVAL, agentic: true },
+    ]);
+    vi.spyOn(workflowsApi, 'resumeChat').mockResolvedValue(undefined);
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidate = vi.spyOn(qc, 'invalidateQueries');
@@ -138,9 +143,9 @@ describe('ChatEmbeddedHitl', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /assign to jane/i }));
 
-    await waitFor(() => expect(workflowsApi.decideApproval).toHaveBeenCalled());
-    // The chat-HITL decider already executed the planner write server-side, so
-    // the planner read models (task detail assignees, boards) are stale.
+    await waitFor(() => expect(workflowsApi.resumeChat).toHaveBeenCalled());
+    // The resume already executed the planner write server-side, so the planner
+    // read models (task detail assignees, boards) are stale.
     await waitFor(() =>
       expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['planner'] })),
     );

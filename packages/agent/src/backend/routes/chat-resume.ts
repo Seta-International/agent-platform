@@ -1,5 +1,4 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
-import type { ApprovalCard } from '@seta/agent-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import { sql } from 'drizzle-orm';
 import type { Hono } from 'hono';
@@ -21,15 +20,13 @@ import {
   selectArgsPatch,
 } from './resume-body.ts';
 
-/** The status the approval row records. A generic card's 'decline' and a legacy
- *  'reject' are the same decision as far as the row is concerned.
+/** The status the approval row records. A card's 'decline' is a 'reject' as far
+ *  as the row is concerned.
  *
  *  This reads the RAW body, before validation — safe because a `validate` throw
  *  rolls the whole transaction back, so a mis-derived status is never committed. */
-function decisionFor(raw: Record<string, unknown>): 'approve' | 'reject' | 'modify' {
-  if (raw.chosen !== undefined) return raw.chosen === 'decline' ? 'reject' : 'approve';
-  const d = raw.decision;
-  return d === 'reject' || d === 'modify' ? d : 'approve';
+function decisionFor(raw: Record<string, unknown>): 'approve' | 'reject' {
+  return raw.chosen === 'decline' ? 'reject' : 'approve';
 }
 
 /**
@@ -86,79 +83,21 @@ async function replayableDecision(args: {
   };
 }
 
-/** Only the legacy assignment body carries an assignee override. */
-function legacyOverrideUserIds(raw: Record<string, unknown>): string[] | undefined {
-  return raw.chosen === undefined && Array.isArray(raw.overrideUserIds)
-    ? (raw.overrideUserIds as string[])
-    : undefined;
-}
-
-export type ResumeDecisionData = {
-  decision: 'approve' | 'reject' | 'modify';
-  overrideUserIds?: string[];
-  alternateIndices?: number[];
-  note?: string;
-  /** Read off the persisted card, never off the request body — the client must not
-   *  be able to choose the key that gates the write. */
-  idempotencyKey?: string;
-};
-
-/**
- * Maps a decide-approval decision + the persisted ApprovalCard + the request
- * body into the proposeAssignment composite's resume payload. The composite is
- * STATELESS — it reads the assignee set ONLY from `resume.overrideUserIds`, so
- * the endpoint must populate it from the card (approve) or the user's edit
- * (modify). Pure function.
- *
- * Card contract (from staffing buildAssignApprovalCard):
- *   primary.argsPatch     = { action:'assign', assigneeUserIds: string[], taskId }
- *   alternates[i].argsPatch = { action:'assign', assigneeUserIds: string[], taskId }
- *
- * ASSIGNMENT ONLY. FUT-806 deletes this together with the legacy resume body,
- * when assignment moves onto A2 and the gateway. Cards created by FUT-804 use
- * the payload-free path in resume-body.ts instead.
- */
-export function mapDecisionToResumeData(
-  card: ApprovalCard | null,
-  body: ResumeDecisionData,
-): ResumeDecisionData {
-  const note = body.note;
-  const rawKey = (card?.primary?.argsPatch as { idempotencyKey?: unknown } | undefined)
-    ?.idempotencyKey;
-  const idempotencyKey = typeof rawKey === 'string' ? rawKey : undefined;
-  const withNote = (d: ResumeDecisionData): ResumeDecisionData => ({
-    ...d,
-    ...(note !== undefined ? { note } : {}),
-    ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
-  });
-
-  if (body.decision === 'reject') {
-    return withNote({ decision: 'reject' });
-  }
-
-  if (body.decision === 'modify') {
-    return withNote({ decision: 'modify', overrideUserIds: body.overrideUserIds ?? [] });
-  }
-
-  // approve: take the assignee set from the chosen alternate (if any) else primary.
-  const idx = body.alternateIndices?.[0];
-  if (idx !== undefined && card?.alternates?.[idx]) {
-    const alt = card.alternates[idx]?.argsPatch as { assigneeUserIds?: unknown };
-    const overrideUserIds = Array.isArray(alt.assigneeUserIds)
-      ? (alt.assigneeUserIds as string[])
-      : [];
-    return withNote({
-      decision: 'approve',
-      overrideUserIds,
-      alternateIndices: body.alternateIndices,
-    });
-  }
-
-  const primary = (card?.primary?.argsPatch ?? {}) as { assigneeUserIds?: unknown };
-  const overrideUserIds = Array.isArray(primary.assigneeUserIds)
-    ? (primary.assigneeUserIds as string[])
-    : [];
-  return withNote({ decision: 'approve', overrideUserIds });
+/** The branch a generic body selected, read off the RAW request for the audit
+ *  row. Safe before validation for the same reason `decisionFor` is: a `validate`
+ *  throw rolls the whole transaction back, so a mis-read value is never
+ *  committed. A legacy body yields {} and records nothing. */
+function chosenBranch(raw: Record<string, unknown>): {
+  chosen?: 'primary' | 'alternate' | 'decline';
+  alternateIndex?: number;
+} {
+  const chosen = raw.chosen;
+  if (chosen !== 'primary' && chosen !== 'alternate' && chosen !== 'decline') return {};
+  const idx = raw.alternateIndex;
+  return {
+    chosen,
+    ...(chosen === 'alternate' && typeof idx === 'number' ? { alternateIndex: idx } : {}),
+  };
 }
 
 /**
@@ -196,19 +135,18 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
         session,
         approvalId,
         decision: decisionFor(raw),
-        overrideUserIds: legacyOverrideUserIds(raw),
+        ...chosenBranch(raw),
         note: typeof raw.note === 'string' ? raw.note : undefined,
         // Reject a misrouted evented/canvas approval INSIDE the transaction
         // (before any write) so a non-resumable row never records a decision.
         requireMastraRun: true,
         validate: (row) => {
-          // The ROW's workflow_id picks the schema — never the body's shape.
+          // The ROW's workflow_id decides whether this approval is chat-resumable
+          // — never the body's shape.
           parsed = parseResumeBodyForWorkflow(row.workflow_id, raw);
-          if (parsed.kind === 'generic') {
-            // Throws validation_failed for an out-of-range alternateIndex, or a
-            // row with no stored preview — before anything is written.
-            selectArgsPatch(row.proposed_payload, parsed.body);
-          }
+          // Throws validation_failed for an out-of-range alternateIndex, or a
+          // row with no stored preview — before anything is written.
+          selectArgsPatch(row.proposed_payload, parsed.body);
         },
       });
     } catch (err) {
@@ -239,18 +177,10 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
       return c.json({ error: 'validation_failed', message: 'body was not validated' }, 400);
     }
 
-    const resume: Record<string, unknown> =
-      parsed.kind === 'generic'
-        ? // Verbatim off the persisted card. `note` is deliberately NOT merged in:
-          // it is audit metadata about the decision, already recorded on the row
-          // and the outbox event, and never an input to the mutation.
-          selectArgsPatch(ctx.proposedPayload, parsed.body)
-        : (mapDecisionToResumeData(ctx.proposedPayload as ApprovalCard | null, {
-            decision: parsed.body.decision,
-            overrideUserIds: parsed.body.overrideUserIds,
-            alternateIndices: parsed.body.alternateIndices,
-            note: parsed.body.note,
-          }) as unknown as Record<string, unknown>);
+    // Verbatim off the persisted card. `note` is deliberately NOT merged in: it
+    // is audit metadata about the decision, already recorded on the row and the
+    // outbox event, and never an input to the mutation.
+    const resume: Record<string, unknown> = selectArgsPatch(ctx.proposedPayload, parsed.body);
 
     const resumeOrchestration = deps.resumeOrchestration;
     const mastraRunId = ctx.mastraRunId;

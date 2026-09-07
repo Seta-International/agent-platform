@@ -79,6 +79,70 @@ describe('decided approval helpers', () => {
   });
 });
 
+describe('assignedUserIds — a decision that selected a branch', () => {
+  const card = {
+    intent: 'Assign "Infra"',
+    details: [
+      {
+        kind: 'entityList',
+        items: [
+          { id: 'u1', label: 'Alice' },
+          { id: 'u2', label: 'Bob' },
+          { id: 'u3', label: 'Carol' },
+        ],
+      },
+    ],
+    primary: { argsPatch: { action: 'assign', assigneeUserIds: ['u1'] } },
+    alternates: [
+      { argsPatch: { action: 'assign', assigneeUserIds: ['u2'] } },
+      { argsPatch: { action: 'assign', assigneeUserIds: ['u3'] } },
+    ],
+    meta: { toolId: 'planner_proposeAssignment' },
+  };
+
+  const branchRow = (decisionPayload: unknown) =>
+    ({
+      approvalId: 'a1',
+      status: 'approved',
+      proposedPayload: card,
+      decisionPayload,
+    }) as never;
+
+  // The bug this task exists to prevent: alternate #2 must not report the top
+  // match, in the transcript, permanently.
+  it('names the alternate the user actually picked', () => {
+    expect(
+      outcomeText(branchRow({ decision: 'approve', chosen: 'alternate', alternate_index: 1 })),
+    ).toBe('Task assigned to Carol.');
+  });
+
+  it('names the top match for a primary confirm', () => {
+    expect(outcomeText(branchRow({ decision: 'approve', chosen: 'primary' }))).toBe(
+      'Task assigned to Alice.',
+    );
+  });
+
+  // Rows decided before this shipped carry neither field; they must keep
+  // reading the way they always did.
+  it('falls back to primary for a decision recorded before chosen was persisted', () => {
+    expect(outcomeText(branchRow({ decision: 'approve' }))).toBe('Task assigned to Alice.');
+  });
+
+  // The canvas still sends override_user_ids through /decide, and that surface
+  // is untouched by this story.
+  it('still prefers an explicit override_user_ids', () => {
+    expect(outcomeText(branchRow({ decision: 'modify', override_user_ids: ['u2'] }))).toBe(
+      'Task assigned to Bob.',
+    );
+  });
+
+  it('falls back to primary when alternate_index is out of range', () => {
+    expect(
+      outcomeText(branchRow({ decision: 'approve', chosen: 'alternate', alternate_index: 9 })),
+    ).toBe('Task assigned to Alice.');
+  });
+});
+
 describe('resolutionStatusLine', () => {
   it('returns null for a still-pending approval', () => {
     expect(resolutionStatusLine('pending')).toBeNull();

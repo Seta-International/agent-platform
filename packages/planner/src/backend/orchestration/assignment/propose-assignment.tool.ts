@@ -29,15 +29,19 @@ export interface ProposeAssignmentDeps {
   ctx: SpecializedAgentRunCtx;
 }
 
-const ResumeSchema = z.object({
-  decision: z.enum(['approve', 'reject', 'modify']),
-  overrideUserIds: z.array(z.string()).optional(),
-  alternateIndices: z.array(z.number()).optional(),
-  note: z.string().optional(),
-  /** Minted on the suspend pass, carried on the card's argsPatch. Optional so a
-   *  legacy approval decided before this shipped still resumes (ungated). */
-  idempotencyKey: z.string().optional(),
-});
+/**
+ * Read off the persisted card, never off the confirm request — the same contract
+ * every A2 tool uses. `.strict()` so a stale client's {decision, overrideUserIds}
+ * cannot reach the writer at all.
+ */
+const ResumeSchema = z
+  .object({
+    action: z.enum(['assign', 'decline']),
+    taskId: z.string(),
+    assigneeUserIds: z.array(z.string()).optional(),
+    idempotencyKey: z.string(),
+  })
+  .strict();
 
 const SuspendSchema = z.object({ card: z.unknown() });
 
@@ -56,8 +60,8 @@ const OutputSchema = z.object({
  *
  * Stateless across resume by design: resume may run in a DIFFERENT process (page
  * reload) where any in-memory state is gone. The assignee set on resume comes
- * ONLY from `resume.overrideUserIds` (populated by the resume endpoint from the
- * persisted approval-card row), never from in-process memory.
+ * ONLY from the branch of the persisted approval card the user selected (read
+ * verbatim by the resume endpoint), never from in-process memory.
  */
 export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
   const { suggest, assign, taskAssignees, ctx } = deps;
@@ -94,12 +98,18 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
 
       // ── Resume pass: short-circuit. No pipeline re-run. ──
       if (resume) {
-        if (resume.decision === 'reject') return { assigned: false };
-        const assigneeUserIds = resume.overrideUserIds ?? [];
-        // Defensive no-op: the resume endpoint always populates overrideUserIds
-        // from the persisted card on a non-reject decision; if it is somehow
-        // absent there is nothing to assign.
-        if (assigneeUserIds.length === 0) return { assigned: false };
+        // Narrowing only: defineAgentTool has already refused anything that does
+        // not match `resumeSchema` before this runs.
+        const decision = ResumeSchema.parse(resume);
+        if (decision.action === 'decline') return { assigned: false };
+        const assigneeUserIds = decision.assigneeUserIds ?? [];
+        if (assigneeUserIds.length === 0) {
+          // The set now ALWAYS travels on the card, so an empty one is a
+          // malformed preview rather than a decision to do nothing. Failing
+          // loudly beats reporting success for an assignment that never
+          // happened.
+          throw new Error('assign_proposeAssignment: card carried no assignees');
+        }
         // Re-resolve the taskRef the same way (cheap, deterministic) so the
         // assign targets the right task even cross-process.
         const resolvedTaskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
@@ -108,10 +118,7 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
           assigneeUserIds,
           tenantId: ctx.tenantId,
           actorUserId: ctx.actorUserId,
-          // Legacy approvals carry no key; mint a per-attempt one so the port's
-          // contract holds. That means no replay protection for them — exactly the
-          // pre-FUT-803 behaviour they were created under.
-          idempotencyKey: resume.idempotencyKey ?? crypto.randomUUID(),
+          idempotencyKey: decision.idempotencyKey,
         });
         return { assigned: true };
       }

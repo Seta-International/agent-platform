@@ -246,11 +246,10 @@ describe('mutate intent (FUT-814)', () => {
     },
   );
 
-  // These three match no regex tier TODAY either — they are pure-Vietnamese, or
-  // carry no English question word. The claim under test is therefore not "the
-  // rules route them" but "the new mutate tier does not STEAL them": they must
-  // still reach the LLM, which decides as it does today.
-  it.each(['ai nên làm task này?', 'tìm người biết React', 'task nào của tôi quá hạn?'])(
+  // Pure-Vietnamese with no English question word and no recommend phrasing. The
+  // claim under test is not "the rules route it" but "the mutate tier does not
+  // STEAL it": it must still reach the LLM, which decides as it does today.
+  it.each(['task nào của tôi quá hạn?'])(
     'leaves %j to the LLM rather than claiming it as mutate',
     async (text) => {
       const llm = vi.fn(async () => 'assignment' as const);
@@ -273,5 +272,60 @@ describe('mutate intent (FUT-814)', () => {
   it('a bare confirmation after an assignment turn stays on assignment', async () => {
     const history = [{ role: 'user' as const, content: 'assign task này cho Tuấn' }];
     expect(await classify('ok', history)).toBe('assignment');
+  });
+});
+
+// The English side of ACTION_RE already catches "find someone for this task" and
+// "who should do this". The Vietnamese side carried exactly one alternative —
+// `tìm task` — so every Vietnamese way of asking for a PERSON fell through to the
+// non-deterministic LLM fallback, whose default arm is planner_qna. Same sentence,
+// different orchestrator on different days: on a bad roll the read-only Q&A agent
+// answered "I cannot find or assign people". These rows make the Vietnamese
+// recommend intent deterministic, the way the English one already is.
+describe('Vietnamese recommend intent routes to assignment by rules', () => {
+  const classify = makeIntentClassifier({
+    resolveModel: () => ({}) as never,
+    // No row below may reach the LLM: reaching it IS the bug being fixed.
+    classifyLlm: async () => {
+      throw new Error('LLM fallback reached — the Vietnamese assignment guard did not match');
+    },
+  });
+
+  it.each([
+    'tìm người phù hợp cho task này',
+    'tìm người phù hợp để làm task Alpha',
+    'tìm người biết React',
+    'tìm nhân sự cho task này',
+    'tìm ai đó làm task này',
+    'ai phù hợp với task này',
+    'ai nên làm task này?',
+    'ai có thể làm task này',
+    'người nào phù hợp với task Alpha',
+    'gợi ý người phù hợp cho task Alpha',
+    'gợi ý ai đó cho task này',
+    'đề xuất người làm task này',
+    'nên giao task này cho ai',
+    'giao task này cho ai',
+  ])('routes %j to assignment', async (text) => {
+    expect(await classify(text)).toBe('assignment');
+  });
+
+  // The guard runs BEFORE MUTATE_RE, which is the whole reason it lives in
+  // ASSIGNEE_TARGET_RE and not in ACTION_RE: a recommend request that happens to
+  // contain a change verb ("thêm", "giao") must still reach the assignment agent.
+  it('wins over a change verb in the same sentence', async () => {
+    expect(await classify('tìm người phù hợp và thêm vào task này')).toBe('assignment');
+  });
+
+  // Non-regression: the mutate tier must keep everything that is genuinely a
+  // change request. These say nothing about a person.
+  it.each([
+    'tạo task mới cho nhóm tôi',
+    'đổi due date của task Alpha sang thứ 6',
+    'xoá task Alpha',
+    'gộp hai task này lại',
+    'liên kết task này với task kia',
+  ])('leaves %j on mutate', async (text) => {
+    expect(await classify(text)).toBe('mutate');
   });
 });

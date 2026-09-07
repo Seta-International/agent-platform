@@ -64,7 +64,6 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
     mutationFn: (args: { approvalId: string; toolId: string | null } & DecideApprovalBody) =>
       workflowsApi.decideApproval(args.approvalId, {
         decision: args.decision,
-        overrideUserIds: args.overrideUserIds,
         note: args.note,
       }),
     onSuccess: (_data, args) => {
@@ -103,12 +102,7 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
             : decide.variables.decision === 'modify'
               ? 'modified'
               : 'rejected') as WorkflowApprovalRow['status'],
-          decisionPayload: {
-            decision: decide.variables.decision,
-            ...(decide.variables.overrideUserIds
-              ? { override_user_ids: decide.variables.overrideUserIds }
-              : {}),
-          },
+          decisionPayload: { decision: decide.variables.decision },
         }
       : null;
 
