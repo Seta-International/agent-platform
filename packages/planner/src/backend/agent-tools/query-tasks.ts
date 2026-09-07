@@ -12,7 +12,8 @@ import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
 import { labels, plans, taskLabels } from '../db/schema.ts';
 import { listTasks } from '../domain/list-tasks.ts';
-import { resolveGroupScope, withScopeError } from './resolve-scope.ts';
+import { hasVisibleActiveGroups } from '../read-helpers.ts';
+import { archivedGroupError, resolveGroupScope, withScopeError } from './resolve-scope.ts';
 
 // ─── domain helper (exported for testing) ──────────────────────────────────
 
@@ -33,6 +34,8 @@ export interface QueryTasksInput {
   titleContains?: string;
   limit?: number;
   cursor?: string;
+  /** Set only when the user explicitly asked for archived groups (FUT-832 AC4). */
+  includeArchived?: boolean;
   /** Injectable clock for deterministic lateness in tests and evals. */
   now?: Date;
   session: SessionScope;
@@ -93,6 +96,10 @@ export interface QueryTaskItem {
 export interface QueryTasksResult {
   tasks: QueryTaskItem[];
   nextCursor: string | null;
+  /** True when archived groups contributed to this page — the answer must say so. */
+  includedArchivedGroups: boolean;
+  /** True when the caller has no live group left, so an empty page is not "no matches". */
+  noActiveGroups: boolean;
 }
 
 const PRIORITY_MAP = { 1: 'urgent', 3: 'important', 5: 'medium', 9: 'low' } as const;
@@ -119,6 +126,7 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
   if (input.isDeferred !== undefined) filters.is_deferred = input.isDeferred;
   if (input.dueBefore !== undefined) filters.due_before = input.dueBefore;
   if (input.titleContains !== undefined) filters.title_contains = input.titleContains;
+  if (input.includeArchived) filters.include_archived_groups = true;
 
   const raw = await listTasks({
     filters,
@@ -175,6 +183,8 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
   return {
     tasks,
     nextCursor: raw.next_cursor ?? null,
+    includedArchivedGroups: input.includeArchived === true,
+    noActiveGroups: tasks.length === 0 ? !(await hasVisibleActiveGroups(session)) : false,
   };
 }
 
@@ -245,6 +255,14 @@ const inputSchema = z.object({
     .string()
     .optional()
     .describe('Pagination cursor from a previous call. Omit for first page.'),
+  includeArchived: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Set true ONLY when the user explicitly asked to include archived groups ' +
+        '("including archived", "even the archived ones"). Default false — archived groups ' +
+        'are outside active work and must not leak into a general answer.',
+    ),
 });
 
 const taskItemSchema = z.object({
@@ -282,6 +300,19 @@ const outputSchema = withScopeError(
       .describe(
         'Pass as `cursor` in the next call to get the following page. null = no more pages.',
       ),
+    includedArchivedGroups: z
+      .boolean()
+      .describe(
+        'True when archived groups contributed to this result. The answer MUST state that ' +
+          'archived groups are included.',
+      ),
+    noActiveGroups: z
+      .boolean()
+      .describe(
+        'True when the user belongs to no active group — every group they had is archived. ' +
+          'An empty tasks list then means exactly that: say the user has no active groups ' +
+          'instead of reporting that no tasks were found.',
+      ),
   }),
 );
 
@@ -312,14 +343,25 @@ export const plannerQueryTasksTool = defineAgentTool({
     const session = await buildActorSession(actor);
 
     let groupId = input.groupId;
-    if (!groupId && input.groupName) {
-      const resolved = await resolveGroupScope(session, { groupName: input.groupName });
+    if (groupId || input.groupName) {
+      const resolved = await resolveGroupScope(session, {
+        groupId,
+        groupName: input.groupName,
+      });
       if ('notFound' in resolved) {
-        return { tasks: [], nextCursor: null } as QueryTasksResult;
+        return {
+          tasks: [],
+          nextCursor: null,
+          includedArchivedGroups: false,
+          noActiveGroups: false,
+        } as QueryTasksResult;
       }
       if ('ambiguous' in resolved) {
         const names = resolved.options.map((o) => o.name).join(', ');
         return { error: `Multiple groups found: ${names}. Please specify which one.` };
+      }
+      if ('archived' in resolved && !input.includeArchived) {
+        return { error: archivedGroupError(resolved.name) };
       }
       groupId = resolved.id;
     }

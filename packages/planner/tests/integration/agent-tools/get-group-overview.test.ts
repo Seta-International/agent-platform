@@ -2,7 +2,7 @@ import { requiredPermissionFor } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { addGroupMember, createGroup } from '@seta/planner';
+import { addGroupMember, createGroup, deleteGroup } from '@seta/planner';
 import { plannerGetGroupOverviewTool } from '@seta/planner/agent-tools';
 import {
   buildRegistry,
@@ -87,6 +87,30 @@ describe('planner_getGroupOverview tool', () => {
       expect(result.members.some((m) => m.displayName === 'Alice')).toBe(true);
       expect(result.members.find((m) => m.displayName === 'Alice')?.email).toBe('alice@demo.local');
       expect(result.plans).toEqual([]);
+    });
+  });
+
+  it('says an archived group is archived instead of answering from its data', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = buildAdminSession({
+        tenant_id,
+        user_id: admin_user_id,
+        email: 'admin@demo.local',
+      });
+
+      const group = await createGroup({ tenant_id, name: 'Helios Migration', session });
+      await deleteGroup({ group_id: group.id, expected_version: group.version, session });
+
+      const res = (await plannerGetGroupOverviewTool.execute!(
+        { groupId: group.id },
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
+      )) as { group?: unknown; members?: unknown[]; error?: string };
+
+      expect(res.error).toMatch(/archived/i);
+      expect(res.error).toContain('Helios Migration');
+      expect(res.group).toBeUndefined();
+      expect(res.members).toBeUndefined();
     });
   });
 

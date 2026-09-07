@@ -142,16 +142,4 @@ export function registerHiringCandidateRoutes(app: Hono<SessionEnv>): void {
       }),
     );
   });
-  app.post('/api/hiring/v1/applications/:id/hire', async (c) => {
-    const parsed = version.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success)
-      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
-    return c.json(
-      await hireApplication({
-        application_id: c.req.param('id'),
-        ...parsed.data,
-        session: c.get('user'),
-      }),
-    );
-  });
 }

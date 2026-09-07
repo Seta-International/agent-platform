@@ -461,6 +461,9 @@ export const projectProjection = hiringSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     account_id: uuid('account_id').notNull(),
     name: text('name').notNull(),
+    // FUT-984: the project's own End Date, projected from pm so a Requisition can be blocked
+    // for an ended project without a cross-schema join.
+    date_to: date('date_to'),
   },
   (t) => [index('project_projection_by_account').on(t.tenant_id, t.account_id)],
 );

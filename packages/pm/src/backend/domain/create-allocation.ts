@@ -9,6 +9,7 @@ import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
+import { assertWorkerNotAlumni } from './assert-worker-not-alumni.ts';
 
 export async function createAllocation(
   input: CreateAllocationInput & { session: SessionScope },
@@ -28,6 +29,10 @@ export async function createAllocation(
       throw new PmError('VALIDATION', `${parsed.status} allocations require a worker`);
     if (!parsed.date_from)
       throw new PmError('VALIDATION', `${parsed.status} allocations require a start date`);
+  }
+
+  if (parsed.worker_id) {
+    await assertWorkerNotAlumni(session.tenant_id, parsed.worker_id);
   }
 
   let result!: { allocation_id: string };

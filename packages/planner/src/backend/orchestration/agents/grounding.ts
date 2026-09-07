@@ -14,3 +14,16 @@ export const GROUNDING_POLICY = `Grounding policy (mandatory):
   successful tool result or in the user's own message.
 - If you need such a value and do not have it, call the appropriate tool. If no
   tool can supply it, say what is missing — do NOT guess a figure.`;
+
+// FUT-832. The tools now refuse archived groups on their own, so this policy is
+// about the wording: an archived group must be named as archived rather than
+// disappearing into "not found", and an opt-in read must announce itself.
+export const ARCHIVED_GROUP_POLICY = `Archived groups (mandatory):
+- Archived groups are outside active work. Never include them in an answer unless
+  the user explicitly asked for archived groups.
+- Set includeArchived only on that explicit ask. When a result comes back with
+  includedArchivedGroups true, state in the answer that archived groups are included.
+- A tool that reports a group as archived is not a failure: say that group is
+  archived instead of reporting its data or calling it missing.
+- When a result comes back with noActiveGroups true, the user has no active group
+  left — say that, rather than "no tasks found".`;

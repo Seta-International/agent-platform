@@ -52,6 +52,10 @@ export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 // tell it apart from a genuine write failure (FUT-840 design D11).
 export { PendingTaskPreviewExistsError } from './backend/domain/write-chat-approval-row.ts';
 
-export { ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
+export {
+  ModelNotFoundError,
+  resolveDefaultModel,
+  resolveModel,
+} from './backend/model-registry.ts';
 export { AgentRunStateRepository } from './backend/orchestration/run-state-repository.ts';
 export { registerAgentContributions } from './register.ts';

@@ -38,6 +38,7 @@ import {
   VStack,
 } from './_ui-compat.tsx';
 import { ProjectAccessSection } from './project-access-section.tsx';
+import { ProjectLeadershipSection } from './project-leadership-section.tsx';
 import { StaffingPlanSection } from './staffing-plan-section.tsx';
 
 const PHASES = ['initiation', 'discovery', 'execution', 'stabilize', 'uat', 'closed'] as const;
@@ -419,6 +420,13 @@ export function ProjectDetailPage() {
             )}
 
             <Card className="space-y-6 pt-6">
+              <ProjectLeadershipSection
+                projectId={projectId}
+                version={p.version}
+                pmWorkerId={p.pm_worker_id}
+                pmoWorkerId={p.pmo_worker_id}
+                canManage={!inputsDisabled}
+              />
               <StaffingPlanSection projectId={projectId} canManage={canManage} />
               <ProjectAccessSection projectId={projectId} canManage={canManage} />
             </Card>

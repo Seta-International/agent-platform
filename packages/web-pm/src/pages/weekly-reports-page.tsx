@@ -1,4 +1,5 @@
 import {
+  Badge,
   BreadcrumbItem,
   Breadcrumbs,
   Button,
@@ -30,6 +31,7 @@ import {
   colourBadge,
   colourKey,
   formatBand,
+  formatDueDate,
   formatMetricValue,
   isoWeekBase,
   isReportingWeekOpen,
@@ -94,19 +96,14 @@ export function WeeklyReportsPage() {
     [weekOptions, iso_year, iso_week],
   );
   const accountOptions = useMemo(
-    () => [
-      { value: '', label: 'All accounts' },
-      ...(accountsQuery.data ?? []).map((a) => ({ value: a.account_id, label: a.name })),
-    ],
+    () => (accountsQuery.data ?? []).map((a) => ({ value: a.account_id, label: a.name })),
     [accountsQuery.data],
   );
   const projectOptions = useMemo(
-    () => [
-      { value: '', label: 'All projects' },
-      ...(projectsQuery.data ?? [])
+    () =>
+      (projectsQuery.data ?? [])
         .filter((p) => !search.account || p.account_id === search.account)
         .map((p) => ({ value: p.project_id, label: p.name })),
-    ],
     [projectsQuery.data, search.account],
   );
   const manageableOptions = useMemo(
@@ -137,7 +134,7 @@ export function WeeklyReportsPage() {
   const composableOptions = useMemo(
     () =>
       cards
-        .filter((c) => c.can_report && !c.reported_by_me)
+        .filter((c) => c.can_report && !c.reported_by_me && !c.project_ended)
         .map((c) => ({ value: c.project_id, label: c.project_name })),
     [cards],
   );
@@ -157,7 +154,9 @@ export function WeeklyReportsPage() {
     : cannotReport
       ? 'Only a project’s EM or PMO can write its weekly report, and you are neither on any project.'
       : allReported
-        ? 'You have already written this week’s report for every project shown here.'
+        ? reportableCards.some((c) => !c.reported_by_me)
+          ? 'The remaining projects here have already ended for this week — there is nothing new to report on.'
+          : 'You have already written this week’s report for every project shown here.'
         : nothingToReport
           ? 'None of the projects shown here are yours to report on — clear the filters to reach the ones that are.'
           : notCurrentWeek
@@ -245,9 +244,13 @@ export function WeeklyReportsPage() {
               <Selector
                 label="Account"
                 size="sm"
-                width={208}
+                width={240}
+                placeholder="All accounts"
+                hasSearch
+                searchPlaceholder="Search accounts…"
+                hasClear
                 options={accountOptions}
-                value={search.account ?? ''}
+                value={search.account ?? null}
                 onChange={(v) => {
                   setPage(1);
                   setSearch({ account: v || undefined, project: undefined });
@@ -256,9 +259,13 @@ export function WeeklyReportsPage() {
               <Selector
                 label="Project"
                 size="sm"
-                width={208}
+                width={240}
+                placeholder="All projects"
+                hasSearch
+                searchPlaceholder="Search projects…"
+                hasClear
                 options={projectOptions}
-                value={search.project ?? ''}
+                value={search.project ?? null}
                 onChange={(v) => {
                   setPage(1);
                   setSearch({ project: v || undefined });
@@ -334,7 +341,7 @@ export function WeeklyReportsPage() {
                         label={`Open weekly report for ${card.project_name}`}
                         onClick={() => setSearch({ detail: card.project_id })}
                         padding={4}
-                        className="flex h-full flex-col gap-3"
+                        className={`flex h-full flex-col gap-3 ${card.project_ended ? 'opacity-70' : ''}`}
                       >
                         {/* Identity (account only) + the overall verdict as a RAG badge. */}
                         <div className="flex items-start justify-between gap-2">
@@ -345,6 +352,13 @@ export function WeeklyReportsPage() {
                             <Text type="supporting" color="secondary" maxLines={1} display="block">
                               {card.account_name}
                             </Text>
+                            {card.project_ended && card.project_date_to ? (
+                              <Badge
+                                variant="neutral"
+                                label={`Ended ${formatDueDate(card.project_date_to)}`}
+                                className="mt-1 font-normal"
+                              />
+                            ) : null}
                           </div>
                           <span className="shrink-0">{colourBadge(overall)}</span>
                         </div>

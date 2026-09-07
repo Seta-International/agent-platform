@@ -258,7 +258,9 @@ const descHtmlClampStyle: CSSProperties = {
   fontSize: 12,
   lineHeight: 1.5,
   color: 'var(--color-text-secondary)',
-  maxHeight: '4.5em',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
 };
 const descClampStyle: CSSProperties = {

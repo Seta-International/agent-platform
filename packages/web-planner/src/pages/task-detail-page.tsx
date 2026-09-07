@@ -406,7 +406,10 @@ export function TaskDetailPage({
               isGroupOwner={isGroupOwner}
             />
           </main>
-          <aside className="flex flex-col gap-3.5 self-start pr-1" aria-label="Task properties">
+          <aside
+            className="sticky top-5 flex flex-col gap-3.5 self-start pr-1"
+            aria-label="Task properties"
+          >
             <TaskDetailProgressCard task={task} planId={planId} />
             <TaskDetailAssigneesCard
               task={task}

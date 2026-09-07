@@ -159,6 +159,7 @@ export interface ProjectOption {
   project_id: string;
   account_id: string;
   name: string;
+  date_to: string | null;
 }
 export interface JdTemplate {
   template: { id: string; name: string; kind: string; version: number };

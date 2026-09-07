@@ -2,7 +2,7 @@ import type { PgVector } from '@mastra/pg';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { plans, taskAssignments, tasks } from '../db/schema.ts';
+import { groups, plans, taskAssignments, tasks } from '../db/schema.ts';
 import { searchTasks } from '../retrieval/search-tasks.ts';
 
 /** Whether to filter by completion state. */
@@ -68,6 +68,8 @@ export async function findSimilarTasks(
     eq(tasks.tenant_id, input.tenant_id),
     inArray(tasks.id, taskIds),
     isNull(tasks.deleted_at),
+    // Semantic search is a task-search path too: archived groups stay out (FUT-832).
+    isNull(groups.deleted_at),
   ];
   if (input.createdAfter) conditions.push(gte(tasks.created_at, input.createdAfter));
   if (input.createdBefore) conditions.push(lte(tasks.created_at, input.createdBefore));
@@ -98,6 +100,7 @@ export async function findSimilarTasks(
     })
     .from(tasks)
     .innerJoin(plans, eq(plans.id, tasks.plan_id))
+    .innerJoin(groups, eq(groups.id, plans.group_id))
     .leftJoin(taskAssignments, eq(taskAssignments.task_id, tasks.id))
     .where(and(...conditions))
     .groupBy(
