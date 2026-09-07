@@ -30,6 +30,46 @@ describe('useWorkerSource', () => {
     expect(out).toEqual([{ id: 'w1', label: 'Alice' }]);
   });
 
+  it('excludeIds drops matching workers from search results', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            json: async () => ({
+              rows: [
+                { worker_id: 'w1', full_name: 'Alice' },
+                { worker_id: 'w2', full_name: 'Bob' },
+              ],
+            }),
+          }) as unknown as Response,
+      ),
+    );
+    const { result } = renderHook(() => useWorkerSource({ excludeIds: ['w1'] }), {
+      wrapper: wrapper(),
+    });
+    expect(await result.current.source.search('')).toEqual([{ id: 'w2', label: 'Bob' }]);
+    expect(await result.current.source.bootstrap()).toEqual([{ id: 'w2', label: 'Bob' }]);
+  });
+
+  it('excludeIds does not affect seed() — an already-assigned worker must still resolve', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            json: async () => ({ rows: [{ worker_id: 'w1', full_name: 'Alice' }] }),
+          }) as unknown as Response,
+      ),
+    );
+    const { result } = renderHook(() => useWorkerSource({ excludeIds: ['w1'] }), {
+      wrapper: wrapper(),
+    });
+    expect(await result.current.seed(['w1'])).toEqual([{ id: 'w1', label: 'Alice' }]);
+  });
+
   it('seed() maps the endpoint rows to searchable items as-is, without filtering by id', async () => {
     // The real workers endpoint ignores the `ids` filter and returns the tenant's
     // full list — `seed()` here only maps rows through `mapRow`; it does not (and
