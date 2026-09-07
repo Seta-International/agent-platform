@@ -4,6 +4,7 @@ import type { Hono } from 'hono';
 import { z } from 'zod';
 import {
   PendingAssignmentExistsError,
+  PendingTaskPreviewExistsError,
   writeChatApprovalRow,
 } from '../domain/write-chat-approval-row.ts';
 import { agentEnv } from '../env.ts';
@@ -232,6 +233,27 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
           // Expected race: an evented assignBySkill run is in flight for this
           // task but hasn't reached its suspend step yet. The existing proposal
           // stands — no competing card needed. Fail open; don't break the turn.
+          return;
+        }
+        if (err instanceof PendingTaskPreviewExistsError) {
+          // The one-preview-per-task mutex refused this card (design D11/D16).
+          // The ORDINARY case is caught by the tool's pre-check, which refuses in
+          // a sentence before the model narrates. Reaching here means two turns
+          // raced the same key and this one lost the advisory lock AFTER
+          // narrating: the lock converts "possibly two pending cards for one
+          // task" (an AC1 breach) into "possibly one turn that narrates without a
+          // card", which is already the designed behaviour for any read-model
+          // failure below. Log and let the turn finish.
+          logError(
+            deps,
+            {
+              subsystem: 'agent.chat',
+              event: 'onApproval.mutex.refused',
+              threadId: orchThreadId,
+              taskId: err.taskId,
+            },
+            'a preview already exists for this task — skipping the competing card',
+          );
           return;
         }
         // Read-model write failure must not abort the chat turn.

@@ -74,7 +74,24 @@ export const ApprovalCardSchema = z.object({
     // strings; it never learns which tool or module authored them. Optional so a
     // card that declares nothing has no mutex at all — the safe default, since a
     // wrongly-inherited mutex silently swallows a second, legitimate card.
+    //
+    // PLURAL because a bulk card covers up to 20 tasks and one string cannot
+    // express "one preview per task" for 20 of them (design D10). An assign card
+    // declares BOTH `assign:<id>` and `task:<id>`, in that order — the keys are
+    // evaluated in DECLARATION ORDER and the first hit wins (design D11).
+    dedupKeys: z.array(z.string()).optional(),
+    /**
+     * @deprecated Superseded by `dedupKeys`. Kept for ONE release so a card
+     * persisted before FUT-840 is still seen by the assign mutex and still voided
+     * by the supersede subscriber (spec §3.2). Delete once no pending row can
+     * carry it — bounded by the 72-hour approval TTL.
+     */
     dedupKey: z.string().optional(),
+    // The approval this card REPLACES. Stamped by the tool's revision branch and
+    // consumed by writeChatApprovalRow, which performs the supersede inside the
+    // same transaction as the INSERT (design D8'). The card is the only channel
+    // between the two, which is why this field exists at all.
+    supersedes: z.string().uuid().optional(),
   }),
 });
 

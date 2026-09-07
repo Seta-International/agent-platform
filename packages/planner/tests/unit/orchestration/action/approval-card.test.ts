@@ -421,7 +421,8 @@ describe('buildAssignTaskApprovalCard', () => {
 
   // Plan 01's mechanism: this card and the recommend card must not coexist.
   it('declares the assign mutex for its task', () => {
-    expect(buildAssignTaskApprovalCard(base).meta.dedupKey).toBe('assign:id-a');
+    // Plural since FUT-840; `assign:` stays FIRST so the reuse rule wins.
+    expect(buildAssignTaskApprovalCard(base).meta.dedupKeys?.[0]).toBe('assign:id-a');
   });
 
   it('is a write, not a destructive change', () => {
@@ -562,5 +563,124 @@ describe('buildCommentTaskApprovalCard', () => {
     const card = buildCommentTaskApprovalCard(base);
     expect(card.alternates).toEqual([]);
     expect(card.riskBadge).toBe('write');
+  });
+});
+
+describe('A2 cards declare their mutex keys (FUT-840 design D11)', () => {
+  it('an update card takes the one-preview-per-task key', () => {
+    const card = buildUpdateApprovalCard({
+      task: snap(),
+      patch: { due_at: '2026-08-21T16:59:00.000Z' },
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect(card.meta.dedupKeys).toEqual([`task:${snap().taskId}`]);
+  });
+
+  it('a bulk card takes ONE key per task — the concrete reason plural is worth it', () => {
+    const tasks = [snap({ taskId: 'a' }), snap({ taskId: 'b' }), snap({ taskId: 'c' })];
+    const card = buildBulkApprovalCard({
+      tasks,
+      patch: { percent_complete: 100 },
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect(card.meta.dedupKeys).toEqual(['task:a', 'task:b', 'task:c']);
+  });
+
+  it('an assign card carries BOTH keys, assign FIRST — first hit wins (design D11)', () => {
+    const card = buildAssignTaskApprovalCard({
+      taskId: 'a',
+      title: 'AWS migration',
+      before: [],
+      after: [{ userId: 'u2', name: 'Tuan' }],
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    // assign: keeps FUT-806's reuse semantics; task: generalizes the mutex.
+    // Order is the mechanism, not decoration.
+    expect(card.meta.dedupKeys).toEqual(['assign:a', 'task:a']);
+    // The legacy singular field is gone from new cards; only READS tolerate it.
+    expect(card.meta.dedupKey).toBeUndefined();
+  });
+
+  it('a link card takes a key for BOTH endpoints — the preview is about both', () => {
+    const card = buildLinkApprovalCard({
+      source: snap({ taskId: 'a', title: 'Alpha' }),
+      target: snap({ taskId: 'b', title: 'Beta' }),
+      kind: 'relates',
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect(card.meta.dedupKeys).toEqual(['task:a', 'task:b']);
+  });
+
+  it('a merge card takes a key for both sides of the pair', () => {
+    const card = buildMergeApprovalCard({
+      duplicate: snap({ taskId: 'a', title: 'Alpha' }),
+      keep: snap({ taskId: 'b', title: 'Beta' }),
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect(card.meta.dedupKeys).toEqual(['task:a', 'task:b']);
+  });
+
+  it('a comment card takes the task key', () => {
+    const card = buildCommentTaskApprovalCard({
+      taskId: 'a',
+      title: 'AWS migration',
+      body: 'waiting on the vendor',
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect(card.meta.dedupKeys).toEqual(['task:a']);
+  });
+
+  it('a create card declares NO key — there is no task yet to be the subject of one', () => {
+    const card = buildCreateTaskApprovalCard({
+      planId: 'p1',
+      planName: 'Sprint 32',
+      bucketId: 'b1',
+      bucketName: 'To do',
+      draft: { title: 'Write the release notes' },
+      similar: [],
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect(card.meta.dedupKeys).toBeUndefined();
+  });
+});
+
+describe('A2 cards stamp meta.supersedes when replacing one (FUT-840 design D8)', () => {
+  const SUPERSEDES = '7f3a1c2e-1111-4222-8333-444455556666';
+
+  it('an update card carries the approval it replaces', () => {
+    const card = buildUpdateApprovalCard({
+      task: snap(),
+      patch: { due_at: '2026-08-21T16:59:00.000Z' },
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+      supersedes: SUPERSEDES,
+    });
+    expect(card.meta.supersedes).toBe(SUPERSEDES);
+  });
+
+  it('omits the field entirely on an ordinary first proposal', () => {
+    const card = buildUpdateApprovalCard({
+      task: snap(),
+      patch: { due_at: '2026-08-21T16:59:00.000Z' },
+      tenantId: 't1',
+      userId: 'u1',
+      idempotencyKey: 'k1',
+    });
+    expect('supersedes' in card.meta).toBe(false);
   });
 });

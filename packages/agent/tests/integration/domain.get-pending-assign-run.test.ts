@@ -184,3 +184,57 @@ describe('getPendingAssignRunIdForTask', () => {
     });
   });
 });
+
+describe('getPendingAssignRunIdForTask — both dedup key shapes (FUT-840 spec §3.2)', () => {
+  /** A chat card under any workflow id whose meta declares the given keys. */
+  async function seedChatCard(
+    pool: Pool,
+    args: { tenantId: string; taskId: string; meta: Record<string, unknown> },
+  ): Promise<string> {
+    const runId = await seedRun({
+      pool,
+      workflowId: 'planner.action',
+      status: 'paused',
+      tenantId: args.tenantId,
+      inputSummary: { taskId: args.taskId },
+    });
+    await seedApproval({
+      pool,
+      runId,
+      proposedPayload: {
+        primary: { argsPatch: { action: 'assign', taskId: args.taskId } },
+        meta: args.meta,
+      },
+    });
+    return runId;
+  }
+
+  it('finds a card that declares the assign key in the PLURAL shape', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const taskId = randomUUID();
+      const runId = await seedChatCard(pool, {
+        tenantId,
+        taskId,
+        meta: { dedupKeys: [`assign:${taskId}`, `task:${taskId}`] },
+      });
+
+      expect(await getPendingAssignRunIdForTask({ taskId, tenantId })).toBe(runId);
+    });
+  });
+
+  it('still finds a row persisted with the LEGACY singular dedupKey (spec §3.2)', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const taskId = randomUUID();
+      // Exactly what a card written before FUT-840 carries.
+      const runId = await seedChatCard(pool, {
+        tenantId,
+        taskId,
+        meta: { dedupKey: `assign:${taskId}` },
+      });
+
+      expect(await getPendingAssignRunIdForTask({ taskId, tenantId })).toBe(runId);
+    });
+  });
+});

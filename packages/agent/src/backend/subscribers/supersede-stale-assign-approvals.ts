@@ -40,6 +40,10 @@ export async function supersedeStaleAssignApprovals(
   // sweeper expired it (design §0.3). The evented assignBySkill card declares
   // no dedupKey, so the two statements never touch the same row. No run join is
   // needed any more — the workflow id was the only column it read from there.
+  //
+  // The legacy singular disjunct is a ONE-RELEASE tolerant read (FUT-840 spec
+  // §3.2). Without it a card persisted before the plural rename would stay
+  // pending after its task was assigned elsewhere, until the 72-hour sweeper.
   await ctx.tx.execute(sql`
     UPDATE agent.workflow_approvals AS a
        SET status = 'superseded',
@@ -49,9 +53,12 @@ export async function supersedeStaleAssignApprovals(
            ),
            decided_at = now()
      WHERE a.tenant_id = ${event.tenantId}::uuid
-       AND a.proposed_payload @> jsonb_build_object(
-             'meta', jsonb_build_object('dedupKey', ${dedupKey}::text)
-           )
+       AND (
+         jsonb_exists(a.proposed_payload -> 'meta' -> 'dedupKeys', ${dedupKey})
+         OR a.proposed_payload @> jsonb_build_object(
+              'meta', jsonb_build_object('dedupKey', ${dedupKey}::text)
+            )
+       )
        AND a.status = 'pending'
   `);
 }

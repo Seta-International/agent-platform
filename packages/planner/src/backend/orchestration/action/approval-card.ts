@@ -43,6 +43,14 @@ const PROGRESS_LABELS: Record<number, string> = {
 
 const EMPTY = '(empty)';
 
+/** The generalized one-preview-per-task mutex key (FUT-840 design D11). Every A2
+ *  card that is ABOUT an existing task declares one per task it touches, so the
+ *  writer can refuse a second pending preview for the same task. Create declares
+ *  none: there is no task yet. */
+function taskKey(taskId: string): string {
+  return `task:${taskId}`;
+}
+
 function formatInstant(iso: string): string {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: PLATFORM_TIMEZONE,
@@ -96,6 +104,10 @@ export interface BuildUpdateApprovalCardOpts {
    *  whichever path resumes — /chat/resume or resumeRetry — the write is gated
    *  by the same key. */
   idempotencyKey: string;
+  /** The approval this card REPLACES, when the user revised an open preview
+   *  (FUT-840 design D8). The writer voids it in the same transaction as the
+   *  INSERT, so no committed instant has two pending cards for one task. */
+  supersedes?: string;
 }
 
 /**
@@ -109,7 +121,7 @@ export interface BuildUpdateApprovalCardOpts {
  * confirmed preview from silently clobbering somebody else's edit.
  */
 export function buildUpdateApprovalCard(opts: BuildUpdateApprovalCardOpts): ApprovalCard {
-  const { task, patch, tenantId, userId, idempotencyKey } = opts;
+  const { task, patch, tenantId, userId, idempotencyKey, supersedes } = opts;
 
   const rows = FIELD_ORDER.filter((f) => patch[f] !== undefined).map((f) => ({
     k: FIELD_LABELS[f],
@@ -155,6 +167,8 @@ export function buildUpdateApprovalCard(opts: BuildUpdateApprovalCardOpts): Appr
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_updateTask',
+      dedupKeys: [taskKey(task.taskId)],
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
@@ -167,6 +181,8 @@ export interface BuildBulkApprovalCardOpts {
   tenantId: string;
   userId: string;
   idempotencyKey: string;
+  /** See `BuildUpdateApprovalCardOpts.supersedes`. */
+  supersedes?: string;
 }
 
 /**
@@ -176,7 +192,7 @@ export interface BuildBulkApprovalCardOpts {
  * (design D7, §0.6) and a card never shows raw ids or encoded numbers.
  */
 export function buildBulkApprovalCard(opts: BuildBulkApprovalCardOpts): ApprovalCard {
-  const { tasks, patch, tenantId, userId, idempotencyKey } = opts;
+  const { tasks, patch, tenantId, userId, idempotencyKey, supersedes } = opts;
   if (tasks.length === 0) {
     throw new Error('buildBulkApprovalCard: no targets');
   }
@@ -211,6 +227,8 @@ export function buildBulkApprovalCard(opts: BuildBulkApprovalCardOpts): Approval
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_updateTask',
+      dedupKeys: tasks.map((t) => taskKey(t.taskId)),
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
@@ -231,12 +249,14 @@ export interface BuildLinkApprovalCardOpts {
   tenantId: string;
   userId: string;
   idempotencyKey: string;
+  /** See `BuildUpdateApprovalCardOpts.supersedes`. */
+  supersedes?: string;
 }
 
 /** A link deletes nothing, so `riskBadge` is `write`. Merge, which trashes a
  *  task, is `destructive` — the badge is the user's one visual cue. */
 export function buildLinkApprovalCard(opts: BuildLinkApprovalCardOpts): ApprovalCard {
-  const { source, target, kind, tenantId, userId, idempotencyKey } = opts;
+  const { source, target, kind, tenantId, userId, idempotencyKey, supersedes } = opts;
   const sourceTitle = clipTitle(source.title);
   const targetTitle = clipTitle(target.title);
   const ids = {
@@ -270,6 +290,8 @@ export function buildLinkApprovalCard(opts: BuildLinkApprovalCardOpts): Approval
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_linkTasks',
+      dedupKeys: [taskKey(source.taskId), taskKey(target.taskId)],
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
@@ -281,6 +303,8 @@ export interface BuildMergeApprovalCardOpts {
   tenantId: string;
   userId: string;
   idempotencyKey: string;
+  /** See `BuildUpdateApprovalCardOpts.supersedes`. */
+  supersedes?: string;
 }
 
 /**
@@ -291,7 +315,7 @@ export interface BuildMergeApprovalCardOpts {
  *    "undo" would leave a live task marked as a duplicate of another live task.
  */
 export function buildMergeApprovalCard(opts: BuildMergeApprovalCardOpts): ApprovalCard {
-  const { duplicate, keep, tenantId, userId, idempotencyKey } = opts;
+  const { duplicate, keep, tenantId, userId, idempotencyKey, supersedes } = opts;
   const dupTitle = clipTitle(duplicate.title);
   const keepTitle = clipTitle(keep.title);
   const ids = {
@@ -326,6 +350,8 @@ export function buildMergeApprovalCard(opts: BuildMergeApprovalCardOpts): Approv
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_mergeTasks',
+      dedupKeys: [taskKey(duplicate.taskId), taskKey(keep.taskId)],
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
@@ -341,6 +367,8 @@ export interface BuildAssignTaskApprovalCardOpts {
   tenantId: string;
   userId: string;
   idempotencyKey: string;
+  /** See `BuildUpdateApprovalCardOpts.supersedes`. */
+  supersedes?: string;
 }
 
 const NOBODY = 'Nobody';
@@ -362,7 +390,7 @@ function names(people: Array<{ name: string }>): string {
  *    confirm/cancel rather than candidate rows.
  */
 export function buildAssignTaskApprovalCard(opts: BuildAssignTaskApprovalCardOpts): ApprovalCard {
-  const { taskId, title, before, after, tenantId, userId, idempotencyKey } = opts;
+  const { taskId, title, before, after, tenantId, userId, idempotencyKey, supersedes } = opts;
   const ids = { taskId, idempotencyKey };
 
   return {
@@ -395,9 +423,14 @@ export function buildAssignTaskApprovalCard(opts: BuildAssignTaskApprovalCardOpt
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_assignTask',
-      // The same string the recommend card declares, so the two cannot both be
-      // pending for one task and confirming either clears the other (design D7).
-      dedupKey: `assign:${taskId}`,
+      // BOTH keys, assign FIRST. `assign:` is the string the recommend card
+      // declares, so the two cannot both be pending for one task and confirming
+      // either clears the other (design D7). `task:` brings assign cards under
+      // the generalized one-preview-per-task rule. Keys are evaluated in
+      // DECLARATION ORDER and the first hit wins (design D11), so an A2 assign
+      // card satisfying both rules resolves as REUSE, never as a refusal.
+      dedupKeys: [`assign:${taskId}`, taskKey(taskId)],
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
@@ -410,6 +443,8 @@ export interface BuildCommentTaskApprovalCardOpts {
   tenantId: string;
   userId: string;
   idempotencyKey: string;
+  /** See `BuildUpdateApprovalCardOpts.supersedes`. */
+  supersedes?: string;
 }
 
 /**
@@ -421,7 +456,7 @@ export interface BuildCommentTaskApprovalCardOpts {
  * `display()` clips every table value at 140 characters.
  */
 export function buildCommentTaskApprovalCard(opts: BuildCommentTaskApprovalCardOpts): ApprovalCard {
-  const { taskId, title, body, tenantId, userId, idempotencyKey } = opts;
+  const { taskId, title, body, tenantId, userId, idempotencyKey, supersedes } = opts;
   return {
     toolCallId: `planner.action:${idempotencyKey}`,
     intent: `Comment on "${clipTitle(title)}"`,
@@ -444,6 +479,8 @@ export function buildCommentTaskApprovalCard(opts: BuildCommentTaskApprovalCardO
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_commentTask',
+      dedupKeys: [taskKey(taskId)],
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
@@ -462,6 +499,8 @@ export interface BuildCreateTaskApprovalCardOpts {
   tenantId: string;
   userId: string;
   idempotencyKey: string;
+  /** See `BuildUpdateApprovalCardOpts.supersedes`. */
+  supersedes?: string;
 }
 
 const MAX_DUPLICATE_BRANCHES = 3;
@@ -486,6 +525,7 @@ export function buildCreateTaskApprovalCard(opts: BuildCreateTaskApprovalCardOpt
     tenantId,
     userId,
     idempotencyKey,
+    supersedes,
   } = opts;
   const shortlist = similar.slice(0, MAX_DUPLICATE_BRANCHES);
 
@@ -533,7 +573,7 @@ export function buildCreateTaskApprovalCard(opts: BuildCreateTaskApprovalCardOpt
       argsPatch: { action: 'use_existing', existingTaskId: s.taskId, idempotencyKey },
     })),
     decline: { label: 'Cancel', argsPatch: { action: 'decline', idempotencyKey } },
-    // No meta.dedupKey: create has no mutex, because there is no task yet to be
+    // No meta.dedupKeys: create has no mutex, because there is no task yet to be
     // the subject of one.
     meta: {
       tenantId,
@@ -541,6 +581,7 @@ export function buildCreateTaskApprovalCard(opts: BuildCreateTaskApprovalCardOpt
       agentPath: ['action', 'orchestrator'],
       workflowId: ACTION_WORKFLOW_ID,
       toolId: 'planner_createTask',
+      ...(supersedes ? { supersedes } : {}),
       ts: new Date().toISOString(),
     },
   };
