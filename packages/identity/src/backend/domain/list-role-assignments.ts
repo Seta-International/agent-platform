@@ -73,6 +73,39 @@ export async function listUserGroupIds(userId: string): Promise<string[]> {
  * (e.g. the People directory) that need role summaries for a page of users without
  * looping single-user calls or joining across schemas.
  */
+/**
+ * Reverse lookup: find all user IDs that hold any of the given role slugs in a tenant.
+ * Merges direct grants and group-based grants, returns deduplicated user_id[].
+ */
+export async function listUserIdsByRoleSlugs(
+  tenantId: string,
+  roleSlugs: string[],
+): Promise<string[]> {
+  if (roleSlugs.length === 0) return [];
+  const db = identityDb();
+
+  const direct = await db
+    .select({ user_id: roleAssignments.user_id })
+    .from(roleAssignments)
+    .where(
+      and(
+        eq(roleAssignments.tenant_id, tenantId),
+        inArray(roleAssignments.role_slug, roleSlugs),
+        isNull(roleAssignments.revoked_at),
+      ),
+    );
+
+  const viaGroups = await db
+    .select({ user_id: accessGroupMembership.user_id })
+    .from(accessGroupRole)
+    .innerJoin(accessGroup, eq(accessGroup.id, accessGroupRole.group_id))
+    .innerJoin(accessGroupMembership, eq(accessGroupMembership.group_id, accessGroup.id))
+    .where(and(eq(accessGroup.tenant_id, tenantId), inArray(accessGroupRole.role_slug, roleSlugs)));
+
+  const ids = new Set([...direct.map((r) => r.user_id), ...viaGroups.map((r) => r.user_id)]);
+  return [...ids];
+}
+
 export async function listRolesForUsers(
   session: SessionScope,
   userIds: string[],

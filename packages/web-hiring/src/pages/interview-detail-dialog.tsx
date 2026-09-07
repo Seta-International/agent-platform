@@ -1,3 +1,4 @@
+import { NOTE_WORD_LIMIT, wordCount } from '@seta/hiring/contracts';
 import {
   Avatar,
   Badge,
@@ -122,9 +123,10 @@ export function InterviewDetailDialog({
   // agree with the list on what counts as overdue rather than judging it separately.
   const isOverdue =
     isRecording && interview && dayBucketOf(interview.scheduled_at, new Date()) === 'overdue';
+  const feedbackTooLong = wordCount(feedbackNote) > NOTE_WORD_LIMIT;
 
   function saveOutcome() {
-    if (!interview) return;
+    if (!interview || feedbackTooLong) return;
     onUpdate(interview.id, {
       status: 'completed',
       result,
@@ -213,6 +215,14 @@ export function InterviewDetailDialog({
                               value={feedbackNote}
                               onChange={setFeedbackNote}
                               placeholder="What stood out, gaps, evidence…"
+                              status={
+                                feedbackTooLong
+                                  ? {
+                                      type: 'error',
+                                      message: `Keep it to ${NOTE_WORD_LIMIT} words or fewer.`,
+                                    }
+                                  : undefined
+                              }
                             />
                           </VStack>
                         ) : interview.status === 'completed' ? (
@@ -356,6 +366,7 @@ export function InterviewDetailDialog({
                       variant="primary"
                       label={isEditing ? 'Save changes' : 'Save outcome'}
                       onClick={saveOutcome}
+                      isDisabled={feedbackTooLong}
                     />
                   </>
                 ) : interview.status === 'completed' ? (

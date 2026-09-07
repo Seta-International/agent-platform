@@ -46,7 +46,14 @@ export function ProjectLeadershipSection({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const workerSource = useWorkerSource();
+  // One project can't have the same person as both EM and PMO — each role's search
+  // excludes whoever currently holds the other one.
+  const emSource = useWorkerSource({ excludeIds: pmoWorkerId ? [pmoWorkerId] : [] });
+  const pmoSource = useWorkerSource({ excludeIds: pmWorkerId ? [pmWorkerId] : [] });
+  const sourceForRole: Record<LeadershipRoleKey, ReturnType<typeof useWorkerSource>> = {
+    pm_worker_id: emSource,
+    pmo_worker_id: pmoSource,
+  };
   const [picks, setPicks] = useState<Record<LeadershipRoleKey, SearchableItem | null>>({
     pm_worker_id: null,
     pmo_worker_id: null,
@@ -54,7 +61,7 @@ export function ProjectLeadershipSection({
 
   const [resolvedWorkers] = useSeededItems(
     [pmWorkerId, pmoWorkerId].filter((id): id is string => id !== null),
-    workerSource.seed,
+    emSource.seed,
   );
   const nameOf = useMemo(() => {
     const m = new Map(resolvedWorkers.map((o) => [o.id, o.label]));
@@ -100,7 +107,7 @@ export function ProjectLeadershipSection({
           <Typeahead
             label={`Search ${r.role_label}`}
             isLabelHidden
-            searchSource={workerSource.source}
+            searchSource={sourceForRole[r.role_key].source}
             value={picks[r.role_key]}
             onChange={(item) => setPicks((s) => ({ ...s, [r.role_key]: item }))}
             placeholder="Search workers…"

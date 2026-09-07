@@ -102,6 +102,18 @@ export const performanceConfigSavedPayload = z.object({
 });
 export type PerformanceConfigSavedPayload = z.infer<typeof performanceConfigSavedPayload>;
 
+export const PEOPLE_MORALE_SUBMITTED = 'people.morale.submitted';
+
+/** Carries no rating (AC4) — subscribers route the note, they don't read the score. */
+export const moraleSubmittedPayload = z.object({
+  note_id: z.string().uuid(),
+  person_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  recipient_person_ids: z.array(z.string().uuid()),
+  has_concern: z.boolean(),
+});
+export type MoraleSubmittedPayload = z.infer<typeof moraleSubmittedPayload>;
+
 export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
@@ -115,4 +127,5 @@ export const PEOPLE_EVENTS = {
   [PEOPLE_ORG_UNIT_DELETED]: orgUnitDeletedPayload,
   [PEOPLE_WORKER_USER_LINKED]: workerUserLinkedPayload,
   [PEOPLE_PERFORMANCE_CONFIG_SAVED]: performanceConfigSavedPayload,
+  [PEOPLE_MORALE_SUBMITTED]: moraleSubmittedPayload,
 } as const satisfies Record<string, z.ZodSchema>;

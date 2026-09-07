@@ -259,6 +259,19 @@ export const interviewPanelistInput = z.object({
 });
 export type InterviewPanelistInput = z.infer<typeof interviewPanelistInput>;
 
+// Shared by the schedule/reschedule "Note" field and the outcome "Feedback" field — one
+// definition so the frontend counter and this backend check never disagree on what a "word" is.
+export const NOTE_WORD_LIMIT = 100;
+export function wordCount(value: string): number {
+  const trimmed = value.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+function limitedNote() {
+  return z.string().refine((v) => wordCount(v) <= NOTE_WORD_LIMIT, {
+    message: `must be ${NOTE_WORD_LIMIT} words or fewer`,
+  });
+}
+
 const interviewScheduleFields = {
   scheduled_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
     message: 'scheduled_at must be a valid date',
@@ -266,7 +279,7 @@ const interviewScheduleFields = {
   duration_minutes: z.number().int().min(15).max(240),
   mode: interviewEventMode,
   meeting_link: z.string().trim().max(2000).optional(),
-  note: z.string().optional(),
+  note: limitedNote().optional(),
   panel: z.array(interviewPanelistInput).default([]),
 };
 
@@ -281,7 +294,7 @@ export type RescheduleInterviewInput = z.infer<typeof rescheduleInterviewInput>;
 
 export const completeInterviewInput = z.object({
   result: interviewResult,
-  feedback_note: z.string().optional(),
+  feedback_note: limitedNote().optional(),
 });
 export type CompleteInterviewInput = z.infer<typeof completeInterviewInput>;
 

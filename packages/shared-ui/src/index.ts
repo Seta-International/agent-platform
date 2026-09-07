@@ -7,6 +7,7 @@ export * from './charts/chart-legend';
 export * from './charts/chart-theme';
 export * from './charts/donut-chart';
 export * from './charts/stacked-bar-chart';
+export * from './charts/trend-line-chart';
 export * from './composites/account-chip';
 export * from './composites/agent-panel';
 // Composites
@@ -199,6 +200,7 @@ export * from './primitives/toolbar';
 export * from './primitives/tooltip';
 export * from './primitives/typeahead';
 export * from './primitives/use-seeded-item';
+export * from './primitives/visually-hidden';
 // Rich text
 export * from './rich-text/RichTextDisplay';
 export * from './rich-text/RichTextEditor';
