@@ -1,13 +1,21 @@
 // Public surface for composing the assignment orchestration runtime (specialized
 // agents + assignment DAG, relocated from @seta/staffing) at the app tier.
 
+// Declared by planner, implemented in apps/server: the approval rows live in the
+// `agent` schema, which planner may not read (FUT-840).
+export type { LoadedPreview, PreviewPort } from './backend/orchestration/action/ports.ts';
 // A2 Action runtime (mutate chat intent).
 export {
   buildPlannerActionRuntime,
   type PlannerActionRuntime,
   type PlannerActionRuntimeDeps,
 } from './backend/orchestration/action/register.ts';
-export type { UpdateTaskResume } from './backend/orchestration/action/schemas.ts';
+// Part 3's chat router types its widened `action` dep with these (FUT-840).
+export {
+  type ActionOpenPreview,
+  OpenPreviewSchema,
+  type UpdateTaskResume,
+} from './backend/orchestration/action/schemas.ts';
 export {
   makeAssign,
   makeAvailability,

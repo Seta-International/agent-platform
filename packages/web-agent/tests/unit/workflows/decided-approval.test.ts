@@ -66,8 +66,11 @@ describe('decided approval helpers', () => {
     expect(STATUS_LABELS.rejected).toBe('Declined');
   });
 
-  it('superseded and expired: neutral no-action outcome', () => {
-    expect(outcomeText(row({ status: 'superseded' }))).toBe('No action taken.');
+  it('superseded: points at the live card instead of reading as a dead end (FUT-840)', () => {
+    expect(outcomeText(row({ status: 'superseded' }))).toBe('Replaced by an updated preview.');
+  });
+
+  it('expired: neutral no-action outcome', () => {
     expect(outcomeText(row({ status: 'expired' }))).toBe('No action taken.');
     expect(STATUS_LABELS.expired).toBe('Expired');
   });

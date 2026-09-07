@@ -10,6 +10,13 @@ const EXPECTED_NAMED_EXPORTS = new Set<string>([
   'listWorkflowRuns',
   'replayWorkflowFromStep',
   'rerunWorkflow',
+  // "which preview is open?" — read by the A2 revision loop above this tier
+  // (FUT-840), plus the refusal it must be able to tell apart from a genuine
+  // write failure.
+  'findOpenChatPreview',
+  'findOpenPreviewsForTasks',
+  'loadChatPreviewById',
+  'PendingTaskPreviewExistsError',
   'registerAgentContributions',
   // model resolver — exported for the composition root to inject models into
   // orchestrator adapters (orchestrator modules may not import the engine).

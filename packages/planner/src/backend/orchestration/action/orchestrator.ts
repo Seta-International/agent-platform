@@ -19,10 +19,14 @@ import { pickModel } from '../assignment/model.ts';
 import { makeActionTools } from './orchestrator.tools.ts';
 import type { ActionPorts } from './ports.ts';
 import type { ActionResume } from './schemas.ts';
+import { OpenPreviewSchema } from './schemas.ts';
 
 export const ActionInputSchema = z.object({
   userText: z.string(),
   taskId: z.string().nullable(),
+  /** The newest pending A2 preview in this thread, found by the SERVER before the
+   *  turn was dispatched (FUT-840). Authoritative data, not chat history. */
+  openPreview: OpenPreviewSchema.nullish(),
 });
 export const ActionResultSchema = z.object({
   message: z.string(),
@@ -113,6 +117,12 @@ export function instructionsText(): string {
     'one — never ask the user to pick a bucket. If they want it somewhere else, tell them they',
     'can drag it across the board once it exists.',
     '',
+    'COMMENTING — planner_commentTask posts one plain-text comment on a task, as the user.',
+    'Write the body exactly as they want it to appear: do not summarise their words, do not',
+    'add a greeting or a sign-off. If they have not said what the comment should say, ASK.',
+    'A comment changes nothing about the task itself — if they want the due date, status or',
+    'assignee changed, use the tool that changes it.',
+    '',
     'WHAT YOU CANNOT DO — say so plainly and name what you can do instead. You cannot',
     'permanently delete anything, and you do not answer general questions. If the user wants',
     'a task gone: when it duplicates another task, offer planner_mergeTasks; otherwise tell',
@@ -144,7 +154,7 @@ async function buildAction(
 ): Promise<BuiltAction> {
   const rc = buildAgentRequestContext(ctx);
 
-  const tools = makeActionTools({ ports: deps.ports, ctx });
+  const tools = makeActionTools({ ports: deps.ports, ctx, openPreview: input.openPreview ?? null });
 
   // Wrapped at CONSTRUCTION time, never at module load — a module-load call
   // would freeze the date at process start, the bug FUT-800 fixed.

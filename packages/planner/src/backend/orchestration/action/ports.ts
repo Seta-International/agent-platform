@@ -215,12 +215,69 @@ export interface SimilarTaskPort {
   ): Promise<Array<{ taskId: string; title: string; score: number }>>;
 }
 
+export interface CommentPort {
+  /** `planner.task.comment.create` on the task's group, called BEFORE the card
+   *  exists — same reason as every other A2 first-pass gate. The permission is
+   *  granted to `planner.viewer` as well as member and admin, so this gate is
+   *  wider than the other write gates by design: anyone who can see the task may
+   *  comment on it. */
+  assertCanComment(args: ActorRef & { groupId: string }): Promise<void>;
+
+  /** `withGatedMutation('comment')` around the existing `createComment` domain
+   *  function, so a retried confirm cannot post the same note twice. */
+  comment(
+    args: ActorRef & { taskId: string; body: string; idempotencyKey: string },
+  ): Promise<{ commentId: string; replayed: boolean }>;
+}
+
+/** The persisted proposal a revision is built from. */
+export interface LoadedPreview {
+  approvalId: string;
+  /** `card.meta.toolId`. The revision branch asserts this equals the calling
+   *  tool's id, which is where design D4 — "changing the KIND of change is not an
+   *  adjustment" — stops being prompt text and becomes code. */
+  toolId: string;
+  /** `card.primary.argsPatch`: the complete current proposal, in the DOMAIN
+   *  vocabulary the card persists, which is what resume reads verbatim. */
+  argsPatch: Record<string, unknown>;
+}
+
+/**
+ * Read access to this actor's own open chat previews.
+ *
+ * Implemented in `apps/server`, never here: the approval rows live in the `agent`
+ * schema and `pnpm lint:raw-sql` rejects cross-schema SQL from planner. apps/server
+ * already imports `@seta/agent`, so it is the one layer that can compose the two.
+ */
+export interface PreviewPort {
+  /**
+   * The card behind `approvalId`, or null when it is absent, already decided, or
+   * not this actor's. Scoped to the A2 runtime, so a recommend card is invisible
+   * here (design D2).
+   */
+  loadPreview(args: ActorRef & { approvalId: string }): Promise<LoadedPreview | null>;
+
+  /**
+   * Which of `dedupKeys` a pending card in this TENANT already holds.
+   *
+   * A courtesy, not the guarantee: it lets a tool refuse in a sentence before the
+   * model narrates a preview the writer would then drop. The guarantee is the
+   * advisory lock inside `writeChatApprovalRow` (design D16).
+   *
+   * Tenant-scoped with no approver filter (design D18), so a hit may belong to
+   * another person — which is why the refusal must never name one.
+   */
+  takenDedupKeys(args: ActorRef & { dedupKeys: string[] }): Promise<string[]>;
+}
+
 export interface ActionPorts {
   taskRead: TaskReadPort;
+  preview: PreviewPort;
   taskUpdate: TaskUpdatePort;
   taskLink: TaskLinkPort;
   taskMerge: TaskMergePort;
   taskAssign: TaskAssignPort;
   taskCreate: TaskCreatePort;
   similarTasks: SimilarTaskPort;
+  comment: CommentPort;
 }

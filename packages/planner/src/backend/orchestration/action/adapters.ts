@@ -8,12 +8,14 @@ import {
   assigneeProjection,
   plans,
   taskAssignments,
+  taskComments,
   taskReferences,
   tasks,
 } from '../../db/schema.ts';
 import { priorityToNumber } from '../../db/task-enums.ts';
 import { TASK_LINK_KIND_LIST, taskLinkUrl } from '../../domain/_task-link-row.ts';
 import { applyLabelsByName } from '../../domain/apply-labels-by-name.ts';
+import { createComment } from '../../domain/create-comment.ts';
 import { createTask } from '../../domain/create-task.ts';
 import { deleteTask } from '../../domain/delete-task.ts';
 import { getTask } from '../../domain/get-task.ts';
@@ -26,6 +28,7 @@ import { PlannerError, requirePermission } from '../../rbac.ts';
 import { getTaskGroupId, listActiveGroupMemberProfiles } from '../../read-helpers.ts';
 import { searchSimilar } from '../../workflows/dedup-on-create/steps/search-similar.ts';
 import type {
+  CommentPort,
   SimilarTaskPort,
   TaskAssignPort,
   TaskCreatePort,
@@ -410,6 +413,46 @@ export function makeActionTaskCreate(): TaskCreatePort {
         },
       );
       return { taskId: result.taskId, replayed };
+    },
+  };
+}
+
+export function makeActionComment(): CommentPort {
+  return {
+    async assertCanComment({ actorUserId, groupId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      await requirePermission(session, 'planner.task.comment.create', groupId);
+    },
+
+    async comment({ actorUserId, taskId, body, idempotencyKey }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      const { result, replayed } = await withGatedMutation(
+        session,
+        {
+          idempotencyKey,
+          onBehalfOf: actorUserId,
+          actorKind: 'agent',
+          mutationKind: 'comment',
+          // A comment is additive, so the before-state is the count: enough to
+          // tell a replay from a fresh post without copying the thread.
+          snapshot: async (tx) => {
+            const rows = await tx
+              .select({ id: taskComments.id })
+              .from(taskComments)
+              .where(eq(taskComments.task_id, taskId));
+            return { commentCount: rows.length };
+          },
+        },
+        async () => {
+          const c = await createComment({ task_id: taskId, body, session });
+          return { commentId: c.id };
+        },
+      );
+      // On a REPLAY the body never runs; the id comes back off the persisted
+      // `result` instead, which is why it is returned from the body rather than
+      // captured in a closure. `?? ''` covers a row persisted before this field
+      // existed, and the tool turns an empty id into a null.
+      return { commentId: result?.commentId ?? '', replayed };
     },
   };
 }

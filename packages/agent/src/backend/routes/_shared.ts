@@ -231,6 +231,10 @@ export function handleDomainError(c: Context<AgentRouteEnv>, err: unknown): Resp
     if (code === 'forbidden') return c.json({ error: 'forbidden', message }, 403);
     if (code === 'not_found') return c.json({ error: 'not_found', message }, 404);
     if (code === 'expired') return c.json({ error: 'expired', message }, 409);
+    // A newer preview replaced this card (FUT-840 design D13). Same 409 as the
+    // neighbours, distinct code so the UI can say so rather than "already
+    // decided" — which the user never did.
+    if (code === 'superseded') return c.json({ error: 'superseded', message }, 409);
     if (code === 'validation_failed') return c.json({ error: 'validation_failed', message }, 400);
     if (code === 'not_supported') return c.json({ error: 'not_supported', message }, 500);
     if (code === 'already_decided') return c.json({ error: 'already_decided', message }, 409);

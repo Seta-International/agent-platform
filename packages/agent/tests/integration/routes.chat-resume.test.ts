@@ -420,6 +420,15 @@ describe('POST /api/agent/v1/chat/resume', () => {
       expect(res.status).toBe(403);
       expect(await outboxCount(pool, runId)).toBe(0);
       expect(captured).toHaveLength(0);
+      // EV-07: the card must survive a refused confirm as PENDING. A refusal that
+      // consumed the row would leave the person actually entitled to confirm it
+      // with nothing to press — a denial of service on somebody else's card,
+      // reachable by anyone who knows an approval id.
+      const row = await pool.query<{ status: string }>(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [approvalId],
+      );
+      expect(row.rows[0]!.status).toBe('pending');
     });
   });
 
@@ -920,6 +929,74 @@ describe('POST /api/agent/v1/chat/resume — cards written before the deploy', (
       await res.text().catch(() => {});
       expect(captured[0]?.resume ?? {}).not.toMatchObject({ action: 'assign' });
       expect(await statusOf(pool, approvalId)).toBe('rejected');
+    });
+  });
+});
+
+describe('POST /api/agent/v1/chat/resume — a replaced card (FUT-840 design D13)', () => {
+  it('confirming a SUPERSEDED card is a 409 with the new code, and the task is unchanged', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const me = sessionWith(tenantId, userId, ['agent.workflow.approve']);
+      const { approvalId, runId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: randomUUID(),
+        toolCallId: 'tc-1',
+        threadId: randomUUID(),
+        card: makeCard(['u1'], randomUUID()),
+      });
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET status = 'superseded' WHERE approval_id = $1`,
+        [approvalId],
+      );
+
+      const captured: CapturedResume[] = [];
+      const app = buildApp(me, makeFakeResume(captured));
+      const res = await post(app, { approvalId, chosen: 'primary' });
+
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toBe('superseded');
+      // Nothing was resumed, so nothing was written.
+      expect(captured).toHaveLength(0);
+      expect(await outboxCount(pool, runId)).toBe(0);
+    });
+  });
+
+  it('after an APPROVE on a chat card the run row is still paused and replayableDecision finds it', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const me = sessionWith(tenantId, userId, ['agent.workflow.approve']);
+      const { approvalId, runId } = await seedAgenticApproval(pool, {
+        tenantId,
+        approverUserId: userId,
+        mastraRunId: randomUUID(),
+        toolCallId: 'tc-1',
+        threadId: randomUUID(),
+        card: makeCard(['u1'], randomUUID()),
+      });
+
+      const captured: CapturedResume[] = [];
+      const app = buildApp(me, makeFakeResume(captured));
+      const first = await post(app, { approvalId, chosen: 'primary' });
+      expect(first.status).toBe(200);
+      await first.text();
+
+      const run = await pool.query<{ status: string }>(
+        `SELECT status FROM agent.workflow_runs WHERE run_id = $1`,
+        [runId],
+      );
+      expect(run.rows[0]!.status).toBe('paused');
+
+      // The regression test for D13's narrowing (spec §0 finding 7). Repeat the
+      // IDENTICAL decision: it must re-enter the suspended run (200, a stream)
+      // rather than 409, because that recovery keys on r.status='paused'.
+      const second = await post(app, { approvalId, chosen: 'primary' });
+      expect(second.status).toBe(200);
+      await second.text();
+      expect(captured.length).toBeGreaterThanOrEqual(2);
     });
   });
 });

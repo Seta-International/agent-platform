@@ -1,6 +1,12 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it, vi } from 'vitest';
 import { makeAssignTaskTool } from '../../../../src/backend/orchestration/action/assign-task.tool.ts';
+import {
+  fakePreviewPort,
+  injectedPreview,
+  OPEN_APPROVAL_ID,
+  runFirstPass,
+} from './revision-test-kit.ts';
 
 const TASK_A = '66be2be2-394d-4184-b106-c412289fd1e1';
 
@@ -30,11 +36,14 @@ function build(
     ),
     assign: vi.fn(async () => ({ replayed: false })),
   };
+  // Every first pass now consults the preview port on the NEW-card path
+  // (FUT-840), so the default fake answers "nothing open, nothing taken".
+  const preview = fakePreviewPort({ taken: [] });
   const tool = makeAssignTaskTool({
-    ports: { taskAssign } as never,
+    ports: { taskAssign, preview } as never,
     ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
   });
-  return { tool, taskAssign };
+  return { tool, taskAssign, preview };
 }
 
 function rc() {
@@ -225,5 +234,168 @@ describe('planner_assignTask — resume pass', () => {
     expect(out.assigned).toBe(false);
     expect(out.refusal).toMatch(/again/i);
     expect(taskAssign.assign).not.toHaveBeenCalled();
+  });
+});
+
+describe('planner_assignTask — the revision branch (FUT-840)', () => {
+  const OPEN_ID = OPEN_APPROVAL_ID;
+  const OTHER_TASK = '9f1d3a10-2b44-4c55-8d66-ee7788990011';
+  const openArgsPatch = {
+    action: 'assign',
+    taskId: TASK_A,
+    assigneeUserIds: ['u-binh'],
+    idempotencyKey: 'old-key',
+  };
+
+  function buildRev(
+    over: {
+      loaded?: { approvalId: string; toolId: string; argsPatch: Record<string, unknown> } | null;
+      taken?: string[];
+      openPreview?: ReturnType<typeof injectedPreview> | null;
+      assertCanAssign?: () => Promise<void>;
+      resolveMembers?: (a: { query: string }) => Promise<unknown[]>;
+    } = {},
+  ) {
+    const taskAssign = {
+      readForAssign: vi.fn(async () => ({
+        title: 'Deploy hiring screen',
+        groupId: 'g1',
+        assignees: [{ userId: 'u-binh', name: 'Bình' }],
+      })),
+      assertCanAssign: vi.fn(over.assertCanAssign ?? (async () => {})),
+      resolveMembers: vi.fn(
+        over.resolveMembers ??
+          (async ({ query }: { query: string }) =>
+            query.toLowerCase().includes('tu')
+              ? [{ userId: 'u-tuan', name: 'Tuấn', inGroup: true }]
+              : []),
+      ),
+      assign: vi.fn(async () => ({ replayed: false })),
+    };
+    const preview = fakePreviewPort({
+      loaded:
+        over.loaded === undefined
+          ? { approvalId: OPEN_ID, toolId: 'planner_assignTask', argsPatch: openArgsPatch }
+          : over.loaded,
+      ...(over.taken ? { taken: over.taken } : {}),
+    });
+    const tool = makeAssignTaskTool({
+      ports: { taskAssign, preview } as never,
+      ctx: { tenantId: 't1', actorUserId: 'a1' } as never,
+      openPreview: over.openPreview === undefined ? injectedPreview() : over.openPreview,
+    });
+    return { tool, taskAssign, preview };
+  }
+
+  it('takes the task FROM THE CARD and ignores the model taskRef (AC5.1)', async () => {
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      taskRef: OTHER_TASK,
+      assigneeRefs: ['Tuấn'],
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.taskId).toBe(TASK_A);
+  });
+
+  it('REPLACES the assignee set — the tool has replace semantics (FUT-806 design D5)', async () => {
+    // Unioning is the MODEL's job when the user says "thêm Tuấn nữa": the OPEN
+    // PREVIEW block renders the proposed set with names, so it can compute the
+    // union against the PROPOSED set rather than the task's stored one.
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Tuấn'],
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.assigneeUserIds).toEqual(['u-tuan']);
+  });
+
+  it('re-gates assertCanAssign on the card task before suspending (AC5.2)', async () => {
+    const { tool } = buildRev({
+      assertCanAssign: async () => {
+        throw Object.assign(new Error('forbidden'), { code: 'FORBIDDEN' });
+      },
+    });
+    const suspend = vi.fn(async () => {});
+    await expect(
+      tool.execute!(
+        { taskRef: TASK_A, assigneeRefs: ['Tuấn'], revisionOf: OPEN_ID } as never,
+        firstPassCtx(suspend),
+      ),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+    expect(suspend).not.toHaveBeenCalled();
+  });
+
+  it('refuses an out-of-group assignee, leaving the old card pending', async () => {
+    const { tool } = buildRev({ resolveMembers: async () => [] });
+    const { out, suspend } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Nobody'],
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/Nobody/);
+  });
+
+  it('mints a fresh idempotency key and stamps meta.supersedes', async () => {
+    const { tool } = buildRev();
+    const { card } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Tuấn'],
+      revisionOf: OPEN_ID,
+    });
+    expect(card?.primary.argsPatch.idempotencyKey).not.toBe('old-key');
+    expect(card?.meta.supersedes).toBe(OPEN_ID);
+  });
+
+  it('refuses when the open preview belongs to a different tool (design D4)', async () => {
+    const { tool } = buildRev({
+      loaded: { approvalId: OPEN_ID, toolId: 'planner_updateTask', argsPatch: openArgsPatch },
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Tuấn'],
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/different kind of change/i);
+  });
+
+  it('refuses a NEW card when the task already has a pending preview (AC1)', async () => {
+    const { tool } = buildRev({ taken: [`task:${TASK_A}`], openPreview: null });
+    const { out, suspend } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Tuấn'],
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/already a proposal waiting/i);
+  });
+
+  it('skips the mutex pre-check on a revision', async () => {
+    const { tool, preview } = buildRev({ taken: [`task:${TASK_A}`] });
+    const { suspend } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Tuấn'],
+      revisionOf: OPEN_ID,
+    });
+    expect(preview.takenDedupKeys).not.toHaveBeenCalled();
+    expect(suspend).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a card with no taskId rather than rebuilding from half of it', async () => {
+    const { tool } = buildRev({
+      loaded: {
+        approvalId: OPEN_ID,
+        toolId: 'planner_assignTask',
+        argsPatch: { action: 'assign', assigneeUserIds: ['u-binh'] },
+      },
+    });
+    const { out, suspend } = await runFirstPass(tool, {
+      taskRef: TASK_A,
+      assigneeRefs: ['Tuấn'],
+      revisionOf: OPEN_ID,
+    });
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out.refusal).toMatch(/incomplete/i);
   });
 });

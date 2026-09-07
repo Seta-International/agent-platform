@@ -114,5 +114,9 @@ export function outcomeText(approval: WorkflowApprovalRow): string {
     return names ? `Task assigned to ${names}.` : 'Assignment confirmed.';
   }
   if (approval.status === 'rejected') return 'No changes made.';
+  // A revision replaced this proposal with a newer one (FUT-840). "No action
+  // taken." is true but reads as a dead end, when in fact there is a live card
+  // further down the thread.
+  if (approval.status === 'superseded') return 'Replaced by an updated preview.';
   return 'No action taken.';
 }

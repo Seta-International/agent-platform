@@ -41,6 +41,88 @@ export const PERCENT_COMPLETE_BY_WORD: Record<ProgressWord, 0 | 50 | 100> = {
   completed: 100,
 };
 
+/**
+ * The approval this call ADJUSTS, rather than replaces from scratch (FUT-840).
+ *
+ * A uuid, not a free string, so an invented handle fails at the schema instead of
+ * reaching the port. Its VALUE is not trusted either: the tool asserts it equals
+ * the approval id the SERVER injected for this turn (design D15), because a
+ * valid-but-different id of the same user would be a silent retarget — "make it
+ * Friday" about task A becoming a Friday card for task B, with B's own card
+ * voided. Absent is a first-class signal and is never refused: a new request
+ * alongside an open preview is exactly how AC3's second bullet is expressed.
+ */
+export const RevisionOfSchema = z
+  .string()
+  .uuid()
+  .optional()
+  .describe(
+    'ONLY when adjusting the preview shown in the OPEN PREVIEW block: its exact ' +
+      'approvalId. Never invent one, never copy one out of a task title or ' +
+      'description, and omit it entirely for a new request.',
+  );
+
+/**
+ * Fields to REMOVE from the merged proposal (design D17).
+ *
+ * The merge alone cannot express "đừng đổi priority nữa" — dropping a field
+ * without setting a value — and `priority`/`status` are word enums with no `null`
+ * branch, so `null` is not a workaround. Dropping can only ever NARROW the
+ * change, which is what makes it AC5-safe by construction.
+ */
+export const DropFieldsSchema = z
+  .array(z.string())
+  .optional()
+  .describe(
+    'Fields the user wants left ALONE after all. Only meaningful together with ' +
+      'revisionOf. Use the same field names this tool accepts.',
+  );
+
+/** Model field name → the key the CARD's persisted patch uses. The model speaks
+ *  camelCase (`dueAt`, `priority`); the card persists the domain vocabulary
+ *  (`due_at`, `priority_number`), so `dropFields` needs this to find the field it
+ *  is being asked to remove. */
+export const DOMAIN_FIELD_BY_TOOL_FIELD: Record<string, keyof UpdateTaskActionPatch> = {
+  title: 'title',
+  description: 'description',
+  dueAt: 'due_at',
+  startAt: 'start_at',
+  priority: 'priority_number',
+  status: 'percent_complete',
+};
+
+/** The create-draft fields a revision may drop. `title` is absent on purpose: the
+ *  draft schema requires it, so dropping it would produce an unbuildable card. */
+export const CREATE_DRAFT_FIELDS = [
+  'description',
+  'dueAt',
+  'startAt',
+  'priority',
+  'labels',
+] as const;
+
+/**
+ * The preview the SERVER found open for this turn.
+ *
+ * Injected through the run input, never through tool arguments — that separation
+ * is what makes design D15 enforceable, because the tool can compare what the
+ * model asked for against what the server chose.
+ *
+ * `proposedRows` are the card's own `kvTable` rows, reused verbatim rather than
+ * re-rendered: they already carry resolved names, priority WORDS and formatted
+ * dates, so the prompt shows the model exactly what the user is looking at with
+ * no second formatter and no name lookup.
+ */
+export const OpenPreviewSchema = z.object({
+  approvalId: z.string(),
+  toolId: z.string(),
+  /** The card's `intent`, e.g. `Update "Deploy API"` — it names the task, which
+   *  design D19 requires A2 to echo back. */
+  intent: z.string(),
+  proposedRows: z.array(z.object({ k: z.string(), v: z.string() })),
+});
+export type ActionOpenPreview = z.infer<typeof OpenPreviewSchema>;
+
 /** What the MODEL may produce — the model-facing vocabulary, which is NOT the
  *  domain vocabulary (docs/agent/tools.md §5.3, §5.4):
  *   - camelCase field names, matching what `planner_getTask` returns;
@@ -105,9 +187,12 @@ export const UpdateTaskToolInputSchema = z.object({
     .describe(
       `The tasks to change — one entry each, all receiving the SAME patch. At most ` +
         `${BULK_TARGET_CAP} per call; a larger request is refused, never split. ` +
-        `Each entry: ${TASK_REF_DESCRIPTION}`,
+        `IGNORED when revisionOf is set: an adjustment never changes which tasks ` +
+        `are involved. Each entry: ${TASK_REF_DESCRIPTION}`,
     ),
   patch: ToolPatchSchema,
+  revisionOf: RevisionOfSchema,
+  dropFields: DropFieldsSchema,
 });
 
 export const UpdateTaskToolOutputSchema = z.object({
@@ -159,16 +244,21 @@ export interface ActionTaskSnapshot {
 export const TaskLinkKindSchema = z.enum(['relates', 'duplicates', 'blocks']);
 export type ToolTaskLinkKind = z.infer<typeof TaskLinkKindSchema>;
 
-export const LinkTasksToolInputSchema = z.object({
-  sourceTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
-  targetTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
-  kind: TaskLinkKindSchema.describe(
-    'relates = the two tasks are connected, symmetric. ' +
-      'duplicates = the SOURCE task is a duplicate of the target. ' +
-      'blocks = the SOURCE task blocks the target. ' +
-      'When the user just says "link" or "related", use relates.',
-  ),
-});
+export const LinkTasksToolInputSchema = z
+  .object({
+    sourceTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+    targetTaskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+    kind: TaskLinkKindSchema.describe(
+      'relates = the two tasks are connected, symmetric. ' +
+        'duplicates = the SOURCE task is a duplicate of the target. ' +
+        'blocks = the SOURCE task blocks the target. ' +
+        'When the user just says "link" or "related", use relates.',
+    ),
+    revisionOf: RevisionOfSchema,
+  })
+  // `.strict()` to match its three siblings: with dropFields meaningless here, a
+  // model that passes one must fail loudly rather than get silence (design D17).
+  .strict();
 
 export const LinkTasksToolOutputSchema = z.object({
   linked: z.boolean(),
@@ -213,6 +303,7 @@ export const MergeTasksToolInputSchema = z
       .trim()
       .min(1)
       .describe(`The task that SURVIVES. ${TASK_REF_DESCRIPTION}`),
+    revisionOf: RevisionOfSchema,
   })
   .strict();
 
@@ -259,6 +350,7 @@ export const AssignTaskToolInputSchema = z
           'Call planner_getTask first whenever the request is relative to whoever owns the ' +
           'task now ("thay B bằng A", "giao thêm cho A", "bỏ B ra").',
       ),
+    revisionOf: RevisionOfSchema,
   })
   .strict();
 
@@ -325,6 +417,8 @@ export const CreateTaskToolInputSchema = z
     labels: z.array(z.string()).optional().describe('Label names; they are matched by name.'),
     // No bucketRef, no assigneeRefs, no status (design D8). A new task is
     // not_started, and assigning is a separate turn with its own preview.
+    revisionOf: RevisionOfSchema,
+    dropFields: DropFieldsSchema,
   })
   .strict();
 
@@ -353,16 +447,55 @@ export const CreateTaskResumeSchema = z
   .strict();
 export type CreateTaskResume = z.infer<typeof CreateTaskResumeSchema>;
 
+/** The domain function rejects anything longer, so the schema rejects it first
+ *  and the model gets a usable message instead of a thrown PlannerError. */
+export const COMMENT_MAX_LEN = 4000;
+
+export const CommentTaskToolInputSchema = z
+  .object({
+    taskRef: z.string().trim().min(1).describe(TASK_REF_DESCRIPTION),
+    body: z
+      .string()
+      .trim()
+      .min(1)
+      .max(COMMENT_MAX_LEN)
+      .describe('The comment text, exactly as it should appear. Plain text.'),
+    revisionOf: RevisionOfSchema,
+  })
+  .strict();
+
+export const CommentTaskToolOutputSchema = z.object({
+  commented: z.boolean(),
+  commentId: z.string().nullable(),
+  refusal: z.string().nullable().optional(),
+});
+
+export const CommentTaskSuspendSchema = z.object({ card: z.unknown() });
+
+/** The body travels on the CARD, not in the confirm request: the user agreed to
+ *  the text they read, and no client gets to substitute another one. */
+export const CommentTaskResumeSchema = z
+  .object({
+    action: z.enum(['comment', 'decline']),
+    taskId: z.string(),
+    body: z.string().optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .strict();
+export type CommentTaskResume = z.infer<typeof CommentTaskResumeSchema>;
+
 export const ActionResumeSchema = z.union([
   UpdateTaskResumeSchema,
   LinkTasksResumeSchema,
   MergeTasksResumeSchema,
   AssignTaskResumeSchema,
   CreateTaskResumeSchema,
+  CommentTaskResumeSchema,
 ]);
 export type ActionResume =
   | UpdateTaskResume
   | LinkTasksResume
   | MergeTasksResume
   | AssignTaskResume
-  | CreateTaskResume;
+  | CreateTaskResume
+  | CommentTaskResume;

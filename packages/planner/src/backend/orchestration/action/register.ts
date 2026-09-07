@@ -4,6 +4,7 @@ import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
 import {
+  makeActionComment,
   makeActionSimilarTasks,
   makeActionTaskAssign,
   makeActionTaskCreate,
@@ -19,7 +20,7 @@ import {
   makeActionStreamer,
 } from './orchestrator.ts';
 import { actionOrchestratorSpec } from './orchestrator-spec.ts';
-import type { ActionPorts } from './ports.ts';
+import type { ActionPorts, PreviewPort } from './ports.ts';
 import type { ActionResume } from './schemas.ts';
 
 export interface PlannerActionRuntime {
@@ -39,6 +40,9 @@ export interface PlannerActionRuntimeDeps {
   /** Optional to match ComposeDeps, which leaves it unset in the entrypoints that
    *  never reach a vector search. A missing value fails only a create preview. */
   databaseUrl?: string;
+  /** A2's read access to its own open previews. Injected because the approval
+   *  rows live in the `agent` schema, which planner may not read (FUT-840). */
+  previewPort: PreviewPort;
   /** Overridable for tests; production uses the real domain adapters. */
   ports?: ActionPorts;
 }
@@ -53,6 +57,8 @@ export function buildPlannerActionRuntime(deps: PlannerActionRuntimeDeps): Plann
     taskMerge: makeActionTaskMerge(),
     taskAssign: makeActionTaskAssign(),
     taskCreate: makeActionTaskCreate(),
+    comment: makeActionComment(),
+    preview: deps.previewPort,
     // The adapter closes over getters, so both deps are read lazily inside
     // search() — a getter that throws stays harmless until a create is actually
     // previewed.
