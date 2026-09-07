@@ -406,6 +406,35 @@ function rollUp(
 }
 
 /**
+ * Which of `projectIds` this person has already filed their own self-assessment for.
+ * The lead's review stays sealed until they have (FUT-973) — reading the lead's number
+ * first turns the self-assessment into a copying exercise rather than an independent
+ * reading, which is the whole point of collecting one.
+ */
+async function projectsWithSubmittedSelfAssessment(
+  session: SessionScope,
+  month: string,
+  personId: string,
+  projectIds: readonly string[],
+): Promise<Set<string>> {
+  if (projectIds.length === 0) return new Set();
+  const rows = await peopleDb()
+    .select({ project_id: performanceEvaluation.project_id })
+    .from(performanceEvaluation)
+    .where(
+      and(
+        eq(performanceEvaluation.tenant_id, session.tenant_id),
+        eq(performanceEvaluation.review_month, month),
+        eq(performanceEvaluation.subject_person_id, personId),
+        eq(performanceEvaluation.evaluator_capacity, 'self'),
+        eq(performanceEvaluation.status, 'submitted'),
+        inArray(performanceEvaluation.project_id, [...projectIds]),
+      ),
+    );
+  return new Set(rows.map((r) => r.project_id));
+}
+
+/**
  * Every Performance dashboard reads through here: the org tier drills accounts →
  * projects, an AM drills projects → people, a TL sees their project's people, and a
  * member sees their own projects plus the reviews they received. One shape, so the
@@ -532,6 +561,24 @@ export async function readPerformanceRollup(
           );
   const projectById = new Map(projectRows.map((p) => [p.project_id, p]));
 
+  // Only the subject's own dashboard is gated. A lead or an AM reading the same numbers
+  // is reading about someone else, and has no self-assessment of their own in play.
+  const withheldProjects = new Set<string>();
+  if (input.scope === 'self' && session.person_id) {
+    const filed = await projectsWithSubmittedSelfAssessment(
+      session,
+      input.month,
+      session.person_id,
+      projectIds,
+    );
+    for (const projectId of projectIds) {
+      if (!filed.has(projectId)) withheldProjects.add(projectId);
+    }
+  }
+  /** The lead's numbers, or nothing at all while the subject owes their own. */
+  const visibleEvaluation = (personId: string, projectId: string) =>
+    withheldProjects.has(projectId) ? undefined : evaluations.get(`${personId}:${projectId}`);
+
   const leadIds = allocations.flatMap((a) => (a.lead_person_id ? [a.lead_person_id] : []));
   const people = await loadPeople(session, [
     ...new Set([
@@ -547,7 +594,7 @@ export async function readPerformanceRollup(
     allocations
       .filter((a) => a.project_id === projectId)
       .map((a) => {
-        const evaluation = evaluations.get(`${a.person_id}:${a.project_id}`);
+        const evaluation = visibleEvaluation(a.person_id, a.project_id);
         const p = people.get(a.person_id);
         return {
           kind: 'person' as const,
@@ -620,13 +667,33 @@ export async function readPerformanceRollup(
       : allocations.flatMap((a) => {
           const evaluation = evaluations.get(`${a.person_id}:${a.project_id}`);
           if (!evaluation) return [];
+          const withheld = withheldProjects.has(a.project_id);
+          const head = {
+            project_id: a.project_id,
+            project_name: projectById.get(a.project_id)?.name ?? '',
+            evaluator_name: people.get(evaluation.evaluator_person_id)?.name ?? '',
+            evaluator_capacity: evaluation.evaluator_capacity,
+            status: 'submitted' as const,
+            withheld,
+          };
+          // That a review exists is not the secret — its contents are. Saying so lets the
+          // screen explain the wait instead of looking like the lead has not written it.
+          if (withheld) {
+            return [
+              {
+                ...head,
+                overall: null,
+                scores: {},
+                strengths: '',
+                improve: '',
+                top_action: '',
+                submitted_at: null,
+              },
+            ];
+          }
           return [
             {
-              project_id: a.project_id,
-              project_name: projectById.get(a.project_id)?.name ?? '',
-              evaluator_name: people.get(evaluation.evaluator_person_id)?.name ?? '',
-              evaluator_capacity: evaluation.evaluator_capacity,
-              status: 'submitted' as const,
+              ...head,
               overall: evaluation.overall === null ? null : round2(evaluation.overall),
               scores: Object.fromEntries([...evaluation.scores].map(([k, v]) => [k, round2(v)])),
               strengths: evaluation.strengths,

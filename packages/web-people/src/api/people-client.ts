@@ -570,6 +570,12 @@ export type ReceivedReview = {
   /** Never `self`: a self-assessment is not a review anyone received (FUT-779 AC3). */
   evaluator_capacity: 'tl' | 'am';
   status: 'draft' | 'submitted';
+  /**
+   * Filed by the lead, but sealed until the subject files their own self-assessment
+   * (FUT-973). Every field below is blank on a sealed review — the server sends no
+   * numbers — and it is left out of the roll-up totals.
+   */
+  withheld: boolean;
   overall: number | null;
   scores: Record<string, number>;
   strengths: string;

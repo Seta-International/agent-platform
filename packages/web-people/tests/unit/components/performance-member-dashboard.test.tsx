@@ -55,6 +55,7 @@ function rollup(over: Partial<PerformanceRollup> = {}): PerformanceRollup {
         evaluator_name: 'Tom TL',
         evaluator_capacity: 'tl',
         status: 'submitted',
+        withheld: false,
         overall: 4,
         scores: { [DELIVERY]: 4 },
         strengths: 'shipped Atlas v2',
@@ -221,5 +222,89 @@ describe('PerformanceMemberDashboard — self-assessment (FUT-779)', () => {
 
     expect(await screen.findByText(/closed/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start self-assessment' })).not.toBeInTheDocument();
+  });
+
+  it("seals the lead's review until the member files their own (FUT-973)", async () => {
+    // What the server sends once the gate is on: the review is there, every number is not.
+    vi.mocked(fetchPerformanceRollup).mockResolvedValue(
+      rollup({
+        scores: {},
+        scored: 0,
+        overall: null,
+        rows: [
+          {
+            kind: 'project',
+            id: PROJECT,
+            name: 'Atlas',
+            subtitle: 'Tom TL',
+            is_lead: false,
+            member_count: 3,
+            scored: 0,
+            total: 1,
+            scores: {},
+            overall: null,
+            children: [],
+          },
+        ],
+        reviews: [
+          {
+            project_id: PROJECT,
+            project_name: 'Atlas',
+            evaluator_name: 'Tom TL',
+            evaluator_capacity: 'tl',
+            status: 'submitted',
+            withheld: true,
+            overall: null,
+            scores: {},
+            strengths: '',
+            improve: '',
+            top_action: '',
+            submitted_at: null,
+          },
+        ],
+      } as Partial<PerformanceRollup>),
+    );
+    vi.mocked(fetchEvaluation).mockResolvedValue(myForm());
+    renderDashboard();
+
+    expect(await screen.findByTestId('review-withheld')).toBeInTheDocument();
+    // The lead's number must not reach the page by any route — not the review card,
+    // not the pillar table, not the tile above them.
+    expect(screen.queryByText('4.00')).not.toBeInTheDocument();
+    expect(screen.queryByText(/shipped Atlas v2/)).not.toBeInTheDocument();
+  });
+
+  it('a sealed review still reads as filed, not as a lead who has not written it', async () => {
+    vi.mocked(fetchPerformanceRollup).mockResolvedValue(
+      rollup({
+        scores: {},
+        scored: 0,
+        overall: null,
+        reviews: [
+          {
+            project_id: PROJECT,
+            project_name: 'Atlas',
+            evaluator_name: 'Tom TL',
+            evaluator_capacity: 'tl',
+            status: 'submitted',
+            withheld: true,
+            overall: null,
+            scores: {},
+            strengths: '',
+            improve: '',
+            top_action: '',
+            submitted_at: null,
+          },
+        ],
+      } as Partial<PerformanceRollup>),
+    );
+    vi.mocked(fetchEvaluation).mockResolvedValue(myForm());
+    renderDashboard();
+
+    // "Pending / still with your lead" would blame the lead for a wait the reader can
+    // end themselves.
+    expect(await screen.findByText('sealed until you submit')).toBeInTheDocument();
+    expect(screen.getByText('submit yours to see it')).toBeInTheDocument();
+    expect(screen.queryByText('still with your lead')).not.toBeInTheDocument();
   });
 });

@@ -478,6 +478,13 @@ export const receivedReview = z.object({
   evaluator_name: z.string(),
   evaluator_capacity: evaluatorCapacity,
   status: evaluationStatus,
+  /**
+   * The lead has filed this review, but its numbers are held back until the subject
+   * files their own self-assessment (FUT-973): reading the lead's score first turns the
+   * self-assessment into a copying exercise. Every number and note on a withheld review
+   * is blank — the server never sends them — and it is left out of the roll-up above.
+   */
+  withheld: z.boolean(),
   overall: z.number().nullable(),
   scores: z.record(z.string().uuid(), z.number()),
   strengths: z.string(),

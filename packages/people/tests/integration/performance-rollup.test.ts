@@ -13,7 +13,12 @@ import {
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { setMonthClock, vnYearMonth } from '../../src/backend/domain/month-clock.ts';
-import { readEvaluation, readPerformanceRollup, submitEvaluation } from '../../src/index.ts';
+import {
+  readEvaluation,
+  readPerformanceRollup,
+  saveEvaluationDraft,
+  submitEvaluation,
+} from '../../src/index.ts';
 import { buildSession, linkUserToPerson, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -265,6 +270,8 @@ describe('performance roll-up (FUT-784)', () => {
   it('self scope returns the reviews the person received, per project', async () => {
     await withFixture(async (f, month) => {
       await seedScores(f, month);
+      // The lead's numbers stay sealed until the subject has filed their own (FUT-973).
+      await submitFlat(f, f.mia, f.mia, f.atlas, month, 3);
       const rollup = await readPerformanceRollup(f.sessionFor(f.mia), { scope: 'self', month });
 
       expect(rollup.label).toBe('Mia Member');
@@ -277,8 +284,79 @@ describe('performance roll-up (FUT-784)', () => {
       expect(review?.evaluator_name).toBe('Tom TL');
       expect(review?.evaluator_capacity).toBe('tl');
       expect(review?.status).toBe('submitted');
+      expect(review?.withheld).toBe(false);
       expect(review?.overall).toBe(4);
       expect(review?.strengths).toContain('Strengths for');
+    });
+  });
+
+  it("seals the lead's review until the subject files their own (FUT-973)", async () => {
+    await withFixture(async (f, month) => {
+      await seedScores(f, month);
+
+      // Reading the lead's score first turns the self-assessment into a copying
+      // exercise, so nothing of it reaches the subject's dashboard until theirs is in.
+      const sealed = await readPerformanceRollup(f.sessionFor(f.mia), { scope: 'self', month });
+      expect(sealed.reviews).toHaveLength(1);
+      const hidden = sealed.reviews[0];
+      expect(hidden?.withheld).toBe(true);
+      // That a review exists is not the secret; every number in it is.
+      expect(hidden?.evaluator_name).toBe('Tom TL');
+      expect(hidden?.overall).toBeNull();
+      expect(hidden?.scores).toEqual({});
+      expect(hidden?.strengths).toBe('');
+      expect(hidden?.improve).toBe('');
+      expect(hidden?.top_action).toBe('');
+      // The roll-up above the review is built from the same score and must not leak it.
+      expect(sealed.overall).toBeNull();
+      expect(sealed.scores).toEqual({});
+      expect(sealed.scored).toBe(0);
+      expect(sealed.rows[0]?.overall).toBeNull();
+
+      await submitFlat(f, f.mia, f.mia, f.atlas, month, 3);
+
+      const opened = await readPerformanceRollup(f.sessionFor(f.mia), { scope: 'self', month });
+      expect(opened.reviews[0]?.withheld).toBe(false);
+      expect(opened.reviews[0]?.overall).toBe(4);
+      expect(opened.overall).toBe(4);
+      expect(opened.scored).toBe(1);
+    });
+  });
+
+  it('seals nothing on the dashboards that read about someone else', async () => {
+    await withFixture(async (f, month) => {
+      await seedScores(f, month);
+      // Mia has filed nothing, but her lead and her AM are not waiting on her.
+      const project = await readPerformanceRollup(f.sessionFor(f.tom), {
+        scope: 'project',
+        month,
+        project_id: f.atlas,
+      });
+      const mia = project.rows.find((r) => r.name === 'Mia Member');
+      expect(mia?.overall).toBe(4);
+    });
+  });
+
+  it('a draft self-assessment is not a filing — the seal holds', async () => {
+    await withFixture(async (f, month) => {
+      await seedScores(f, month);
+      const target = { month, subject_person_id: f.mia.person_id, project_id: f.atlas };
+      const mine = f.sessionFor(f.mia);
+      const form = await readEvaluation(mine, target);
+      await saveEvaluationDraft(mine, {
+        ...target,
+        base_version: form.version,
+        scores: form.groups.flatMap((g) =>
+          g.criteria.map((c) => ({ criterion_id: c.criterion_id, score: 3, evidence: '' })),
+        ),
+        strengths: '',
+        improve: '',
+        top_action: '',
+      });
+
+      const still = await readPerformanceRollup(mine, { scope: 'self', month });
+      expect(still.reviews[0]?.withheld).toBe(true);
+      expect(still.overall).toBeNull();
     });
   });
 
@@ -307,7 +385,11 @@ describe('performance roll-up (FUT-784)', () => {
       await submitFlat(f, f.mia, f.mia, f.atlas, month, 1);
       const after = await everyDashboard();
 
-      expect(after).toEqual(before);
+      // Her own page is left out of this comparison on purpose: filing unseals the
+      // lead's review there (FUT-973), so it is meant to change. The official numbers
+      // are the three above it.
+      expect({ ...after, mine: null }).toEqual({ ...before, mine: null });
+      expect(after.mine.overall).toBe(4);
       // Her personal page still shows the one review she received, not two.
       expect(after.mine.reviews.map((r) => r.evaluator_capacity)).toEqual(['tl']);
     });
@@ -327,9 +409,15 @@ describe('performance roll-up (FUT-784)', () => {
       });
       await seedScores(f, month);
       await submitFlat(f, f.ben, f.mia, f.borealis, month, 2);
+      // Filed on Atlas only: the seal is per project, so Borealis stays shut (FUT-973).
+      await submitFlat(f, f.mia, f.mia, f.atlas, month, 3);
 
       const both = await readPerformanceRollup(f.sessionFor(f.mia), { scope: 'self', month });
       expect(both.rows).toHaveLength(2);
+      expect(Object.fromEntries(both.reviews.map((r) => [r.project_name, r.withheld]))).toEqual({
+        Atlas: false,
+        Borealis: true,
+      });
 
       const atlasOnly = await readPerformanceRollup(f.sessionFor(f.mia), {
         scope: 'self',

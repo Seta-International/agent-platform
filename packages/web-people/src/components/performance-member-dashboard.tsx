@@ -135,6 +135,20 @@ function ReviewPillarTile({
 
 function MyReview({ groups, review }: { groups: readonly GroupAxis[]; review: ReceivedReview }) {
   const band = review.overall == null ? null : scoreBand(review.overall);
+  // Filed, but not yours to read yet: the server sends no numbers at all until your own
+  // assessment is in (FUT-973). Say which it is — an empty card reads as a lead who has
+  // not written it, and sends the reader to chase the wrong person.
+  if (review.withheld) {
+    return (
+      <HStack gap={2} vAlign="center" wrap="wrap" data-testid="review-withheld">
+        <Badge variant="neutral" label="Sealed" />
+        <Text size="sm" color="secondary">
+          Your lead has filed this review. It opens once you submit your own self-assessment —
+          scoring yourself first is what makes the two readings worth comparing.
+        </Text>
+      </HStack>
+    );
+  }
   return (
     <VStack gap={4}>
       <HStack gap={2} vAlign="center" wrap="wrap">
@@ -384,20 +398,32 @@ export function PerformanceMemberDashboard({
         const band = rollup.overall == null ? null : scoreBand(rollup.overall);
         const project = rollup.rows[0] ?? null;
         const lead = project?.subtitle || 'no lead assigned';
+        // A sealed review leaves the roll-up empty on purpose, so the tiles above have to
+        // read that state from the review itself or they will report it as "Pending" —
+        // blaming the lead for a wait the reader can end themselves.
+        const sealed = rollup.reviews.some((r) => r.withheld);
 
         return (
           <VStack gap={4} data-testid="performance-home">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <KpiTile
                 label="My score"
-                value={formatScore(rollup.overall)}
-                hint={band ? bandLabel(band) : 'awaiting review'}
-                valueColor={band ? bandTextColor(band) : undefined}
+                value={sealed ? '—' : formatScore(rollup.overall)}
+                hint={
+                  sealed ? 'submit yours to see it' : band ? bandLabel(band) : 'awaiting review'
+                }
+                valueColor={!sealed && band ? bandTextColor(band) : undefined}
               />
               <KpiTile
                 label="Review"
-                value={rollup.scored > 0 ? 'Submitted' : 'Pending'}
-                hint={rollup.scored > 0 ? 'by your lead' : 'still with your lead'}
+                value={sealed || rollup.scored > 0 ? 'Submitted' : 'Pending'}
+                hint={
+                  sealed
+                    ? 'sealed until you submit'
+                    : rollup.scored > 0
+                      ? 'by your lead'
+                      : 'still with your lead'
+                }
                 valueColor="var(--color-text-accent)"
               />
               <KpiTile
