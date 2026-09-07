@@ -184,6 +184,8 @@ function parseListTasksQuery(query: Record<string, string | undefined>): {
   if (query.due_before) filters.due_before = query.due_before;
   if (query.no_date === 'true') filters.no_date = true;
   if (query.include_deleted === 'true') filters.include_deleted = true;
+  // The board, calendar and trash screens browse archived groups on purpose.
+  filters.include_archived_groups = true;
 
   const rawLimit = Number.parseInt(query.limit ?? '50', 10);
   const limit = Number.isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 200);

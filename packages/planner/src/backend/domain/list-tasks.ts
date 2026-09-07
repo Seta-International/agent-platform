@@ -2,7 +2,14 @@ import { localDayBounds } from '@seta/agent-sdk';
 import type { SessionScope } from '@seta/core';
 import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { checklistItems, plans, TASK_PROGRESS, taskAssignments, tasks } from '../db/schema.ts';
+import {
+  checklistItems,
+  groups,
+  plans,
+  TASK_PROGRESS,
+  taskAssignments,
+  tasks,
+} from '../db/schema.ts';
 import { progressToPercent, type TaskProgress } from '../db/task-enums.ts';
 import type {
   AssigneeRow,
@@ -36,6 +43,13 @@ export interface ListTasksFilters {
   /** When true, only tasks with neither start_at nor due_at (calendar's unscheduled banner). */
   no_date?: boolean;
   include_deleted?: boolean;
+  /**
+   * Opt back into tasks whose owning group has been archived (soft-deleted).
+   * Default false: archived groups are outside active work, so agent reads and
+   * any count derived from them must exclude those tasks (FUT-832). The web UI
+   * passes true — its Archived filter and restore flow browse them on purpose.
+   */
+  include_archived_groups?: boolean;
 }
 
 function safeHost(url: string): string {
@@ -214,6 +228,21 @@ export async function listTasks(input: {
 
   if (!filters.include_deleted) {
     conditions.push(isNull(tasks.deleted_at));
+  }
+
+  // Independent of the membership filter below: admins get groupFilter === null
+  // (they may read every group), which must not also mean "every archived group".
+  if (!filters.include_archived_groups) {
+    conditions.push(
+      inArray(
+        tasks.plan_id,
+        db
+          .select({ id: plans.id })
+          .from(plans)
+          .innerJoin(groups, eq(groups.id, plans.group_id))
+          .where(isNull(groups.deleted_at)),
+      ),
+    );
   }
 
   // When groupFilter is present, restrict to tasks in plans belonging to accessible groups.

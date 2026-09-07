@@ -5,7 +5,7 @@ import type { Hono } from 'hono';
 import { agentDb } from '../db/index.ts';
 import { type ApprovalDecisionContext, recordApprovalDecision } from '../domain/decide-approval.ts';
 import { recordLlmTurn } from '../llm-metrics.ts';
-import { resolveModel } from '../model-registry.ts';
+import { resolveDefaultModel } from '../model-registry.ts';
 import { pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import {
   type AgentRouteDeps,
@@ -224,7 +224,7 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
           const usage = await run.output.usage;
           recordLlmTurn({
             tenantId: session.tenant_id,
-            model: resolveModel('auto', { tierHint: 'fast' }).entry.key,
+            model: resolveDefaultModel({ tierHint: 'fast' }).entry.key,
             inputTokens: usage?.inputTokens ?? 0,
             outputTokens: usage?.outputTokens ?? 0,
             firstTokenAtMs: timing.firstTokenAtMs,

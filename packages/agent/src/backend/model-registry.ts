@@ -93,6 +93,13 @@ export function resolveModel(
   return { entry, model: materialize(entry) };
 }
 
+export function resolveDefaultModel(opts: ResolveOpts = {}): {
+  entry: ModelEntry;
+  model: MastraModelConfig;
+} {
+  return resolveModel(undefined, opts);
+}
+
 export class ModelNotFoundError extends Error {
   constructor(public readonly key: string) {
     super(`Unknown model key: ${key}`);

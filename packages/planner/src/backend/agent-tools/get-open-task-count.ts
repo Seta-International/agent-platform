@@ -2,7 +2,7 @@ import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta
 import { and, count, eq, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
-import { taskAssignments, tasks } from '../db/schema.ts';
+import { groups, plans, taskAssignments, tasks } from '../db/schema.ts';
 
 const inputSchema = z.object({
   userId: z.string().uuid().describe('Assignee user id'),
@@ -41,11 +41,14 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
       .select({ n: count() })
       .from(taskAssignments)
       .innerJoin(tasks, eq(tasks.id, taskAssignments.task_id))
+      .innerJoin(plans, eq(plans.id, tasks.plan_id))
+      .innerJoin(groups, eq(groups.id, plans.group_id))
       .where(
         and(
           eq(taskAssignments.user_id, parsed.userId),
           eq(tasks.tenant_id, session.tenant_id),
           isNull(tasks.deleted_at),
+          isNull(groups.deleted_at),
           ne(tasks.progress, 'done'),
         ),
       );
