@@ -73,7 +73,7 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
           aria-label="Edit description"
           className="group relative flex w-full items-start gap-2 rounded-md border border-border bg-body px-3 py-2 text-left transition-colors enabled:hover:border-border-strong enabled:hover:bg-card disabled:cursor-not-allowed"
         >
-          <div className="min-h-[40px] flex-1">
+          <div className="max-h-[480px] min-h-[40px] flex-1 overflow-y-auto">
             {task.description ? (
               <div className="text-base leading-[1.55]">
                 <RichTextDisplay value={task.description} />

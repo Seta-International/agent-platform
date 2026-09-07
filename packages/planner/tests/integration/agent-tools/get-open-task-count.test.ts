@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask } from '@seta/planner';
+import { createGroup, createPlan, createTask, deleteGroup } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -126,6 +126,71 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
       });
 
       expect(out.openCount).toBe(3);
+    });
+  });
+
+  it('excludes open tasks whose group has been archived', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = buildAdminSession({
+        tenant_id,
+        user_id: admin_user_id,
+        email: 'admin@demo.local',
+      });
+      await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'admin@demo.local');
+
+      const assignee = await createUser(
+        {
+          tenant_id,
+          email: 'a@demo.local',
+          name: 'Assignee',
+          password: 'ChangeMe@2026',
+        },
+        { type: 'user', user_id: admin_user_id },
+      );
+      await seedProjection(pool, tenant_id, assignee.user_id, 'Assignee', 'a@demo.local');
+
+      const active = await createGroup({ tenant_id, name: 'Active', session });
+      const activePlan = await createPlan({ group_id: active.id, name: 'AP', session });
+      const activeTask = await createTask({
+        plan_id: activePlan.id,
+        title: 'still-counts',
+        session,
+      });
+      await assignTaskInGroup({
+        group_id: active.id,
+        task_id: activeTask.id,
+        user_id: assignee.user_id,
+        session,
+      });
+
+      const archived = await createGroup({ tenant_id, name: 'Archived', session });
+      const archivedPlan = await createPlan({ group_id: archived.id, name: 'ZP', session });
+      for (const title of ['gone-1', 'gone-2']) {
+        const t = await createTask({ plan_id: archivedPlan.id, title, session });
+        await assignTaskInGroup({
+          group_id: archived.id,
+          task_id: t.id,
+          user_id: assignee.user_id,
+          session,
+        });
+      }
+      await deleteGroup({
+        group_id: archived.id,
+        expected_version: archived.version,
+        session,
+      });
+
+      const out = await plannerGetOpenTaskCountSpec.execute({
+        session: {
+          tenant_id,
+          user_id: admin_user_id,
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
+        input: { userId: assignee.user_id },
+      });
+
+      expect(out.openCount).toBe(1);
     });
   });
 

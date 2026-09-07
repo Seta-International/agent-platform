@@ -1,7 +1,7 @@
 import { requiredPermissionFor } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan } from '@seta/planner';
+import { createGroup, createPlan, deleteGroup } from '@seta/planner';
 import { plannerListPlansTool } from '@seta/planner/agent-tools';
 import {
   buildRegistry,
@@ -65,6 +65,31 @@ describe('planner_listPlans tool', () => {
       const names = result.plans.map((p) => p.name).sort();
       expect(names).toEqual(['Billing Migration', 'Q3 Roadmap']);
       expect(result.plans.every((p) => p.groupId === group.id)).toBe(true);
+    });
+  });
+
+  it('omits plans owned by an archived group when listing across groups', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = buildAdminSession({
+        tenant_id,
+        user_id: admin_user_id,
+        email: 'admin@demo.local',
+      });
+
+      const live = await createGroup({ tenant_id, name: 'Engineering', session });
+      await createPlan({ group_id: live.id, name: 'Q3 Roadmap', session });
+
+      const gone = await createGroup({ tenant_id, name: 'Helios Migration', session });
+      await createPlan({ group_id: gone.id, name: 'Helios Cutover', session });
+      await deleteGroup({ group_id: gone.id, expected_version: gone.version, session });
+
+      const result = (await plannerListPlansTool.execute!(
+        {},
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
+      )) as { plans: { id: string; name: string; groupId: string }[] };
+
+      expect(result.plans.map((p) => p.name)).toEqual(['Q3 Roadmap']);
     });
   });
 });

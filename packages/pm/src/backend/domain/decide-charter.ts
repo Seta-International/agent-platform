@@ -29,6 +29,7 @@ async function loadProject(project_id: string, session: SessionScope) {
       methodology: project.methodology,
       pricing_model: project.pricing_model,
       budget_bmm: project.budget_bmm,
+      date_to: project.date_to,
       submitted_by_user_id: projectApproval.submitted_by_user_id,
     })
     .from(project)
@@ -218,6 +219,7 @@ export async function bodApproveCharter(input: {
           account_id: c.account_id,
           charter_id,
           name: c.name,
+          date_to: c.date_to,
         },
       });
     },
