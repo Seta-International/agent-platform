@@ -70,6 +70,11 @@ export const ApprovalCardSchema = z.object({
     // modules and therefore cannot map tool ids to runtimes itself. Optional so
     // a card that declares nothing keeps the legacy assignment behaviour.
     workflowId: z.string().optional(),
+    // Cards that MUST NOT coexist declare the same key. The agent tier compares
+    // strings; it never learns which tool or module authored them. Optional so a
+    // card that declares nothing has no mutex at all — the safe default, since a
+    // wrongly-inherited mutex silently swallows a second, legitimate card.
+    dedupKey: z.string().optional(),
   }),
 });
 
