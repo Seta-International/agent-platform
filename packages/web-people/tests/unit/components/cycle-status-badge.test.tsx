@@ -7,7 +7,7 @@ import {
 } from '../../../src/components/cycle-status-badge.tsx';
 
 describe('CycleStatusBadge (AC3 — echo only)', () => {
-  const cases: CycleStatus[] = ['open', 'makeup', 'locked', 'override'];
+  const cases: CycleStatus[] = ['open', 'locked', 'override'];
 
   for (const status of cases) {
     it(`renders server flag ${status} with label+icon channel`, () => {

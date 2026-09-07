@@ -32,7 +32,7 @@ type ScoreRow = { criterion_id: string; score: number; evidence: string };
 
 /** The windows in which an evaluation may still be written. */
 function windowOpen(status: CycleStatus): boolean {
-  return status === 'open' || status === 'makeup' || status === 'override';
+  return status === 'open' || status === 'override';
 }
 
 /**
@@ -440,7 +440,7 @@ async function writeEvaluation(
   if (!windowOpen(cycleStatus)) {
     throw new PeopleError(
       'VALIDATION',
-      'This cycle is closed. Need to change it? Request an unlock.',
+      'This cycle is closed. A correction needs your PMO to unlock the month.',
       { month: input.month, cycle_status: cycleStatus },
     );
   }
@@ -480,7 +480,7 @@ async function writeEvaluation(
       if (selfSubmissionLocked(target.capacity, existing?.status ?? 'draft', cycleStatus)) {
         throw new PeopleError(
           'VALIDATION',
-          'This self-assessment is submitted. Need to change it? Request an unlock.',
+          'This self-assessment is submitted. A correction needs your PMO to unlock the month.',
           { month: input.month, cycle_status: cycleStatus },
         );
       }

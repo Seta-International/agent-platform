@@ -172,7 +172,7 @@ export async function ensureAccountConfigRevision1(
 }
 
 function cycleWindowActive(status: string): boolean {
-  return status === 'open' || status === 'makeup' || status === 'override';
+  return status === 'open' || status === 'override';
 }
 
 /**

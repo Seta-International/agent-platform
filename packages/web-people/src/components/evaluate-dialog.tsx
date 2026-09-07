@@ -378,8 +378,8 @@ export function EvaluateDialog({
                 {readOnly ? (
                   <Text size="sm" color="secondary" data-testid="evaluate-readonly-note">
                     {sealedBySubmission
-                      ? 'You submitted this self-assessment, so it is a record now rather than a form. Need to change it? Request an unlock.'
-                      : 'This cycle is closed, so the evaluation is read-only. Need to change it? Request an unlock.'}
+                      ? 'You submitted this self-assessment, so it is a record now rather than a form. A correction needs your PMO to unlock the month.'
+                      : 'This cycle is closed, so the evaluation is read-only. A correction needs your PMO to unlock the month.'}
                   </Text>
                 ) : null}
 

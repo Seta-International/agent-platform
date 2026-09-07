@@ -21,7 +21,7 @@ function cents(n: number): number {
 }
 
 function cycleWindowActive(status: string): boolean {
-  return status === 'open' || status === 'makeup' || status === 'override';
+  return status === 'open' || status === 'override';
 }
 
 async function assertAmOwnsAccount(session: SessionScope, accountId: string): Promise<void> {

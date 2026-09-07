@@ -63,37 +63,38 @@ function lastDayOfMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-function nextMonth(year: number, month: number): { year: number; month: number } {
-  return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
-}
-
 function minusMonths(year: number, month: number, n: number): { year: number; month: number } {
   const zero = year * 12 + (month - 1) - n;
   return { year: Math.floor(zero / 12), month: (zero % 12) + 1 };
 }
 
 /**
- * The most recent review month whose evaluation window has fully ended (FUT-781).
+ * The most recent review month whose evaluation window has ended (FUT-781).
  *
- * A month M is evaluable from the 25th of M through the end of day 4 of M+1 (open +
- * makeup). Once that has passed M is closed, and it is the only month PMO may manually
- * unlock — every earlier month is view-only for good. Note this is not simply "the
- * latest locked month": a month whose window has not opened yet also classifies as
- * locked, and reopening that early is not what a manual unlock is for.
+ * A month M is evaluable from the 25th of M to the end of M. The moment M+1 begins, M is
+ * closed, and it is the only month PMO may manually unlock — every earlier month is
+ * view-only for good. Note this is not simply "the latest locked month": a month whose
+ * window has not opened yet also classifies as locked, and reopening that early is not
+ * what a manual unlock is for.
  */
 export function latestClosedCycleMonth(at: Date = monthClockNow()): string {
   const p = vnParts(at);
-  // The previous calendar month closes only after its makeup window (2nd–4th) ends;
-  // before then the latest closed cycle is one month further back.
-  const candidate = minusMonths(p.year, p.month, p.day > 4 ? 1 : 2);
+  // A cycle closes with its own calendar month, so the previous month is always the
+  // latest closed one — there is no grace period to wait out first (FUT-973).
+  const candidate = minusMonths(p.year, p.month, 1);
   return `${candidate.year}-${String(candidate.month).padStart(2, '0')}`;
 }
 
 /**
  * Classify cycle window for `month` (YYYY-MM) at transaction-start `at`.
- * Open = 25th → last day of cycle month (inclusive ms).
- * Makeup/grace = 2nd–4th of the following calendar month.
- * Override wins when `overrideActive` (Story 5.2 supplies the flag later).
+ * Open = 25th → last day of cycle month (inclusive ms); locked from the 1st of the next.
+ * Override wins when `overrideActive`.
+ *
+ * There is no grace period. One was offered through day 4 of the following month, but a
+ * window that reopens by the calendar is a window nobody audits: it let a member, a lead
+ * or an AM rewrite last month's scores days after the cycle closed, with no record of who
+ * reopened it or why. A correction now goes through the PMO's manual unlock, which is
+ * scoped to one account, expires, and leaves a trail (FUT-973).
  */
 export function classifyCycleStatus(input: { month: string; at: Date; overrideActive?: boolean }): {
   status: CycleStatus;
@@ -110,11 +111,6 @@ export function classifyCycleStatus(input: { month: string; at: Date; overrideAc
 
   if (p.year === cycle.year && p.month === cycle.month && p.day >= 25 && p.day <= last) {
     return { status: 'open', evaluated_at };
-  }
-
-  const grace = nextMonth(cycle.year, cycle.month);
-  if (p.year === grace.year && p.month === grace.month && p.day >= 2 && p.day <= 4) {
-    return { status: 'makeup', evaluated_at };
   }
 
   return { status: 'locked', evaluated_at };

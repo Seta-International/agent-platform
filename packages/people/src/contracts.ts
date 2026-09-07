@@ -89,7 +89,13 @@ export const cycleStatusQuery = z.object({
 });
 export type CycleStatusQuery = z.infer<typeof cycleStatusQuery>;
 
-export const cycleStatusEnum = z.enum(['open', 'makeup', 'locked', 'override']);
+/**
+ * A cycle is open from the 25th to the end of its own month, locked from the 1st of the
+ * next, and override only while the PMO has manually unlocked it. The former makeup
+ * grace window (2nd–4th) is gone: reopening by the calendar left no record of who
+ * changed last month's scores or why (FUT-973).
+ */
+export const cycleStatusEnum = z.enum(['open', 'locked', 'override']);
 export type CycleStatus = z.infer<typeof cycleStatusEnum>;
 
 export const cycleStatusResponse = z.object({

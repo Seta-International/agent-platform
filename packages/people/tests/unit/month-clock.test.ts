@@ -81,14 +81,20 @@ describe('classifyCycleStatus (TC-11..17)', () => {
     ).toBe('open');
   });
 
-  it('Dec cycle grace maps to Jan 2–4; Jan 5 hard-lock (TC-15 / TC-17)', () => {
-    expect(classifyCycleStatus({ month: '2026-12', at: vn(2027, 1, 2, 0) }).status).toBe('makeup');
+  it('a December cycle locks the instant January starts (FUT-973)', () => {
+    // The grace window used to run Jan 2–4. It is gone: a window that reopens by the
+    // calendar reopens for everyone, with nothing on the row to say who used it.
     expect(
-      classifyCycleStatus({ month: '2026-12', at: vn(2027, 1, 4, 23, 59, 59, 999) }).status,
-    ).toBe('makeup');
-    expect(classifyCycleStatus({ month: '2026-12', at: vn(2027, 1, 5, 0, 0, 0, 0) }).status).toBe(
+      classifyCycleStatus({ month: '2026-12', at: vn(2026, 12, 31, 23, 59, 59, 999) }).status,
+    ).toBe('open');
+    expect(classifyCycleStatus({ month: '2026-12', at: vn(2027, 1, 1, 0, 0, 0, 0) }).status).toBe(
       'locked',
     );
+    for (const day of [2, 3, 4, 5]) {
+      expect(classifyCycleStatus({ month: '2026-12', at: vn(2027, 1, day, 12) }).status).toBe(
+        'locked',
+      );
+    }
   });
 
   it('31st / 1st / mid-month outside windows → locked', () => {
@@ -96,8 +102,8 @@ describe('classifyCycleStatus (TC-11..17)', () => {
     expect(classifyCycleStatus({ month: '2026-07', at: vn(2026, 8, 1, 12) }).status).toBe('locked');
   });
 
-  it('grace window 2–4 of following month (TC-17)', () => {
-    expect(classifyCycleStatus({ month: '2026-07', at: vn(2026, 8, 3, 9) }).status).toBe('makeup');
+  it('the days that used to be the grace window are locked like any other', () => {
+    expect(classifyCycleStatus({ month: '2026-07', at: vn(2026, 8, 3, 9) }).status).toBe('locked');
   });
 
   it('overrideActive wins (display path for S5.2)', () => {
@@ -119,34 +125,31 @@ describe('classifyCycleStatus (TC-11..17)', () => {
 });
 
 describe('latestClosedCycleMonth (FUT-781)', () => {
-  // A cycle month M is closed once its makeup window (through day 4 of M+1) has passed.
-  // Only that month may be manually unlocked; anything older is view-only forever.
+  // A cycle month M is closed the moment M+1 begins. Only that month may be manually
+  // unlocked; anything older is view-only forever.
 
   it('mid-month: the previous cycle is the latest closed one', () => {
-    // Aug 13 — July's window ended Aug 4, August's has not opened (25th).
+    // Aug 13 — July's window ended when July did, August's has not opened (25th).
     expect(latestClosedCycleMonth(vn(2026, 8, 13, 10))).toBe('2026-07');
   });
 
-  it('during a makeup window the month under makeup is not yet closed', () => {
-    // Aug 3 — July is in makeup, so June is the latest closed cycle.
-    expect(latestClosedCycleMonth(vn(2026, 8, 3, 10))).toBe('2026-06');
-  });
-
-  it('day 1 of the next month: the makeup window has not run yet', () => {
-    // Aug 1 — July's makeup (2nd–4th) is still ahead, so July is not closed.
-    expect(latestClosedCycleMonth(vn(2026, 8, 1, 10))).toBe('2026-06');
+  it('the previous cycle is unlockable from the first day of the new month (FUT-973)', () => {
+    // Aug 1 — July closed at midnight, so it is the month a PMO may reopen. Under the
+    // old grace window this said June, leaving July unfixable while it was still open
+    // to everyone by the calendar.
+    expect(latestClosedCycleMonth(vn(2026, 8, 1, 0, 0, 0, 0))).toBe('2026-07');
+    expect(latestClosedCycleMonth(vn(2026, 8, 3, 10))).toBe('2026-07');
   });
 
   it('inside an open window the current month is open, previous is closed', () => {
-    // Jul 26 — July is open for evaluation; June closed on Jul 4.
+    // Jul 26 — July is open for evaluation; June closed when June ended.
     expect(latestClosedCycleMonth(vn(2026, 7, 26, 10))).toBe('2026-06');
   });
 
   it('rolls the year over correctly', () => {
-    // Jan 13 2027 — December 2026's window ended Jan 4 2027.
+    // Any day of January 2027 — December 2026 closed at the turn of the year.
     expect(latestClosedCycleMonth(vn(2027, 1, 13, 10))).toBe('2026-12');
-    // Jan 3 2027 — December is still in makeup, so November is the latest closed.
-    expect(latestClosedCycleMonth(vn(2027, 1, 3, 10))).toBe('2026-11');
+    expect(latestClosedCycleMonth(vn(2027, 1, 3, 10))).toBe('2026-12');
   });
 
   it('the month it returns classifies as locked (nothing else to unlock)', () => {

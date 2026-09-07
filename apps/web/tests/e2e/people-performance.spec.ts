@@ -130,7 +130,6 @@ test.describe('performance cycle badge (Story 1.3 / FUT-694)', () => {
 
     const labels: Record<string, string> = {
       open: 'Open (25th–end of month)',
-      makeup: 'Grace window (2nd–4th)',
       locked: 'Locked',
       override: 'Unlocked (Override)',
     };
