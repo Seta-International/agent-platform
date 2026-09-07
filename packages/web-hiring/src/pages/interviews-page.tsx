@@ -44,7 +44,7 @@ import {
 import { ScheduleInterviewDialog } from './schedule-interview-dialog.tsx';
 import { on409 } from './utils.ts';
 
-type StatusFilter = 'all' | 'upcoming' | 'completed';
+type StatusFilter = 'all' | 'upcoming' | 'overdue' | 'completed';
 
 function TimeChip({ iso, showDate }: { iso: string; showDate: boolean }) {
   return (
@@ -208,12 +208,22 @@ export function InterviewsPage() {
   );
 
   const upcomingGroups = useMemo(() => groupByDay(scheduled, now), [scheduled, now]);
-  // The Upcoming tab is a short "what needs my attention next" view — only overdue (needs an
-  // outcome), today, and tomorrow. This week / later still show up, just under All.
+  // The Upcoming tab is a short "what's next" view — only today and tomorrow. Overdue
+  // interviews have their own tab; this week / later still show up, just under All.
   const nearTermGroups = useMemo(
-    () => upcomingGroups.filter((g) => g.key !== 'week' && g.key !== 'later'),
+    () => upcomingGroups.filter((g) => g.key === 'today' || g.key === 'tomorrow'),
     [upcomingGroups],
   );
+  const overdueGroups = useMemo(
+    () => upcomingGroups.filter((g) => g.key === 'overdue'),
+    [upcomingGroups],
+  );
+  const groupsForFilter =
+    statusFilter === 'upcoming'
+      ? nearTermGroups
+      : statusFilter === 'overdue'
+        ? overdueGroups
+        : upcomingGroups;
   const completedSorted = useMemo(
     () => [...completed].sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at)),
     [completed],
@@ -349,6 +359,7 @@ export function InterviewsPage() {
                 >
                   <SegmentedControlItem value="upcoming" label="Upcoming" />
                   <SegmentedControlItem value="all" label="All" />
+                  <SegmentedControlItem value="overdue" label="Overdue" />
                   <SegmentedControlItem value="completed" label="Completed" />
                 </SegmentedControl>
               </div>
@@ -375,17 +386,22 @@ export function InterviewsPage() {
             ) : (
               <VStack gap={6}>
                 {statusFilter !== 'completed' &&
-                  ((statusFilter === 'upcoming' ? nearTermGroups : upcomingGroups).length ? (
-                    <AgendaSection
-                      groups={statusFilter === 'upcoming' ? nearTermGroups : upcomingGroups}
-                      onOpen={setSelectedId}
-                    />
+                  (groupsForFilter.length ? (
+                    <AgendaSection groups={groupsForFilter} onOpen={setSelectedId} />
                   ) : (
-                    statusFilter === 'upcoming' && (
+                    (statusFilter === 'upcoming' || statusFilter === 'overdue') && (
                       <EmptyState
                         icon={<CalendarCheck className="size-6" />}
-                        title="Nothing on the schedule"
-                        description="Every interview is recorded. Schedule the next one when you're ready."
+                        title={
+                          statusFilter === 'overdue'
+                            ? 'Nothing needs an outcome'
+                            : 'Nothing on the schedule'
+                        }
+                        description={
+                          statusFilter === 'overdue'
+                            ? 'Every interview so far has a recorded result.'
+                            : "Every interview is recorded. Schedule the next one when you're ready."
+                        }
                       />
                     )
                   ))}

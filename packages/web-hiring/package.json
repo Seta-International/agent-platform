@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@seta/hiring": "workspace:*",
     "@seta/module-sdk": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-ui": "workspace:^",
