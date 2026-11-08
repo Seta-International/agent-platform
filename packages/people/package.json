@@ -33,7 +33,7 @@
     "ai": "^7.0.35",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "@mastra/pg": "^1.19.0",
