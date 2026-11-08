@@ -16,7 +16,7 @@
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "typescript": "^6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "@faker-js/faker": "^10.5.0",
